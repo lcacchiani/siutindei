@@ -1,0 +1,96 @@
+name: Lint
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "apps/**"
+      - "packages/**"
+      - "backend/**"
+  push:
+    branches:
+      - main
+    paths:
+      - "apps/**"
+      - "packages/**"
+      - "backend/**"
+
+jobs:
+  lint-dart:
+    name: Lint Dart
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: "stable"
+          cache: true
+
+      - name: Run Dart/Flutter lint
+        run: |
+          set -e
+          for dir in apps/customer_app packages/flutter_ui packages/api_client_dart; do
+            if [ -d "$dir" ]; then
+              echo "Linting Dart in $dir"
+              (cd "$dir" && flutter pub get && flutter analyze)
+            else
+              echo "Skipping missing $dir"
+            fi
+          done
+
+  lint-react:
+    name: Lint React
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "lts/*"
+
+      - name: Run React lint
+        run: |
+          set -e
+          for dir in apps/admin_web packages/react_ui packages/api_client_ts; do
+            if [ -f "$dir/package.json" ]; then
+              echo "Linting React in $dir"
+              if [ -f "$dir/package-lock.json" ]; then
+                (cd "$dir" && npm ci)
+              else
+                (cd "$dir" && npm install)
+              fi
+              (cd "$dir" && npm run lint --if-present)
+            else
+              echo "Skipping missing $dir"
+            fi
+          done
+
+  lint-python:
+    name: Lint Python
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install ruff
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install ruff
+
+      - name: Run Python lint
+        run: |
+          if [ -d "backend" ]; then
+            python -m ruff check backend
+          else
+            echo "Skipping missing backend directory"
+          fi
