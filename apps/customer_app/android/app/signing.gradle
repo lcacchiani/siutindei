@@ -1,0 +1,37 @@
+import java.util.Properties
+
+def keystoreProperties = new Properties()
+def keystorePropertiesFile = rootProject.file("key.properties")
+
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+}
+
+def storeFilePath = System.getenv("KEYSTORE_PATH")
+if (!storeFilePath && keystorePropertiesFile.exists()) {
+    storeFilePath = keystoreProperties["storeFile"]
+}
+if (!storeFilePath) {
+    storeFilePath = "debug.keystore"
+}
+
+def storePasswordValue = System.getenv("KEYSTORE_PASSWORD") ?: keystoreProperties["storePassword"] ?: ""
+def keyAliasValue = System.getenv("KEY_ALIAS") ?: keystoreProperties["keyAlias"] ?: ""
+def keyPasswordValue = System.getenv("KEY_PASSWORD") ?: keystoreProperties["keyPassword"] ?: ""
+
+android {
+    signingConfigs {
+        release {
+            storeFile rootProject.file(storeFilePath)
+            storePassword storePasswordValue
+            keyAlias keyAliasValue
+            keyPassword keyPasswordValue
+        }
+    }
+
+    buildTypes {
+        release {
+            signingConfig signingConfigs.release
+        }
+    }
+}
