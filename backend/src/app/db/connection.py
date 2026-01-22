@@ -25,7 +25,7 @@ def get_database_url() -> str:
         raise RuntimeError("DATABASE_URL or DATABASE_SECRET_ARN is required")
 
     secret = _get_secret(secret_arn)
-    username = secret.get("username") or secret.get("user")
+    username = os.getenv("DATABASE_USERNAME") or secret.get("username") or secret.get("user")
     password = secret.get("password")
     host = os.getenv("DATABASE_PROXY_ENDPOINT") or secret.get("host")
     port = secret.get("port") or 5432
@@ -36,10 +36,14 @@ def get_database_url() -> str:
         or "activities"
     )
 
-    if not username or not password or not host:
+    if not username or not host:
         raise RuntimeError("Secret is missing database connection fields")
 
-    if _use_iam_auth():
+    use_iam_auth = _use_iam_auth()
+    if not use_iam_auth and not password:
+        raise RuntimeError("Password is required for non-IAM authentication")
+
+    if use_iam_auth:
         token = _generate_iam_token(host, int(port), str(username))
         return (
             "postgresql+psycopg://"

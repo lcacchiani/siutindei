@@ -58,6 +58,8 @@ All times are stored in UTC.
 - RDS Proxy with IAM auth for Lambda connections.
 - Alembic migrations live under `backend/db/`.
 - Seed data stored in `backend/db/seed/seed_data.sql`.
+- Migrations run via a custom resource Lambda using password auth.
+- Application traffic uses IAM auth via the proxy and the `activities_app` role.
 
 ## CI/CD
 

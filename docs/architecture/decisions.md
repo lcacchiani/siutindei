@@ -41,6 +41,7 @@ Flutter mobile app, Next.js admin console, and AWS serverless backend.
 - RDS Proxy uses IAM authentication; Lambda generates IAM tokens.
 - IAM DB role `activities_app` is created via migrations and granted `rds_iam`.
 - DB connections enforce TLS and use small pools tuned for Lambda.
+- Migrations Lambda uses password auth directly against the cluster endpoint.
 
 **Core tables:**
 - `organizations`

@@ -79,6 +79,7 @@ repo root
 - Lambda functions connect via RDS Proxy.
 - RDS Proxy uses IAM auth with generated tokens.
 - DB connections enforce TLS and Lambda-tuned pool settings.
+- Migrations use password auth against the cluster endpoint.
 
 ### Code style and structure
 - Write concise and efficient source code.

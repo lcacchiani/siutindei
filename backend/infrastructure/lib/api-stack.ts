@@ -22,6 +22,10 @@ export class ApiStack extends cdk.Stack {
       vpc,
       allowAllOutbound: true,
     });
+    const migrationSecurityGroup = new ec2.SecurityGroup(this, "MigrationSecurityGroup", {
+      vpc,
+      allowAllOutbound: true,
+    });
 
     const dbSecurityGroup = new ec2.SecurityGroup(this, "DatabaseSecurityGroup", {
       vpc,
@@ -40,6 +44,11 @@ export class ApiStack extends cdk.Stack {
       proxySecurityGroup,
       ec2.Port.tcp(5432),
       "RDS Proxy access to Aurora"
+    );
+    dbSecurityGroup.addIngressRule(
+      migrationSecurityGroup,
+      ec2.Port.tcp(5432),
+      "Migrations access to Aurora"
     );
 
     const cluster = new rds.DatabaseCluster(this, "ActivitiesCluster", {
@@ -63,7 +72,7 @@ export class ApiStack extends cdk.Stack {
       vpc,
       securityGroups: [proxySecurityGroup],
       requireTLS: true,
-      iamAuth: true,
+      iamAuth: rds.IamAuth.REQUIRED,
     });
 
     const searchFunction = new lambda.Function(this, "ActivitiesSearchFunction", {
@@ -91,6 +100,7 @@ export class ApiStack extends cdk.Stack {
       environment: {
         DATABASE_SECRET_ARN: cluster.secret?.secretArn ?? "",
         DATABASE_NAME: "activities",
+        DATABASE_USERNAME: "activities_app",
         DATABASE_PROXY_ENDPOINT: proxy.endpoint,
         DATABASE_IAM_AUTH: "true",
         PYTHONPATH: "/var/task/src",
@@ -118,13 +128,12 @@ export class ApiStack extends cdk.Stack {
       memorySize: 512,
       timeout: cdk.Duration.minutes(5),
       vpc,
-      securityGroups: [lambdaSecurityGroup],
+      securityGroups: [migrationSecurityGroup],
       vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
       environment: {
         DATABASE_SECRET_ARN: cluster.secret?.secretArn ?? "",
         DATABASE_NAME: "activities",
-        DATABASE_PROXY_ENDPOINT: proxy.endpoint,
-        DATABASE_IAM_AUTH: "true",
+        DATABASE_IAM_AUTH: "false",
         PYTHONPATH: "/var/task/src",
         SEED_FILE_PATH: "/var/task/db/seed/seed_data.sql",
       },
@@ -135,8 +144,7 @@ export class ApiStack extends cdk.Stack {
       cluster.secret.grantRead(migrationFunction);
     }
 
-    proxy.grantConnect(searchFunction, "postgres");
-    proxy.grantConnect(migrationFunction, "postgres");
+    proxy.grantConnect(searchFunction, "activities_app");
 
     const api = new apigateway.RestApi(this, "ActivitiesApi", {
       restApiName: "Activities API",
