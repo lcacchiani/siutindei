@@ -94,3 +94,37 @@ jobs:
           else
             echo "Skipping missing backend directory"
           fi
+
+  lint-cloudformation:
+    name: Lint CloudFormation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install cfn-lint
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install cfn-lint
+
+      - name: Run CloudFormation lint
+        run: |
+          shopt -s globstar nullglob
+          templates=()
+          for ext in yml yaml json; do
+            for file in backend/infrastructure/**/*."$ext"; do
+              if [ -f "$file" ]; then
+                templates+=("$file")
+              fi
+            done
+          done
+          if [ "${#templates[@]}" -eq 0 ]; then
+            echo "No CloudFormation templates found under backend/infrastructure"
+            exit 0
+          fi
+          python -m cfnlint "${templates[@]}"
