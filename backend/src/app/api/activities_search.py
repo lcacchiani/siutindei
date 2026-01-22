@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from dataclasses import asdict
 from datetime import datetime
 from decimal import Decimal
@@ -12,6 +13,7 @@ from typing import Sequence
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
+from sqlalchemy.pool import NullPool
 
 from app.api.schemas import ActivitySchema
 from app.api.schemas import ActivitySearchResponseSchema
@@ -234,9 +236,15 @@ def _get_engine():
 
     global _ENGINE
     use_iam_auth = str(os.getenv("DATABASE_IAM_AUTH", "")).lower() in {"1", "true", "yes"}
+    pool_settings = _pool_settings(use_iam_auth)
     if _ENGINE is None or use_iam_auth:
         database_url = get_database_url()
-        engine = create_engine(database_url, pool_pre_ping=True)
+        engine = create_engine(
+            database_url,
+            pool_pre_ping=True,
+            connect_args=_ssl_connect_args(),
+            **pool_settings,
+        )
         if not use_iam_auth:
             _ENGINE = engine
         return engine
@@ -269,3 +277,29 @@ def _dump_pydantic(model: ActivitySearchResponseSchema) -> dict[str, Any]:
     if hasattr(model, "model_dump"):
         return model.model_dump()
     return model.dict()
+
+
+def _ssl_connect_args() -> dict[str, str]:
+    """Return SSL settings for database connections."""
+
+    sslmode = os.getenv("DATABASE_SSLMODE", "require")
+    return {"sslmode": sslmode}
+
+
+def _pool_settings(use_iam_auth: bool) -> dict[str, Any]:
+    """Return connection pool settings tuned for Lambda."""
+
+    if use_iam_auth:
+        return {"poolclass": NullPool}
+
+    pool_size = int(os.getenv("DB_POOL_SIZE", "1"))
+    max_overflow = int(os.getenv("DB_MAX_OVERFLOW", "0"))
+    pool_recycle = int(os.getenv("DB_POOL_RECYCLE", "300"))
+    pool_timeout = int(os.getenv("DB_POOL_TIMEOUT", "30"))
+
+    return {
+        "pool_size": pool_size,
+        "max_overflow": max_overflow,
+        "pool_recycle": pool_recycle,
+        "pool_timeout": pool_timeout,
+    }
