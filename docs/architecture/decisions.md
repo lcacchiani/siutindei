@@ -46,6 +46,10 @@ Flutter mobile app, Next.js admin console, and AWS serverless backend.
 - Google Play requires AAB for production.
 - App Store Connect + TestFlight for production and beta.
 
+**Notes:**
+- CI uploads AAB to Play Console when service account secrets are set.
+- CI uploads IPA to TestFlight when App Store API keys are set.
+
 ## 5) Amplify Usage
 
 **Decision:** Use Amplify for client SDKs and hosting where appropriate.
@@ -53,6 +57,8 @@ Flutter mobile app, Next.js admin console, and AWS serverless backend.
 **Notes:**
 - Amplify SDKs are used for auth/API integration on client apps.
 - Infrastructure is provisioned via CDK for stronger control.
+- Admin web hosting is triggered via GitHub Actions using
+  `aws amplify start-job`.
 
 ## Next Steps
 
@@ -60,3 +66,4 @@ Flutter mobile app, Next.js admin console, and AWS serverless backend.
 2. Initialize CDK project under `backend/infrastructure`.
 3. Bootstrap Next.js App Router admin app in `apps/admin_web`.
 4. Configure Flutter release pipelines for AAB and iOS.
+5. Configure Amplify app ID and branch variables for admin hosting.

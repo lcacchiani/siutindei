@@ -68,7 +68,8 @@ repo root
 - Admin console uses Next.js App Router under apps/admin_web/src/app.
 - Infrastructure as Code uses AWS CDK (TypeScript) + CDK Pipelines.
 - CI/CD uses GitHub OIDC with IAM roles (no long-lived keys).
-- Mobile distribution uses Android AAB and iOS TestFlight/App Store Connect.
+- Mobile distribution uses Android AAB (Play Store) and iOS TestFlight/App Store Connect.
+- Admin web hosting uses Amplify Hosting release jobs triggered in CI.
 
 ### Code style and structure
 - Write concise and efficient source code.

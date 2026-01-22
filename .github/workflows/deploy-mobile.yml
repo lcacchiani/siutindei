@@ -41,6 +41,15 @@ jobs:
         run: flutter build appbundle --release
         working-directory: apps/customer_app
 
+      - name: Upload AAB to Play Store
+        if: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT != '' && vars.ANDROID_PACKAGE_NAME != '' && vars.ANDROID_RELEASE_TRACK != '' }}
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT }}
+          packageName: ${{ vars.ANDROID_PACKAGE_NAME }}
+          releaseFiles: apps/customer_app/build/app/outputs/bundle/release/app-release.aab
+          track: ${{ vars.ANDROID_RELEASE_TRACK }}
+
       - name: Deploy mobile artifacts
         run: |
           if [ -f "scripts/deploy/deploy-mobile.sh" ]; then
