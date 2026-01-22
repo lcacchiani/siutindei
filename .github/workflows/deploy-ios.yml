@@ -27,9 +27,25 @@ jobs:
       - name: Install CocoaPods
         run: sudo gem install cocoapods
 
+      - name: Install Fastlane
+        run: sudo gem install fastlane
+
       - name: Install dependencies
         run: flutter pub get
         working-directory: apps/customer_app
+
+      - name: Sync signing assets (match)
+        if: ${{ secrets.MATCH_GIT_URL != '' && secrets.MATCH_PASSWORD != '' && secrets.FASTLANE_USER != '' && secrets.FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD != '' }}
+        run: |
+          fastlane match appstore --readonly
+        env:
+          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          FASTLANE_USER: ${{ secrets.FASTLANE_USER }}
+          FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD: ${{ secrets.FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD }}
+          MATCH_APP_IDENTIFIER: ${{ vars.IOS_BUNDLE_ID }}
+          MATCH_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
+          FASTLANE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
 
       - name: Build release IPA
         run: flutter build ipa --release
