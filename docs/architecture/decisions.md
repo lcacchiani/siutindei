@@ -78,6 +78,12 @@ Flutter mobile app, Next.js admin console, and AWS serverless backend.
 **Decisions:**
 - Cognito User Pool secures API Gateway routes.
 
+## Flutter Amplify Configuration
+
+**Decisions:**
+- Amplify config is passed via `--dart-define=AMPLIFY_CONFIG=...`.
+- API name is set with `--dart-define=AMPLIFY_API_NAME=...`.
+
 ## 3) CI/CD Authentication
 
 **Decision:** GitHub Actions OIDC + IAM role assumption.

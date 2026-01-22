@@ -82,6 +82,7 @@ repo root
 - Migrations use password auth against the cluster endpoint.
 - Cognito User Pool secures API Gateway routes.
 - Search responses use cursor pagination.
+- Flutter uses Amplify config passed via dart-define.
 
 ### Code style and structure
 - Write concise and efficient source code.

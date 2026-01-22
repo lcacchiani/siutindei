@@ -1,0 +1,15 @@
+class AmplifyConfig {
+  static const apiName = String.fromEnvironment(
+    'AMPLIFY_API_NAME',
+    defaultValue: 'activitiesApi',
+  );
+
+  static const json = String.fromEnvironment('AMPLIFY_CONFIG');
+
+  static String requireJson() {
+    if (json.isEmpty) {
+      throw StateError('AMPLIFY_CONFIG is not set');
+    }
+    return json;
+  }
+}

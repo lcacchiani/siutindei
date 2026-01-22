@@ -196,6 +196,8 @@ node_modules/
 !backend/infrastructure/lib/**
 !backend/infrastructure/bin/
 !backend/infrastructure/bin/**
+!apps/customer_app/lib/
+!apps/customer_app/lib/**
 
 # Ruff stuff:
 .ruff_cache/
@@ -209,6 +211,20 @@ node_modules/
 #  refer to https://docs.cursor.com/context/ignore-files
 .cursorignore
 .cursorindexingignore
+
+# Flutter
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.fvm/
+apps/customer_app/android/local.properties
+apps/customer_app/android/app/src/main/java/io/flutter/plugins/
+apps/customer_app/ios/Flutter/Generated.xcconfig
+apps/customer_app/ios/Flutter/flutter_export_environment.sh
+apps/customer_app/ios/Flutter/ephemeral/
+apps/customer_app/ios/Runner/GeneratedPluginRegistrant.h
+apps/customer_app/ios/Runner/GeneratedPluginRegistrant.m
 
 # Flutter signing artifacts
 apps/customer_app/android/key.properties
