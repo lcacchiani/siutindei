@@ -4,6 +4,36 @@
 # - rules/python-projects-guide-cursorrules-prompt-file
 
 ### Flutter development guidelines
+### Repository structure
+repo root
+├── packages/
+│   ├── api_client_dart/    # Dart API client
+│   ├── api_client_ts/      # TypeScript API client
+│   ├── models_shared/      # Shared schemas (OpenAPI/Protobuf)
+│   ├── flutter_ui/         # Flutter widgets
+│   └── react_ui/          # React components (Storybook)
+├── apps/
+│   ├── customer_app/       # Flutter mobile
+│   └── admin_web/          # React/Next.js app
+│       ├── src/
+│       ├── pages/
+│       │   ├── dashboard/
+│       │   ├── users/
+│       │   ├── analytics/
+│       │   └── settings/
+│       ├── components/
+│       ├── lib/
+│       └── package.json
+├── backend/
+│   ├── api_gateway/
+│   ├── lambda_functions/
+│   └── infrastructure/
+├── scripts/
+│   ├── codegen/           # Generates both Dart and TS clients
+│   └── deploy/
+└── docs/
+    └── api/               # OpenAPI specs
+
 ### Code style and structure
 - Write concise and efficient source code.
 - Strive for source code that is easy to read and maintain, and provide accurate examples.
