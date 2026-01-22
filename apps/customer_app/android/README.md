@@ -14,3 +14,14 @@ apply from: "signing.gradle"
 ```
 
 Do not commit `key.properties` or `keystore.jks`.
+
+## CI setup
+
+Provide environment variables in CI:
+
+- `KEYSTORE_PATH` (recommended: `app/keystore.jks`)
+- `KEYSTORE_PASSWORD`
+- `KEY_ALIAS`
+- `KEY_PASSWORD`
+
+Then decode the keystore to `apps/customer_app/android/app/keystore.jks`.

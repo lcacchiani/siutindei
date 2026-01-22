@@ -53,6 +53,8 @@ Flutter mobile app, Next.js admin console, and AWS serverless backend.
 - CI uploads IPA to TestFlight when App Store API keys are set.
 - iOS signing uses Fastlane match with a private certificates repo.
 - Fastlane config lives in `apps/customer_app/ios/fastlane`.
+- iOS export settings are checked in at
+  `apps/customer_app/ios/ExportOptions.plist`.
 
 ## 5) Amplify Usage
 
@@ -67,6 +69,16 @@ Flutter mobile app, Next.js admin console, and AWS serverless backend.
   `amplify-promote` workflow.
 - The `amplify-promote` workflow uses the production environment to
   support GitHub approval gates.
+
+## 6) Lockfile Enforcement
+
+**Decision:** Lockfiles are required and validated in CI.
+
+**Notes:**
+- Flutter: `pubspec.lock`
+- Node.js: `package-lock.json`
+- iOS: `Podfile.lock`
+- CI workflow: `.github/workflows/check-lockfiles.yml`
 
 ## CI/CD Variables and Secrets
 

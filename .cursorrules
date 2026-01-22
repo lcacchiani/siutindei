@@ -72,6 +72,7 @@ repo root
 - Admin web hosting uses Amplify Hosting release jobs triggered in CI.
 - Android signing uses CI-injected keystore; iOS signing uses Fastlane match.
 - Amplify staging-to-prod promotions use a gated workflow.
+- Lockfiles are required and validated in CI.
 
 ### Code style and structure
 - Write concise and efficient source code.

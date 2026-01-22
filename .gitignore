@@ -205,6 +205,7 @@ cython_debug/
 apps/customer_app/android/key.properties
 apps/customer_app/android/keystore.jks
 apps/customer_app/android/keystore.jks*
+apps/customer_app/android/app/keystore.jks
 
 # Marimo
 marimo/_static/

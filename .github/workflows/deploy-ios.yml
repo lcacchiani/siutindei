@@ -36,6 +36,7 @@ jobs:
 
       - name: Sync signing assets (match)
         if: ${{ secrets.MATCH_GIT_URL != '' && secrets.MATCH_PASSWORD != '' && secrets.FASTLANE_USER != '' && secrets.FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD != '' }}
+        working-directory: apps/customer_app/ios
         run: |
           fastlane match appstore --readonly
         env:
@@ -48,7 +49,7 @@ jobs:
           FASTLANE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
 
       - name: Build release IPA
-        run: flutter build ipa --release
+        run: flutter build ipa --release --export-options-plist=ios/ExportOptions.plist
         working-directory: apps/customer_app
 
       - name: Load App Store Connect API key
