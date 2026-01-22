@@ -206,6 +206,7 @@ apps/customer_app/android/key.properties
 apps/customer_app/android/keystore.jks
 apps/customer_app/android/keystore.jks*
 apps/customer_app/android/app/keystore.jks
+apps/customer_app/ios/ExportOptions.plist
 
 # Marimo
 marimo/_static/

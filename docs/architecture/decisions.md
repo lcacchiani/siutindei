@@ -53,8 +53,9 @@ Flutter mobile app, Next.js admin console, and AWS serverless backend.
 - CI uploads IPA to TestFlight when App Store API keys are set.
 - iOS signing uses Fastlane match with a private certificates repo.
 - Fastlane config lives in `apps/customer_app/ios/fastlane`.
-- iOS export settings are checked in at
-  `apps/customer_app/ios/ExportOptions.plist`.
+- iOS export settings are templated at
+  `apps/customer_app/ios/ExportOptions.plist.template`
+  and generated in CI.
 
 ## 5) Amplify Usage
 
@@ -93,6 +94,7 @@ Flutter mobile app, Next.js admin console, and AWS serverless backend.
 - `ANDROID_RELEASE_TRACK`
 - `IOS_BUNDLE_ID`
 - `APPLE_TEAM_ID`
+- `IOS_PROVISIONING_PROFILE` (optional)
 
 **GitHub Secrets**
 - `APPSTORE_API_KEY_JSON` (recommended single JSON secret with issuer_id,
