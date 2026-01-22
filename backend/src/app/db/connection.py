@@ -39,6 +39,14 @@ def get_database_url() -> str:
     if not username or not password or not host:
         raise RuntimeError("Secret is missing database connection fields")
 
+    if _use_iam_auth():
+        token = _generate_iam_token(host, int(port), str(username))
+        return (
+            "postgresql+psycopg://"
+            f"{quote_plus(str(username))}:{quote_plus(token)}"
+            f"@{host}:{port}/{database}?sslmode=require"
+        )
+
     return (
         "postgresql+psycopg://"
         f"{quote_plus(str(username))}:{quote_plus(str(password))}"
@@ -64,3 +72,20 @@ def _get_secret(secret_arn: str) -> dict[str, Any]:
     secret_payload = json.loads(secret_str)
     _SECRET_CACHE[secret_arn] = secret_payload
     return secret_payload
+
+
+def _use_iam_auth() -> bool:
+    """Return True if IAM auth is enabled."""
+
+    return str(os.getenv("DATABASE_IAM_AUTH", "")).lower() in {"1", "true", "yes"}
+
+
+def _generate_iam_token(host: str, port: int, username: str) -> str:
+    """Generate an IAM auth token for RDS Proxy."""
+
+    region = os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION")
+    if not region:
+        raise RuntimeError("AWS_REGION is required for IAM auth")
+
+    client = boto3.client("rds", region_name=region)
+    return client.generate_db_auth_token(DBHostname=host, Port=port, DBUsername=username)

@@ -233,9 +233,13 @@ def _get_engine():
     """Return a cached SQLAlchemy engine."""
 
     global _ENGINE
-    if _ENGINE is None:
+    use_iam_auth = str(os.getenv("DATABASE_IAM_AUTH", "")).lower() in {"1", "true", "yes"}
+    if _ENGINE is None or use_iam_auth:
         database_url = get_database_url()
-        _ENGINE = create_engine(database_url, pool_pre_ping=True)
+        engine = create_engine(database_url, pool_pre_ping=True)
+        if not use_iam_auth:
+            _ENGINE = engine
+        return engine
     return _ENGINE
 
 

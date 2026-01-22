@@ -38,6 +38,7 @@ Flutter mobile app, Next.js admin console, and AWS serverless backend.
 - Times are stored in UTC.
 - DB changes are versioned with Alembic.
 - Lambda connections use RDS Proxy for connection pooling.
+- RDS Proxy uses IAM authentication; Lambda generates IAM tokens.
 
 **Core tables:**
 - `organizations`

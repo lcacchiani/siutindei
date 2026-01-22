@@ -77,6 +77,7 @@ repo root
 - Aurora uses Alembic migrations in backend/db.
 - Lambda entrypoints live in backend/lambda and import backend/src.
 - Lambda functions connect via RDS Proxy.
+- RDS Proxy uses IAM auth with generated tokens.
 
 ### Code style and structure
 - Write concise and efficient source code.

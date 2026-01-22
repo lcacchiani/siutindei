@@ -48,6 +48,7 @@ export class ApiStack extends cdk.Stack {
       }),
       credentials: rds.Credentials.fromGeneratedSecret("postgres"),
       defaultDatabaseName: "activities",
+      iamAuthentication: true,
       serverlessV2MinCapacity: 0.5,
       serverlessV2MaxCapacity: 2,
       writer: rds.ClusterInstance.serverlessV2("writer"),
@@ -62,6 +63,7 @@ export class ApiStack extends cdk.Stack {
       vpc,
       securityGroups: [proxySecurityGroup],
       requireTLS: true,
+      iamAuth: true,
     });
 
     const searchFunction = new lambda.Function(this, "ActivitiesSearchFunction", {
@@ -90,6 +92,7 @@ export class ApiStack extends cdk.Stack {
         DATABASE_SECRET_ARN: cluster.secret?.secretArn ?? "",
         DATABASE_NAME: "activities",
         DATABASE_PROXY_ENDPOINT: proxy.endpoint,
+        DATABASE_IAM_AUTH: "true",
         PYTHONPATH: "/var/task/src",
       },
     });
@@ -121,6 +124,7 @@ export class ApiStack extends cdk.Stack {
         DATABASE_SECRET_ARN: cluster.secret?.secretArn ?? "",
         DATABASE_NAME: "activities",
         DATABASE_PROXY_ENDPOINT: proxy.endpoint,
+        DATABASE_IAM_AUTH: "true",
         PYTHONPATH: "/var/task/src",
         SEED_FILE_PATH: "/var/task/db/seed/seed_data.sql",
       },
@@ -130,6 +134,9 @@ export class ApiStack extends cdk.Stack {
       cluster.secret.grantRead(searchFunction);
       cluster.secret.grantRead(migrationFunction);
     }
+
+    proxy.grantConnect(searchFunction, "postgres");
+    proxy.grantConnect(migrationFunction, "postgres");
 
     const api = new apigateway.RestApi(this, "ActivitiesApi", {
       restApiName: "Activities API",
