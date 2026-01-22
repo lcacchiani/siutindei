@@ -155,6 +155,10 @@ export class ApiStack extends cdk.Stack {
       },
       deployOptions: {
         stageName: "prod",
+        cachingEnabled: true,
+        cacheClusterEnabled: true,
+        cacheClusterSize: "0.5",
+        cacheDataEncrypted: true,
       },
     });
 
@@ -182,9 +186,36 @@ export class ApiStack extends cdk.Stack {
 
     const activities = api.root.addResource("activities");
     const search = activities.addResource("search");
+    const cacheTtl = cdk.Duration.minutes(5);
+    const cacheKeyParameters = [
+      "method.request.querystring.age",
+      "method.request.querystring.district",
+      "method.request.querystring.pricing_type",
+      "method.request.querystring.price_min",
+      "method.request.querystring.price_max",
+      "method.request.querystring.schedule_type",
+      "method.request.querystring.day_of_week_utc",
+      "method.request.querystring.day_of_month",
+      "method.request.querystring.start_minutes_utc",
+      "method.request.querystring.end_minutes_utc",
+      "method.request.querystring.start_at_utc",
+      "method.request.querystring.end_at_utc",
+      "method.request.querystring.language",
+      "method.request.querystring.limit",
+      "method.request.querystring.cursor",
+    ];
+    const requestParameters: Record<string, boolean> = {};
+    for (const param of cacheKeyParameters) {
+      requestParameters[param] = false;
+    }
+
     search.addMethod("GET", new apigateway.LambdaIntegration(searchFunction), {
       authorizationType: apigateway.AuthorizationType.COGNITO,
       authorizer,
+      cacheTtl,
+      cachingEnabled: true,
+      cacheKeyParameters,
+      requestParameters,
     });
 
     new cdk.CfnOutput(this, "ApiUrl", {

@@ -77,6 +77,7 @@ Flutter mobile app, Next.js admin console, and AWS serverless backend.
 
 **Decisions:**
 - Cognito User Pool secures API Gateway routes.
+- API Gateway method caching enabled for search responses (5-minute TTL).
 
 ## Flutter Amplify Configuration
 

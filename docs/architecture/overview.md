@@ -88,8 +88,11 @@ All times are stored in UTC.
 
 ## Caching (planned)
 
-- API-level caching for popular search queries.
-- Client-side caching with stale-while-revalidate in Flutter.
+## Caching
+
+- API Gateway method caching enabled for search queries (5-minute TTL).
+- Cache keys include all search query parameters.
+- Client-side caching with stale-while-revalidate in Flutter (planned).
 
 ## Next steps
 
