@@ -55,6 +55,8 @@ Flutter mobile app, Next.js admin console, and AWS serverless backend.
 **Decisions:**
 - OpenAPI contracts live under `docs/api/`.
 - Activities search contract: `docs/api/activities-search.yaml`.
+- API client generation is handled via generalized scripts in
+  `scripts/codegen/`.
 
 ## Lambda Implementation
 
@@ -62,6 +64,8 @@ Flutter mobile app, Next.js admin console, and AWS serverless backend.
 - Lambda entrypoint lives at `backend/lambda/activity_search/handler.py`.
 - Shared application code lives under `backend/src/app`.
 - Python dependencies are listed in `backend/requirements.txt`.
+- Database migrations and seed are executed during CDK deploy
+  via a custom resource Lambda.
 
 ## 3) CI/CD Authentication
 

@@ -8,10 +8,13 @@ from typing import List
 from typing import Optional
 
 from pydantic import BaseModel
+from pydantic import ConfigDict
 
 
 class OrganizationSchema(BaseModel):
     """Organization schema."""
+
+    model_config = ConfigDict(from_attributes=True)
 
     id: str
     name: str
@@ -20,6 +23,8 @@ class OrganizationSchema(BaseModel):
 
 class LocationSchema(BaseModel):
     """Location schema."""
+
+    model_config = ConfigDict(from_attributes=True)
 
     id: str
     district: str
@@ -31,6 +36,8 @@ class LocationSchema(BaseModel):
 class ActivitySchema(BaseModel):
     """Activity schema."""
 
+    model_config = ConfigDict(from_attributes=True)
+
     id: str
     name: str
     description: Optional[str]
@@ -41,6 +48,8 @@ class ActivitySchema(BaseModel):
 class PricingSchema(BaseModel):
     """Pricing schema."""
 
+    model_config = ConfigDict(from_attributes=True)
+
     pricing_type: str
     amount: Decimal
     currency: str
@@ -49,6 +58,8 @@ class PricingSchema(BaseModel):
 
 class ScheduleSchema(BaseModel):
     """Schedule schema."""
+
+    model_config = ConfigDict(from_attributes=True)
 
     schedule_type: str
     day_of_week_utc: Optional[int]
@@ -63,6 +74,8 @@ class ScheduleSchema(BaseModel):
 class ActivitySearchResultSchema(BaseModel):
     """Activity search result schema."""
 
+    model_config = ConfigDict(from_attributes=True)
+
     activity: ActivitySchema
     organization: OrganizationSchema
     location: LocationSchema
@@ -72,6 +85,8 @@ class ActivitySearchResultSchema(BaseModel):
 
 class ActivitySearchResponseSchema(BaseModel):
     """Activity search response schema."""
+
+    model_config = ConfigDict(from_attributes=True)
 
     items: List[ActivitySearchResultSchema]
     next_cursor: Optional[str] = None

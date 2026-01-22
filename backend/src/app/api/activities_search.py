@@ -2,18 +2,14 @@
 
 from __future__ import annotations
 
-import base64
 import json
-import os
 from dataclasses import asdict
 from datetime import datetime
 from decimal import Decimal
 from typing import Any
 from typing import Mapping
 from typing import Sequence
-from urllib.parse import quote_plus
 
-import boto3
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
@@ -31,11 +27,11 @@ from app.db.models import Location
 from app.db.models import Organization
 from app.db.models import PricingType
 from app.db.models import ScheduleType
+from app.db.connection import get_database_url
 from app.db.queries import ActivitySearchFilters
 from app.db.queries import build_activity_search_query
 
 _ENGINE = None
-_SECRET_CACHE: dict[str, dict[str, Any]] = {}
 
 
 def lambda_handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
@@ -238,71 +234,11 @@ def _get_engine():
 
     global _ENGINE
     if _ENGINE is None:
-        database_url = _resolve_database_url()
+        database_url = get_database_url()
         _ENGINE = create_engine(database_url, pool_pre_ping=True)
     return _ENGINE
 
 
-def _require_env(name: str) -> str:
-    """Return a required environment variable value."""
-
-    value = os.getenv(name)
-    if not value:
-        raise RuntimeError(f"{name} is required")
-    return value
-
-
-def _resolve_database_url() -> str:
-    """Resolve the database URL from env or Secrets Manager."""
-
-    database_url = os.getenv("DATABASE_URL")
-    if database_url:
-        return database_url
-
-    secret_arn = os.getenv("DATABASE_SECRET_ARN")
-    if not secret_arn:
-        raise RuntimeError("DATABASE_URL or DATABASE_SECRET_ARN is required")
-
-    secret = _get_secret(secret_arn)
-    username = secret.get("username") or secret.get("user")
-    password = secret.get("password")
-    host = secret.get("host")
-    port = secret.get("port") or 5432
-    database = (
-        secret.get("dbname")
-        or secret.get("database")
-        or os.getenv("DATABASE_NAME")
-        or "activities"
-    )
-
-    if not username or not password or not host:
-        raise RuntimeError("Secret is missing database connection fields")
-
-    return (
-        "postgresql+psycopg://"
-        f"{quote_plus(str(username))}:{quote_plus(str(password))}"
-        f"@{host}:{port}/{database}"
-    )
-
-
-def _get_secret(secret_arn: str) -> dict[str, Any]:
-    """Fetch a secret from AWS Secrets Manager."""
-
-    if secret_arn in _SECRET_CACHE:
-        return _SECRET_CACHE[secret_arn]
-
-    client = boto3.client("secretsmanager")
-    response = client.get_secret_value(SecretId=secret_arn)
-    secret_str = response.get("SecretString")
-    if not secret_str and response.get("SecretBinary"):
-        secret_str = base64.b64decode(response["SecretBinary"]).decode("utf-8")
-
-    if not secret_str:
-        raise RuntimeError("Secret value is empty")
-
-    secret_payload = json.loads(secret_str)
-    _SECRET_CACHE[secret_arn] = secret_payload
-    return secret_payload
 
 
 def _json_response(status_code: int, body: Any) -> dict[str, Any]:
