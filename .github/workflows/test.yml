@@ -1,4 +1,4 @@
-name: Lint
+name: Test
 
 on:
   workflow_dispatch:
@@ -16,8 +16,8 @@ on:
       - "backend/**"
 
 jobs:
-  lint-dart:
-    name: Lint Dart
+  test-flutter:
+    name: Test Flutter
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -29,20 +29,20 @@ jobs:
           channel: "stable"
           cache: true
 
-      - name: Run Dart/Flutter lint
+      - name: Run Flutter tests
         run: |
           set -e
           for dir in apps/customer_app packages/flutter_ui packages/api_client_dart; do
-            if [ -d "$dir" ]; then
-              echo "Linting Dart in $dir"
-              (cd "$dir" && flutter pub get && flutter analyze)
+            if [ -f "$dir/pubspec.yaml" ]; then
+              echo "Testing Flutter in $dir"
+              (cd "$dir" && flutter pub get && flutter test)
             else
               echo "Skipping missing $dir"
             fi
           done
 
-  lint-react:
-    name: Lint React
+  test-node:
+    name: Test Node
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -53,25 +53,25 @@ jobs:
         with:
           node-version: "lts/*"
 
-      - name: Run React lint
+      - name: Run Node tests
         run: |
           set -e
           for dir in apps/admin_web packages/react_ui packages/api_client_ts; do
             if [ -f "$dir/package.json" ]; then
-              echo "Linting React in $dir"
+              echo "Testing Node in $dir"
               if [ -f "$dir/package-lock.json" ]; then
                 (cd "$dir" && npm ci)
               else
                 (cd "$dir" && npm install)
               fi
-              (cd "$dir" && npm run lint --if-present)
+              (cd "$dir" && npm run test --if-present)
             else
               echo "Skipping missing $dir"
             fi
           done
 
-  lint-python:
-    name: Lint Python
+  test-python:
+    name: Test Python
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -82,49 +82,25 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install ruff
+      - name: Install pytest
         run: |
           python -m pip install --upgrade pip
-          python -m pip install ruff
+          python -m pip install pytest
 
-      - name: Run Python lint
+      - name: Install backend dependencies
         run: |
-          if [ -d "backend" ]; then
-            python -m ruff check backend
+          if [ -f "backend/requirements.txt" ]; then
+            python -m pip install -r backend/requirements.txt
           else
-            echo "Skipping missing backend directory"
+            echo "No backend/requirements.txt found"
           fi
 
-  lint-cloudformation:
-    name: Lint CloudFormation
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Install cfn-lint
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install cfn-lint
-
-      - name: Run CloudFormation lint
+      - name: Run Python tests
         run: |
           shopt -s globstar nullglob
-          templates=()
-          for ext in yml yaml json; do
-            for file in backend/infrastructure/**/*."$ext"; do
-              if [ -f "$file" ]; then
-                templates+=("$file")
-              fi
-            done
-          done
-          if [ "${#templates[@]}" -eq 0 ]; then
-            echo "No CloudFormation templates found under backend/infrastructure"
+          tests=(backend/**/test_*.py backend/**/tests/*.py backend/**/tests/**/*.py)
+          if [ "${#tests[@]}" -eq 0 ]; then
+            echo "No Python tests found under backend"
             exit 0
           fi
-          python -m cfnlint "${templates[@]}"
+          python -m pytest backend
