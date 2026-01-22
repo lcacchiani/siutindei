@@ -29,6 +29,26 @@ Flutter mobile app, Next.js admin console, and AWS serverless backend.
 **Canonical structure:**
 - `backend/infrastructure/` contains CDK app, stacks, and pipeline.
 
+## Database schema (Aurora PostgreSQL)
+
+**Decisions:**
+- District filter uses `locations.district` only.
+- Pricing is per location with `per_class`, `per_month`, or `per_sessions`.
+- Languages are session-specific (stored on schedule entries).
+- Times are stored in UTC.
+- DB changes are versioned with Alembic.
+
+**Core tables:**
+- `organizations`
+- `locations`
+- `activities`
+- `activity_locations`
+- `activity_pricing`
+- `activity_schedule`
+
+**Migrations:**
+- Alembic config and migrations live in `backend/db/`.
+
 ## 3) CI/CD Authentication
 
 **Decision:** GitHub Actions OIDC + IAM role assumption.

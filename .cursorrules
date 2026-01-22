@@ -74,6 +74,7 @@ repo root
 - Amplify staging-to-prod promotions use a gated workflow.
 - Lockfiles are required and validated in CI.
 - iOS export options are templated and generated in CI.
+- Aurora uses Alembic migrations in backend/db.
 
 ### Code style and structure
 - Write concise and efficient source code.
