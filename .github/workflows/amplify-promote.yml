@@ -40,6 +40,10 @@ jobs:
             echo "source_branch and target_branch are required"
             exit 1
           fi
+          if [ "$SOURCE_BRANCH" != "staging" ] || [ "$TARGET_BRANCH" != "main" ]; then
+            echo "Only staging -> main promotions are allowed"
+            exit 1
+          fi
         env:
           AMPLIFY_APP_ID: ${{ vars.AMPLIFY_APP_ID }}
           SOURCE_BRANCH: ${{ inputs.source_branch }}

@@ -49,8 +49,10 @@ Flutter mobile app, Next.js admin console, and AWS serverless backend.
 **Notes:**
 - CI uploads AAB to Play Console when service account secrets are set.
 - Android signing uses a keystore injected at build time in CI.
+- Android signing templates live in `apps/customer_app/android/`.
 - CI uploads IPA to TestFlight when App Store API keys are set.
 - iOS signing uses Fastlane match with a private certificates repo.
+- Fastlane config lives in `apps/customer_app/ios/fastlane`.
 
 ## 5) Amplify Usage
 
@@ -63,6 +65,8 @@ Flutter mobile app, Next.js admin console, and AWS serverless backend.
   `aws amplify start-job`.
 - Promotions from staging to production are handled via the
   `amplify-promote` workflow.
+- The `amplify-promote` workflow uses the production environment to
+  support GitHub approval gates.
 
 ## CI/CD Variables and Secrets
 
@@ -79,11 +83,14 @@ Flutter mobile app, Next.js admin console, and AWS serverless backend.
 - `APPLE_TEAM_ID`
 
 **GitHub Secrets**
+- `APPSTORE_API_KEY_JSON` (recommended single JSON secret with issuer_id,
+  key_id, private_key)
 - `GOOGLE_PLAY_SERVICE_ACCOUNT`
 - `ANDROID_KEYSTORE_BASE64`
 - `ANDROID_KEYSTORE_PASSWORD`
 - `ANDROID_KEY_PASSWORD`
 - `ANDROID_KEY_ALIAS`
+- `APPSTORE_API_KEY_JSON`
 - `APPSTORE_ISSUER_ID`
 - `APPSTORE_API_KEY_ID`
 - `APPSTORE_API_PRIVATE_KEY`

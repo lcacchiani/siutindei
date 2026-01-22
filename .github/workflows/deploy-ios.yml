@@ -51,11 +51,46 @@ jobs:
         run: flutter build ipa --release
         working-directory: apps/customer_app
 
+      - name: Load App Store Connect API key
+        if: ${{ secrets.APPSTORE_API_KEY_JSON != '' || (secrets.APPSTORE_ISSUER_ID != '' && secrets.APPSTORE_API_KEY_ID != '' && secrets.APPSTORE_API_PRIVATE_KEY != '') }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+
+          payload = os.environ.get("APPSTORE_API_KEY_JSON")
+          if payload:
+            data = json.loads(payload)
+            issuer_id = data.get("issuer_id")
+            key_id = data.get("key_id")
+            private_key = data.get("private_key")
+          else:
+            issuer_id = os.environ.get("APPSTORE_ISSUER_ID")
+            key_id = os.environ.get("APPSTORE_API_KEY_ID")
+            private_key = os.environ.get("APPSTORE_API_PRIVATE_KEY")
+
+          if not issuer_id or not key_id or not private_key:
+            raise SystemExit("Missing App Store Connect API key inputs")
+
+          env_path = os.environ["GITHUB_ENV"]
+          with open(env_path, "a") as f:
+            f.write(f"APPSTORE_ISSUER_ID={issuer_id}\n")
+            f.write(f"APPSTORE_API_KEY_ID={key_id}\n")
+            f.write("APPSTORE_API_PRIVATE_KEY<<EOF\n")
+            f.write(private_key.strip() + "\n")
+            f.write("EOF\n")
+          PY
+        env:
+          APPSTORE_API_KEY_JSON: ${{ secrets.APPSTORE_API_KEY_JSON }}
+          APPSTORE_ISSUER_ID: ${{ secrets.APPSTORE_ISSUER_ID }}
+          APPSTORE_API_KEY_ID: ${{ secrets.APPSTORE_API_KEY_ID }}
+          APPSTORE_API_PRIVATE_KEY: ${{ secrets.APPSTORE_API_PRIVATE_KEY }}
+
       - name: Upload to TestFlight
-        if: ${{ secrets.APPSTORE_ISSUER_ID != '' && secrets.APPSTORE_API_KEY_ID != '' && secrets.APPSTORE_API_PRIVATE_KEY != '' }}
+        if: ${{ env.APPSTORE_ISSUER_ID != '' && env.APPSTORE_API_KEY_ID != '' && env.APPSTORE_API_PRIVATE_KEY != '' }}
         uses: apple-actions/upload-testflight-build@v1
         with:
           app-path: apps/customer_app/build/ios/ipa/*.ipa
-          issuer-id: ${{ secrets.APPSTORE_ISSUER_ID }}
-          api-key-id: ${{ secrets.APPSTORE_API_KEY_ID }}
-          api-private-key: ${{ secrets.APPSTORE_API_PRIVATE_KEY }}
+          issuer-id: ${{ env.APPSTORE_ISSUER_ID }}
+          api-key-id: ${{ env.APPSTORE_API_KEY_ID }}
+          api-private-key: ${{ env.APPSTORE_API_PRIVATE_KEY }}

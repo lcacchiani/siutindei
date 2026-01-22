@@ -201,6 +201,11 @@ cython_debug/
 .cursorignore
 .cursorindexingignore
 
+# Flutter signing artifacts
+apps/customer_app/android/key.properties
+apps/customer_app/android/keystore.jks
+apps/customer_app/android/keystore.jks*
+
 # Marimo
 marimo/_static/
 marimo/_lsp/

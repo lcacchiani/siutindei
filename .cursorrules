@@ -71,6 +71,7 @@ repo root
 - Mobile distribution uses Android AAB (Play Store) and iOS TestFlight/App Store Connect.
 - Admin web hosting uses Amplify Hosting release jobs triggered in CI.
 - Android signing uses CI-injected keystore; iOS signing uses Fastlane match.
+- Amplify staging-to-prod promotions use a gated workflow.
 
 ### Code style and structure
 - Write concise and efficient source code.
