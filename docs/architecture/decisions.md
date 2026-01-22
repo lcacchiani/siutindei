@@ -39,7 +39,8 @@ Flutter mobile app, Next.js admin console, and AWS serverless backend.
 - DB changes are versioned with Alembic.
 - Lambda connections use RDS Proxy for connection pooling.
 - RDS Proxy uses IAM authentication; Lambda generates IAM tokens.
-- IAM DB role `activities_app` is created via migrations and granted `rds_iam`.
+- IAM DB roles `activities_app` (read) and `activities_admin` (write)
+  are created via migrations and granted `rds_iam`.
 - DB connections enforce TLS and use small pools tuned for Lambda.
 - Migrations Lambda uses password auth directly against the cluster endpoint.
 
@@ -61,6 +62,7 @@ Flutter mobile app, Next.js admin console, and AWS serverless backend.
 - OpenAPI contracts live under `docs/api/`.
 - Activities search contract: `docs/api/activities-search.yaml`.
 - Search responses are cursor-paginated.
+- Admin CRUD contract: `docs/api/admin.yaml`.
 - API client generation is handled via generalized scripts in
   `scripts/codegen/`.
 
@@ -77,6 +79,7 @@ Flutter mobile app, Next.js admin console, and AWS serverless backend.
 
 **Decisions:**
 - Cognito User Pool secures API Gateway routes.
+- Admin routes require membership in the `admin` group.
 - API Gateway method caching enabled for search responses (5-minute TTL).
 
 ## Flutter Amplify Configuration

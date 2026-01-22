@@ -108,6 +108,39 @@ export class ApiStack extends cdk.Stack {
       },
     });
 
+    const adminFunction = new lambda.Function(this, "ActivitiesAdminFunction", {
+      runtime: lambda.Runtime.PYTHON_3_11,
+      handler: "lambda/admin/handler.lambda_handler",
+      code: lambda.Code.fromAsset(path.join(__dirname, "../../"), {
+        bundling: {
+          image: lambda.Runtime.PYTHON_3_11.bundlingImage,
+          command: [
+            "bash",
+            "-c",
+            [
+              "pip install -r requirements.txt -t /asset-output",
+              "cp -au lambda /asset-output/lambda",
+              "cp -au src /asset-output/src",
+            ].join(" && "),
+          ],
+        },
+      }),
+      memorySize: 512,
+      timeout: cdk.Duration.seconds(30),
+      vpc,
+      securityGroups: [lambdaSecurityGroup],
+      vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
+      environment: {
+        DATABASE_SECRET_ARN: cluster.secret?.secretArn ?? "",
+        DATABASE_NAME: "activities",
+        DATABASE_USERNAME: "activities_admin",
+        DATABASE_PROXY_ENDPOINT: proxy.endpoint,
+        DATABASE_IAM_AUTH: "true",
+        ADMIN_GROUP: "admin",
+        PYTHONPATH: "/var/task/src",
+      },
+    });
+
     const migrationFunction = new lambda.Function(this, "ActivitiesMigrationFunction", {
       runtime: lambda.Runtime.PYTHON_3_11,
       handler: "lambda/migrations/handler.lambda_handler",
@@ -143,9 +176,11 @@ export class ApiStack extends cdk.Stack {
     if (cluster.secret) {
       cluster.secret.grantRead(searchFunction);
       cluster.secret.grantRead(migrationFunction);
+      cluster.secret.grantRead(adminFunction);
     }
 
     proxy.grantConnect(searchFunction, "activities_app");
+    proxy.grantConnect(adminFunction, "activities_admin");
 
     const api = new apigateway.RestApi(this, "ActivitiesApi", {
       restApiName: "Activities API",
@@ -217,6 +252,41 @@ export class ApiStack extends cdk.Stack {
       cacheKeyParameters,
       requestParameters,
     });
+
+    const admin = api.root.addResource("admin");
+    const adminResources = [
+      "organizations",
+      "locations",
+      "activities",
+      "pricing",
+      "schedules",
+    ];
+
+    for (const resourceName of adminResources) {
+      const resource = admin.addResource(resourceName);
+      resource.addMethod("GET", new apigateway.LambdaIntegration(adminFunction), {
+        authorizationType: apigateway.AuthorizationType.COGNITO,
+        authorizer,
+      });
+      resource.addMethod("POST", new apigateway.LambdaIntegration(adminFunction), {
+        authorizationType: apigateway.AuthorizationType.COGNITO,
+        authorizer,
+      });
+
+      const resourceById = resource.addResource("{id}");
+      resourceById.addMethod("GET", new apigateway.LambdaIntegration(adminFunction), {
+        authorizationType: apigateway.AuthorizationType.COGNITO,
+        authorizer,
+      });
+      resourceById.addMethod("PUT", new apigateway.LambdaIntegration(adminFunction), {
+        authorizationType: apigateway.AuthorizationType.COGNITO,
+        authorizer,
+      });
+      resourceById.addMethod("DELETE", new apigateway.LambdaIntegration(adminFunction), {
+        authorizationType: apigateway.AuthorizationType.COGNITO,
+        authorizer,
+      });
+    }
 
     new cdk.CfnOutput(this, "ApiUrl", {
       value: api.url,

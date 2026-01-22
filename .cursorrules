@@ -84,6 +84,8 @@ repo root
 - Search responses use cursor pagination.
 - Flutter uses Amplify config passed via dart-define.
 - API Gateway caching enabled for search.
+- Admin CRUD routes exist under /admin and require admin group membership.
+- Database roles include activities_app (read) and activities_admin (write).
 
 ### Code style and structure
 - Write concise and efficient source code.
