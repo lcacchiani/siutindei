@@ -1,0 +1,43 @@
+name: Deploy Admin Web
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "apps/admin_web/**"
+      - "packages/react_ui/**"
+      - "packages/api_client_ts/**"
+      - "packages/models_shared/**"
+      - "scripts/**"
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "lts/*"
+          cache: "npm"
+          cache-dependency-path: apps/admin_web/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: apps/admin_web
+
+      - name: Build admin web
+        run: npm run build
+        working-directory: apps/admin_web
+
+      - name: Deploy admin web
+        run: |
+          if [ -f "scripts/deploy/deploy-admin-web.sh" ]; then
+            bash "scripts/deploy/deploy-admin-web.sh"
+          else
+            echo "Deploy script not found: scripts/deploy/deploy-admin-web.sh"
+          fi

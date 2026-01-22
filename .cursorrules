@@ -2,6 +2,8 @@
 # Sources:
 # - rules/flutter-development-guidelines-cursorrules-prompt-file
 # - rules/python-projects-guide-cursorrules-prompt-file
+# - rules/react-redux-typescript-cursorrules-prompt-file
+# - rules/nextjs-react-tailwind-cursorrules-prompt-file
 
 ### Flutter development guidelines
 ### Repository structure
@@ -82,6 +84,140 @@ Use MVVM (Model View ViewModel).
 - Use braces {} for all flow control structures (if, for, while, etc.).
 - Use comment-outs proactively to help understand and maintain code.
 - Use single quotes, avoid the use of double quotes and use consistent string literals to improve readability.
+
+### React rules (react-redux-typescript-cursorrules-prompt-file)
+// React + Redux + TypeScript .cursorrules
+
+// Prefer functional components with hooks
+
+const preferFunctionalComponents = true;
+
+// Use TypeScript for type safety
+
+const useTypeScript = true;
+
+// Redux best practices
+
+const reduxBestPractices = [
+  "Use Redux Toolkit for efficient Redux development",
+  "Implement slice pattern for organizing Redux code",
+  "Utilize createAsyncThunk for handling async actions",
+  "Use selectors for accessing state in components",
+];
+
+// Folder structure
+
+const folderStructure = `
+src/
+  components/
+  features/
+  store/
+    slices/
+    hooks.ts
+    store.ts
+  types/
+  utils/
+`;
+
+// Additional instructions
+
+const additionalInstructions = `
+1. Use React.FC for functional components with props
+2. Implement strict TypeScript checks
+3. Use Redux hooks (useSelector, useDispatch) in components
+4. Create reusable typed hooks for Redux operations
+5. Implement proper error handling in async operations
+6. Use Redux DevTools for debugging
+7. Follow Redux style guide for naming conventions
+`;
+
+### Next.js rules (nextjs-react-tailwind-cursorrules-prompt-file)
+- You are an expert in TypeScript, Node.js, Next.js App Router, React, Shadcn UI, and Tailwind and Framer Motion.
+
+- Code Style and Structure
+
+  - Write concise, technical TypeScript code with accurate examples.
+  - Use functional and declarative programming patterns; avoid classes.
+  - Prefer iteration and modularization over code duplication.
+  - Use descriptive variable names with auxiliary verbs (e.g., isLoading, hasError).
+  - Structure files: exported component, subcomponents, helpers, static content, types.
+
+- Naming Conventions
+
+  - All components should go in src/components and be named like new-component.tsx
+  - Use lowercase with dashes for directories (e.g., components/auth-wizard).
+  - Favor named exports for components.
+
+- TypeScript Usage
+
+  - Use TypeScript for all code; prefer interfaces over types.
+  - Avoid enums; use maps instead.
+  - Use functional components with TypeScript interfaces.
+
+- Syntax and Formatting
+
+  - Use the "function" keyword for pure functions.
+  - Avoid unnecessary curly braces in conditionals; use concise syntax for simple statements.
+  - Use declarative JSX.
+
+- UI and Styling
+
+  - Use Shadcn UI, and Tailwind for components and styling.
+  - Implement responsive design with Tailwind CSS; use a mobile-first approach.
+
+- Performance Optimization
+
+  - Minimize 'use client', 'useEffect', and 'setState'; favor React Server Components (RSC).
+  - Wrap client components in Suspense with fallback.
+  - Use dynamic loading for non-critical components.
+  - Optimize images: use WebP format, include size data, implement lazy loading.
+
+- Key Conventions
+
+  - Use 'nuqs' for URL search parameter state management.
+  - Optimize Web Vitals (LCP, CLS, FID).
+  - Limit 'use client':
+    - Favor server components and Next.js SSR.
+    - Use only for Web API access in small components.
+    - Avoid for data fetching or state management.
+  - Follow Next.js docs for Data Fetching, Rendering, and Routing.
+  - While creating placeholder images as a part of your seed data, use https://placekitten.com/
+  - Place both the /app and /components folders under a /src directory. This organization offers several benefits:
+    - It helps maintain a clean and organized project structure.
+    - It allows for easier navigation and management of components and pages.
+    - It adheres to common industry standards, making it easier for other developers to understand and contribute to the project.
+    - It provides a clear separation between application logic (in /src/app) and UI components (in /src/components), improving code readability and reusability.
+    - It simplifies the process of creating new pages and components, as you can easily find the corresponding files in the /src directory.
+    - It makes the project more modular and easier to scale as the application grows.
+    - It adheres to the principle of separation of concerns, where different aspects of the application are handled by different directories.
+
+## Components Organization
+
+Within the /src/components folder, consider organizing components by type or feature:
+
+By Type: Group components like forms, buttons, layout elements, etc.
+
+By Feature: For larger applications, group components related to specific features or domains
+
+For example:
+
+  /src/components
+  ├── /ui
+  │   ├── /Button
+  │   ├── /Modal
+  │   └── /Card
+  ├── /forms
+  │   ├── /TextField
+  │   └── /Select
+  └── /layout
+      ├── /Navbar
+      └── /Footer
+
+- Private Components: For components used only within specific pages, you can create a _components folder within the relevant /app subdirectory.
+
+- Shared Components: The /src/components folder should contain reusable components used across multiple pages or features.
+
+- Modular Approach: As your project grows, consider adopting a more modular structure, where each feature or domain has its own folder containing components, hooks, and utilities specific to that feature.
 
 ### Python projects guide
 You are an AI assistant specialized in Python development. Your approach emphasizes:

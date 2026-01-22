@@ -1,0 +1,42 @@
+name: Deploy Mobile App
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "apps/customer_app/**"
+      - "packages/flutter_ui/**"
+      - "packages/api_client_dart/**"
+      - "packages/models_shared/**"
+      - "scripts/**"
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: "stable"
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+        working-directory: apps/customer_app
+
+      - name: Build release APK
+        run: flutter build apk --release
+        working-directory: apps/customer_app
+
+      - name: Deploy mobile artifacts
+        run: |
+          if [ -f "scripts/deploy/deploy-mobile.sh" ]; then
+            bash "scripts/deploy/deploy-mobile.sh"
+          else
+            echo "Deploy script not found: scripts/deploy/deploy-mobile.sh"
+          fi
