@@ -7,6 +7,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Iterable
 from typing import Sequence
+from uuid import UUID
 
 from sqlalchemy import and_
 from sqlalchemy import or_
@@ -39,6 +40,7 @@ class ActivitySearchFilters:
     start_at_utc: datetime | None = None
     end_at_utc: datetime | None = None
     languages: Sequence[str] = ()
+    cursor_schedule_id: UUID | None = None
     limit: int = 50
 
 
@@ -118,9 +120,13 @@ def build_activity_search_query(filters: ActivitySearchFilters) -> Select:
         language_conditions = _build_language_conditions(filters.languages)
         conditions.append(or_(*language_conditions))
 
+    if filters.cursor_schedule_id is not None:
+        conditions.append(ActivitySchedule.id > filters.cursor_schedule_id)
+
     if conditions:
         query = query.where(and_(*conditions))
 
+    query = query.order_by(ActivitySchedule.id)
     return query.limit(filters.limit)
 
 

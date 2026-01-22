@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import base64
 import json
 import os
 from dataclasses import asdict
+from dataclasses import replace
 from datetime import datetime
 from decimal import Decimal
 from typing import Any
@@ -14,6 +16,7 @@ from typing import Sequence
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import NullPool
+from uuid import UUID
 
 from app.api.schemas import ActivitySchema
 from app.api.schemas import ActivitySearchResponseSchema
@@ -68,6 +71,7 @@ def parse_filters(event: Mapping[str, Any]) -> ActivitySearchFilters:
         start_at_utc=_parse_datetime(_first(params, "start_at_utc")),
         end_at_utc=_parse_datetime(_first(params, "end_at_utc")),
         languages=_parse_languages(params),
+        cursor_schedule_id=_parse_cursor(_first(params, "cursor")),
         limit=_parse_int(_first(params, "limit")) or 50,
     )
 
@@ -76,13 +80,21 @@ def fetch_activity_search_response(filters: ActivitySearchFilters) -> ActivitySe
     """Fetch activity search response from the database."""
 
     engine = _get_engine()
-    query = build_activity_search_query(filters)
+    requested_limit = filters.limit
+    query_filters = replace(filters, limit=requested_limit + 1)
+    query = build_activity_search_query(query_filters)
 
     with Session(engine) as session:
         rows = session.execute(query).all()
 
-    items = [map_row_to_result(row) for row in rows]
-    return ActivitySearchResponseSchema(items=items, next_cursor=None)
+    has_more = len(rows) > requested_limit
+    trimmed_rows = rows[:requested_limit]
+    items = [map_row_to_result(row) for row in trimmed_rows]
+    next_cursor = None
+    if has_more and trimmed_rows:
+        schedule = trimmed_rows[-1]._mapping[ActivitySchedule]
+        next_cursor = _encode_cursor(schedule.id)
+    return ActivitySearchResponseSchema(items=items, next_cursor=next_cursor)
 
 
 def map_row_to_result(row: Any) -> ActivitySearchResultSchema:
@@ -303,3 +315,31 @@ def _pool_settings(use_iam_auth: bool) -> dict[str, Any]:
         "pool_recycle": pool_recycle,
         "pool_timeout": pool_timeout,
     }
+
+
+def _parse_cursor(value: str | None) -> UUID | None:
+    """Parse a pagination cursor."""
+
+    if value is None or value == "":
+        return None
+    try:
+        payload = _decode_cursor(value)
+        return UUID(payload["schedule_id"])
+    except (ValueError, KeyError, TypeError) as exc:
+        raise ValueError("Invalid cursor") from exc
+
+
+def _encode_cursor(schedule_id: Any) -> str:
+    """Encode a pagination cursor."""
+
+    payload = json.dumps({"schedule_id": str(schedule_id)}).encode("utf-8")
+    encoded = base64.urlsafe_b64encode(payload).decode("utf-8")
+    return encoded.rstrip("=")
+
+
+def _decode_cursor(cursor: str) -> dict[str, Any]:
+    """Decode a pagination cursor."""
+
+    padding = "=" * (-len(cursor) % 4)
+    raw = base64.urlsafe_b64decode(cursor + padding)
+    return json.loads(raw)

@@ -9,6 +9,9 @@ admin console, and backend services.
 Flutter Mobile / Next.js Admin
         |
         v
+    Cognito (Auth)
+        |
+        v
     API Gateway
         |
         v
@@ -39,6 +42,7 @@ Flutter Mobile / Next.js Admin
 - SQLAlchemy models map to Aurora PostgreSQL.
 - Alembic manages schema migrations, executed via a custom resource Lambda
   during deploy.
+ - Cognito User Pool secures API Gateway routes.
 
 ## Data model
 
@@ -74,6 +78,7 @@ All times are stored in UTC.
 - No long-lived AWS credentials in GitHub.
 - IAM auth for RDS Proxy, TLS enforced on DB connections.
 - Secrets stored in GitHub Secrets or AWS Secrets Manager.
+ - API routes require Cognito authentication.
 
 ## Observability (planned)
 

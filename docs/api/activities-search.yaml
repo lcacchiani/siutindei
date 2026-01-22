@@ -106,6 +106,7 @@ paths:
           required: false
           schema:
             type: string
+          description: Opaque cursor returned from the previous page.
       responses:
         "200":
           description: Search results

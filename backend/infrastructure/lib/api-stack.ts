@@ -1,5 +1,6 @@
 import * as cdk from "aws-cdk-lib";
 import * as apigateway from "aws-cdk-lib/aws-apigateway";
+import * as cognito from "aws-cdk-lib/aws-cognito";
 import * as customresources from "aws-cdk-lib/custom-resources";
 import * as ec2 from "aws-cdk-lib/aws-ec2";
 import * as lambda from "aws-cdk-lib/aws-lambda";
@@ -157,9 +158,34 @@ export class ApiStack extends cdk.Stack {
       },
     });
 
+    const userPool = new cognito.UserPool(this, "ActivitiesUserPool", {
+      signInAliases: { email: true },
+      autoVerify: { email: true },
+      selfSignUpEnabled: true,
+    });
+
+    const userPoolClient = new cognito.UserPoolClient(this, "ActivitiesUserPoolClient", {
+      userPool,
+      authFlows: {
+        userPassword: true,
+        userSrp: true,
+      },
+    });
+
+    const authorizer = new apigateway.CognitoUserPoolsAuthorizer(
+      this,
+      "ActivitiesAuthorizer",
+      {
+        cognitoUserPools: [userPool],
+      }
+    );
+
     const activities = api.root.addResource("activities");
     const search = activities.addResource("search");
-    search.addMethod("GET", new apigateway.LambdaIntegration(searchFunction));
+    search.addMethod("GET", new apigateway.LambdaIntegration(searchFunction), {
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+      authorizer,
+    });
 
     new cdk.CfnOutput(this, "ApiUrl", {
       value: api.url,
@@ -171,6 +197,14 @@ export class ApiStack extends cdk.Stack {
 
     new cdk.CfnOutput(this, "DatabaseProxyEndpoint", {
       value: proxy.endpoint,
+    });
+
+    new cdk.CfnOutput(this, "UserPoolId", {
+      value: userPool.userPoolId,
+    });
+
+    new cdk.CfnOutput(this, "UserPoolClientId", {
+      value: userPoolClient.userPoolClientId,
     });
 
     const migrationsHash = hashDirectory(path.join(__dirname, "../../db/alembic/versions"));

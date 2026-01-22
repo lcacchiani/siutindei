@@ -60,6 +60,7 @@ Flutter mobile app, Next.js admin console, and AWS serverless backend.
 **Decisions:**
 - OpenAPI contracts live under `docs/api/`.
 - Activities search contract: `docs/api/activities-search.yaml`.
+- Search responses are cursor-paginated.
 - API client generation is handled via generalized scripts in
   `scripts/codegen/`.
 
@@ -71,6 +72,11 @@ Flutter mobile app, Next.js admin console, and AWS serverless backend.
 - Python dependencies are listed in `backend/requirements.txt`.
 - Database migrations and seed are executed during CDK deploy
   via a custom resource Lambda.
+
+## Authentication
+
+**Decisions:**
+- Cognito User Pool secures API Gateway routes.
 
 ## 3) CI/CD Authentication
 

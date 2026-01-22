@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 
 import pytest
+from uuid import uuid4
 
 sys.path.append(str(Path(__file__).resolve().parents[1] / "backend" / "src"))
 
@@ -48,3 +49,13 @@ def test_build_activity_search_query_sets_limit() -> None:
     filters = ActivitySearchFilters(limit=25)
     query = build_activity_search_query(filters)
     assert query._limit_clause is not None
+
+
+def test_build_activity_search_query_applies_cursor() -> None:
+    """Ensure the cursor filter is applied."""
+
+    cursor_id = uuid4()
+    filters = ActivitySearchFilters(cursor_schedule_id=cursor_id)
+    query = build_activity_search_query(filters)
+    where_clause = str(query.whereclause)
+    assert "activity_schedule.id" in where_clause
