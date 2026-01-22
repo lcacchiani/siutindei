@@ -48,6 +48,13 @@ Flutter mobile app, Next.js admin console, and AWS serverless backend.
 
 **Migrations:**
 - Alembic config and migrations live in `backend/db/`.
+- Seed data lives in `backend/db/seed/seed_data.sql`.
+
+## API Contracts
+
+**Decisions:**
+- OpenAPI contracts live under `docs/api/`.
+- Activities search contract: `docs/api/activities-search.yaml`.
 
 ## 3) CI/CD Authentication
 

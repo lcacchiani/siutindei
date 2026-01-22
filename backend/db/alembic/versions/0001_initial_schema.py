@@ -15,6 +15,7 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
+    """Create initial tables, enums, and indexes."""
     op.execute("CREATE EXTENSION IF NOT EXISTS pgcrypto")
 
     pricing_type_enum = postgresql.ENUM(
@@ -303,6 +304,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    """Drop initial tables, enums, and indexes."""
     op.drop_index("activity_schedule_languages_gin", table_name="activity_schedule")
     op.drop_index("activity_schedule_date_idx", table_name="activity_schedule")
     op.drop_index("activity_schedule_type_monthly_idx", table_name="activity_schedule")

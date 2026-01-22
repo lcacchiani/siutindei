@@ -27,3 +27,12 @@ Generate a new migration:
 ```
 alembic -c backend/db/alembic.ini revision -m "add new table"
 ```
+
+## Seed data
+
+Sample data is available in `backend/db/seed/seed_data.sql`.
+To apply:
+
+```
+psql "$DATABASE_URL" -f backend/db/seed/seed_data.sql
+```

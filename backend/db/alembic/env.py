@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import os
+import sys
 from logging.config import fileConfig
+from pathlib import Path
 
 from alembic import context
 from sqlalchemy import engine_from_config
@@ -12,10 +14,16 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-target_metadata = None
+base_dir = Path(__file__).resolve().parents[2]
+sys.path.append(str(base_dir / "src"))
+
+from app.db.base import Base  # noqa: E402
+
+target_metadata = Base.metadata
 
 
 def get_database_url() -> str:
+    """Return the database URL from environment variables."""
     url = os.getenv("DATABASE_URL")
     if not url:
         raise RuntimeError("DATABASE_URL is required for Alembic migrations.")
@@ -23,6 +31,7 @@ def get_database_url() -> str:
 
 
 def run_migrations_offline() -> None:
+    """Run migrations in offline mode."""
     url = get_database_url()
     context.configure(
         url=url,
@@ -36,6 +45,7 @@ def run_migrations_offline() -> None:
 
 
 def run_migrations_online() -> None:
+    """Run migrations in online mode."""
     config.set_main_option("sqlalchemy.url", get_database_url())
     connectable = engine_from_config(
         config.get_section(config.config_ini_section),
