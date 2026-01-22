@@ -18,6 +18,7 @@ base_dir = Path(__file__).resolve().parents[2]
 sys.path.append(str(base_dir / "src"))
 
 from app.db.base import Base  # noqa: E402
+from app.db import models  # noqa: F401,E402
 
 target_metadata = Base.metadata
 
