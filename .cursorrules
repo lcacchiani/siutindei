@@ -76,6 +76,7 @@ repo root
 - iOS export options are templated and generated in CI.
 - Aurora uses Alembic migrations in backend/db.
 - Lambda entrypoints live in backend/lambda and import backend/src.
+- Lambda functions connect via RDS Proxy.
 
 ### Code style and structure
 - Write concise and efficient source code.

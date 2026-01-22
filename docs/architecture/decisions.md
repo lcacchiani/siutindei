@@ -37,6 +37,7 @@ Flutter mobile app, Next.js admin console, and AWS serverless backend.
 - Languages are session-specific (stored on schedule entries).
 - Times are stored in UTC.
 - DB changes are versioned with Alembic.
+- Lambda connections use RDS Proxy for connection pooling.
 
 **Core tables:**
 - `organizations`

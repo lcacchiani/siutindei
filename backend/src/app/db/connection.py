@@ -27,7 +27,7 @@ def get_database_url() -> str:
     secret = _get_secret(secret_arn)
     username = secret.get("username") or secret.get("user")
     password = secret.get("password")
-    host = secret.get("host")
+    host = os.getenv("DATABASE_PROXY_ENDPOINT") or secret.get("host")
     port = secret.get("port") or 5432
     database = (
         secret.get("dbname")

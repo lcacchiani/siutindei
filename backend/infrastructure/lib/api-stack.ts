@@ -27,10 +27,19 @@ export class ApiStack extends cdk.Stack {
       vpc,
       allowAllOutbound: true,
     });
-    dbSecurityGroup.addIngressRule(
+    const proxySecurityGroup = new ec2.SecurityGroup(this, "ProxySecurityGroup", {
+      vpc,
+      allowAllOutbound: true,
+    });
+    proxySecurityGroup.addIngressRule(
       lambdaSecurityGroup,
       ec2.Port.tcp(5432),
-      "Lambda access to Aurora"
+      "Lambda access to RDS Proxy"
+    );
+    dbSecurityGroup.addIngressRule(
+      proxySecurityGroup,
+      ec2.Port.tcp(5432),
+      "RDS Proxy access to Aurora"
     );
 
     const cluster = new rds.DatabaseCluster(this, "ActivitiesCluster", {
@@ -45,6 +54,14 @@ export class ApiStack extends cdk.Stack {
       vpc,
       vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
       securityGroups: [dbSecurityGroup],
+    });
+
+    const proxy = new rds.DatabaseProxy(this, "ActivitiesProxy", {
+      proxyTarget: rds.ProxyTarget.fromCluster(cluster),
+      secrets: cluster.secret ? [cluster.secret] : [],
+      vpc,
+      securityGroups: [proxySecurityGroup],
+      requireTLS: true,
     });
 
     const searchFunction = new lambda.Function(this, "ActivitiesSearchFunction", {
@@ -72,6 +89,7 @@ export class ApiStack extends cdk.Stack {
       environment: {
         DATABASE_SECRET_ARN: cluster.secret?.secretArn ?? "",
         DATABASE_NAME: "activities",
+        DATABASE_PROXY_ENDPOINT: proxy.endpoint,
         PYTHONPATH: "/var/task/src",
       },
     });
@@ -102,6 +120,7 @@ export class ApiStack extends cdk.Stack {
       environment: {
         DATABASE_SECRET_ARN: cluster.secret?.secretArn ?? "",
         DATABASE_NAME: "activities",
+        DATABASE_PROXY_ENDPOINT: proxy.endpoint,
         PYTHONPATH: "/var/task/src",
         SEED_FILE_PATH: "/var/task/db/seed/seed_data.sql",
       },
@@ -133,6 +152,10 @@ export class ApiStack extends cdk.Stack {
 
     new cdk.CfnOutput(this, "DatabaseSecretArn", {
       value: cluster.secret?.secretArn ?? "",
+    });
+
+    new cdk.CfnOutput(this, "DatabaseProxyEndpoint", {
+      value: proxy.endpoint,
     });
 
     const migrationsHash = hashDirectory(path.join(__dirname, "../../db/alembic/versions"));
