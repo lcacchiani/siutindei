@@ -75,6 +75,7 @@ repo root
 - Lockfiles are required and validated in CI.
 - iOS export options are templated and generated in CI.
 - Aurora uses Alembic migrations in backend/db.
+- Lambda entrypoints live in backend/lambda and import backend/src.
 
 ### Code style and structure
 - Write concise and efficient source code.
