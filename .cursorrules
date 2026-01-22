@@ -18,23 +18,57 @@ repo root
 │   ├── customer_app/       # Flutter mobile
 │   └── admin_web/          # React/Next.js app
 │       ├── src/
-│       ├── pages/
-│       │   ├── dashboard/
-│       │   ├── users/
-│       │   ├── analytics/
-│       │   └── settings/
-│       ├── components/
-│       ├── lib/
+│       │   ├── app/         # App Router
+│       │   │   ├── (auth)/
+│       │   │   │   ├── login/
+│       │   │   │   │   └── page.tsx
+│       │   │   │   └── layout.tsx
+│       │   │   ├── admin/
+│       │   │   │   ├── dashboard/
+│       │   │   │   │   └── page.tsx
+│       │   │   │   ├── users/
+│       │   │   │   │   ├── page.tsx
+│       │   │   │   │   ├── [id]/
+│       │   │   │   │   │   └── page.tsx
+│       │   │   │   │   └── new/
+│       │   │   │   │       └── page.tsx
+│       │   │   │   ├── analytics/
+│       │   │   │   │   └── page.tsx
+│       │   │   │   └── layout.tsx
+│       │   │   ├── api/
+│       │   │   │   ├── admin/
+│       │   │   │   │   └── route.ts
+│       │   │   │   └── webhook/
+│       │   │   │       └── route.ts
+│       │   │   ├── layout.tsx
+│       │   │   ├── page.tsx
+│       │   │   └── middleware.ts
+│       │   ├── components/
+│       │   └── lib/
+│       ├── public/
+│       ├── next.config.js
 │       └── package.json
 ├── backend/
 │   ├── api_gateway/
 │   ├── lambda_functions/
 │   └── infrastructure/
+│       ├── lib/
+│       ├── bin/
+│       ├── test/
+│       ├── cdk.json
+│       ├── package.json
+│       └── tsconfig.json
 ├── scripts/
 │   ├── codegen/           # Generates both Dart and TS clients
 │   └── deploy/
 └── docs/
     └── api/               # OpenAPI specs
+
+### Architecture decisions
+- Admin console uses Next.js App Router under apps/admin_web/src/app.
+- Infrastructure as Code uses AWS CDK (TypeScript) + CDK Pipelines.
+- CI/CD uses GitHub OIDC with IAM roles (no long-lived keys).
+- Mobile distribution uses Android AAB and iOS TestFlight/App Store Connect.
 
 ### Code style and structure
 - Write concise and efficient source code.

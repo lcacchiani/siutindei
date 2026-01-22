@@ -12,9 +12,17 @@ on:
       - "packages/models_shared/**"
       - "scripts/**"
 
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-mobile
+  cancel-in-progress: false
+
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    environment: production
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -29,8 +37,8 @@ jobs:
         run: flutter pub get
         working-directory: apps/customer_app
 
-      - name: Build release APK
-        run: flutter build apk --release
+      - name: Build release AAB
+        run: flutter build appbundle --release
         working-directory: apps/customer_app
 
       - name: Deploy mobile artifacts

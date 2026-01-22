@@ -1,0 +1,45 @@
+name: Deploy iOS
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-ios
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    runs-on: macos-latest
+    environment: production
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: "stable"
+          cache: true
+
+      - name: Install CocoaPods
+        run: sudo gem install cocoapods
+
+      - name: Install dependencies
+        run: flutter pub get
+        working-directory: apps/customer_app
+
+      - name: Build release IPA
+        run: flutter build ipa --release
+        working-directory: apps/customer_app
+
+      - name: Upload to TestFlight
+        if: ${{ secrets.APPSTORE_ISSUER_ID != '' && secrets.APPSTORE_API_KEY_ID != '' && secrets.APPSTORE_API_PRIVATE_KEY != '' }}
+        uses: apple-actions/upload-testflight-build@v1
+        with:
+          app-path: apps/customer_app/build/ios/ipa/*.ipa
+          issuer-id: ${{ secrets.APPSTORE_ISSUER_ID }}
+          api-key-id: ${{ secrets.APPSTORE_API_KEY_ID }}
+          api-private-key: ${{ secrets.APPSTORE_API_PRIVATE_KEY }}

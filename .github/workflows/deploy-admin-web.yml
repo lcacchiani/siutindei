@@ -12,9 +12,17 @@ on:
       - "packages/models_shared/**"
       - "scripts/**"
 
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-admin-web
+  cancel-in-progress: false
+
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    environment: production
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
