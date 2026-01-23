@@ -3,8 +3,8 @@
 ## Deployment prerequisites (AWS + GitHub OIDC)
 
 The GitHub Actions workflows assume an IAM role named `GitHubActionsRole` in
-AWS account `588024549699`. To allow OIDC-based role assumption, complete these
-steps once per account/region.
+your AWS account. To allow OIDC-based role assumption, complete these steps
+once per account/region.
 
 ### 1) Create the GitHub OIDC provider
 
@@ -16,7 +16,8 @@ In AWS Console: **IAM → Identity providers → Add provider**
 
 ### 2) Update the IAM role trust policy
 
-Apply the following trust policy to the `GitHubActionsRole`:
+Apply the following trust policy to the `GitHubActionsRole` (replace
+`<AWS_ACCOUNT_ID>` and `<ORG>/<REPO>`):
 
 ```json
 {
@@ -25,7 +26,7 @@ Apply the following trust policy to the `GitHubActionsRole`:
     {
       "Effect": "Allow",
       "Principal": {
-        "Federated": "arn:aws:iam::588024549699:oidc-provider/token.actions.githubusercontent.com"
+        "Federated": "arn:aws:iam::<AWS_ACCOUNT_ID>:oidc-provider/token.actions.githubusercontent.com"
       },
       "Action": "sts:AssumeRoleWithWebIdentity",
       "Condition": {
@@ -33,10 +34,103 @@ Apply the following trust policy to the `GitHubActionsRole`:
           "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
         },
         "StringLike": {
-          "token.actions.githubusercontent.com:sub": "repo:lcacchiani/siutindei:*"
+          "token.actions.githubusercontent.com:sub": "repo:<ORG>/<REPO>:*"
         }
       }
     }
   ]
 }
 ```
+
+## GitHub Actions configuration
+
+### Variables (non-secret)
+
+- `AWS_ACCOUNT_ID`
+- `AWS_REGION`
+- `CDK_STACKS` (optional)
+- `CDK_BOOTSTRAP_QUALIFIER` (optional)
+- `CDK_PARAM_FILE` (e.g. `backend/infrastructure/params/production.json`)
+- `AMPLIFY_APP_ID`
+- `AMPLIFY_BRANCH`
+- `ANDROID_PACKAGE_NAME`
+- `ANDROID_RELEASE_TRACK`
+- `IOS_BUNDLE_ID`
+- `APPLE_TEAM_ID`
+- `IOS_PROVISIONING_PROFILE` (optional)
+- `FIREBASE_API_KEY`
+- `FIREBASE_PROJECT_ID`
+- `FIREBASE_MESSAGING_SENDER_ID`
+- `FIREBASE_ANDROID_APP_ID`
+- `FIREBASE_IOS_APP_ID`
+- `FIREBASE_IOS_BUNDLE_ID`
+- `FIREBASE_STORAGE_BUCKET` (optional)
+- `FIREBASE_APP_CHECK_DEBUG` (optional, `true` for debug providers)
+
+### Secrets
+
+- `CDK_PARAM_GOOGLE_CLIENT_SECRET`
+- `CDK_PARAM_APPLE_PRIVATE_KEY`
+- `CDK_PARAM_MICROSOFT_CLIENT_SECRET`
+- `CDK_PARAM_PUBLIC_API_KEY_VALUE`
+- `CDK_PARAM_ADMIN_BOOTSTRAP_TEMP_PASSWORD` (optional)
+- `AMPLIFY_API_KEY`
+- `ANDROID_KEYSTORE_BASE64`
+- `ANDROID_KEYSTORE_PASSWORD`
+- `ANDROID_KEY_ALIAS`
+- `ANDROID_KEY_PASSWORD`
+- `GOOGLE_PLAY_SERVICE_ACCOUNT`
+- `APPSTORE_API_KEY_JSON` (or `APPSTORE_ISSUER_ID`, `APPSTORE_API_KEY_ID`, `APPSTORE_API_PRIVATE_KEY`)
+- `MATCH_GIT_URL`
+- `MATCH_PASSWORD`
+- `FASTLANE_USER`
+- `FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD`
+
+## How to obtain provider values
+
+### Google (OAuth client)
+1. Go to **Google Cloud Console → APIs & Services → Credentials**.
+2. Create an **OAuth Client ID** (Web application).
+3. Add the redirect URI:
+   `https://<cognito-domain>.auth.<region>.amazoncognito.com/oauth2/idpresponse`
+4. Copy:
+   - **Client ID** → `GoogleClientId`
+   - **Client Secret** → `CDK_PARAM_GOOGLE_CLIENT_SECRET`
+
+### Firebase (App Check + config)
+1. Go to **Firebase Console → Project Settings → General**.
+2. Copy:
+   - **Project ID** → `FIREBASE_PROJECT_ID`
+   - **Project Number** → used in `DeviceAttestationAudience`
+   - **Web API Key** → `FIREBASE_API_KEY`
+3. Under **Your Apps**, copy:
+   - **Android App ID** → `FIREBASE_ANDROID_APP_ID`
+   - **iOS App ID** → `FIREBASE_IOS_APP_ID`
+   - **iOS Bundle ID** → `FIREBASE_IOS_BUNDLE_ID`
+4. Configure App Check:
+   - Android: **Play Integrity**
+   - iOS: **App Attest**
+5. Set backend attestation values:
+   - `DeviceAttestationJwksUrl`: `https://firebaseappcheck.googleapis.com/v1/jwks`
+   - `DeviceAttestationIssuer`: `https://firebaseappcheck.googleapis.com/`
+   - `DeviceAttestationAudience`:
+     `projects/<PROJECT_NUMBER>/apps/<APP_ID>` (use both iOS + Android IDs)
+
+### Microsoft (Entra ID)
+1. Go to **Azure Portal → Microsoft Entra ID → App registrations**.
+2. Create an app registration.
+3. Copy:
+   - **Tenant ID** → `MicrosoftTenantId`
+   - **Client ID** → `MicrosoftClientId`
+4. Create a client secret:
+   - **Client Secret** → `CDK_PARAM_MICROSOFT_CLIENT_SECRET`
+
+### Apple (Sign in with Apple)
+1. Go to **Apple Developer → Certificates, Identifiers & Profiles**.
+2. Create a **Services ID**:
+   - Services ID → `AppleClientId`
+3. Note your **Team ID**:
+   - Team ID → `AppleTeamId`
+4. Create a **Sign In with Apple Key**:
+   - **Key ID** → `AppleKeyId`
+   - Download `.p8` → `CDK_PARAM_APPLE_PRIVATE_KEY` (full contents)
