@@ -65,6 +65,26 @@ class AuthService {
     await Amplify.Auth.resendSignUpCode(username: username);
   }
 
+  Future<void> resetPassword({required String username}) async {
+    final result = await Amplify.Auth.resetPassword(username: username);
+    if (result.nextStep.resetPasswordStep !=
+        AuthResetPasswordStep.confirmResetPasswordWithCode) {
+      throw const AuthException('Password reset did not start.');
+    }
+  }
+
+  Future<void> confirmResetPassword({
+    required String username,
+    required String newPassword,
+    required String confirmationCode,
+  }) async {
+    await Amplify.Auth.confirmResetPassword(
+      username: username,
+      newPassword: newPassword,
+      confirmationCode: confirmationCode,
+    );
+  }
+
   Future<void> signOut() async {
     await Amplify.Auth.signOut();
   }

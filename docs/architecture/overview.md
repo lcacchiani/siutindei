@@ -40,6 +40,7 @@ Flutter Mobile / Next.js Admin
 - Admin CRUD routes under `/admin/*` for organizations, locations, activities,
   pricing, and schedules.
 - Admin user group assignment available at `/admin/users/{username}/groups`.
+- Admin list endpoints support cursor pagination.
 - Lambda functions in `backend/lambda/` call into shared code in
   `backend/src/app`.
 - SQLAlchemy models map to Aurora PostgreSQL.
@@ -83,6 +84,7 @@ All times are stored in UTC.
 - Secrets stored in GitHub Secrets or AWS Secrets Manager.
  - API routes require Cognito authentication.
 - Admin routes require membership in the Cognito `admin` group.
+- Optional CDK parameters can bootstrap an initial admin user.
 
 ## Observability (planned)
 

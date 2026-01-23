@@ -134,6 +134,34 @@ class AuthViewModel extends StateNotifier<AuthState> {
       state = state.copyWith(isLoading: false, errorMessage: error.toString());
     }
   }
+
+  Future<void> requestPasswordReset({required String username}) async {
+    state = state.copyWith(isLoading: true, errorMessage: null);
+    try {
+      await _authService.resetPassword(username: username);
+      state = state.copyWith(isLoading: false);
+    } catch (error) {
+      state = state.copyWith(isLoading: false, errorMessage: error.toString());
+    }
+  }
+
+  Future<void> confirmPasswordReset({
+    required String username,
+    required String newPassword,
+    required String confirmationCode,
+  }) async {
+    state = state.copyWith(isLoading: true, errorMessage: null);
+    try {
+      await _authService.confirmResetPassword(
+        username: username,
+        newPassword: newPassword,
+        confirmationCode: confirmationCode,
+      );
+      state = state.copyWith(isLoading: false);
+    } catch (error) {
+      state = state.copyWith(isLoading: false, errorMessage: error.toString());
+    }
+  }
 }
 
 final authViewModelProvider =

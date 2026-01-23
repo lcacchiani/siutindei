@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../viewmodels/auth_viewmodel.dart';
 import '../widgets/app_text_field.dart';
+import 'reset_password_screen.dart';
 import 'sign_up_screen.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -76,6 +77,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 );
               },
               child: const Text('Create account'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const ResetPasswordScreen()),
+                );
+              },
+              child: const Text('Forgot password'),
             ),
           ],
         ),

@@ -64,6 +64,7 @@ Flutter mobile app, Next.js admin console, and AWS serverless backend.
 - Search responses are cursor-paginated.
 - Cursor pagination uses schedule time and type for ordering.
 - Admin CRUD contract: `docs/api/admin.yaml`.
+- Admin list endpoints return next_cursor for pagination.
 - API client generation is handled via generalized scripts in
   `scripts/codegen/`.
 
@@ -83,6 +84,7 @@ Flutter mobile app, Next.js admin console, and AWS serverless backend.
 - Admin routes require membership in the `admin` group.
 - Admin group is created via CDK.
 - Admin group membership can be managed via `/admin/users/{username}/groups`.
+- Admin bootstrap user can be created with CDK parameters.
 - API Gateway method caching enabled for search responses (5-minute TTL).
 
 ## Flutter Amplify Configuration

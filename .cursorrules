@@ -89,6 +89,8 @@ repo root
 - Admin group is created by CDK.
 - Cursor pagination orders by schedule timing.
 - Admin group membership can be managed via /admin/users/{username}/groups.
+- Admin list endpoints are cursor paginated.
+- Optional CDK parameters bootstrap an admin user.
 
 ### Code style and structure
 - Write concise and efficient source code.

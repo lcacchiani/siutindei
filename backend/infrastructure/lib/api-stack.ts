@@ -238,6 +238,110 @@ export class ApiStack extends cdk.Stack {
       description: "Administrative users",
     });
 
+    const adminBootstrapEmail = new cdk.CfnParameter(this, "AdminBootstrapEmail", {
+      type: "String",
+      default: "",
+      description: "Optional admin email for bootstrap user creation",
+    });
+    const adminBootstrapPassword = new cdk.CfnParameter(this, "AdminBootstrapTempPassword", {
+      type: "String",
+      default: "",
+      noEcho: true,
+      description: "Temporary password for bootstrap admin user",
+    });
+    const bootstrapCondition = new cdk.CfnCondition(this, "CreateAdminBootstrap", {
+      expression: cdk.Fn.conditionAnd(
+        cdk.Fn.conditionNot(
+          cdk.Fn.conditionEquals(adminBootstrapEmail.valueAsString, "")
+        ),
+        cdk.Fn.conditionNot(
+          cdk.Fn.conditionEquals(adminBootstrapPassword.valueAsString, "")
+        )
+      ),
+    });
+
+    const createAdminUser = new customresources.AwsCustomResource(
+      this,
+      "AdminBootstrapUser",
+      {
+        onCreate: {
+          service: "CognitoIdentityServiceProvider",
+          action: "adminCreateUser",
+          parameters: {
+            UserPoolId: userPool.userPoolId,
+            Username: adminBootstrapEmail.valueAsString,
+            TemporaryPassword: adminBootstrapPassword.valueAsString,
+            DesiredDeliveryMediums: ["EMAIL"],
+          },
+          physicalResourceId: customresources.PhysicalResourceId.of(
+            adminBootstrapEmail.valueAsString
+          ),
+        },
+        onUpdate: {
+          service: "CognitoIdentityServiceProvider",
+          action: "adminCreateUser",
+          parameters: {
+            UserPoolId: userPool.userPoolId,
+            Username: adminBootstrapEmail.valueAsString,
+            TemporaryPassword: adminBootstrapPassword.valueAsString,
+            DesiredDeliveryMediums: ["EMAIL"],
+          },
+          physicalResourceId: customresources.PhysicalResourceId.of(
+            adminBootstrapEmail.valueAsString
+          ),
+        },
+        policy: customresources.AwsCustomResourcePolicy.fromStatements([
+          new iam.PolicyStatement({
+            actions: ["cognito-idp:AdminCreateUser"],
+            resources: [userPool.userPoolArn],
+          }),
+        ]),
+        ignoreErrorCodesMatching: "UsernameExistsException",
+      }
+    );
+    (createAdminUser.node.defaultChild as cdk.CfnResource).cfnOptions.condition =
+      bootstrapCondition;
+
+    const addAdminToGroup = new customresources.AwsCustomResource(
+      this,
+      "AdminBootstrapGroup",
+      {
+        onCreate: {
+          service: "CognitoIdentityServiceProvider",
+          action: "adminAddUserToGroup",
+          parameters: {
+            UserPoolId: userPool.userPoolId,
+            Username: adminBootstrapEmail.valueAsString,
+            GroupName: "admin",
+          },
+          physicalResourceId: customresources.PhysicalResourceId.of(
+            `admin-group-${adminBootstrapEmail.valueAsString}`
+          ),
+        },
+        onUpdate: {
+          service: "CognitoIdentityServiceProvider",
+          action: "adminAddUserToGroup",
+          parameters: {
+            UserPoolId: userPool.userPoolId,
+            Username: adminBootstrapEmail.valueAsString,
+            GroupName: "admin",
+          },
+          physicalResourceId: customresources.PhysicalResourceId.of(
+            `admin-group-${adminBootstrapEmail.valueAsString}`
+          ),
+        },
+        policy: customresources.AwsCustomResourcePolicy.fromStatements([
+          new iam.PolicyStatement({
+            actions: ["cognito-idp:AdminAddUserToGroup"],
+            resources: [userPool.userPoolArn],
+          }),
+        ]),
+      }
+    );
+    (addAdminToGroup.node.defaultChild as cdk.CfnResource).cfnOptions.condition =
+      bootstrapCondition;
+    addAdminToGroup.node.addDependency(createAdminUser);
+
     const activities = api.root.addResource("activities");
     const search = activities.addResource("search");
     const cacheTtl = cdk.Duration.minutes(5);
