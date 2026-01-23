@@ -42,6 +42,20 @@ Apply the following trust policy to the `GitHubActionsRole` (replace
 }
 ```
 
+### 3) Create the GitHubActionsRole (if missing)
+
+If you do not see `GitHubActionsRole`, create it:
+
+1. **IAM → Roles → Create role**
+2. **Trusted entity**: Web identity
+3. **Provider**: `token.actions.githubusercontent.com`
+4. **Audience**: `sts.amazonaws.com`
+5. **Permissions**: `AdministratorAccess` (tighten later)
+6. **Role name**: `GitHubActionsRole`
+
+If the wizard asks for a GitHub organization, use the repo owner. For this
+project that is `lcacchiani` (even if it is a personal account).
+
 ## GitHub Actions configuration
 
 ### Variables (non-secret)
