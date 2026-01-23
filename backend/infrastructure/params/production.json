@@ -1,5 +1,5 @@
 {
-  "CognitoDomainPrefix": "siutindei-prod",
+  "CognitoDomainPrefix": "lxtechnology-siutindei-prod",
   "CognitoCallbackUrls": "https://example.com/auth/callback,com.lxtechnology.siutindei://callback",
   "CognitoLogoutUrls": "https://example.com/auth/logout,com.lxtechnology.siutindei://logout",
   "GoogleClientId": "REPLACE_ME",
