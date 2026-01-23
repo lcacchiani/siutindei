@@ -15,6 +15,9 @@ export class ApiStack extends cdk.Stack {
   public constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
+    cdk.Tags.of(this).add("Organization", "LX Technology");
+    cdk.Tags.of(this).add("Project", "Siu Tin Dei");
+
     const vpc = new ec2.Vpc(this, "ActivitiesVpc", {
       maxAzs: 2,
       natGateways: 1,
