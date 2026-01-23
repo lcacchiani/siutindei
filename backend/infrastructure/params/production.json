@@ -8,7 +8,7 @@
   "AppleTeamId": "REPLACE_ME",
   "AppleKeyId": "REPLACE_ME",
   "ApplePrivateKey": "REPLACE_ME",
-  "MicrosoftTenantId": "REPLACE_ME",
+  "MicrosoftTenantId": "430d0c24-5a32-4230-a004-65b98b6fa144",
   "MicrosoftClientId": "REPLACE_ME",
   "MicrosoftClientSecret": "REPLACE_ME",
   "AuthEmailFromAddress": "no-reply@example.com",
