@@ -16,7 +16,7 @@ class AmplifyService {
         AmplifyAuthCognito(),
         AmplifyAPI(),
       ]);
-      await Amplify.configure(AmplifyConfig.requireJson());
+      await Amplify.configure(AppAmplifyConfig.requireJson());
       _configured = true;
     } on AmplifyAlreadyConfiguredException {
       _configured = true;

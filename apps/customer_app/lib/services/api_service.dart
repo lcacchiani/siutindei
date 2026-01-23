@@ -1,6 +1,5 @@
 import 'dart:convert';
 
-import 'package:amplify_api/amplify_api.dart';
 import 'package:amplify_flutter/amplify_flutter.dart';
 
 import '../config/amplify_config.dart';
@@ -20,18 +19,17 @@ class ApiService {
     if (tokens != null) {
       headers['Authorization'] = tokens.idToken;
     }
-    if (AmplifyConfig.apiKey.isNotEmpty) {
-      headers['x-api-key'] = AmplifyConfig.apiKey;
+    if (AppAmplifyConfig.apiKey.isNotEmpty) {
+      headers['x-api-key'] = AppAmplifyConfig.apiKey;
     }
     final attestationToken = await _deviceAttestationService.getToken();
     headers['x-device-attestation'] = attestationToken;
-    final options = RestOptions(
-      apiName: AmplifyConfig.apiName,
-      path: '/activities/search',
-      queryParameters: filters.toQueryParameters(),
+    final response = await Amplify.API.get(
+      '/activities/search',
+      apiName: AppAmplifyConfig.apiName,
       headers: headers,
-    );
-    final response = await Amplify.API.get(options).response;
+      queryParameters: filters.toQueryParameters(),
+    ).response;
     final decoded = jsonDecode(response.decodeBody()) as Map<String, dynamic>;
     return ActivitySearchResponse.fromJson(decoded);
   }

@@ -18,16 +18,17 @@ class AuthService {
     final session = await Amplify.Auth.fetchAuthSession();
     if (session is CognitoAuthSession) {
       final tokensResult = session.userPoolTokensResult;
-      if (tokensResult.isFailure) {
-        throw tokensResult.error;
+      final tokens = tokensResult.valueOrNull;
+      if (tokens == null) {
+        throw tokensResult.exception ??
+            const UnknownException('Failed to fetch Cognito tokens.');
       }
-      final tokens = tokensResult.value;
       return AuthTokens(
         idToken: tokens.idToken.raw,
         accessToken: tokens.accessToken.raw,
       );
     }
-    throw const AuthException('Auth session is not Cognito.');
+    throw const UnknownException('Auth session is not Cognito.');
   }
 
   Future<AuthTokens?> tryGetTokens() async {
@@ -40,7 +41,7 @@ class AuthService {
     }
   }
 
-  Future<AuthSignInResult> startPasswordlessSignIn({
+  Future<SignInResult> startPasswordlessSignIn({
     required String username,
   }) {
     return Amplify.Auth.signIn(username: username);
@@ -49,7 +50,7 @@ class AuthService {
   Future<void> confirmPasswordlessSignIn({required String code}) async {
     final result = await Amplify.Auth.confirmSignIn(confirmationValue: code);
     if (!result.isSignedIn) {
-      throw const AuthException('Sign-in did not complete.');
+      throw const UnknownException('Sign-in did not complete.');
     }
   }
 
@@ -66,7 +67,7 @@ class AuthService {
   Future<void> signInWithProvider(AuthProvider provider) async {
     final result = await Amplify.Auth.signInWithWebUI(provider: provider);
     if (!result.isSignedIn) {
-      throw const AuthException('Provider sign-in did not complete.');
+      throw const UnknownException('Provider sign-in did not complete.');
     }
   }
 

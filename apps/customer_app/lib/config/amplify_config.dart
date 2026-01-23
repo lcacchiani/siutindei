@@ -1,4 +1,4 @@
-class AmplifyConfig {
+class AppAmplifyConfig {
   static const apiName = String.fromEnvironment(
     'AMPLIFY_API_NAME',
     defaultValue: 'activitiesApi',

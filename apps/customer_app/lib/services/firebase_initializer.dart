@@ -20,12 +20,12 @@ class FirebaseInitializer {
     }
 
     await FirebaseAppCheck.instance.activate(
-      androidProvider: FirebaseConfig.useAppCheckDebug
-          ? AndroidProvider.debug
-          : AndroidProvider.playIntegrity,
-      appleProvider: FirebaseConfig.useAppCheckDebug
-          ? AppleProvider.debug
-          : AppleProvider.appAttest,
+      providerAndroid: FirebaseConfig.useAppCheckDebug
+          ? const AndroidDebugProvider()
+          : const AndroidPlayIntegrityProvider(),
+      providerApple: FirebaseConfig.useAppCheckDebug
+          ? const AppleDebugProvider()
+          : const AppleAppAttestWithDeviceCheckFallbackProvider(),
     );
   }
 }
