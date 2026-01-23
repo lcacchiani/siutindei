@@ -58,7 +58,7 @@ export class ApiStack extends cdk.Stack {
 
     const cluster = new rds.DatabaseCluster(this, "ActivitiesCluster", {
       engine: rds.DatabaseClusterEngine.auroraPostgres({
-        version: rds.AuroraPostgresEngineVersion.VER_15_4,
+        version: rds.AuroraPostgresEngineVersion.VER_15_6,
       }),
       credentials: rds.Credentials.fromGeneratedSecret("postgres"),
       defaultDatabaseName: "activities",
