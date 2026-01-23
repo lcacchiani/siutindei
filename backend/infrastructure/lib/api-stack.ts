@@ -665,8 +665,7 @@ export class ApiStack extends cdk.Stack {
     }
 
     search.addMethod("GET", new apigateway.LambdaIntegration(searchFunction), {
-      authorizationType: apigateway.AuthorizationType.COGNITO,
-      authorizer,
+      authorizationType: apigateway.AuthorizationType.NONE,
       cacheTtl,
       cachingEnabled: true,
       cacheKeyParameters,

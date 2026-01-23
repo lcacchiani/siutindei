@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'viewmodels/auth_viewmodel.dart';
 import 'views/screens/activities_screen.dart';
-import 'views/screens/login_screen.dart';
 
 class App extends ConsumerWidget {
   const App({super.key});
@@ -22,9 +21,7 @@ class App extends ConsumerWidget {
           ? const Scaffold(
               body: Center(child: CircularProgressIndicator()),
             )
-          : authState.isSignedIn
-              ? const ActivitiesScreen()
-              : LoginScreen(errorMessage: authState.errorMessage),
+          : const ActivitiesScreen(),
     );
   }
 }

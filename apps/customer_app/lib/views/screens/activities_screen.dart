@@ -5,6 +5,7 @@ import '../../models/activity_models.dart';
 import '../../viewmodels/activities_viewmodel.dart';
 import '../../viewmodels/auth_viewmodel.dart';
 import '../widgets/app_text_field.dart';
+import 'login_screen.dart';
 
 class ActivitiesScreen extends ConsumerStatefulWidget {
   const ActivitiesScreen({super.key});
@@ -57,15 +58,26 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(activitiesViewModelProvider);
+    final authState = ref.watch(authViewModelProvider);
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Activities'),
         actions: [
-          IconButton(
-            onPressed: () => ref.read(authViewModelProvider.notifier).signOut(),
-            icon: const Icon(Icons.logout),
-          ),
+          if (authState.isSignedIn)
+            IconButton(
+              onPressed: () => ref.read(authViewModelProvider.notifier).signOut(),
+              icon: const Icon(Icons.logout),
+            )
+          else
+            IconButton(
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const LoginScreen()),
+                );
+              },
+              icon: const Icon(Icons.login),
+            ),
         ],
       ),
       body: Column(

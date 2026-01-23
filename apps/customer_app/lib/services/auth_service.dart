@@ -30,6 +30,16 @@ class AuthService {
     throw const AuthException('Auth session is not Cognito.');
   }
 
+  Future<AuthTokens?> tryGetTokens() async {
+    try {
+      return await getTokens();
+    } on AuthException {
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<AuthSignInResult> startPasswordlessSignIn({
     required String username,
   }) {

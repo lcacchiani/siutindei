@@ -13,12 +13,16 @@ class ApiService {
   final AuthService _authService;
 
   Future<ActivitySearchResponse> searchActivities(ActivitySearchFilters filters) async {
-    final tokens = await _authService.getTokens();
+    final tokens = await _authService.tryGetTokens();
+    final headers = <String, String>{};
+    if (tokens != null) {
+      headers['Authorization'] = tokens.idToken;
+    }
     final options = RestOptions(
       apiName: AmplifyConfig.apiName,
       path: '/activities/search',
       queryParameters: filters.toQueryParameters(),
-      headers: {'Authorization': tokens.idToken},
+      headers: headers,
     );
     final response = await Amplify.API.get(options).response;
     final decoded = jsonDecode(response.decodeBody()) as Map<String, dynamic>;

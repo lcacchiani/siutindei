@@ -80,7 +80,7 @@ repo root
 - RDS Proxy uses IAM auth with generated tokens.
 - DB connections enforce TLS and Lambda-tuned pool settings.
 - Migrations use password auth against the cluster endpoint.
-- Cognito User Pool secures API Gateway routes.
+- Admin routes use Cognito auth; public search is unauthenticated.
 - Search responses use cursor pagination.
 - Flutter uses Amplify config passed via dart-define.
 - API Gateway caching enabled for search.
