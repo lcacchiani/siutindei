@@ -32,8 +32,14 @@ jobs:
       - name: Run Flutter tests
         run: |
           set -e
+          shopt -s globstar nullglob
           for dir in apps/customer_app packages/flutter_ui packages/api_client_dart; do
             if [ -f "$dir/pubspec.yaml" ]; then
+              test_files=("$dir/test/**/*_test.dart")
+              if [ "${#test_files[@]}" -eq 0 ]; then
+                echo "No Flutter tests found in $dir"
+                continue
+              fi
               echo "Testing Flutter in $dir"
               (cd "$dir" && flutter pub get && flutter test)
             else
