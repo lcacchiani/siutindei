@@ -148,6 +148,9 @@ export class ApiStack extends cdk.Stack {
     const publicApiKeyValue = new cdk.CfnParameter(this, "PublicApiKeyValue", {
       type: "String",
       noEcho: true,
+      minLength: 20,
+      constraintDescription:
+        "Must be at least 20 characters to satisfy API Gateway API key requirements.",
       description: "API key value required for mobile activity search",
     });
     const deviceAttestationJwksUrl = new cdk.CfnParameter(
