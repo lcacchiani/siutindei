@@ -55,7 +55,15 @@ jobs:
         working-directory: apps/customer_app
 
       - name: Build release AAB
-        run: flutter build appbundle --release
+        run: |
+          flutter build appbundle --release \
+            --dart-define=AMPLIFY_API_KEY=${{ secrets.AMPLIFY_API_KEY }} \
+            --dart-define=FIREBASE_API_KEY=${{ vars.FIREBASE_API_KEY }} \
+            --dart-define=FIREBASE_PROJECT_ID=${{ vars.FIREBASE_PROJECT_ID }} \
+            --dart-define=FIREBASE_MESSAGING_SENDER_ID=${{ vars.FIREBASE_MESSAGING_SENDER_ID }} \
+            --dart-define=FIREBASE_ANDROID_APP_ID=${{ vars.FIREBASE_ANDROID_APP_ID }} \
+            --dart-define=FIREBASE_STORAGE_BUCKET=${{ vars.FIREBASE_STORAGE_BUCKET }} \
+            --dart-define=FIREBASE_APP_CHECK_DEBUG=${{ vars.FIREBASE_APP_CHECK_DEBUG }}
         working-directory: apps/customer_app
 
       - name: Upload AAB to Play Store

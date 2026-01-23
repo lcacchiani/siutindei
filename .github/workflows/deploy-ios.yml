@@ -88,7 +88,16 @@ jobs:
           IOS_PROVISIONING_PROFILE: ${{ vars.IOS_PROVISIONING_PROFILE }}
 
       - name: Build release IPA
-        run: flutter build ipa --release --export-options-plist=ios/ExportOptions.plist
+        run: |
+          flutter build ipa --release --export-options-plist=ios/ExportOptions.plist \
+            --dart-define=AMPLIFY_API_KEY=${{ secrets.AMPLIFY_API_KEY }} \
+            --dart-define=FIREBASE_API_KEY=${{ vars.FIREBASE_API_KEY }} \
+            --dart-define=FIREBASE_PROJECT_ID=${{ vars.FIREBASE_PROJECT_ID }} \
+            --dart-define=FIREBASE_MESSAGING_SENDER_ID=${{ vars.FIREBASE_MESSAGING_SENDER_ID }} \
+            --dart-define=FIREBASE_IOS_APP_ID=${{ vars.FIREBASE_IOS_APP_ID }} \
+            --dart-define=FIREBASE_IOS_BUNDLE_ID=${{ vars.FIREBASE_IOS_BUNDLE_ID }} \
+            --dart-define=FIREBASE_STORAGE_BUCKET=${{ vars.FIREBASE_STORAGE_BUCKET }} \
+            --dart-define=FIREBASE_APP_CHECK_DEBUG=${{ vars.FIREBASE_APP_CHECK_DEBUG }}
         working-directory: apps/customer_app
 
       - name: Load App Store Connect API key

@@ -80,12 +80,18 @@ repo root
 - RDS Proxy uses IAM auth with generated tokens.
 - DB connections enforce TLS and Lambda-tuned pool settings.
 - Migrations use password auth against the cluster endpoint.
-- Cognito User Pool secures API Gateway routes.
+- Admin routes use Cognito auth; public search requires API key + device attestation.
 - Search responses use cursor pagination.
 - Flutter uses Amplify config passed via dart-define.
 - API Gateway caching enabled for search.
 - Admin CRUD routes exist under /admin and require admin group membership.
 - Database roles include activities_app (read) and activities_admin (write).
+- Admin group is created by CDK.
+- Cursor pagination orders by schedule timing.
+- Admin group membership can be managed via /admin/users/{username}/groups.
+- Admin list endpoints are cursor paginated.
+- Optional CDK parameters bootstrap an admin user.
+- Auth is passwordless with email OTP/magic link and federated Google/Apple/Microsoft.
 
 ### Code style and structure
 - Write concise and efficient source code.

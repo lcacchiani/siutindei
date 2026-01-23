@@ -30,13 +30,43 @@ class AuthService {
     throw const AuthException('Auth session is not Cognito.');
   }
 
-  Future<void> signIn({required String username, required String password}) async {
-    final result = await Amplify.Auth.signIn(
-      username: username,
-      password: password,
-    );
+  Future<AuthTokens?> tryGetTokens() async {
+    try {
+      return await getTokens();
+    } on AuthException {
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<AuthSignInResult> startPasswordlessSignIn({
+    required String username,
+  }) {
+    return Amplify.Auth.signIn(username: username);
+  }
+
+  Future<void> confirmPasswordlessSignIn({required String code}) async {
+    final result = await Amplify.Auth.confirmSignIn(confirmationValue: code);
     if (!result.isSignedIn) {
       throw const AuthException('Sign-in did not complete.');
+    }
+  }
+
+  Future<void> signUpWithEmail({required String username, required String password}) {
+    return Amplify.Auth.signUp(
+      username: username,
+      password: password,
+      options: SignUpOptions(userAttributes: {
+        AuthUserAttributeKey.email: username,
+      }),
+    );
+  }
+
+  Future<void> signInWithProvider(AuthProvider provider) async {
+    final result = await Amplify.Auth.signInWithWebUI(provider: provider);
+    if (!result.isSignedIn) {
+      throw const AuthException('Provider sign-in did not complete.');
     }
   }
 

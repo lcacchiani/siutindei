@@ -7,6 +7,20 @@ paths:
   /admin/organizations:
     get:
       summary: List organizations
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of organizations
     post:
       summary: Create organization
   /admin/organizations/{id}:
@@ -19,6 +33,20 @@ paths:
   /admin/locations:
     get:
       summary: List locations
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of locations
     post:
       summary: Create location
   /admin/locations/{id}:
@@ -31,6 +59,20 @@ paths:
   /admin/activities:
     get:
       summary: List activities
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of activities
     post:
       summary: Create activity
   /admin/activities/{id}:
@@ -43,6 +85,20 @@ paths:
   /admin/pricing:
     get:
       summary: List pricing entries
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of pricing entries
     post:
       summary: Create pricing entry
   /admin/pricing/{id}:
@@ -55,6 +111,20 @@ paths:
   /admin/schedules:
     get:
       summary: List schedules
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of schedules
     post:
       summary: Create schedule
   /admin/schedules/{id}:
@@ -64,3 +134,8 @@ paths:
       summary: Update schedule
     delete:
       summary: Delete schedule
+  /admin/users/{username}/groups:
+    post:
+      summary: Add user to group
+    delete:
+      summary: Remove user from group

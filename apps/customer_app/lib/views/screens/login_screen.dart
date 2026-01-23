@@ -1,3 +1,4 @@
+import 'package:amplify_auth_cognito/amplify_auth_cognito.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -15,12 +16,12 @@ class LoginScreen extends ConsumerStatefulWidget {
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
+  final _codeController = TextEditingController();
 
   @override
   void dispose() {
     _emailController.dispose();
-    _passwordController.dispose();
+    _codeController.dispose();
     super.dispose();
   }
 
@@ -40,25 +41,40 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               keyboardType: TextInputType.emailAddress,
             ),
             const SizedBox(height: 12),
-            AppTextField(
-              label: 'Password',
-              controller: _passwordController,
-              obscureText: true,
-            ),
-            const SizedBox(height: 12),
+            if (authState.needsChallenge) ...[
+              AppTextField(
+                label: 'Email code',
+                controller: _codeController,
+                keyboardType: TextInputType.number,
+              ),
+              const SizedBox(height: 12),
+            ],
             if (widget.errorMessage != null)
               Text(widget.errorMessage!, style: const TextStyle(color: Colors.red)),
             if (authState.errorMessage != null)
               Text(authState.errorMessage!, style: const TextStyle(color: Colors.red)),
+            if (!authState.needsChallenge)
+              const Padding(
+                padding: EdgeInsets.only(top: 8),
+                child: Text(
+                  'We will email you a sign-in link and one-time code.',
+                  textAlign: TextAlign.center,
+                ),
+              ),
             const SizedBox(height: 12),
             ElevatedButton(
               onPressed: authState.isLoading
                   ? null
                   : () {
-                      ref.read(authViewModelProvider.notifier).signIn(
-                            username: _emailController.text.trim(),
-                            password: _passwordController.text,
-                          );
+                      if (authState.needsChallenge) {
+                        ref.read(authViewModelProvider.notifier).confirmEmailSignIn(
+                              code: _codeController.text.trim(),
+                            );
+                      } else {
+                        ref.read(authViewModelProvider.notifier).signInWithEmail(
+                              email: _emailController.text.trim(),
+                            );
+                      }
                     },
               child: authState.isLoading
                   ? const SizedBox(
@@ -66,7 +82,40 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       height: 16,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Text('Sign in'),
+                  : Text(authState.needsChallenge ? 'Confirm code' : 'Email me a link'),
+            ),
+            const SizedBox(height: 24),
+            const Text('Or continue with'),
+            const SizedBox(height: 12),
+            OutlinedButton(
+              onPressed: authState.isLoading
+                  ? null
+                  : () {
+                      ref
+                          .read(authViewModelProvider.notifier)
+                          .signInWithProvider(AuthProvider.google);
+                    },
+              child: const Text('Continue with Google'),
+            ),
+            OutlinedButton(
+              onPressed: authState.isLoading
+                  ? null
+                  : () {
+                      ref
+                          .read(authViewModelProvider.notifier)
+                          .signInWithProvider(AuthProvider.apple);
+                    },
+              child: const Text('Continue with Apple'),
+            ),
+            OutlinedButton(
+              onPressed: authState.isLoading
+                  ? null
+                  : () {
+                      ref.read(authViewModelProvider.notifier).signInWithProvider(
+                            const AuthProvider.oidc('Microsoft'),
+                          );
+                    },
+              child: const Text('Continue with Microsoft'),
             ),
           ],
         ),

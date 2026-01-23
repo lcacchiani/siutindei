@@ -3,6 +3,7 @@ import * as apigateway from "aws-cdk-lib/aws-apigateway";
 import * as cognito from "aws-cdk-lib/aws-cognito";
 import * as customresources from "aws-cdk-lib/custom-resources";
 import * as ec2 from "aws-cdk-lib/aws-ec2";
+import * as iam from "aws-cdk-lib/aws-iam";
 import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as rds from "aws-cdk-lib/aws-rds";
 import { Construct } from "constructs";
@@ -13,6 +14,9 @@ import * as path from "path";
 export class ApiStack extends cdk.Stack {
   public constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
+
+    cdk.Tags.of(this).add("Organization", "LX Technology");
+    cdk.Tags.of(this).add("Project", "Siu Tin Dei");
 
     const vpc = new ec2.Vpc(this, "ActivitiesVpc", {
       maxAzs: 2,
@@ -76,6 +80,203 @@ export class ApiStack extends cdk.Stack {
       iamAuth: rds.IamAuth.REQUIRED,
     });
 
+    const authDomainPrefix = new cdk.CfnParameter(this, "CognitoDomainPrefix", {
+      type: "String",
+      description: "Hosted UI domain prefix for the Cognito user pool",
+    });
+    const oauthCallbackUrls = new cdk.CfnParameter(this, "CognitoCallbackUrls", {
+      type: "CommaDelimitedList",
+      description: "Comma-separated list of OAuth callback URLs",
+    });
+    const oauthLogoutUrls = new cdk.CfnParameter(this, "CognitoLogoutUrls", {
+      type: "CommaDelimitedList",
+      description: "Comma-separated list of OAuth logout URLs",
+    });
+    const googleClientId = new cdk.CfnParameter(this, "GoogleClientId", {
+      type: "String",
+      description: "Google OAuth client ID",
+    });
+    const googleClientSecret = new cdk.CfnParameter(this, "GoogleClientSecret", {
+      type: "String",
+      noEcho: true,
+      description: "Google OAuth client secret",
+    });
+    const appleClientId = new cdk.CfnParameter(this, "AppleClientId", {
+      type: "String",
+      description: "Apple Services ID (Client ID)",
+    });
+    const appleTeamId = new cdk.CfnParameter(this, "AppleTeamId", {
+      type: "String",
+      description: "Apple developer team ID",
+    });
+    const appleKeyId = new cdk.CfnParameter(this, "AppleKeyId", {
+      type: "String",
+      description: "Apple Sign In key ID",
+    });
+    const applePrivateKey = new cdk.CfnParameter(this, "ApplePrivateKey", {
+      type: "String",
+      noEcho: true,
+      description: "Apple Sign In private key",
+    });
+    const microsoftTenantId = new cdk.CfnParameter(this, "MicrosoftTenantId", {
+      type: "String",
+      description: "Microsoft Entra tenant ID",
+    });
+    const microsoftClientId = new cdk.CfnParameter(this, "MicrosoftClientId", {
+      type: "String",
+      description: "Microsoft OAuth client ID",
+    });
+    const microsoftClientSecret = new cdk.CfnParameter(this, "MicrosoftClientSecret", {
+      type: "String",
+      noEcho: true,
+      description: "Microsoft OAuth client secret",
+    });
+    const authEmailFromAddress = new cdk.CfnParameter(this, "AuthEmailFromAddress", {
+      type: "String",
+      description: "SES-verified from address for passwordless emails",
+    });
+    const loginLinkBaseUrl = new cdk.CfnParameter(this, "LoginLinkBaseUrl", {
+      type: "String",
+      default: "",
+      description: "Optional base URL for magic links (adds email+code query params)",
+    });
+    const maxChallengeAttempts = new cdk.CfnParameter(this, "MaxChallengeAttempts", {
+      type: "Number",
+      default: 3,
+      description: "Maximum passwordless auth attempts before failing",
+    });
+    const publicApiKeyValue = new cdk.CfnParameter(this, "PublicApiKeyValue", {
+      type: "String",
+      noEcho: true,
+      description: "API key value required for mobile activity search",
+    });
+    const deviceAttestationJwksUrl = new cdk.CfnParameter(
+      this,
+      "DeviceAttestationJwksUrl",
+      {
+        type: "String",
+        default: "",
+        description: "JWKS URL for device attestation token verification",
+      }
+    );
+    const deviceAttestationIssuer = new cdk.CfnParameter(
+      this,
+      "DeviceAttestationIssuer",
+      {
+        type: "String",
+        default: "",
+        description: "Expected issuer for device attestation tokens",
+      }
+    );
+    const deviceAttestationAudience = new cdk.CfnParameter(
+      this,
+      "DeviceAttestationAudience",
+      {
+        type: "String",
+        default: "",
+        description: "Expected audience for device attestation tokens",
+      }
+    );
+
+    const userPool = new cognito.UserPool(this, "ActivitiesUserPool", {
+      signInAliases: { email: true },
+      autoVerify: { email: true },
+      selfSignUpEnabled: true,
+      accountRecovery: cognito.AccountRecovery.EMAIL_ONLY,
+    });
+
+    const googleProvider = new cognito.CfnUserPoolIdentityProvider(
+      this,
+      "GoogleIdentityProvider",
+      {
+        providerName: "Google",
+        providerType: "Google",
+        userPoolId: userPool.userPoolId,
+        attributeMapping: {
+          email: "email",
+          given_name: "given_name",
+          family_name: "family_name",
+        },
+        providerDetails: {
+          client_id: googleClientId.valueAsString,
+          client_secret: googleClientSecret.valueAsString,
+          authorize_scopes: "openid email profile",
+        },
+      }
+    );
+
+    const appleProvider = new cognito.CfnUserPoolIdentityProvider(
+      this,
+      "AppleIdentityProvider",
+      {
+        providerName: "SignInWithApple",
+        providerType: "SignInWithApple",
+        userPoolId: userPool.userPoolId,
+        attributeMapping: {
+          email: "email",
+        },
+        providerDetails: {
+          client_id: appleClientId.valueAsString,
+          team_id: appleTeamId.valueAsString,
+          key_id: appleKeyId.valueAsString,
+          private_key: applePrivateKey.valueAsString,
+          authorize_scopes: "name email",
+        },
+      }
+    );
+
+    const microsoftProvider = new cognito.CfnUserPoolIdentityProvider(
+      this,
+      "MicrosoftIdentityProvider",
+      {
+        providerName: "Microsoft",
+        providerType: "OIDC",
+        userPoolId: userPool.userPoolId,
+        attributeMapping: {
+          email: "email",
+        },
+        providerDetails: {
+          client_id: microsoftClientId.valueAsString,
+          client_secret: microsoftClientSecret.valueAsString,
+          attributes_request_method: "GET",
+          oidc_issuer: `https://login.microsoftonline.com/${microsoftTenantId.valueAsString}/v2.0`,
+          authorize_scopes: "openid email profile",
+        },
+      }
+    );
+
+    new cognito.UserPoolDomain(this, "ActivitiesUserPoolDomain", {
+      userPool,
+      cognitoDomain: {
+        domainPrefix: authDomainPrefix.valueAsString,
+      },
+    });
+
+    const userPoolClient = new cognito.CfnUserPoolClient(
+      this,
+      "ActivitiesUserPoolClient",
+      {
+        userPoolId: userPool.userPoolId,
+        generateSecret: false,
+        allowedOAuthFlowsUserPoolClient: true,
+        allowedOAuthFlows: ["code"],
+        allowedOAuthScopes: ["openid", "email", "profile"],
+        callbackURLs: oauthCallbackUrls.valueAsList,
+        logoutURLs: oauthLogoutUrls.valueAsList,
+        supportedIdentityProviders: [
+          "COGNITO",
+          "Google",
+          "SignInWithApple",
+          "Microsoft",
+        ],
+        explicitAuthFlows: ["ALLOW_CUSTOM_AUTH", "ALLOW_REFRESH_TOKEN_AUTH"],
+      }
+    );
+
+    userPoolClient.addDependency(googleProvider);
+    userPoolClient.addDependency(appleProvider);
+    userPoolClient.addDependency(microsoftProvider);
+
     const searchFunction = new lambda.Function(this, "ActivitiesSearchFunction", {
       runtime: lambda.Runtime.PYTHON_3_11,
       handler: "lambda/activity_search/handler.lambda_handler",
@@ -137,6 +338,7 @@ export class ApiStack extends cdk.Stack {
         DATABASE_PROXY_ENDPOINT: proxy.endpoint,
         DATABASE_IAM_AUTH: "true",
         ADMIN_GROUP: "admin",
+        COGNITO_USER_POOL_ID: userPool.userPoolId,
         PYTHONPATH: "/var/task/src",
       },
     });
@@ -173,6 +375,131 @@ export class ApiStack extends cdk.Stack {
       },
     });
 
+    const authLambdaCode = lambda.Code.fromAsset(path.join(__dirname, "../../"), {
+      bundling: {
+        image: lambda.Runtime.PYTHON_3_11.bundlingImage,
+        command: [
+          "bash",
+          "-c",
+          [
+            "pip install -r requirements.txt -t /asset-output",
+            "cp -au lambda /asset-output/lambda",
+            "cp -au src /asset-output/src",
+          ].join(" && "),
+        ],
+      },
+    });
+
+    const preSignUpFunction = new lambda.Function(this, "AuthPreSignUpFunction", {
+      runtime: lambda.Runtime.PYTHON_3_11,
+      handler: "lambda/auth/pre_signup/handler.lambda_handler",
+      code: authLambdaCode,
+      memorySize: 256,
+      timeout: cdk.Duration.seconds(10),
+      environment: {
+        PYTHONPATH: "/var/task/src",
+      },
+    });
+
+    const defineAuthChallengeFunction = new lambda.Function(
+      this,
+      "AuthDefineChallengeFunction",
+      {
+        runtime: lambda.Runtime.PYTHON_3_11,
+        handler: "lambda/auth/define_auth_challenge/handler.lambda_handler",
+        code: authLambdaCode,
+        memorySize: 256,
+        timeout: cdk.Duration.seconds(10),
+        environment: {
+          MAX_CHALLENGE_ATTEMPTS: maxChallengeAttempts.valueAsString,
+          PYTHONPATH: "/var/task/src",
+        },
+      }
+    );
+
+    const createAuthChallengeFunction = new lambda.Function(
+      this,
+      "AuthCreateChallengeFunction",
+      {
+        runtime: lambda.Runtime.PYTHON_3_11,
+        handler: "lambda/auth/create_auth_challenge/handler.lambda_handler",
+        code: authLambdaCode,
+        memorySize: 256,
+        timeout: cdk.Duration.seconds(10),
+        environment: {
+          SES_FROM_ADDRESS: authEmailFromAddress.valueAsString,
+          LOGIN_LINK_BASE_URL: loginLinkBaseUrl.valueAsString,
+          PYTHONPATH: "/var/task/src",
+        },
+      }
+    );
+
+    const verifyAuthChallengeFunction = new lambda.Function(
+      this,
+      "AuthVerifyChallengeFunction",
+      {
+        runtime: lambda.Runtime.PYTHON_3_11,
+        handler: "lambda/auth/verify_auth_challenge/handler.lambda_handler",
+        code: authLambdaCode,
+        memorySize: 256,
+        timeout: cdk.Duration.seconds(10),
+        environment: {
+          PYTHONPATH: "/var/task/src",
+        },
+      }
+    );
+
+    const deviceAttestationFunction = new lambda.Function(
+      this,
+      "DeviceAttestationAuthorizer",
+      {
+        runtime: lambda.Runtime.PYTHON_3_11,
+        handler: "lambda/authorizers/device_attestation/handler.lambda_handler",
+        code: authLambdaCode,
+        memorySize: 256,
+        timeout: cdk.Duration.seconds(5),
+        environment: {
+          ATTESTATION_JWKS_URL: deviceAttestationJwksUrl.valueAsString,
+          ATTESTATION_ISSUER: deviceAttestationIssuer.valueAsString,
+          ATTESTATION_AUDIENCE: deviceAttestationAudience.valueAsString,
+          PYTHONPATH: "/var/task/src",
+        },
+      }
+    );
+
+    const deviceAttestationAuthorizer = new apigateway.RequestAuthorizer(
+      this,
+      "DeviceAttestationRequestAuthorizer",
+      {
+        handler: deviceAttestationFunction,
+        identitySources: [
+          apigateway.IdentitySource.header("x-device-attestation"),
+        ],
+        resultsCacheTtl: cdk.Duration.seconds(0),
+      }
+    );
+
+    createAuthChallengeFunction.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["ses:SendEmail", "ses:SendRawEmail"],
+        resources: ["*"],
+      })
+    );
+
+    userPool.addTrigger(cognito.UserPoolOperation.PRE_SIGN_UP, preSignUpFunction);
+    userPool.addTrigger(
+      cognito.UserPoolOperation.DEFINE_AUTH_CHALLENGE,
+      defineAuthChallengeFunction
+    );
+    userPool.addTrigger(
+      cognito.UserPoolOperation.CREATE_AUTH_CHALLENGE,
+      createAuthChallengeFunction
+    );
+    userPool.addTrigger(
+      cognito.UserPoolOperation.VERIFY_AUTH_CHALLENGE_RESPONSE,
+      verifyAuthChallengeFunction
+    );
+
     if (cluster.secret) {
       cluster.secret.grantRead(searchFunction);
       cluster.secret.grantRead(migrationFunction);
@@ -181,6 +508,17 @@ export class ApiStack extends cdk.Stack {
 
     proxy.grantConnect(searchFunction, "activities_app");
     proxy.grantConnect(adminFunction, "activities_admin");
+
+    adminFunction.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: [
+          "cognito-idp:AdminAddUserToGroup",
+          "cognito-idp:AdminRemoveUserFromGroup",
+          "cognito-idp:AdminListGroupsForUser",
+        ],
+        resources: [userPool.userPoolArn],
+      })
+    );
 
     const api = new apigateway.RestApi(this, "ActivitiesApi", {
       restApiName: "Activities API",
@@ -197,20 +535,6 @@ export class ApiStack extends cdk.Stack {
       },
     });
 
-    const userPool = new cognito.UserPool(this, "ActivitiesUserPool", {
-      signInAliases: { email: true },
-      autoVerify: { email: true },
-      selfSignUpEnabled: true,
-    });
-
-    const userPoolClient = new cognito.UserPoolClient(this, "ActivitiesUserPoolClient", {
-      userPool,
-      authFlows: {
-        userPassword: true,
-        userSrp: true,
-      },
-    });
-
     const authorizer = new apigateway.CognitoUserPoolsAuthorizer(
       this,
       "ActivitiesAuthorizer",
@@ -218,6 +542,174 @@ export class ApiStack extends cdk.Stack {
         cognitoUserPools: [userPool],
       }
     );
+
+    const mobileApiKey = new apigateway.ApiKey(this, "MobileSearchApiKey", {
+      value: publicApiKeyValue.valueAsString,
+    });
+    const mobileUsagePlan = api.addUsagePlan("MobileSearchUsagePlan");
+    mobileUsagePlan.addApiKey(mobileApiKey);
+    mobileUsagePlan.addApiStage({ stage: api.deploymentStage });
+
+    new cognito.CfnUserPoolGroup(this, "AdminGroup", {
+      userPoolId: userPool.userPoolId,
+      groupName: "admin",
+      description: "Administrative users",
+    });
+
+    const adminBootstrapEmail = new cdk.CfnParameter(this, "AdminBootstrapEmail", {
+      type: "String",
+      default: "",
+      description: "Optional admin email for bootstrap user creation",
+    });
+    const adminBootstrapPassword = new cdk.CfnParameter(this, "AdminBootstrapTempPassword", {
+      type: "String",
+      default: "",
+      noEcho: true,
+      description: "Temporary password for bootstrap admin user",
+    });
+    const bootstrapCondition = new cdk.CfnCondition(this, "CreateAdminBootstrap", {
+      expression: cdk.Fn.conditionAnd(
+        cdk.Fn.conditionNot(
+          cdk.Fn.conditionEquals(adminBootstrapEmail.valueAsString, "")
+        ),
+        cdk.Fn.conditionNot(
+          cdk.Fn.conditionEquals(adminBootstrapPassword.valueAsString, "")
+        )
+      ),
+    });
+
+    const createAdminUser = new customresources.AwsCustomResource(
+      this,
+      "AdminBootstrapUser",
+      {
+        onCreate: {
+          service: "CognitoIdentityServiceProvider",
+          action: "adminCreateUser",
+          parameters: {
+            UserPoolId: userPool.userPoolId,
+            Username: adminBootstrapEmail.valueAsString,
+            TemporaryPassword: adminBootstrapPassword.valueAsString,
+            MessageAction: "SUPPRESS",
+            UserAttributes: [
+              { Name: "email", Value: adminBootstrapEmail.valueAsString },
+              { Name: "email_verified", Value: "true" },
+            ],
+          },
+          physicalResourceId: customresources.PhysicalResourceId.of(
+            adminBootstrapEmail.valueAsString
+          ),
+        },
+        onUpdate: {
+          service: "CognitoIdentityServiceProvider",
+          action: "adminCreateUser",
+          parameters: {
+            UserPoolId: userPool.userPoolId,
+            Username: adminBootstrapEmail.valueAsString,
+            TemporaryPassword: adminBootstrapPassword.valueAsString,
+            MessageAction: "SUPPRESS",
+            UserAttributes: [
+              { Name: "email", Value: adminBootstrapEmail.valueAsString },
+              { Name: "email_verified", Value: "true" },
+            ],
+          },
+          physicalResourceId: customresources.PhysicalResourceId.of(
+            adminBootstrapEmail.valueAsString
+          ),
+        },
+        policy: customresources.AwsCustomResourcePolicy.fromStatements([
+          new iam.PolicyStatement({
+            actions: ["cognito-idp:AdminCreateUser"],
+            resources: [userPool.userPoolArn],
+          }),
+        ]),
+        ignoreErrorCodesMatching: "UsernameExistsException",
+      }
+    );
+    (createAdminUser.node.defaultChild as cdk.CfnResource).cfnOptions.condition =
+      bootstrapCondition;
+
+    const setAdminPassword = new customresources.AwsCustomResource(
+      this,
+      "AdminBootstrapPassword",
+      {
+        onCreate: {
+          service: "CognitoIdentityServiceProvider",
+          action: "adminSetUserPassword",
+          parameters: {
+            UserPoolId: userPool.userPoolId,
+            Username: adminBootstrapEmail.valueAsString,
+            Password: adminBootstrapPassword.valueAsString,
+            Permanent: true,
+          },
+          physicalResourceId: customresources.PhysicalResourceId.of(
+            `admin-password-${adminBootstrapEmail.valueAsString}`
+          ),
+        },
+        onUpdate: {
+          service: "CognitoIdentityServiceProvider",
+          action: "adminSetUserPassword",
+          parameters: {
+            UserPoolId: userPool.userPoolId,
+            Username: adminBootstrapEmail.valueAsString,
+            Password: adminBootstrapPassword.valueAsString,
+            Permanent: true,
+          },
+          physicalResourceId: customresources.PhysicalResourceId.of(
+            `admin-password-${adminBootstrapEmail.valueAsString}`
+          ),
+        },
+        policy: customresources.AwsCustomResourcePolicy.fromStatements([
+          new iam.PolicyStatement({
+            actions: ["cognito-idp:AdminSetUserPassword"],
+            resources: [userPool.userPoolArn],
+          }),
+        ]),
+        ignoreErrorCodesMatching: "UserNotFoundException",
+      }
+    );
+    (setAdminPassword.node.defaultChild as cdk.CfnResource).cfnOptions.condition =
+      bootstrapCondition;
+    setAdminPassword.node.addDependency(createAdminUser);
+
+    const addAdminToGroup = new customresources.AwsCustomResource(
+      this,
+      "AdminBootstrapGroup",
+      {
+        onCreate: {
+          service: "CognitoIdentityServiceProvider",
+          action: "adminAddUserToGroup",
+          parameters: {
+            UserPoolId: userPool.userPoolId,
+            Username: adminBootstrapEmail.valueAsString,
+            GroupName: "admin",
+          },
+          physicalResourceId: customresources.PhysicalResourceId.of(
+            `admin-group-${adminBootstrapEmail.valueAsString}`
+          ),
+        },
+        onUpdate: {
+          service: "CognitoIdentityServiceProvider",
+          action: "adminAddUserToGroup",
+          parameters: {
+            UserPoolId: userPool.userPoolId,
+            Username: adminBootstrapEmail.valueAsString,
+            GroupName: "admin",
+          },
+          physicalResourceId: customresources.PhysicalResourceId.of(
+            `admin-group-${adminBootstrapEmail.valueAsString}`
+          ),
+        },
+        policy: customresources.AwsCustomResourcePolicy.fromStatements([
+          new iam.PolicyStatement({
+            actions: ["cognito-idp:AdminAddUserToGroup"],
+            resources: [userPool.userPoolArn],
+          }),
+        ]),
+      }
+    );
+    (addAdminToGroup.node.defaultChild as cdk.CfnResource).cfnOptions.condition =
+      bootstrapCondition;
+    addAdminToGroup.node.addDependency(setAdminPassword);
 
     const activities = api.root.addResource("activities");
     const search = activities.addResource("search");
@@ -245,8 +737,9 @@ export class ApiStack extends cdk.Stack {
     }
 
     search.addMethod("GET", new apigateway.LambdaIntegration(searchFunction), {
-      authorizationType: apigateway.AuthorizationType.COGNITO,
-      authorizer,
+      authorizationType: apigateway.AuthorizationType.CUSTOM,
+      authorizer: deviceAttestationAuthorizer,
+      apiKeyRequired: true,
       cacheTtl,
       cachingEnabled: true,
       cacheKeyParameters,
@@ -288,6 +781,18 @@ export class ApiStack extends cdk.Stack {
       });
     }
 
+    const users = admin.addResource("users");
+    const userByName = users.addResource("{username}");
+    const userGroups = userByName.addResource("groups");
+    userGroups.addMethod("POST", new apigateway.LambdaIntegration(adminFunction), {
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+      authorizer,
+    });
+    userGroups.addMethod("DELETE", new apigateway.LambdaIntegration(adminFunction), {
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+      authorizer,
+    });
+
     new cdk.CfnOutput(this, "ApiUrl", {
       value: api.url,
     });
@@ -305,7 +810,7 @@ export class ApiStack extends cdk.Stack {
     });
 
     new cdk.CfnOutput(this, "UserPoolClientId", {
-      value: userPoolClient.userPoolClientId,
+      value: userPoolClient.ref,
     });
 
     const migrationsHash = hashDirectory(path.join(__dirname, "../../db/alembic/versions"));

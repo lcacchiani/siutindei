@@ -30,6 +30,7 @@ Flutter Mobile / Next.js Admin
 - Users browse activities and filter by age, district, price, time/day,
   and language.
 - Uses generated Dart API client from OpenAPI specs.
+- Device attestation uses Firebase App Check (Play Integrity / App Attest).
 
 ### Admin console (Next.js App Router)
 - Admin users manage organizations, activities, schedules, and pricing.
@@ -39,12 +40,15 @@ Flutter Mobile / Next.js Admin
 - API Gateway exposes REST endpoints (start with `GET /activities/search`).
 - Admin CRUD routes under `/admin/*` for organizations, locations, activities,
   pricing, and schedules.
+- Admin user group assignment available at `/admin/users/{username}/groups`.
+- Admin list endpoints support cursor pagination.
 - Lambda functions in `backend/lambda/` call into shared code in
   `backend/src/app`.
 - SQLAlchemy models map to Aurora PostgreSQL.
 - Alembic manages schema migrations, executed via a custom resource Lambda
   during deploy.
- - Cognito User Pool secures API Gateway routes.
+ - Cognito User Pool secures admin routes with passwordless email
+  challenges and federated sign-in (Google, Apple, Microsoft).
 
 ## Data model
 
@@ -80,7 +84,14 @@ All times are stored in UTC.
 - No long-lived AWS credentials in GitHub.
 - IAM auth for RDS Proxy, TLS enforced on DB connections.
 - Secrets stored in GitHub Secrets or AWS Secrets Manager.
- - API routes require Cognito authentication.
+- Admin API routes require Cognito authentication.
+- Public activity search requires an API key supplied by the mobile app.
+- Public activity search requires device attestation tokens (JWKS-validated).
+- Admin routes require membership in the Cognito `admin` group.
+- Optional CDK parameters can bootstrap an initial admin user.
+- Public activities search uses an API key plus device attestation for access control.
+- Passwordless email sign-in uses Cognito custom auth triggers (define/create/verify).
+- Hosted UI enables Google, Apple, and Microsoft IdPs via OAuth.
 
 ## Observability (planned)
 

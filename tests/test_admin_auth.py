@@ -43,3 +43,19 @@ def test_is_admin_false_without_claims() -> None:
 
     event = {"requestContext": {}}
     assert not _is_admin(event)
+
+
+def test_admin_cursor_roundtrip() -> None:
+    """Ensure admin cursor roundtrip works."""
+
+    from app.api.admin import _decode_cursor
+    from app.api.admin import _encode_cursor
+    from app.api.admin import _parse_cursor
+    from uuid import uuid4
+
+    cursor_id = uuid4()
+    cursor = _encode_cursor(cursor_id)
+    payload = _decode_cursor(cursor)
+    assert payload["id"] == str(cursor_id)
+    parsed = _parse_cursor(cursor)
+    assert parsed == cursor_id

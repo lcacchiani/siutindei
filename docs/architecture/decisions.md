@@ -62,7 +62,9 @@ Flutter mobile app, Next.js admin console, and AWS serverless backend.
 - OpenAPI contracts live under `docs/api/`.
 - Activities search contract: `docs/api/activities-search.yaml`.
 - Search responses are cursor-paginated.
+- Cursor pagination uses schedule time and type for ordering.
 - Admin CRUD contract: `docs/api/admin.yaml`.
+- Admin list endpoints return next_cursor for pagination.
 - API client generation is handled via generalized scripts in
   `scripts/codegen/`.
 
@@ -78,8 +80,17 @@ Flutter mobile app, Next.js admin console, and AWS serverless backend.
 ## Authentication
 
 **Decisions:**
-- Cognito User Pool secures API Gateway routes.
+- Public activity search uses an API key; admin routes require Cognito.
 - Admin routes require membership in the `admin` group.
+- Admin group is created via CDK.
+- Admin group membership can be managed via `/admin/users/{username}/groups`.
+- Admin bootstrap user can be created with CDK parameters.
+- Authentication is passwordless: email custom challenge (OTP + optional magic
+  link) and federated sign-in via Google, Apple, and Microsoft (OIDC).
+- Public activity search also requires device attestation via a JWT validated
+  against a JWKS URL configured in CDK parameters.
+- Hosted UI uses OAuth code flow with callback/logout URLs supplied via CDK
+  parameters.
 - API Gateway method caching enabled for search responses (5-minute TTL).
 
 ## Flutter Amplify Configuration
@@ -147,6 +158,7 @@ Flutter mobile app, Next.js admin console, and AWS serverless backend.
 - `AWS_REGION`
 - `CDK_STACKS` (optional)
 - `CDK_BOOTSTRAP_QUALIFIER` (optional)
+- `CDK_PARAM_FILE` (optional path to CDK parameter JSON)
 - `AMPLIFY_APP_ID`
 - `AMPLIFY_BRANCH`
 - `ANDROID_PACKAGE_NAME`
@@ -154,8 +166,17 @@ Flutter mobile app, Next.js admin console, and AWS serverless backend.
 - `IOS_BUNDLE_ID`
 - `APPLE_TEAM_ID`
 - `IOS_PROVISIONING_PROFILE` (optional)
+- `FIREBASE_API_KEY`
+- `FIREBASE_PROJECT_ID`
+- `FIREBASE_MESSAGING_SENDER_ID`
+- `FIREBASE_ANDROID_APP_ID`
+- `FIREBASE_IOS_APP_ID`
+- `FIREBASE_IOS_BUNDLE_ID`
+- `FIREBASE_STORAGE_BUCKET` (optional)
+- `FIREBASE_APP_CHECK_DEBUG` (optional; "true" for debug providers)
 
 **GitHub Secrets**
+- `AMPLIFY_API_KEY` (mobile API key injected at build time)
 - `APPSTORE_API_KEY_JSON` (recommended single JSON secret with issuer_id,
   key_id, private_key)
 - `GOOGLE_PLAY_SERVICE_ACCOUNT`
@@ -171,6 +192,10 @@ Flutter mobile app, Next.js admin console, and AWS serverless backend.
 - `MATCH_PASSWORD`
 - `FASTLANE_USER`
 - `FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD`
+
+**CDK Parameters (via `CDK_PARAM_FILE`)**
+- `PublicApiKeyValue` (API key required for public search)
+- `DeviceAttestationJwksUrl`, `DeviceAttestationIssuer`, `DeviceAttestationAudience`
 
 ## Next Steps
 
