@@ -84,9 +84,10 @@ All times are stored in UTC.
 - IAM auth for RDS Proxy, TLS enforced on DB connections.
 - Secrets stored in GitHub Secrets or AWS Secrets Manager.
 - Admin API routes require Cognito authentication.
+- Public activity search requires an API key supplied by the mobile app.
 - Admin routes require membership in the Cognito `admin` group.
 - Optional CDK parameters can bootstrap an initial admin user.
-- Public activities search does not require authentication.
+- Public activities search uses an API key for access control.
 - Passwordless email sign-in uses Cognito custom auth triggers (define/create/verify).
 - Hosted UI enables Google, Apple, and Microsoft IdPs via OAuth.
 

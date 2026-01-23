@@ -25,6 +25,14 @@ class _ActivitiesScreenState extends ConsumerState<ActivitiesScreen> {
   final _endMinutesController = TextEditingController();
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(activitiesViewModelProvider.notifier).search(_buildFilters());
+    });
+  }
+
+  @override
   void dispose() {
     _ageController.dispose();
     _districtController.dispose();

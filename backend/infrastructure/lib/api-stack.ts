@@ -142,6 +142,11 @@ export class ApiStack extends cdk.Stack {
       default: 3,
       description: "Maximum passwordless auth attempts before failing",
     });
+    const publicApiKeyValue = new cdk.CfnParameter(this, "PublicApiKeyValue", {
+      type: "String",
+      noEcho: true,
+      description: "API key value required for mobile activity search",
+    });
 
     const userPool = new cognito.UserPool(this, "ActivitiesUserPool", {
       signInAliases: { email: true },
@@ -478,6 +483,13 @@ export class ApiStack extends cdk.Stack {
       }
     );
 
+    const mobileApiKey = new apigateway.ApiKey(this, "MobileSearchApiKey", {
+      value: publicApiKeyValue.valueAsString,
+    });
+    const mobileUsagePlan = api.addUsagePlan("MobileSearchUsagePlan");
+    mobileUsagePlan.addApiKey(mobileApiKey);
+    mobileUsagePlan.addApiStage({ stage: api.deploymentStage });
+
     new cognito.CfnUserPoolGroup(this, "AdminGroup", {
       userPoolId: userPool.userPoolId,
       groupName: "admin",
@@ -666,6 +678,7 @@ export class ApiStack extends cdk.Stack {
 
     search.addMethod("GET", new apigateway.LambdaIntegration(searchFunction), {
       authorizationType: apigateway.AuthorizationType.NONE,
+      apiKeyRequired: true,
       cacheTtl,
       cachingEnabled: true,
       cacheKeyParameters,

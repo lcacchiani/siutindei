@@ -18,6 +18,9 @@ class ApiService {
     if (tokens != null) {
       headers['Authorization'] = tokens.idToken;
     }
+    if (AmplifyConfig.apiKey.isNotEmpty) {
+      headers['x-api-key'] = AmplifyConfig.apiKey;
+    }
     final options = RestOptions(
       apiName: AmplifyConfig.apiName,
       path: '/activities/search',
