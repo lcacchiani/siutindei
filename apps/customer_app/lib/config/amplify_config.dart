@@ -8,9 +8,6 @@ class AmplifyConfig {
 
   static const apiKey = String.fromEnvironment('AMPLIFY_API_KEY');
 
-  static const deviceAttestationToken =
-      String.fromEnvironment('AMPLIFY_DEVICE_ATTESTATION_TOKEN');
-
   static String requireJson() {
     if (json.isEmpty) {
       throw StateError('AMPLIFY_CONFIG is not set');

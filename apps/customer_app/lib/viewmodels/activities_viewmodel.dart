@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/activity_models.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
+import '../services/device_attestation_service.dart';
 
 class ActivitiesState {
   ActivitiesState({
@@ -93,6 +94,7 @@ class ActivitiesViewModel extends StateNotifier<ActivitiesState> {
 final activitiesViewModelProvider =
     StateNotifierProvider<ActivitiesViewModel, ActivitiesState>((ref) {
   final authService = AuthService();
-  final apiService = ApiService(authService);
+  final deviceAttestationService = DeviceAttestationService();
+  final apiService = ApiService(authService, deviceAttestationService);
   return ActivitiesViewModel(apiService);
 });

@@ -166,6 +166,14 @@ Flutter mobile app, Next.js admin console, and AWS serverless backend.
 - `IOS_BUNDLE_ID`
 - `APPLE_TEAM_ID`
 - `IOS_PROVISIONING_PROFILE` (optional)
+- `FIREBASE_API_KEY`
+- `FIREBASE_PROJECT_ID`
+- `FIREBASE_MESSAGING_SENDER_ID`
+- `FIREBASE_ANDROID_APP_ID`
+- `FIREBASE_IOS_APP_ID`
+- `FIREBASE_IOS_BUNDLE_ID`
+- `FIREBASE_STORAGE_BUCKET` (optional)
+- `FIREBASE_APP_CHECK_DEBUG` (optional; "true" for debug providers)
 
 **GitHub Secrets**
 - `AMPLIFY_API_KEY` (mobile API key injected at build time)

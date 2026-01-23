@@ -30,6 +30,7 @@ Flutter Mobile / Next.js Admin
 - Users browse activities and filter by age, district, price, time/day,
   and language.
 - Uses generated Dart API client from OpenAPI specs.
+- Device attestation uses Firebase App Check (Play Integrity / App Attest).
 
 ### Admin console (Next.js App Router)
 - Admin users manage organizations, activities, schedules, and pricing.
