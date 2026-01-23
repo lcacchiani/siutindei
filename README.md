@@ -46,7 +46,8 @@ Apply the following trust policy to the `GitHubActionsRole` (replace
 
 If you do not see `GitHubActionsRole`, create it:
 
-1. **IAM → Roles → Create role**
+1. **IAM → Roles → Create role** (tag it with `Organization: LX Technology`
+   and `Project: Siu Tin Dei`)
 2. **Trusted entity**: Web identity
 3. **Provider**: `token.actions.githubusercontent.com`
 4. **Audience**: `sts.amazonaws.com`
@@ -55,6 +56,9 @@ If you do not see `GitHubActionsRole`, create it:
 
 If the wizard asks for a GitHub organization, use the repo owner (org or user),
 for example `your-org` or `your-user`.
+
+For the OIDC provider itself, add the same tags:
+`Organization: LX Technology`, `Project: Siu Tin Dei`.
 
 ## GitHub Actions configuration
 
