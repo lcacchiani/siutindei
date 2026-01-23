@@ -53,8 +53,8 @@ If you do not see `GitHubActionsRole`, create it:
 5. **Permissions**: `AdministratorAccess` (tighten later)
 6. **Role name**: `GitHubActionsRole`
 
-If the wizard asks for a GitHub organization, use the repo owner. For this
-project that is `lcacchiani` (even if it is a personal account).
+If the wizard asks for a GitHub organization, use the repo owner (org or user),
+for example `your-org` or `your-user`.
 
 ## GitHub Actions configuration
 
