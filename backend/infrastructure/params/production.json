@@ -2,7 +2,7 @@
   "CognitoDomainPrefix": "lxtechnology-siutindei-prod",
   "CognitoCallbackUrls": "com.lxtechnology.siutindei://callback",
   "CognitoLogoutUrls": "com.lxtechnology.siutindei://logout",
-  "GoogleClientId": "REPLACE_ME",
+  "GoogleClientId": "640961587388-b7qm2408gcnh31shppd4r60rkfr1mqnr.apps.googleusercontent.com",
   "GoogleClientSecret": "REPLACE_ME",
   "AppleClientId": "REPLACE_ME",
   "AppleTeamId": "REPLACE_ME",
