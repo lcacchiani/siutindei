@@ -55,9 +55,9 @@ jobs:
             cd backend/infrastructure
             npx cdk acknowledge 34892 || true
             if [ -n "$CDK_BOOTSTRAP_QUALIFIER" ]; then
-              npx cdk bootstrap --qualifier "$CDK_BOOTSTRAP_QUALIFIER" "aws://$AWS_ACCOUNT_ID/$AWS_REGION"
+              npx cdk bootstrap --no-notices --qualifier "$CDK_BOOTSTRAP_QUALIFIER" "aws://$AWS_ACCOUNT_ID/$AWS_REGION"
             else
-              npx cdk bootstrap "aws://$AWS_ACCOUNT_ID/$AWS_REGION"
+              npx cdk bootstrap --no-notices "aws://$AWS_ACCOUNT_ID/$AWS_REGION"
             fi
           else
             echo "Missing backend/infrastructure/package.json"
@@ -108,8 +108,34 @@ jobs:
             npm run build --if-present
             PARAM_ARGS=()
             PARAM_FILES=()
-            if [ -n "${CDK_PARAM_FILE:-}" ] && [ -f "$CDK_PARAM_FILE" ]; then
-              PARAM_FILES+=("$CDK_PARAM_FILE")
+            resolve_param_file() {
+              local path="$1"
+              if [ -z "$path" ]; then
+                return 1
+              fi
+              if [ -f "$path" ]; then
+                echo "$path"
+                return 0
+              fi
+              if [ -n "$GITHUB_WORKSPACE" ] && [ -f "$GITHUB_WORKSPACE/$path" ]; then
+                echo "$GITHUB_WORKSPACE/$path"
+                return 0
+              fi
+              return 1
+            }
+            if [ -n "${CDK_PARAM_FILE:-}" ]; then
+              RESOLVED_PARAM_FILE=$(resolve_param_file "$CDK_PARAM_FILE" || true)
+              if [ -n "$RESOLVED_PARAM_FILE" ]; then
+                PARAM_FILES+=("$RESOLVED_PARAM_FILE")
+              elif [ -n "$GITHUB_WORKSPACE" ] && [ -f "$GITHUB_WORKSPACE/backend/infrastructure/params/production.json" ]; then
+                echo "CDK_PARAM_FILE '$CDK_PARAM_FILE' not found; falling back to params/production.json"
+                PARAM_FILES+=("$GITHUB_WORKSPACE/backend/infrastructure/params/production.json")
+              else
+                echo "CDK_PARAM_FILE '$CDK_PARAM_FILE' not found"
+                exit 1
+              fi
+            elif [ -n "$GITHUB_WORKSPACE" ] && [ -f "$GITHUB_WORKSPACE/backend/infrastructure/params/production.json" ]; then
+              PARAM_FILES+=("$GITHUB_WORKSPACE/backend/infrastructure/params/production.json")
             fi
             if [ -n "${CDK_SECRET_PARAM_FILE:-}" ] && [ -f "$CDK_SECRET_PARAM_FILE" ]; then
               PARAM_FILES+=("$CDK_SECRET_PARAM_FILE")
@@ -138,10 +164,14 @@ jobs:
           PY
               readarray -t PARAM_ARGS < "$PARAM_ARGS_FILE"
             fi
+            QUALIFIER_ARGS=()
+            if [ -n "$CDK_BOOTSTRAP_QUALIFIER" ]; then
+              QUALIFIER_ARGS=(--qualifier "$CDK_BOOTSTRAP_QUALIFIER")
+            fi
             if [ -n "$CDK_STACKS" ]; then
-              npx cdk deploy --require-approval never $CDK_STACKS "${PARAM_ARGS[@]}"
+              npx cdk deploy --no-notices --require-approval never "${QUALIFIER_ARGS[@]}" $CDK_STACKS "${PARAM_ARGS[@]}"
             else
-              npx cdk deploy --require-approval never "${PARAM_ARGS[@]}"
+              npx cdk deploy --no-notices --require-approval never "${QUALIFIER_ARGS[@]}" "${PARAM_ARGS[@]}"
             fi
           else
             echo "Missing backend/infrastructure/package.json"
@@ -150,3 +180,4 @@ jobs:
           CDK_STACKS: ${{ vars.CDK_STACKS }}
           CDK_PARAM_FILE: ${{ vars.CDK_PARAM_FILE }}
           CDK_SECRET_PARAM_FILE: ${{ env.CDK_SECRET_PARAM_FILE }}
+          CDK_BOOTSTRAP_QUALIFIER: ${{ vars.CDK_BOOTSTRAP_QUALIFIER }}

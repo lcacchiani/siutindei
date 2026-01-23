@@ -628,6 +628,7 @@ export class ApiStack extends cdk.Stack {
             resources: [userPool.userPoolArn],
           }),
         ]),
+        installLatestAwsSdk: false,
       }
     );
     const adminUserResource = createAdminUser.node.findChild(
@@ -672,6 +673,7 @@ export class ApiStack extends cdk.Stack {
             resources: [userPool.userPoolArn],
           }),
         ]),
+        installLatestAwsSdk: false,
       }
     );
     const adminPasswordResource = setAdminPassword.node.findChild(
@@ -715,6 +717,7 @@ export class ApiStack extends cdk.Stack {
             resources: [userPool.userPoolArn],
           }),
         ]),
+        installLatestAwsSdk: false,
       }
     );
     const adminGroupResource = addAdminToGroup.node.findChild(
