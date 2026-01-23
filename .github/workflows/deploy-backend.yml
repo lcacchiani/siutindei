@@ -2,6 +2,12 @@ name: Deploy Backend
 
 on:
   workflow_dispatch:
+    inputs:
+      destroy_before_deploy:
+        description: "Run 'cdk destroy' before deploy"
+        required: false
+        default: false
+        type: boolean
   push:
     branches:
       - main
@@ -163,6 +169,13 @@ jobs:
             if [ -n "$CDK_BOOTSTRAP_QUALIFIER" ]; then
               QUALIFIER_ARGS=(--qualifier "$CDK_BOOTSTRAP_QUALIFIER")
             fi
+            if [ "${DESTROY_BEFORE_DEPLOY:-false}" = "true" ]; then
+              if [ -n "$CDK_STACKS" ]; then
+                npx cdk destroy --no-notices --force "${QUALIFIER_ARGS[@]}" $CDK_STACKS
+              else
+                npx cdk destroy --no-notices --force "${QUALIFIER_ARGS[@]}" ActivitiesApiStack
+              fi
+            fi
             if [ -n "$CDK_STACKS" ]; then
               npx cdk deploy --no-notices --require-approval never "${QUALIFIER_ARGS[@]}" $CDK_STACKS "${PARAM_ARGS[@]}"
             else
@@ -176,3 +189,4 @@ jobs:
           CDK_PARAM_FILE: ${{ vars.CDK_PARAM_FILE }}
           CDK_SECRET_PARAM_FILE: ${{ env.CDK_SECRET_PARAM_FILE }}
           CDK_BOOTSTRAP_QUALIFIER: ${{ vars.CDK_BOOTSTRAP_QUALIFIER }}
+          DESTROY_BEFORE_DEPLOY: ${{ github.event.inputs.destroy_before_deploy || 'false' }}
