@@ -77,7 +77,7 @@ export class ApiStack extends cdk.Stack {
       vpc,
       securityGroups: [proxySecurityGroup],
       requireTLS: true,
-      iamAuth: rds.IamAuth.REQUIRED,
+      iamAuth: true,
     });
 
     const authDomainPrefix = new cdk.CfnParameter(this, "CognitoDomainPrefix", {
@@ -261,8 +261,8 @@ export class ApiStack extends cdk.Stack {
         allowedOAuthFlowsUserPoolClient: true,
         allowedOAuthFlows: ["code"],
         allowedOAuthScopes: ["openid", "email", "profile"],
-        callbackURLs: oauthCallbackUrls.valueAsList,
-        logoutURLs: oauthLogoutUrls.valueAsList,
+        callbackUrLs: oauthCallbackUrls.valueAsList,
+        logoutUrLs: oauthLogoutUrls.valueAsList,
         supportedIdentityProviders: [
           "COGNITO",
           "Google",
@@ -528,10 +528,15 @@ export class ApiStack extends cdk.Stack {
       },
       deployOptions: {
         stageName: "prod",
-        cachingEnabled: true,
         cacheClusterEnabled: true,
         cacheClusterSize: "0.5",
         cacheDataEncrypted: true,
+        methodOptions: {
+          "/activities/search/GET": {
+            cachingEnabled: true,
+            cacheTtl: cdk.Duration.minutes(5),
+          },
+        },
       },
     });
 
@@ -601,12 +606,10 @@ export class ApiStack extends cdk.Stack {
         },
         onUpdate: {
           service: "CognitoIdentityServiceProvider",
-          action: "adminCreateUser",
+          action: "adminUpdateUserAttributes",
           parameters: {
             UserPoolId: userPool.userPoolId,
             Username: adminBootstrapEmail.valueAsString,
-            TemporaryPassword: adminBootstrapPassword.valueAsString,
-            MessageAction: "SUPPRESS",
             UserAttributes: [
               { Name: "email", Value: adminBootstrapEmail.valueAsString },
               { Name: "email_verified", Value: "true" },
@@ -618,11 +621,13 @@ export class ApiStack extends cdk.Stack {
         },
         policy: customresources.AwsCustomResourcePolicy.fromStatements([
           new iam.PolicyStatement({
-            actions: ["cognito-idp:AdminCreateUser"],
+            actions: [
+              "cognito-idp:AdminCreateUser",
+              "cognito-idp:AdminUpdateUserAttributes",
+            ],
             resources: [userPool.userPoolArn],
           }),
         ]),
-        ignoreErrorCodesMatching: "UsernameExistsException",
       }
     );
     (createAdminUser.node.defaultChild as cdk.CfnResource).cfnOptions.condition =
@@ -664,7 +669,6 @@ export class ApiStack extends cdk.Stack {
             resources: [userPool.userPoolArn],
           }),
         ]),
-        ignoreErrorCodesMatching: "UserNotFoundException",
       }
     );
     (setAdminPassword.node.defaultChild as cdk.CfnResource).cfnOptions.condition =
@@ -713,7 +717,6 @@ export class ApiStack extends cdk.Stack {
 
     const activities = api.root.addResource("activities");
     const search = activities.addResource("search");
-    const cacheTtl = cdk.Duration.minutes(5);
     const cacheKeyParameters = [
       "method.request.querystring.age",
       "method.request.querystring.district",
@@ -740,9 +743,6 @@ export class ApiStack extends cdk.Stack {
       authorizationType: apigateway.AuthorizationType.CUSTOM,
       authorizer: deviceAttestationAuthorizer,
       apiKeyRequired: true,
-      cacheTtl,
-      cachingEnabled: true,
-      cacheKeyParameters,
       requestParameters,
     });
 
