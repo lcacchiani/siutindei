@@ -20,10 +20,10 @@ class FirebaseInitializer {
     }
 
     await FirebaseAppCheck.instance.activate(
-      androidProvider: FirebaseConfig.useAppCheckDebug
+      providerAndroid: FirebaseConfig.useAppCheckDebug
           ? AndroidProvider.debug
           : AndroidProvider.playIntegrity,
-      appleProvider: FirebaseConfig.useAppCheckDebug
+      providerApple: FirebaseConfig.useAppCheckDebug
           ? AppleProvider.debug
           : AppleProvider.appAttest,
     );

@@ -1,7 +1,8 @@
 import 'dart:math';
 
 import 'package:amplify_auth_cognito/amplify_auth_cognito.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:amplify_flutter/amplify_flutter.dart';
+import 'package:flutter_riverpod/legacy.dart';
 
 import '../services/amplify_service.dart';
 import '../services/auth_service.dart';
@@ -139,7 +140,7 @@ class AuthViewModel extends StateNotifier<AuthState> {
     }
   }
 
-  void _handleSignInResult(AuthSignInResult result, String email) {
+  void _handleSignInResult(SignInResult result, String email) {
     if (result.isSignedIn) {
       state = state.copyWith(isLoading: false, isSignedIn: true);
       return;
@@ -153,7 +154,7 @@ class AuthViewModel extends StateNotifier<AuthState> {
       );
       return;
     }
-    throw const AuthException('Unsupported sign-in step.');
+    throw const UnknownException('Unsupported sign-in step.');
   }
 
   String _generatePassword() {

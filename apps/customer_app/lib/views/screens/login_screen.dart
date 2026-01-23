@@ -112,7 +112,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   ? null
                   : () {
                       ref.read(authViewModelProvider.notifier).signInWithProvider(
-                            const AuthProvider.oidc('Microsoft'),
+                            const AuthProvider.custom('Microsoft'),
                           );
                     },
               child: const Text('Continue with Microsoft'),

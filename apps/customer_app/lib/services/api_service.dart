@@ -20,13 +20,13 @@ class ApiService {
     if (tokens != null) {
       headers['Authorization'] = tokens.idToken;
     }
-    if (AmplifyConfig.apiKey.isNotEmpty) {
-      headers['x-api-key'] = AmplifyConfig.apiKey;
+    if (AppAmplifyConfig.apiKey.isNotEmpty) {
+      headers['x-api-key'] = AppAmplifyConfig.apiKey;
     }
     final attestationToken = await _deviceAttestationService.getToken();
     headers['x-device-attestation'] = attestationToken;
     final options = RestOptions(
-      apiName: AmplifyConfig.apiName,
+      apiName: AppAmplifyConfig.apiName,
       path: '/activities/search',
       queryParameters: filters.toQueryParameters(),
       headers: headers,
