@@ -681,7 +681,7 @@ export class ApiStack extends cdk.Stack {
     ) as cdk.CustomResource;
     const adminPasswordCfn = adminPasswordResource.node.defaultChild as cdk.CfnResource;
     adminPasswordCfn.cfnOptions.condition = bootstrapCondition;
-    setAdminPassword.node.addDependency(createAdminUser);
+    adminPasswordCfn.addDependency(adminUserCfn);
 
     const addAdminToGroup = new customresources.AwsCustomResource(
       this,
@@ -725,7 +725,7 @@ export class ApiStack extends cdk.Stack {
     ) as cdk.CustomResource;
     const adminGroupCfn = adminGroupResource.node.defaultChild as cdk.CfnResource;
     adminGroupCfn.cfnOptions.condition = bootstrapCondition;
-    addAdminToGroup.node.addDependency(setAdminPassword);
+    adminGroupCfn.addDependency(adminPasswordCfn);
 
     const activities = api.root.addResource("activities");
     const search = activities.addResource("search");
