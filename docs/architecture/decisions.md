@@ -177,6 +177,11 @@ Flutter mobile app, Next.js admin console, and AWS serverless backend.
 
 **GitHub Secrets**
 - `AMPLIFY_API_KEY` (mobile API key injected at build time)
+- `CDK_PARAM_GOOGLE_CLIENT_SECRET`
+- `CDK_PARAM_APPLE_PRIVATE_KEY`
+- `CDK_PARAM_MICROSOFT_CLIENT_SECRET`
+- `CDK_PARAM_PUBLIC_API_KEY_VALUE`
+- `CDK_PARAM_ADMIN_BOOTSTRAP_TEMP_PASSWORD` (optional)
 - `APPSTORE_API_KEY_JSON` (recommended single JSON secret with issuer_id,
   key_id, private_key)
 - `GOOGLE_PLAY_SERVICE_ACCOUNT`

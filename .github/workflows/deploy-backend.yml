@@ -40,6 +40,39 @@ jobs:
           aws-region: ${{ vars.AWS_REGION }}
           role-session-name: GitHubActions-${{ github.run_id }}
 
+      - name: Build CDK secret parameters file
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          mapping = {
+              "GoogleClientSecret": os.getenv("CDK_PARAM_GOOGLE_CLIENT_SECRET", ""),
+              "ApplePrivateKey": os.getenv("CDK_PARAM_APPLE_PRIVATE_KEY", ""),
+              "MicrosoftClientSecret": os.getenv("CDK_PARAM_MICROSOFT_CLIENT_SECRET", ""),
+              "PublicApiKeyValue": os.getenv("CDK_PARAM_PUBLIC_API_KEY_VALUE", ""),
+              "AdminBootstrapTempPassword": os.getenv(
+                  "CDK_PARAM_ADMIN_BOOTSTRAP_TEMP_PASSWORD", ""
+              ),
+          }
+          params = {k: v for k, v in mapping.items() if v}
+          if not params:
+              raise SystemExit(0)
+
+          output_path = Path("/tmp/cdk-secret-params.json")
+          output_path.write_text(json.dumps(params), encoding="utf-8")
+          env_path = os.environ["GITHUB_ENV"]
+          with open(env_path, "a", encoding="utf-8") as handle:
+              handle.write(f"CDK_SECRET_PARAM_FILE={output_path}\n")
+          PY
+        env:
+          CDK_PARAM_GOOGLE_CLIENT_SECRET: ${{ secrets.CDK_PARAM_GOOGLE_CLIENT_SECRET }}
+          CDK_PARAM_APPLE_PRIVATE_KEY: ${{ secrets.CDK_PARAM_APPLE_PRIVATE_KEY }}
+          CDK_PARAM_MICROSOFT_CLIENT_SECRET: ${{ secrets.CDK_PARAM_MICROSOFT_CLIENT_SECRET }}
+          CDK_PARAM_PUBLIC_API_KEY_VALUE: ${{ secrets.CDK_PARAM_PUBLIC_API_KEY_VALUE }}
+          CDK_PARAM_ADMIN_BOOTSTRAP_TEMP_PASSWORD: ${{ secrets.CDK_PARAM_ADMIN_BOOTSTRAP_TEMP_PASSWORD }}
+
       - name: Deploy backend with CDK
         run: |
           if [ -f "backend/infrastructure/package.json" ]; then
@@ -47,15 +80,25 @@ jobs:
             npm ci
             npm run build --if-present
             PARAM_ARGS=()
-            PARAM_FILE="${CDK_PARAM_FILE:-}"
-            if [ -n "$PARAM_FILE" ] && [ -f "$PARAM_FILE" ]; then
-              readarray -t PARAM_ARGS < <(python3 - <<'PY'
+            PARAM_FILES=()
+            if [ -n "${CDK_PARAM_FILE:-}" ] && [ -f "$CDK_PARAM_FILE" ]; then
+              PARAM_FILES+=("$CDK_PARAM_FILE")
+            fi
+            if [ -n "${CDK_SECRET_PARAM_FILE:-}" ] && [ -f "$CDK_SECRET_PARAM_FILE" ]; then
+              PARAM_FILES+=("$CDK_SECRET_PARAM_FILE")
+            fi
+            if [ ${#PARAM_FILES[@]} -gt 0 ]; then
+              PARAM_FILES_CSV=$(IFS=, ; echo "${PARAM_FILES[*]}")
+              PARAM_ARGS_FILE="$(mktemp)"
+              PARAM_FILES="$PARAM_FILES_CSV" python3 - <<'PY' > "$PARAM_ARGS_FILE"
 import json
 import os
 
-path = os.environ["PARAM_FILE"]
-with open(path, "r", encoding="utf-8") as handle:
-    params = json.load(handle)
+paths = [p for p in os.environ.get("PARAM_FILES", "").split(",") if p]
+params = {}
+for path in paths:
+    with open(path, "r", encoding="utf-8") as handle:
+        params.update(json.load(handle))
 
 for key, value in params.items():
     if value is None:
@@ -66,7 +109,7 @@ for key, value in params.items():
     print("--parameters")
     print(f"{key}={value_str}")
 PY
-              )
+              readarray -t PARAM_ARGS < "$PARAM_ARGS_FILE"
             fi
             if [ -n "$CDK_STACKS" ]; then
               npx cdk deploy --require-approval never $CDK_STACKS "${PARAM_ARGS[@]}"
@@ -79,3 +122,4 @@ PY
         env:
           CDK_STACKS: ${{ vars.CDK_STACKS }}
           CDK_PARAM_FILE: ${{ vars.CDK_PARAM_FILE }}
+          CDK_SECRET_PARAM_FILE: ${{ env.CDK_SECRET_PARAM_FILE }}
