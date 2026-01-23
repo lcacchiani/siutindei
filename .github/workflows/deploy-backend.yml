@@ -53,6 +53,7 @@ jobs:
         run: |
           if [ -f "backend/infrastructure/package.json" ]; then
             cd backend/infrastructure
+            npx cdk acknowledge 34892 || true
             if [ -n "$CDK_BOOTSTRAP_QUALIFIER" ]; then
               npx cdk bootstrap --qualifier "$CDK_BOOTSTRAP_QUALIFIER" "aws://$AWS_ACCOUNT_ID/$AWS_REGION"
             else
@@ -103,6 +104,7 @@ jobs:
         run: |
           if [ -f "backend/infrastructure/package.json" ]; then
             cd backend/infrastructure
+            npx cdk acknowledge 34892 || true
             npm run build --if-present
             PARAM_ARGS=()
             PARAM_FILES=()
