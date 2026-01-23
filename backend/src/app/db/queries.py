@@ -4,15 +4,27 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
+from datetime import timezone
 from decimal import Decimal
 from typing import Iterable
 from typing import Sequence
 from uuid import UUID
 
+import sqlalchemy as sa
 from sqlalchemy import and_
 from sqlalchemy import or_
 from sqlalchemy import select
 from sqlalchemy.sql import Select
+@dataclass(frozen=True)
+class ActivitySearchCursor:
+    """Cursor for activity search pagination."""
+
+    schedule_type: ScheduleType
+    day_of_week_utc: int | None
+    day_of_month: int | None
+    start_at_utc: datetime | None
+    start_minutes_utc: int | None
+    schedule_id: UUID
 
 from app.db.models import Activity
 from app.db.models import ActivityPricing
@@ -40,7 +52,7 @@ class ActivitySearchFilters:
     start_at_utc: datetime | None = None
     end_at_utc: datetime | None = None
     languages: Sequence[str] = ()
-    cursor_schedule_id: UUID | None = None
+    cursor: ActivitySearchCursor | None = None
     limit: int = 50
 
 
@@ -120,13 +132,15 @@ def build_activity_search_query(filters: ActivitySearchFilters) -> Select:
         language_conditions = _build_language_conditions(filters.languages)
         conditions.append(or_(*language_conditions))
 
-    if filters.cursor_schedule_id is not None:
-        conditions.append(ActivitySchedule.id > filters.cursor_schedule_id)
+    order_columns = _order_columns()
+    if filters.cursor is not None:
+        cursor_values = _cursor_values(filters.cursor)
+        conditions.append(sa.tuple_(*order_columns) > sa.tuple_(*cursor_values))
 
     if conditions:
         query = query.where(and_(*conditions))
 
-    query = query.order_by(ActivitySchedule.id)
+    query = query.order_by(*order_columns)
     return query.limit(filters.limit)
 
 
@@ -167,3 +181,47 @@ def _build_language_conditions(languages: Iterable[str]) -> list:
     """Build language conditions for session-specific languages."""
 
     return [ActivitySchedule.languages.any(language) for language in languages]
+
+
+def _order_columns() -> list:
+    """Return ordering columns for pagination."""
+
+    type_order = sa.case(
+        (ActivitySchedule.schedule_type == ScheduleType.WEEKLY, 1),
+        (ActivitySchedule.schedule_type == ScheduleType.MONTHLY, 2),
+        (ActivitySchedule.schedule_type == ScheduleType.DATE_SPECIFIC, 3),
+        else_=4,
+    )
+    day_of_week = sa.func.coalesce(ActivitySchedule.day_of_week_utc, -1)
+    day_of_month = sa.func.coalesce(ActivitySchedule.day_of_month, -1)
+    start_at = sa.func.coalesce(
+        ActivitySchedule.start_at_utc,
+        datetime(1970, 1, 1, tzinfo=timezone.utc),
+    )
+    start_minutes = sa.func.coalesce(ActivitySchedule.start_minutes_utc, -1)
+
+    return [type_order, day_of_week, day_of_month, start_at, start_minutes, ActivitySchedule.id]
+
+
+def _cursor_values(cursor: ActivitySearchCursor) -> list:
+    """Return ordering values for the cursor comparison."""
+
+    type_order = _schedule_type_order(cursor.schedule_type)
+    day_of_week = cursor.day_of_week_utc if cursor.day_of_week_utc is not None else -1
+    day_of_month = cursor.day_of_month if cursor.day_of_month is not None else -1
+    start_at = cursor.start_at_utc or datetime(1970, 1, 1, tzinfo=timezone.utc)
+    start_minutes = cursor.start_minutes_utc if cursor.start_minutes_utc is not None else -1
+
+    return [type_order, day_of_week, day_of_month, start_at, start_minutes, cursor.schedule_id]
+
+
+def _schedule_type_order(value: ScheduleType) -> int:
+    """Return a deterministic order for schedule types."""
+
+    if value == ScheduleType.WEEKLY:
+        return 1
+    if value == ScheduleType.MONTHLY:
+        return 2
+    if value == ScheduleType.DATE_SPECIFIC:
+        return 3
+    return 4

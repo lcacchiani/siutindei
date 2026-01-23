@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../viewmodels/auth_viewmodel.dart';
 import '../widgets/app_text_field.dart';
+import 'sign_up_screen.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key, this.errorMessage});
@@ -67,6 +68,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Text('Sign in'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const SignUpScreen()),
+                );
+              },
+              child: const Text('Create account'),
             ),
           ],
         ),

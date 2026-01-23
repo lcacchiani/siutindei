@@ -62,6 +62,7 @@ Flutter mobile app, Next.js admin console, and AWS serverless backend.
 - OpenAPI contracts live under `docs/api/`.
 - Activities search contract: `docs/api/activities-search.yaml`.
 - Search responses are cursor-paginated.
+- Cursor pagination uses schedule time and type for ordering.
 - Admin CRUD contract: `docs/api/admin.yaml`.
 - API client generation is handled via generalized scripts in
   `scripts/codegen/`.
@@ -80,6 +81,7 @@ Flutter mobile app, Next.js admin console, and AWS serverless backend.
 **Decisions:**
 - Cognito User Pool secures API Gateway routes.
 - Admin routes require membership in the `admin` group.
+- Admin group is created via CDK.
 - API Gateway method caching enabled for search responses (5-minute TTL).
 
 ## Flutter Amplify Configuration

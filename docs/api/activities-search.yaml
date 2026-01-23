@@ -106,7 +106,7 @@ paths:
           required: false
           schema:
             type: string
-          description: Opaque cursor returned from the previous page.
+          description: Opaque cursor returned from the previous page (ordered by schedule time).
       responses:
         "200":
           description: Search results

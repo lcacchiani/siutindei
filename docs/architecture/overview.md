@@ -81,6 +81,7 @@ All times are stored in UTC.
 - IAM auth for RDS Proxy, TLS enforced on DB connections.
 - Secrets stored in GitHub Secrets or AWS Secrets Manager.
  - API routes require Cognito authentication.
+- Admin routes require membership in the Cognito `admin` group.
 
 ## Observability (planned)
 

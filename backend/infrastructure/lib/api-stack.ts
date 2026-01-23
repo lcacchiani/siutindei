@@ -219,6 +219,12 @@ export class ApiStack extends cdk.Stack {
       }
     );
 
+    new cognito.CfnUserPoolGroup(this, "AdminGroup", {
+      userPoolId: userPool.userPoolId,
+      groupName: "admin",
+      description: "Administrative users",
+    });
+
     const activities = api.root.addResource("activities");
     const search = activities.addResource("search");
     const cacheTtl = cdk.Duration.minutes(5);

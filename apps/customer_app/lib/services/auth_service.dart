@@ -40,6 +40,27 @@ class AuthService {
     }
   }
 
+  Future<bool> signUp({required String username, required String password}) async {
+    final result = await Amplify.Auth.signUp(
+      username: username,
+      password: password,
+    );
+    return result.nextStep.signUpStep == AuthSignUpStep.confirmSignUp;
+  }
+
+  Future<void> confirmSignUp({
+    required String username,
+    required String confirmationCode,
+  }) async {
+    final result = await Amplify.Auth.confirmSignUp(
+      username: username,
+      confirmationCode: confirmationCode,
+    );
+    if (!result.isSignUpComplete) {
+      throw const AuthException('Confirmation did not complete.');
+    }
+  }
+
   Future<void> signOut() async {
     await Amplify.Auth.signOut();
   }

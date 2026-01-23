@@ -33,6 +33,7 @@ from app.db.models import Organization
 from app.db.models import PricingType
 from app.db.models import ScheduleType
 from app.db.connection import get_database_url
+from app.db.queries import ActivitySearchCursor
 from app.db.queries import ActivitySearchFilters
 from app.db.queries import build_activity_search_query
 
@@ -71,7 +72,7 @@ def parse_filters(event: Mapping[str, Any]) -> ActivitySearchFilters:
         start_at_utc=_parse_datetime(_first(params, "start_at_utc")),
         end_at_utc=_parse_datetime(_first(params, "end_at_utc")),
         languages=_parse_languages(params),
-        cursor_schedule_id=_parse_cursor(_first(params, "cursor")),
+        cursor=_parse_cursor(_first(params, "cursor")),
         limit=_parse_int(_first(params, "limit")) or 50,
     )
 
@@ -93,7 +94,7 @@ def fetch_activity_search_response(filters: ActivitySearchFilters) -> ActivitySe
     next_cursor = None
     if has_more and trimmed_rows:
         schedule = trimmed_rows[-1]._mapping[ActivitySchedule]
-        next_cursor = _encode_cursor(schedule.id)
+        next_cursor = _encode_cursor(schedule)
     return ActivitySearchResponseSchema(items=items, next_cursor=next_cursor)
 
 
@@ -317,22 +318,40 @@ def _pool_settings(use_iam_auth: bool) -> dict[str, Any]:
     }
 
 
-def _parse_cursor(value: str | None) -> UUID | None:
+def _parse_cursor(value: str | None) -> ActivitySearchCursor | None:
     """Parse a pagination cursor."""
 
     if value is None or value == "":
         return None
     try:
         payload = _decode_cursor(value)
-        return UUID(payload["schedule_id"])
+        return ActivitySearchCursor(
+            schedule_type=ScheduleType(payload["schedule_type"]),
+            day_of_week_utc=payload.get("day_of_week_utc"),
+            day_of_month=payload.get("day_of_month"),
+            start_at_utc=_parse_datetime(payload.get("start_at_utc")),
+            start_minutes_utc=payload.get("start_minutes_utc"),
+            schedule_id=UUID(payload["schedule_id"]),
+        )
     except (ValueError, KeyError, TypeError) as exc:
         raise ValueError("Invalid cursor") from exc
 
 
-def _encode_cursor(schedule_id: Any) -> str:
+def _encode_cursor(schedule: ActivitySchedule) -> str:
     """Encode a pagination cursor."""
 
-    payload = json.dumps({"schedule_id": str(schedule_id)}).encode("utf-8")
+    payload = json.dumps(
+        {
+            "schedule_id": str(schedule.id),
+            "schedule_type": schedule.schedule_type.value,
+            "day_of_week_utc": schedule.day_of_week_utc,
+            "day_of_month": schedule.day_of_month,
+            "start_at_utc": schedule.start_at_utc.isoformat()
+            if schedule.start_at_utc
+            else None,
+            "start_minutes_utc": schedule.start_minutes_utc,
+        }
+    ).encode("utf-8")
     encoded = base64.urlsafe_b64encode(payload).decode("utf-8")
     return encoded.rstrip("=")
 
