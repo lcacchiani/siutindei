@@ -1,6 +1,5 @@
 import 'dart:convert';
 
-import 'package:amplify_api/amplify_api.dart';
 import 'package:amplify_flutter/amplify_flutter.dart';
 
 import '../config/amplify_config.dart';
@@ -25,13 +24,12 @@ class ApiService {
     }
     final attestationToken = await _deviceAttestationService.getToken();
     headers['x-device-attestation'] = attestationToken;
-    final options = RestOptions(
+    final response = await Amplify.API.get(
+      '/activities/search',
       apiName: AppAmplifyConfig.apiName,
-      path: '/activities/search',
-      queryParameters: filters.toQueryParameters(),
       headers: headers,
-    );
-    final response = await Amplify.API.get(options).response;
+      queryParameters: filters.toQueryParameters(),
+    ).response;
     final decoded = jsonDecode(response.decodeBody()) as Map<String, dynamic>;
     return ActivitySearchResponse.fromJson(decoded);
   }

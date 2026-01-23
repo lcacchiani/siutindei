@@ -1,7 +1,6 @@
 import 'dart:math';
 
 import 'package:amplify_auth_cognito/amplify_auth_cognito.dart';
-import 'package:amplify_flutter/amplify_flutter.dart';
 import 'package:flutter_riverpod/legacy.dart';
 
 import '../services/amplify_service.dart';

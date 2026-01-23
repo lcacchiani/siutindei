@@ -21,11 +21,11 @@ class FirebaseInitializer {
 
     await FirebaseAppCheck.instance.activate(
       providerAndroid: FirebaseConfig.useAppCheckDebug
-          ? AndroidProvider.debug
-          : AndroidProvider.playIntegrity,
+          ? const AndroidDebugProvider()
+          : const AndroidPlayIntegrityProvider(),
       providerApple: FirebaseConfig.useAppCheckDebug
-          ? AppleProvider.debug
-          : AppleProvider.appAttest,
+          ? const AppleDebugProvider()
+          : const AppleAppAttestWithDeviceCheckFallbackProvider(),
     );
   }
 }
