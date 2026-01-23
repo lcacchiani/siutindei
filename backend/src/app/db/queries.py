@@ -15,6 +15,14 @@ from sqlalchemy import and_
 from sqlalchemy import or_
 from sqlalchemy import select
 from sqlalchemy.sql import Select
+
+from app.db.models import Activity
+from app.db.models import ActivityPricing
+from app.db.models import ActivitySchedule
+from app.db.models import Location
+from app.db.models import Organization
+from app.db.models import PricingType
+from app.db.models import ScheduleType
 @dataclass(frozen=True)
 class ActivitySearchCursor:
     """Cursor for activity search pagination."""
@@ -25,14 +33,6 @@ class ActivitySearchCursor:
     start_at_utc: datetime | None
     start_minutes_utc: int | None
     schedule_id: UUID
-
-from app.db.models import Activity
-from app.db.models import ActivityPricing
-from app.db.models import ActivitySchedule
-from app.db.models import Location
-from app.db.models import Organization
-from app.db.models import PricingType
-from app.db.models import ScheduleType
 
 
 @dataclass(frozen=True)
