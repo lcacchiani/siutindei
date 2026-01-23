@@ -46,7 +46,8 @@ Flutter Mobile / Next.js Admin
 - SQLAlchemy models map to Aurora PostgreSQL.
 - Alembic manages schema migrations, executed via a custom resource Lambda
   during deploy.
- - Cognito User Pool secures API Gateway routes.
+- Cognito User Pool secures API Gateway routes with passwordless email
+  challenges and federated sign-in (Google, Apple, Microsoft).
 
 ## Data model
 
@@ -85,6 +86,8 @@ All times are stored in UTC.
  - API routes require Cognito authentication.
 - Admin routes require membership in the Cognito `admin` group.
 - Optional CDK parameters can bootstrap an initial admin user.
+- Passwordless email sign-in uses Cognito custom auth triggers (define/create/verify).
+- Hosted UI enables Google, Apple, and Microsoft IdPs via OAuth.
 
 ## Observability (planned)
 

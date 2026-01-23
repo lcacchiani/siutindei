@@ -85,6 +85,10 @@ Flutter mobile app, Next.js admin console, and AWS serverless backend.
 - Admin group is created via CDK.
 - Admin group membership can be managed via `/admin/users/{username}/groups`.
 - Admin bootstrap user can be created with CDK parameters.
+- Authentication is passwordless: email custom challenge (OTP + optional magic
+  link) and federated sign-in via Google, Apple, and Microsoft (OIDC).
+- Hosted UI uses OAuth code flow with callback/logout URLs supplied via CDK
+  parameters.
 - API Gateway method caching enabled for search responses (5-minute TTL).
 
 ## Flutter Amplify Configuration

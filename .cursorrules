@@ -91,6 +91,7 @@ repo root
 - Admin group membership can be managed via /admin/users/{username}/groups.
 - Admin list endpoints are cursor paginated.
 - Optional CDK parameters bootstrap an admin user.
+- Auth is passwordless with email OTP/magic link and federated Google/Apple/Microsoft.
 
 ### Code style and structure
 - Write concise and efficient source code.

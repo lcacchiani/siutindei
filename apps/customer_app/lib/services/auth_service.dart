@@ -30,59 +30,34 @@ class AuthService {
     throw const AuthException('Auth session is not Cognito.');
   }
 
-  Future<void> signIn({required String username, required String password}) async {
-    final result = await Amplify.Auth.signIn(
-      username: username,
-      password: password,
-    );
+  Future<AuthSignInResult> startPasswordlessSignIn({
+    required String username,
+  }) {
+    return Amplify.Auth.signIn(username: username);
+  }
+
+  Future<void> confirmPasswordlessSignIn({required String code}) async {
+    final result = await Amplify.Auth.confirmSignIn(confirmationValue: code);
     if (!result.isSignedIn) {
       throw const AuthException('Sign-in did not complete.');
     }
   }
 
-  Future<bool> signUp({required String username, required String password}) async {
-    final result = await Amplify.Auth.signUp(
+  Future<void> signUpWithEmail({required String username, required String password}) {
+    return Amplify.Auth.signUp(
       username: username,
       password: password,
+      options: SignUpOptions(userAttributes: {
+        AuthUserAttributeKey.email: username,
+      }),
     );
-    return result.nextStep.signUpStep == AuthSignUpStep.confirmSignUp;
   }
 
-  Future<void> confirmSignUp({
-    required String username,
-    required String confirmationCode,
-  }) async {
-    final result = await Amplify.Auth.confirmSignUp(
-      username: username,
-      confirmationCode: confirmationCode,
-    );
-    if (!result.isSignUpComplete) {
-      throw const AuthException('Confirmation did not complete.');
+  Future<void> signInWithProvider(AuthProvider provider) async {
+    final result = await Amplify.Auth.signInWithWebUI(provider: provider);
+    if (!result.isSignedIn) {
+      throw const AuthException('Provider sign-in did not complete.');
     }
-  }
-
-  Future<void> resendSignUpCode({required String username}) async {
-    await Amplify.Auth.resendSignUpCode(username: username);
-  }
-
-  Future<void> resetPassword({required String username}) async {
-    final result = await Amplify.Auth.resetPassword(username: username);
-    if (result.nextStep.resetPasswordStep !=
-        AuthResetPasswordStep.confirmResetPasswordWithCode) {
-      throw const AuthException('Password reset did not start.');
-    }
-  }
-
-  Future<void> confirmResetPassword({
-    required String username,
-    required String newPassword,
-    required String confirmationCode,
-  }) async {
-    await Amplify.Auth.confirmResetPassword(
-      username: username,
-      newPassword: newPassword,
-      confirmationCode: confirmationCode,
-    );
   }
 
   Future<void> signOut() async {
