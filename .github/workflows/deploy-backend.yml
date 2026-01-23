@@ -46,13 +46,36 @@ jobs:
             cd backend/infrastructure
             npm ci
             npm run build --if-present
+            PARAM_ARGS=()
+            PARAM_FILE="${CDK_PARAM_FILE:-}"
+            if [ -n "$PARAM_FILE" ] && [ -f "$PARAM_FILE" ]; then
+              readarray -t PARAM_ARGS < <(python3 - <<'PY'
+import json
+import os
+
+path = os.environ["PARAM_FILE"]
+with open(path, "r", encoding="utf-8") as handle:
+    params = json.load(handle)
+
+for key, value in params.items():
+    if value is None:
+        continue
+    value_str = str(value).strip()
+    if not value_str:
+        continue
+    print("--parameters")
+    print(f"{key}={value_str}")
+PY
+              )
+            fi
             if [ -n "$CDK_STACKS" ]; then
-              npx cdk deploy --require-approval never $CDK_STACKS
+              npx cdk deploy --require-approval never $CDK_STACKS "${PARAM_ARGS[@]}"
             else
-              npx cdk deploy --require-approval never
+              npx cdk deploy --require-approval never "${PARAM_ARGS[@]}"
             fi
           else
             echo "Missing backend/infrastructure/package.json"
           fi
         env:
           CDK_STACKS: ${{ vars.CDK_STACKS }}
+          CDK_PARAM_FILE: ${{ vars.CDK_PARAM_FILE }}

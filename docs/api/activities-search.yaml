@@ -9,6 +9,7 @@ paths:
       summary: Search activities
       security:
         - ApiKeyAuth: []
+          DeviceAttestation: []
       parameters:
         - name: age
           in: query
@@ -122,6 +123,10 @@ components:
       type: apiKey
       in: header
       name: x-api-key
+    DeviceAttestation:
+      type: apiKey
+      in: header
+      name: x-device-attestation
   schemas:
     ActivitySearchResponse:
       type: object

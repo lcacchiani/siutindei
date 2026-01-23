@@ -1,0 +1,23 @@
+{
+  "CognitoDomainPrefix": "siutindei-prod",
+  "CognitoCallbackUrls": "https://example.com/auth/callback,com.lxtechnology.siutindei://callback",
+  "CognitoLogoutUrls": "https://example.com/auth/logout,com.lxtechnology.siutindei://logout",
+  "GoogleClientId": "REPLACE_ME",
+  "GoogleClientSecret": "REPLACE_ME",
+  "AppleClientId": "REPLACE_ME",
+  "AppleTeamId": "REPLACE_ME",
+  "AppleKeyId": "REPLACE_ME",
+  "ApplePrivateKey": "REPLACE_ME",
+  "MicrosoftTenantId": "REPLACE_ME",
+  "MicrosoftClientId": "REPLACE_ME",
+  "MicrosoftClientSecret": "REPLACE_ME",
+  "AuthEmailFromAddress": "no-reply@example.com",
+  "LoginLinkBaseUrl": "",
+  "MaxChallengeAttempts": "3",
+  "PublicApiKeyValue": "REPLACE_ME",
+  "DeviceAttestationJwksUrl": "REPLACE_ME",
+  "DeviceAttestationIssuer": "REPLACE_ME",
+  "DeviceAttestationAudience": "REPLACE_ME",
+  "AdminBootstrapEmail": "",
+  "AdminBootstrapTempPassword": ""
+}

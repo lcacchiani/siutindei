@@ -21,6 +21,9 @@ class ApiService {
     if (AmplifyConfig.apiKey.isNotEmpty) {
       headers['x-api-key'] = AmplifyConfig.apiKey;
     }
+    if (AmplifyConfig.deviceAttestationToken.isNotEmpty) {
+      headers['x-device-attestation'] = AmplifyConfig.deviceAttestationToken;
+    }
     final options = RestOptions(
       apiName: AmplifyConfig.apiName,
       path: '/activities/search',

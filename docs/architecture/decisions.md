@@ -87,6 +87,8 @@ Flutter mobile app, Next.js admin console, and AWS serverless backend.
 - Admin bootstrap user can be created with CDK parameters.
 - Authentication is passwordless: email custom challenge (OTP + optional magic
   link) and federated sign-in via Google, Apple, and Microsoft (OIDC).
+- Public activity search also requires device attestation via a JWT validated
+  against a JWKS URL configured in CDK parameters.
 - Hosted UI uses OAuth code flow with callback/logout URLs supplied via CDK
   parameters.
 - API Gateway method caching enabled for search responses (5-minute TTL).
@@ -156,6 +158,7 @@ Flutter mobile app, Next.js admin console, and AWS serverless backend.
 - `AWS_REGION`
 - `CDK_STACKS` (optional)
 - `CDK_BOOTSTRAP_QUALIFIER` (optional)
+- `CDK_PARAM_FILE` (optional path to CDK parameter JSON)
 - `AMPLIFY_APP_ID`
 - `AMPLIFY_BRANCH`
 - `ANDROID_PACKAGE_NAME`
@@ -165,6 +168,7 @@ Flutter mobile app, Next.js admin console, and AWS serverless backend.
 - `IOS_PROVISIONING_PROFILE` (optional)
 
 **GitHub Secrets**
+- `AMPLIFY_API_KEY` (mobile API key injected at build time)
 - `APPSTORE_API_KEY_JSON` (recommended single JSON secret with issuer_id,
   key_id, private_key)
 - `GOOGLE_PLAY_SERVICE_ACCOUNT`
@@ -180,6 +184,10 @@ Flutter mobile app, Next.js admin console, and AWS serverless backend.
 - `MATCH_PASSWORD`
 - `FASTLANE_USER`
 - `FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD`
+
+**CDK Parameters (via `CDK_PARAM_FILE`)**
+- `PublicApiKeyValue` (API key required for public search)
+- `DeviceAttestationJwksUrl`, `DeviceAttestationIssuer`, `DeviceAttestationAudience`
 
 ## Next Steps
 

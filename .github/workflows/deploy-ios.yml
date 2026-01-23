@@ -88,7 +88,7 @@ jobs:
           IOS_PROVISIONING_PROFILE: ${{ vars.IOS_PROVISIONING_PROFILE }}
 
       - name: Build release IPA
-        run: flutter build ipa --release --export-options-plist=ios/ExportOptions.plist
+        run: flutter build ipa --release --export-options-plist=ios/ExportOptions.plist --dart-define=AMPLIFY_API_KEY=${{ secrets.AMPLIFY_API_KEY }}
         working-directory: apps/customer_app
 
       - name: Load App Store Connect API key

@@ -147,6 +147,33 @@ export class ApiStack extends cdk.Stack {
       noEcho: true,
       description: "API key value required for mobile activity search",
     });
+    const deviceAttestationJwksUrl = new cdk.CfnParameter(
+      this,
+      "DeviceAttestationJwksUrl",
+      {
+        type: "String",
+        default: "",
+        description: "JWKS URL for device attestation token verification",
+      }
+    );
+    const deviceAttestationIssuer = new cdk.CfnParameter(
+      this,
+      "DeviceAttestationIssuer",
+      {
+        type: "String",
+        default: "",
+        description: "Expected issuer for device attestation tokens",
+      }
+    );
+    const deviceAttestationAudience = new cdk.CfnParameter(
+      this,
+      "DeviceAttestationAudience",
+      {
+        type: "String",
+        default: "",
+        description: "Expected audience for device attestation tokens",
+      }
+    );
 
     const userPool = new cognito.UserPool(this, "ActivitiesUserPool", {
       signInAliases: { email: true },
@@ -419,6 +446,36 @@ export class ApiStack extends cdk.Stack {
       }
     );
 
+    const deviceAttestationFunction = new lambda.Function(
+      this,
+      "DeviceAttestationAuthorizer",
+      {
+        runtime: lambda.Runtime.PYTHON_3_11,
+        handler: "lambda/authorizers/device_attestation/handler.lambda_handler",
+        code: authLambdaCode,
+        memorySize: 256,
+        timeout: cdk.Duration.seconds(5),
+        environment: {
+          ATTESTATION_JWKS_URL: deviceAttestationJwksUrl.valueAsString,
+          ATTESTATION_ISSUER: deviceAttestationIssuer.valueAsString,
+          ATTESTATION_AUDIENCE: deviceAttestationAudience.valueAsString,
+          PYTHONPATH: "/var/task/src",
+        },
+      }
+    );
+
+    const deviceAttestationAuthorizer = new apigateway.RequestAuthorizer(
+      this,
+      "DeviceAttestationRequestAuthorizer",
+      {
+        handler: deviceAttestationFunction,
+        identitySources: [
+          apigateway.IdentitySource.header("x-device-attestation"),
+        ],
+        resultsCacheTtl: cdk.Duration.seconds(0),
+      }
+    );
+
     createAuthChallengeFunction.addToRolePolicy(
       new iam.PolicyStatement({
         actions: ["ses:SendEmail", "ses:SendRawEmail"],
@@ -677,7 +734,8 @@ export class ApiStack extends cdk.Stack {
     }
 
     search.addMethod("GET", new apigateway.LambdaIntegration(searchFunction), {
-      authorizationType: apigateway.AuthorizationType.NONE,
+      authorizationType: apigateway.AuthorizationType.CUSTOM,
+      authorizer: deviceAttestationAuthorizer,
       apiKeyRequired: true,
       cacheTtl,
       cachingEnabled: true,
