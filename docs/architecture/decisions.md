@@ -82,6 +82,7 @@ Flutter mobile app, Next.js admin console, and AWS serverless backend.
 - Cognito User Pool secures API Gateway routes.
 - Admin routes require membership in the `admin` group.
 - Admin group is created via CDK.
+- Admin group membership can be managed via `/admin/users/{username}/groups`.
 - API Gateway method caching enabled for search responses (5-minute TTL).
 
 ## Flutter Amplify Configuration

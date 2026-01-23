@@ -61,6 +61,10 @@ class AuthService {
     }
   }
 
+  Future<void> resendSignUpCode({required String username}) async {
+    await Amplify.Auth.resendSignUpCode(username: username);
+  }
+
   Future<void> signOut() async {
     await Amplify.Auth.signOut();
   }

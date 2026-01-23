@@ -16,6 +16,7 @@ from typing import Sequence
 from typing import Tuple
 from uuid import UUID
 
+import boto3
 from psycopg.types.range import Range
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -49,7 +50,9 @@ def lambda_handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
 
     method = event.get("httpMethod", "")
     path = event.get("path", "")
-    resource, resource_id = _parse_path(path)
+    resource, resource_id, sub_resource = _parse_path(path)
+    if resource == "users" and sub_resource == "groups":
+        return _handle_user_group(event, method, resource_id)
     config = _RESOURCE_CONFIG.get(resource)
     if not config:
         return _json_response(404, {"error": "Not found"})
@@ -88,9 +91,19 @@ def _handle_get(
                 return _json_response(404, {"error": "Not found"})
             return _json_response(200, config.serializer(entity))
 
-        query = select(config.model).limit(limit)
-        rows = session.execute(query).scalars().all()
-        return _json_response(200, {"items": [config.serializer(row) for row in rows]})
+        cursor = _parse_cursor(_query_param(event, "cursor"))
+        model_id = getattr(config.model, "id")
+        query = select(config.model).order_by(model_id)
+        if cursor is not None:
+            query = query.where(model_id > cursor)
+        rows = session.execute(query.limit(limit + 1)).scalars().all()
+        has_more = len(rows) > limit
+        trimmed = rows[:limit]
+        next_cursor = _encode_cursor(trimmed[-1].id) if has_more and trimmed else None
+        return _json_response(
+            200,
+            {"items": [config.serializer(row) for row in trimmed], "next_cursor": next_cursor},
+        )
 
 
 def _handle_post(event: Mapping[str, Any], config: ResourceConfig) -> dict[str, Any]:
@@ -157,15 +170,16 @@ def _parse_body(event: Mapping[str, Any]) -> dict[str, Any]:
     return json.loads(raw)
 
 
-def _parse_path(path: str) -> Tuple[str, Optional[str]]:
+def _parse_path(path: str) -> Tuple[str, Optional[str], Optional[str]]:
     """Parse resource name and id from the request path."""
 
     parts = [segment for segment in path.split("/") if segment]
     if len(parts) < 2 or parts[0] != "admin":
-        return "", None
+        return "", None, None
     resource = parts[1]
     resource_id = parts[2] if len(parts) > 2 else None
-    return resource, resource_id
+    sub_resource = parts[3] if len(parts) > 3 else None
+    return resource, resource_id, sub_resource
 
 
 def _query_param(event: Mapping[str, Any], name: str) -> Optional[str]:
@@ -234,6 +248,62 @@ def _get_engine():
         connect_args={"sslmode": "require"},
         poolclass=NullPool,
     )
+
+
+def _handle_user_group(
+    event: Mapping[str, Any],
+    method: str,
+    username: Optional[str],
+) -> dict[str, Any]:
+    """Handle user group assignment."""
+
+    if not username:
+        raise ValueError("username is required")
+    group_name = _parse_group_name(event)
+    client = boto3.client("cognito-idp")
+    user_pool_id = _require_env("COGNITO_USER_POOL_ID")
+
+    if method == "POST":
+        client.admin_add_user_to_group(
+            UserPoolId=user_pool_id,
+            Username=username,
+            GroupName=group_name,
+        )
+        return _json_response(200, {"status": "added", "group": group_name})
+    if method == "DELETE":
+        client.admin_remove_user_from_group(
+            UserPoolId=user_pool_id,
+            Username=username,
+            GroupName=group_name,
+        )
+        return _json_response(200, {"status": "removed", "group": group_name})
+
+    return _json_response(405, {"error": "Method not allowed"})
+
+
+def _parse_group_name(event: Mapping[str, Any]) -> str:
+    """Parse the group name from the request."""
+
+    raw = event.get("body") or ""
+    if not raw:
+        return os.getenv("ADMIN_GROUP", "admin")
+    if event.get("isBase64Encoded"):
+        raw = base64.b64decode(raw).decode("utf-8")
+    try:
+        body = json.loads(raw)
+    except json.JSONDecodeError:
+        body = {}
+    group = body.get("group") if isinstance(body, dict) else None
+    return group or os.getenv("ADMIN_GROUP", "admin")
+
+
+def _require_env(name: str) -> str:
+    """Return a required environment variable value."""
+
+    value = os.getenv(name)
+    if not value:
+        raise RuntimeError(f"{name} is required")
+    return value
 
 
 def _create_organization(session: Session, body: dict[str, Any]) -> Organization:
@@ -325,6 +395,8 @@ def _create_activity(session: Session, body: dict[str, Any]) -> Activity:
     age_max = body.get("age_max")
     if not org_id or not name or age_min is None or age_max is None:
         raise ValueError("org_id, name, age_min, and age_max are required")
+    if int(age_min) >= int(age_max):
+        raise ValueError("age_min must be less than age_max")
     age_range = Range(int(age_min), int(age_max), bounds="[]")
     return Activity(
         org_id=_parse_uuid(org_id),
@@ -346,6 +418,8 @@ def _update_activity(session: Session, entity: Activity, body: dict[str, Any]) -
         age_max = body.get("age_max")
         if age_min is None or age_max is None:
             raise ValueError("age_min and age_max are required together")
+        if int(age_min) >= int(age_max):
+            raise ValueError("age_min must be less than age_max")
         entity.age_range = Range(int(age_min), int(age_max), bounds="[]")
     return entity
 
@@ -382,6 +456,8 @@ def _create_pricing(session: Session, body: dict[str, Any]) -> ActivityPricing:
     sessions_count = body.get("sessions_count")
     if pricing_enum == PricingType.PER_SESSIONS and not sessions_count:
         raise ValueError("sessions_count is required for per_sessions pricing")
+    if pricing_enum != PricingType.PER_SESSIONS:
+        sessions_count = None
 
     return ActivityPricing(
         activity_id=_parse_uuid(activity_id),
@@ -408,6 +484,8 @@ def _update_pricing(
         entity.currency = body["currency"]
     if "sessions_count" in body:
         entity.sessions_count = body["sessions_count"]
+    if entity.pricing_type != PricingType.PER_SESSIONS:
+        entity.sessions_count = None
     return entity
 
 
@@ -442,6 +520,7 @@ def _create_schedule(session: Session, body: dict[str, Any]) -> ActivitySchedule
         languages=_parse_languages(body.get("languages")),
     )
     _apply_schedule_fields(schedule, body, update_only=False)
+    _validate_schedule(schedule)
     return schedule
 
 
@@ -457,6 +536,7 @@ def _update_schedule(
     if "languages" in body:
         entity.languages = _parse_languages(body["languages"])
     _apply_schedule_fields(entity, body, update_only=True)
+    _validate_schedule(entity)
     return entity
 
 
@@ -508,6 +588,34 @@ def _parse_languages(value: Any) -> list[str]:
     raise ValueError("languages must be a list or comma-separated string")
 
 
+def _parse_cursor(value: Optional[str]) -> Optional[UUID]:
+    """Parse cursor for admin listing."""
+
+    if value is None or value == "":
+        return None
+    try:
+        payload = _decode_cursor(value)
+        return UUID(payload["id"])
+    except (ValueError, KeyError, TypeError) as exc:
+        raise ValueError("Invalid cursor") from exc
+
+
+def _encode_cursor(value: Any) -> str:
+    """Encode admin cursor."""
+
+    payload = json.dumps({"id": str(value)}).encode("utf-8")
+    encoded = base64.urlsafe_b64encode(payload).decode("utf-8")
+    return encoded.rstrip("=")
+
+
+def _decode_cursor(cursor: str) -> dict[str, Any]:
+    """Decode admin cursor."""
+
+    padding = "=" * (-len(cursor) % 4)
+    raw = base64.urlsafe_b64decode(cursor + padding)
+    return json.loads(raw)
+
+
 def _set_if_present(
     entity: ActivitySchedule,
     field_name: str,
@@ -518,6 +626,24 @@ def _set_if_present(
 
     if not update_only or field_name in body:
         setattr(entity, field_name, body.get(field_name))
+
+
+def _validate_schedule(schedule: ActivitySchedule) -> None:
+    """Validate schedule fields for the given schedule type."""
+
+    if schedule.schedule_type == ScheduleType.WEEKLY:
+        if schedule.day_of_week_utc is None:
+            raise ValueError("day_of_week_utc is required for weekly schedules")
+        if schedule.start_minutes_utc is None or schedule.end_minutes_utc is None:
+            raise ValueError("start_minutes_utc and end_minutes_utc are required for weekly")
+    elif schedule.schedule_type == ScheduleType.MONTHLY:
+        if schedule.day_of_month is None:
+            raise ValueError("day_of_month is required for monthly schedules")
+        if schedule.start_minutes_utc is None or schedule.end_minutes_utc is None:
+            raise ValueError("start_minutes_utc and end_minutes_utc are required for monthly")
+    elif schedule.schedule_type == ScheduleType.DATE_SPECIFIC:
+        if schedule.start_at_utc is None or schedule.end_at_utc is None:
+            raise ValueError("start_at_utc and end_at_utc are required for date-specific")
 
 
 _RESOURCE_CONFIG = {

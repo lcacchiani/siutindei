@@ -86,6 +86,19 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                     )
                   : Text(authState.needsConfirmation ? 'Confirm' : 'Create account'),
             ),
+            if (authState.needsConfirmation)
+              TextButton(
+                onPressed: authState.isLoading
+                    ? null
+                    : () {
+                        final username = authState.pendingUsername ??
+                            _emailController.text.trim();
+                        ref
+                            .read(authViewModelProvider.notifier)
+                            .resendConfirmationCode(username: username);
+                      },
+                child: const Text('Resend code'),
+              ),
             if (!authState.needsConfirmation)
               TextButton(
                 onPressed: () => Navigator.of(context).pop(),

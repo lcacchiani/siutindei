@@ -3,6 +3,7 @@ import * as apigateway from "aws-cdk-lib/aws-apigateway";
 import * as cognito from "aws-cdk-lib/aws-cognito";
 import * as customresources from "aws-cdk-lib/custom-resources";
 import * as ec2 from "aws-cdk-lib/aws-ec2";
+import * as iam from "aws-cdk-lib/aws-iam";
 import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as rds from "aws-cdk-lib/aws-rds";
 import { Construct } from "constructs";
@@ -137,6 +138,7 @@ export class ApiStack extends cdk.Stack {
         DATABASE_PROXY_ENDPOINT: proxy.endpoint,
         DATABASE_IAM_AUTH: "true",
         ADMIN_GROUP: "admin",
+        COGNITO_USER_POOL_ID: userPool.userPoolId,
         PYTHONPATH: "/var/task/src",
       },
     });
@@ -181,6 +183,17 @@ export class ApiStack extends cdk.Stack {
 
     proxy.grantConnect(searchFunction, "activities_app");
     proxy.grantConnect(adminFunction, "activities_admin");
+
+    adminFunction.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: [
+          "cognito-idp:AdminAddUserToGroup",
+          "cognito-idp:AdminRemoveUserFromGroup",
+          "cognito-idp:AdminListGroupsForUser",
+        ],
+        resources: [userPool.userPoolArn],
+      })
+    );
 
     const api = new apigateway.RestApi(this, "ActivitiesApi", {
       restApiName: "Activities API",
@@ -293,6 +306,18 @@ export class ApiStack extends cdk.Stack {
         authorizer,
       });
     }
+
+    const users = admin.addResource("users");
+    const userByName = users.addResource("{username}");
+    const userGroups = userByName.addResource("groups");
+    userGroups.addMethod("POST", new apigateway.LambdaIntegration(adminFunction), {
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+      authorizer,
+    });
+    userGroups.addMethod("DELETE", new apigateway.LambdaIntegration(adminFunction), {
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+      authorizer,
+    });
 
     new cdk.CfnOutput(this, "ApiUrl", {
       value: api.url,

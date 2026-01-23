@@ -98,7 +98,7 @@ class AuthViewModel extends StateNotifier<AuthState> {
       state = state.copyWith(
         isLoading: false,
         needsConfirmation: needsConfirm,
-        pendingUsername: username,
+        pendingUsername: needsConfirm ? username : null,
       );
     } catch (error) {
       state = state.copyWith(isLoading: false, errorMessage: error.toString());
@@ -120,6 +120,16 @@ class AuthViewModel extends StateNotifier<AuthState> {
         needsConfirmation: false,
         pendingUsername: null,
       );
+    } catch (error) {
+      state = state.copyWith(isLoading: false, errorMessage: error.toString());
+    }
+  }
+
+  Future<void> resendConfirmationCode({required String username}) async {
+    state = state.copyWith(isLoading: true, errorMessage: null);
+    try {
+      await _authService.resendSignUpCode(username: username);
+      state = state.copyWith(isLoading: false);
     } catch (error) {
       state = state.copyWith(isLoading: false, errorMessage: error.toString());
     }

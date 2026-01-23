@@ -64,3 +64,8 @@ paths:
       summary: Update schedule
     delete:
       summary: Delete schedule
+  /admin/users/{username}/groups:
+    post:
+      summary: Add user to group
+    delete:
+      summary: Remove user from group

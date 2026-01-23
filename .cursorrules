@@ -88,6 +88,7 @@ repo root
 - Database roles include activities_app (read) and activities_admin (write).
 - Admin group is created by CDK.
 - Cursor pagination orders by schedule timing.
+- Admin group membership can be managed via /admin/users/{username}/groups.
 
 ### Code style and structure
 - Write concise and efficient source code.

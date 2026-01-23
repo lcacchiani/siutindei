@@ -39,6 +39,7 @@ Flutter Mobile / Next.js Admin
 - API Gateway exposes REST endpoints (start with `GET /activities/search`).
 - Admin CRUD routes under `/admin/*` for organizations, locations, activities,
   pricing, and schedules.
+- Admin user group assignment available at `/admin/users/{username}/groups`.
 - Lambda functions in `backend/lambda/` call into shared code in
   `backend/src/app`.
 - SQLAlchemy models map to Aurora PostgreSQL.
