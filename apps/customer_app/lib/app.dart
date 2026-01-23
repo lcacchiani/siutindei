@@ -13,7 +13,7 @@ class App extends ConsumerWidget {
     final authState = ref.watch(authViewModelProvider);
 
     return MaterialApp(
-      title: 'Kids Activities',
+      title: 'Siu Tin Dei',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
         useMaterial3: true,
