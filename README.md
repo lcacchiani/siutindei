@@ -134,6 +134,42 @@ For the OIDC provider itself, add the same tags:
    - `DeviceAttestationAudience`:
      `projects/<PROJECT_NUMBER>/apps/<APP_ID>` (use both iOS + Android IDs)
 
+### Android (signing + Play Console)
+1. Generate a release keystore (save the passwords and alias you choose):
+   ```bash
+   keytool -genkeypair -v \
+     -keystore keystore.jks \
+     -alias siutindei_release \
+     -keyalg RSA -keysize 2048 -validity 10000
+   ```
+2. Base64 encode the keystore for GitHub Secrets:
+   ```bash
+   # Linux
+   base64 -w 0 keystore.jks > keystore.base64
+   # macOS
+   base64 keystore.jks > keystore.base64
+   ```
+3. Set GitHub Secrets:
+   - `ANDROID_KEYSTORE_BASE64` = contents of `keystore.base64`
+   - `ANDROID_KEYSTORE_PASSWORD` = keystore password
+   - `ANDROID_KEY_PASSWORD` = key password
+   - `ANDROID_KEY_ALIAS` = alias (e.g., `siutindei_release`)
+4. Set GitHub Variables:
+   - `ANDROID_PACKAGE_NAME` (from `apps/customer_app/android/app/build.gradle.kts`, `applicationId`)
+   - `ANDROID_RELEASE_TRACK` (`internal`, `alpha`, `beta`, or `production`)
+5. Create a Play Console service account:
+   - Google Cloud Console -> IAM & Admin -> Service Accounts -> Create
+   - Grant the service account access in Play Console:
+     Play Console -> Setup -> API access -> Link project -> Grant permissions
+   - Create and download the JSON key
+   - Set GitHub Secret `GOOGLE_PLAY_SERVICE_ACCOUNT` to the JSON contents
+
+### Amplify API key (mobile public search)
+1. Use the same value as your backend `PublicApiKeyValue`
+   (`CDK_PARAM_PUBLIC_API_KEY_VALUE` secret).
+2. Set GitHub Secret `AMPLIFY_API_KEY` to that value so the mobile app
+   can call the public search endpoint.
+
 ### Microsoft (Entra ID)
 1. Go to **Azure Portal → Microsoft Entra ID → App registrations**.
 2. Create an app registration.
