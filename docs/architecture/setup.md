@@ -135,24 +135,24 @@ For the OIDC provider itself, add the same tags:
      `projects/<PROJECT_NUMBER>/apps/<APP_ID>` (use both iOS + Android IDs)
 
 ### Android (signing + Play Console)
-1. Generate a release keystore (save the passwords and alias you choose):
+1. Generate a release keystore with OpenSSL (save the passwords and alias you choose):
    ```bash
-   keytool -genkeypair -v \
-     -keystore keystore.jks \
-     -alias siutindei_release \
-     -keyalg RSA -keysize 2048 -validity 10000
+   openssl genrsa -aes256 -out upload.key 2048
+   openssl req -new -key upload.key -out upload.csr
+   openssl x509 -req -days 10000 -in upload.csr -signkey upload.key -out upload.crt
+   openssl pkcs12 -export -out keystore.p12 -inkey upload.key -in upload.crt -name siutindei_release
    ```
 2. Base64 encode the keystore for GitHub Secrets:
    ```bash
    # Linux
-   base64 -w 0 keystore.jks > keystore.base64
+   base64 -w 0 keystore.p12 > keystore.base64
    # macOS
-   base64 keystore.jks > keystore.base64
+   base64 keystore.p12 > keystore.base64
    ```
 3. Set GitHub Secrets:
    - `ANDROID_KEYSTORE_BASE64` = contents of `keystore.base64`
-   - `ANDROID_KEYSTORE_PASSWORD` = keystore password
-   - `ANDROID_KEY_PASSWORD` = key password
+   - `ANDROID_KEYSTORE_PASSWORD` = PKCS12 export password (set when running `openssl pkcs12 -export`)
+   - `ANDROID_KEY_PASSWORD` = private key password (set when running `openssl genrsa -aes256`)
    - `ANDROID_KEY_ALIAS` = alias (e.g., `siutindei_release`)
 4. Set GitHub Variables:
    - `ANDROID_PACKAGE_NAME` (from `apps/customer_app/android/app/build.gradle.kts`, `applicationId`)
