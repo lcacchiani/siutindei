@@ -170,6 +170,43 @@ For the OIDC provider itself, add the same tags:
 2. Set GitHub Secret `AMPLIFY_API_KEY` to that value so the mobile app
    can call the public search endpoint.
 
+### iOS (signing + TestFlight)
+1. Create an iOS App ID:
+   - Apple Developer -> Certificates, Identifiers & Profiles -> Identifiers
+   - Create an App ID for your bundle (e.g., `com.lxtechnology.siutindei`)
+   - Use this value as `IOS_BUNDLE_ID` and `FIREBASE_IOS_BUNDLE_ID`
+2. Find your Team ID:
+   - Apple Developer -> Membership -> Team ID
+   - Set GitHub Variable `APPLE_TEAM_ID`
+3. (Optional) Use Fastlane Match for signing:
+   - Create a private repo to store certificates/profiles
+   - Set GitHub Secrets:
+     - `MATCH_GIT_URL` = repo SSH/HTTPS URL
+     - `MATCH_PASSWORD` = encryption password
+     - `FASTLANE_USER` = Apple ID email
+     - `FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD` = app-specific password
+   - The workflow will run `fastlane match appstore --readonly` if present
+4. (Optional) Use manual provisioning profile:
+   - Create or download an App Store provisioning profile
+   - Set GitHub Variable `IOS_PROVISIONING_PROFILE` to the profile name
+   - If unset, the workflow defaults to automatic signing
+5. Create App Store Connect API key:
+   - App Store Connect -> Users and Access -> Keys -> Create API key
+   - Download the `.p8` and note:
+     - Issuer ID
+     - Key ID
+   - Set **one of**:
+     - `APPSTORE_API_KEY_JSON` secret with:
+       `{"issuer_id":"...","key_id":"...","private_key":"-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----"}`
+     - or individual secrets:
+       `APPSTORE_ISSUER_ID`, `APPSTORE_API_KEY_ID`, `APPSTORE_API_PRIVATE_KEY`
+6. Ensure TestFlight/App record exists:
+   - App Store Connect -> My Apps -> Create or select your app
+   - Bundle ID must match `IOS_BUNDLE_ID`
+7. Firebase iOS config:
+   - Firebase Console -> Project Settings -> iOS app
+   - Copy `FIREBASE_IOS_APP_ID` and set `FIREBASE_IOS_BUNDLE_ID`
+
 ### Microsoft (Entra ID)
 1. Go to **Azure Portal → Microsoft Entra ID → App registrations**.
 2. Create an app registration.
