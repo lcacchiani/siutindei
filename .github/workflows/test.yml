@@ -21,7 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
@@ -35,7 +35,7 @@ jobs:
           shopt -s globstar nullglob
           for dir in apps/customer_app packages/flutter_ui packages/api_client_dart; do
             if [ -f "$dir/pubspec.yaml" ]; then
-              test_files=("$dir/test/**/*_test.dart")
+              test_files=($dir/test/**/*_test.dart)
               if [ "${#test_files[@]}" -eq 0 ]; then
                 echo "No Flutter tests found in $dir"
                 continue
@@ -52,7 +52,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -81,12 +81,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.14"
 
       - name: Install pytest
         run: |

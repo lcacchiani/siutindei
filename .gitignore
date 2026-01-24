@@ -230,7 +230,10 @@ apps/customer_app/ios/Runner/GeneratedPluginRegistrant.m
 apps/customer_app/android/key.properties
 apps/customer_app/android/keystore.jks
 apps/customer_app/android/keystore.jks*
+apps/customer_app/android/keystore.p12
+apps/customer_app/android/keystore.p12*
 apps/customer_app/android/app/keystore.jks
+apps/customer_app/android/app/keystore.p12
 apps/customer_app/ios/ExportOptions.plist
 
 # Marimo

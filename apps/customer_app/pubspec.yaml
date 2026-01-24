@@ -4,22 +4,22 @@ publish_to: "none"
 version: 0.1.0+1
 
 environment:
-  sdk: ">=3.3.0 <4.0.0"
+  sdk: ">=3.10.3 <4.0.0"
 
 dependencies:
   flutter:
     sdk: flutter
-  flutter_riverpod: any
-  amplify_flutter: any
-  amplify_auth_cognito: any
-  amplify_api: any
+  flutter_riverpod: ^3.2.0
+  amplify_flutter: ^2.9.0
+  amplify_auth_cognito: ^2.9.0
+  amplify_api: ^2.9.0
   firebase_core: ^4.4.0
   firebase_app_check: ^0.4.1+4
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: any
+  flutter_lints: ^6.0.0
 
 flutter:
   uses-material-design: true

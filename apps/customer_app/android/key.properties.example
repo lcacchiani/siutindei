@@ -1,4 +1,4 @@
 storePassword=changeme
 keyPassword=changeme
 keyAlias=changeme
-storeFile=keystore.jks
+storeFile=keystore.p12

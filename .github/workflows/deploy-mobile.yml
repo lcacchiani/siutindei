@@ -24,13 +24,13 @@ jobs:
     runs-on: ubuntu-latest
     environment: production
     env:
-      KEYSTORE_PATH: app/keystore.jks
+      KEYSTORE_PATH: app/keystore.p12
       KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
       KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
       KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
@@ -39,11 +39,14 @@ jobs:
           cache: true
 
       - name: Configure Android signing
-        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' && secrets.ANDROID_KEYSTORE_PASSWORD != '' && secrets.ANDROID_KEY_PASSWORD != '' && secrets.ANDROID_KEY_ALIAS != '' }}
         run: |
+          if [ -z "$ANDROID_KEYSTORE_BASE64" ] || [ -z "$ANDROID_KEYSTORE_PASSWORD" ] || [ -z "$ANDROID_KEY_PASSWORD" ] || [ -z "$ANDROID_KEY_ALIAS" ]; then
+            echo "Skipping Android signing (missing secrets)"
+            exit 0
+          fi
           mkdir -p apps/customer_app/android/app
-          echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > apps/customer_app/android/app/keystore.jks
-          chmod 600 apps/customer_app/android/app/keystore.jks
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > apps/customer_app/android/app/keystore.p12
+          chmod 600 apps/customer_app/android/app/keystore.p12
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
@@ -66,8 +69,31 @@ jobs:
             --dart-define=FIREBASE_APP_CHECK_DEBUG=${{ vars.FIREBASE_APP_CHECK_DEBUG }}
         working-directory: apps/customer_app
 
+      - name: Check Play Store upload prerequisites
+        id: playstore
+        run: |
+          if [ -z "$GOOGLE_PLAY_SERVICE_ACCOUNT" ] || [ -z "$ANDROID_PACKAGE_NAME" ] || [ -z "$ANDROID_RELEASE_TRACK" ]; then
+            echo "Skipping Play Store upload (missing config)"
+            echo "should_upload=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ -z "$ANDROID_KEYSTORE_BASE64" ] || [ -z "$ANDROID_KEYSTORE_PASSWORD" ] || [ -z "$ANDROID_KEY_PASSWORD" ] || [ -z "$ANDROID_KEY_ALIAS" ]; then
+            echo "Skipping Play Store upload (missing Android signing secrets)"
+            echo "should_upload=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "should_upload=true" >> "$GITHUB_OUTPUT"
+        env:
+          GOOGLE_PLAY_SERVICE_ACCOUNT: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT }}
+          ANDROID_PACKAGE_NAME: ${{ vars.ANDROID_PACKAGE_NAME }}
+          ANDROID_RELEASE_TRACK: ${{ vars.ANDROID_RELEASE_TRACK }}
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+
       - name: Upload AAB to Play Store
-        if: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT != '' && vars.ANDROID_PACKAGE_NAME != '' && vars.ANDROID_RELEASE_TRACK != '' }}
+        if: ${{ steps.playstore.outputs.should_upload == 'true' }}
         uses: r0adkll/upload-google-play@v1
         with:
           serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT }}

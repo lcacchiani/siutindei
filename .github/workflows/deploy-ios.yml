@@ -16,7 +16,7 @@ jobs:
     environment: production
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
@@ -35,9 +35,12 @@ jobs:
         working-directory: apps/customer_app
 
       - name: Sync signing assets (match)
-        if: ${{ secrets.MATCH_GIT_URL != '' && secrets.MATCH_PASSWORD != '' && secrets.FASTLANE_USER != '' && secrets.FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD != '' }}
         working-directory: apps/customer_app/ios
         run: |
+          if [ -z "$MATCH_GIT_URL" ] || [ -z "$MATCH_PASSWORD" ] || [ -z "$FASTLANE_USER" ] || [ -z "$FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD" ]; then
+            echo "Skipping fastlane match (missing secrets)"
+            exit 0
+          fi
           fastlane match appstore --readonly
         env:
           MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
@@ -101,8 +104,11 @@ jobs:
         working-directory: apps/customer_app
 
       - name: Load App Store Connect API key
-        if: ${{ secrets.APPSTORE_API_KEY_JSON != '' || (secrets.APPSTORE_ISSUER_ID != '' && secrets.APPSTORE_API_KEY_ID != '' && secrets.APPSTORE_API_PRIVATE_KEY != '') }}
         run: |
+          if [ -z "$APPSTORE_API_KEY_JSON" ] && { [ -z "$APPSTORE_ISSUER_ID" ] || [ -z "$APPSTORE_API_KEY_ID" ] || [ -z "$APPSTORE_API_PRIVATE_KEY" ]; }; then
+            echo "Skipping App Store Connect API key setup (missing secrets)"
+            exit 0
+          fi
           python - <<'PY'
           import json
           import os
