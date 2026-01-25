@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "com.lxtechnology.siutindei"
+    namespace = "com.lxsoftware.siutindei"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -20,7 +20,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.lxtechnology.siutindei"
+        applicationId = "com.lxsoftware.siutindei"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion

@@ -1,4 +1,4 @@
-package com.lxtechnology.siutindei
+package com.lxsoftware.siutindei
 
 import io.flutter.embedding.android.FlutterActivity
 
