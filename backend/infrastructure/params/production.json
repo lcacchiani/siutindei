@@ -1,7 +1,7 @@
 {
-  "CognitoDomainPrefix": "lxtechnology-siutindei-prod",
-  "CognitoCallbackUrls": "com.lxtechnology.siutindei://callback",
-  "CognitoLogoutUrls": "com.lxtechnology.siutindei://logout",
+  "CognitoDomainPrefix": "lxsoftware-siutindei-prod",
+  "CognitoCallbackUrls": "com.lxsoftware.siutindei://callback",
+  "CognitoLogoutUrls": "com.lxsoftware.siutindei://logout",
   "GoogleClientId": "640961587388-b7qm2408gcnh31shppd4r60rkfr1mqnr.apps.googleusercontent.com",
   "GoogleClientSecret": "<FROM_GITHUB_SECRET: CDK_PARAM_GOOGLE_CLIENT_SECRET>",
   "AppleClientId": "REPLACE_ME",

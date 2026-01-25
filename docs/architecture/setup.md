@@ -173,7 +173,7 @@ For the OIDC provider itself, add the same tags:
 ### iOS (signing + TestFlight)
 1. Create an iOS App ID:
    - Apple Developer -> Certificates, Identifiers & Profiles -> Identifiers
-   - Create an App ID for your bundle (e.g., `com.lxtechnology.siutindei`)
+   - Create an App ID for your bundle (e.g., `com.lxsoftware.siutindei`)
    - Use this value as `IOS_BUNDLE_ID` and `FIREBASE_IOS_BUNDLE_ID`
 2. Find your Team ID:
    - Apple Developer -> Membership -> Team ID
