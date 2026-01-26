@@ -133,6 +133,9 @@ For the OIDC provider itself, add the same tags:
    - `DeviceAttestationIssuer`: `https://firebaseappcheck.googleapis.com/`
    - `DeviceAttestationAudience`:
      `projects/<PROJECT_NUMBER>/apps/<APP_ID>` (use both iOS + Android IDs)
+   - In CI, `DeviceAttestationAudience` is derived automatically from:
+     `FIREBASE_MESSAGING_SENDER_ID`, `FIREBASE_IOS_APP_ID`,
+     `FIREBASE_ANDROID_APP_ID`.
 
 ### Android (signing + Play Console)
 1. Generate a release keystore with OpenSSL (save the passwords and alias you choose):
