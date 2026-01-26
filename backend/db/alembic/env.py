@@ -25,7 +25,9 @@ target_metadata = Base.metadata
 
 def get_database_url() -> str:
     """Return the database URL from environment variables."""
-    url = os.getenv("DATABASE_URL")
+    url = config.get_main_option("sqlalchemy.url")
+    if not url:
+        url = os.getenv("DATABASE_URL")
     if not url:
         raise RuntimeError("DATABASE_URL is required for Alembic migrations.")
     return url
