@@ -604,6 +604,21 @@ export class ApiStack extends cdk.Stack {
       cloudWatchRoleArn: apiGatewayLogRole.roleArn,
     });
 
+    const apiAccessLogGroupName = name("api-access-logs");
+    const apiAccessLogRetention = new logs.LogRetention(
+      this,
+      "ApiAccessLogRetention",
+      {
+        logGroupName: apiAccessLogGroupName,
+        retention: logs.RetentionDays.ONE_WEEK,
+      }
+    );
+    const apiAccessLogGroup = logs.LogGroup.fromLogGroupName(
+      this,
+      "ApiAccessLogs",
+      apiAccessLogGroupName
+    );
+
     const api = new apigateway.RestApi(this, "ActivitiesApi", {
       restApiName: name("api"),
       defaultCorsPreflightOptions: {
@@ -613,10 +628,7 @@ export class ApiStack extends cdk.Stack {
       deployOptions: {
         stageName: "prod",
         accessLogDestination: new apigateway.LogGroupLogDestination(
-          new logs.LogGroup(this, "ApiAccessLogs", {
-            logGroupName: name("api-access-logs"),
-            retention: logs.RetentionDays.ONE_WEEK,
-          })
+          apiAccessLogGroup
         ),
         accessLogFormat: apigateway.AccessLogFormat.jsonWithStandardFields({
           caller: false,
@@ -642,6 +654,7 @@ export class ApiStack extends cdk.Stack {
         },
       },
     });
+    api.deploymentStage.node.addDependency(apiAccessLogRetention);
     new logs.LogRetention(this, "ApiExecutionLogRetention", {
       logGroupName: `API-Gateway-Execution-Logs_${api.restApiId}/${api.deploymentStage.stageName}`,
       retention: logs.RetentionDays.ONE_WEEK,
