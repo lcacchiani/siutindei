@@ -400,6 +400,8 @@ export class ApiStack extends cdk.Stack {
         DATABASE_NAME: "activities",
         DATABASE_USERNAME: "postgres",
         DATABASE_IAM_AUTH: "false",
+        DATABASE_HOST: cluster.clusterEndpoint.hostname,
+        DATABASE_PORT: cluster.clusterEndpoint.port.toString(),
         PYTHONPATH: "/var/task/src",
         SEED_FILE_PATH: "/var/task/db/seed/seed_data.sql",
       },
