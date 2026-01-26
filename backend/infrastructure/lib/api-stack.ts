@@ -18,7 +18,11 @@ export class ApiStack extends cdk.Stack {
     cdk.Tags.of(this).add("Organization", "LX Software");
     cdk.Tags.of(this).add("Project", "Siu Tin Dei");
 
+    const resourcePrefix = "lxsoftware-siutindei";
+    const name = (suffix: string) => `${resourcePrefix}-${suffix}`;
+
     const vpc = new ec2.Vpc(this, "ActivitiesVpc", {
+      vpcName: name("vpc"),
       maxAzs: 2,
       natGateways: 1,
     });
@@ -26,19 +30,23 @@ export class ApiStack extends cdk.Stack {
     const lambdaSecurityGroup = new ec2.SecurityGroup(this, "LambdaSecurityGroup", {
       vpc,
       allowAllOutbound: true,
+      securityGroupName: name("lambda-sg"),
     });
     const migrationSecurityGroup = new ec2.SecurityGroup(this, "MigrationSecurityGroup", {
       vpc,
       allowAllOutbound: true,
+      securityGroupName: name("migration-sg"),
     });
 
     const dbSecurityGroup = new ec2.SecurityGroup(this, "DatabaseSecurityGroup", {
       vpc,
       allowAllOutbound: true,
+      securityGroupName: name("db-sg"),
     });
     const proxySecurityGroup = new ec2.SecurityGroup(this, "ProxySecurityGroup", {
       vpc,
       allowAllOutbound: true,
+      securityGroupName: name("proxy-sg"),
     });
     proxySecurityGroup.addIngressRule(
       lambdaSecurityGroup,
@@ -60,12 +68,17 @@ export class ApiStack extends cdk.Stack {
       engine: rds.DatabaseClusterEngine.auroraPostgres({
         version: rds.AuroraPostgresEngineVersion.of("17.7", "17"),
       }),
-      credentials: rds.Credentials.fromGeneratedSecret("postgres"),
+      credentials: rds.Credentials.fromGeneratedSecret("postgres", {
+        secretName: name("db-credentials"),
+      }),
       defaultDatabaseName: "activities",
       iamAuthentication: true,
       serverlessV2MinCapacity: 0.5,
       serverlessV2MaxCapacity: 2,
-      writer: rds.ClusterInstance.serverlessV2("writer"),
+      writer: rds.ClusterInstance.serverlessV2("writer", {
+        instanceIdentifier: name("db-writer"),
+      }),
+      clusterIdentifier: name("db-cluster"),
       vpc,
       vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
       securityGroups: [dbSecurityGroup],
@@ -78,6 +91,7 @@ export class ApiStack extends cdk.Stack {
       securityGroups: [proxySecurityGroup],
       requireTLS: true,
       iamAuth: true,
+      dbProxyName: name("db-proxy"),
     });
 
     const authDomainPrefix = new cdk.CfnParameter(this, "CognitoDomainPrefix", {
@@ -186,6 +200,7 @@ export class ApiStack extends cdk.Stack {
     );
 
     const userPool = new cognito.UserPool(this, "ActivitiesUserPool", {
+      userPoolName: name("user-pool"),
       signInAliases: { email: true },
       autoVerify: { email: true },
       selfSignUpEnabled: true,
@@ -263,6 +278,7 @@ export class ApiStack extends cdk.Stack {
       this,
       "ActivitiesUserPoolClient",
       {
+        clientName: name("user-pool-client"),
         userPoolId: userPool.userPoolId,
         generateSecret: false,
         allowedOAuthFlowsUserPoolClient: true,
@@ -285,6 +301,7 @@ export class ApiStack extends cdk.Stack {
     userPoolClient.addDependency(microsoftProvider);
 
     const searchFunction = new lambda.Function(this, "ActivitiesSearchFunction", {
+      functionName: name("search"),
       runtime: lambda.Runtime.PYTHON_3_11,
       handler: "lambda/activity_search/handler.lambda_handler",
       code: lambda.Code.fromAsset(path.join(__dirname, "../../"), {
@@ -317,6 +334,7 @@ export class ApiStack extends cdk.Stack {
     });
 
     const adminFunction = new lambda.Function(this, "ActivitiesAdminFunction", {
+      functionName: name("admin"),
       runtime: lambda.Runtime.PYTHON_3_11,
       handler: "lambda/admin/handler.lambda_handler",
       code: lambda.Code.fromAsset(path.join(__dirname, "../../"), {
@@ -351,6 +369,7 @@ export class ApiStack extends cdk.Stack {
     });
 
     const migrationFunction = new lambda.Function(this, "ActivitiesMigrationFunction", {
+      functionName: name("migrations"),
       runtime: lambda.Runtime.PYTHON_3_11,
       handler: "lambda/migrations/handler.lambda_handler",
       code: lambda.Code.fromAsset(path.join(__dirname, "../../"), {
@@ -398,6 +417,7 @@ export class ApiStack extends cdk.Stack {
     });
 
     const preSignUpFunction = new lambda.Function(this, "AuthPreSignUpFunction", {
+      functionName: name("auth-pre-signup"),
       runtime: lambda.Runtime.PYTHON_3_11,
       handler: "lambda/auth/pre_signup/handler.lambda_handler",
       code: authLambdaCode,
@@ -412,6 +432,7 @@ export class ApiStack extends cdk.Stack {
       this,
       "AuthDefineChallengeFunction",
       {
+        functionName: name("auth-define-challenge"),
         runtime: lambda.Runtime.PYTHON_3_11,
         handler: "lambda/auth/define_auth_challenge/handler.lambda_handler",
         code: authLambdaCode,
@@ -428,6 +449,7 @@ export class ApiStack extends cdk.Stack {
       this,
       "AuthCreateChallengeFunction",
       {
+        functionName: name("auth-create-challenge"),
         runtime: lambda.Runtime.PYTHON_3_11,
         handler: "lambda/auth/create_auth_challenge/handler.lambda_handler",
         code: authLambdaCode,
@@ -445,6 +467,7 @@ export class ApiStack extends cdk.Stack {
       this,
       "AuthVerifyChallengeFunction",
       {
+        functionName: name("auth-verify-challenge"),
         runtime: lambda.Runtime.PYTHON_3_11,
         handler: "lambda/auth/verify_auth_challenge/handler.lambda_handler",
         code: authLambdaCode,
@@ -460,6 +483,7 @@ export class ApiStack extends cdk.Stack {
       this,
       "DeviceAttestationAuthorizer",
       {
+        functionName: name("device-attestation"),
         runtime: lambda.Runtime.PYTHON_3_11,
         handler: "lambda/authorizers/device_attestation/handler.lambda_handler",
         code: authLambdaCode,
@@ -528,7 +552,7 @@ export class ApiStack extends cdk.Stack {
     );
 
     const api = new apigateway.RestApi(this, "ActivitiesApi", {
-      restApiName: "Activities API",
+      restApiName: name("api"),
       defaultCorsPreflightOptions: {
         allowOrigins: apigateway.Cors.ALL_ORIGINS,
         allowMethods: ["GET", "OPTIONS"],
@@ -556,9 +580,12 @@ export class ApiStack extends cdk.Stack {
     );
 
     const mobileApiKey = new apigateway.ApiKey(this, "MobileSearchApiKey", {
+      apiKeyName: name("mobile-search-key"),
       value: publicApiKeyValue.valueAsString,
     });
-    const mobileUsagePlan = api.addUsagePlan("MobileSearchUsagePlan");
+    const mobileUsagePlan = api.addUsagePlan("MobileSearchUsagePlan", {
+      name: name("mobile-search-plan"),
+    });
     mobileUsagePlan.addApiKey(mobileApiKey);
     mobileUsagePlan.addApiStage({ stage: api.deploymentStage });
 
