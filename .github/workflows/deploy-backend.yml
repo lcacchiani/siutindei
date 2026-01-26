@@ -210,15 +210,26 @@ jobs:
             if [ -n "$CDK_BOOTSTRAP_QUALIFIER" ]; then
               QUALIFIER_ARGS=(--qualifier "$CDK_BOOTSTRAP_QUALIFIER")
             fi
+            STACK_ARGS=()
+            if [ -n "${CDK_STACKS:-}" ]; then
+              IFS=$', \n\t' read -r -a STACK_LIST <<< "$CDK_STACKS"
+              for stack in "${STACK_LIST[@]}"; do
+                trimmed="${stack#"${stack%%[![:space:]]*}"}"
+                trimmed="${trimmed%"${trimmed##*[![:space:]]}"}"
+                if [ -n "$trimmed" ]; then
+                  STACK_ARGS+=("$trimmed")
+                fi
+              done
+            fi
             if [ "${DESTROY_BEFORE_DEPLOY:-false}" = "true" ]; then
-              if [ -n "$CDK_STACKS" ]; then
-                npx cdk destroy --no-notices --force "${QUALIFIER_ARGS[@]}" $CDK_STACKS
+              if [ ${#STACK_ARGS[@]} -gt 0 ]; then
+                npx cdk destroy --no-notices --force "${QUALIFIER_ARGS[@]}" "${STACK_ARGS[@]}"
               else
                 npx cdk destroy --no-notices --force "${QUALIFIER_ARGS[@]}" ActivitiesApiStack
               fi
             fi
-            if [ -n "$CDK_STACKS" ]; then
-              npx cdk deploy --no-notices --require-approval never "${QUALIFIER_ARGS[@]}" $CDK_STACKS "${PARAM_ARGS[@]}"
+            if [ ${#STACK_ARGS[@]} -gt 0 ]; then
+              npx cdk deploy --no-notices --require-approval never "${QUALIFIER_ARGS[@]}" "${PARAM_ARGS[@]}" "${STACK_ARGS[@]}"
             else
               npx cdk deploy --no-notices --require-approval never "${QUALIFIER_ARGS[@]}" "${PARAM_ARGS[@]}"
             fi

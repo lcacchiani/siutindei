@@ -66,7 +66,7 @@ For the OIDC provider itself, add the same tags:
 
 - `AWS_ACCOUNT_ID`
 - `AWS_REGION`
-- `CDK_STACKS` (optional)
+- `CDK_STACKS` (optional; comma/space-separated list, e.g. `ActivitiesApiStack`)
 - `CDK_BOOTSTRAP_QUALIFIER` (optional)
 - `CDK_PARAM_FILE` (e.g. `backend/infrastructure/params/production.json`)
 - `AMPLIFY_APP_ID`
