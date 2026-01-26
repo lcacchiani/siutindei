@@ -69,6 +69,8 @@ export class ApiStack extends cdk.Stack {
       engine: rds.DatabaseClusterEngine.auroraPostgres({
         version: rds.AuroraPostgresEngineVersion.of("17.7", "17"),
       }),
+      cloudwatchLogsExports: ["postgresql"],
+      cloudwatchLogsRetention: logs.RetentionDays.ONE_WEEK,
       credentials: rds.Credentials.fromGeneratedSecret("postgres", {
         secretName: name("db-credentials"),
       }),
@@ -568,6 +570,23 @@ export class ApiStack extends cdk.Stack {
       },
       deployOptions: {
         stageName: "prod",
+        accessLogDestination: new apigateway.LogGroupLogDestination(
+          new logs.LogGroup(this, "ApiAccessLogs", {
+            logGroupName: name("api-access-logs"),
+            retention: logs.RetentionDays.ONE_WEEK,
+          })
+        ),
+        accessLogFormat: apigateway.AccessLogFormat.jsonWithStandardFields({
+          caller: false,
+          httpMethod: true,
+          ip: true,
+          protocol: true,
+          requestTime: true,
+          resourcePath: true,
+          responseLength: true,
+          status: true,
+          user: false,
+        }),
         cacheClusterEnabled: true,
         cacheClusterSize: "0.5",
         cacheDataEncrypted: true,
