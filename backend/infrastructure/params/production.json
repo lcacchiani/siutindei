@@ -5,7 +5,7 @@
   "GoogleClientId": "640961587388-b7qm2408gcnh31shppd4r60rkfr1mqnr.apps.googleusercontent.com",
   "GoogleClientSecret": "<FROM_GITHUB_SECRET: CDK_PARAM_GOOGLE_CLIENT_SECRET>",
   "AppleClientId": "com.lxsoftware.siutindei.auth",
-  "AppleTeamId": "REPLACE_ME",
+  "AppleTeamId": "<FROM_GITHUB_VAR: APPLE_TEAM_ID>",
   "AppleKeyId": "REPLACE_ME",
   "ApplePrivateKey": "<FROM_GITHUB_SECRET: CDK_PARAM_APPLE_PRIVATE_KEY>",
   "MicrosoftTenantId": "430d0c24-5a32-4230-a004-65b98b6fa144",
