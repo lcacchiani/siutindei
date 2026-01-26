@@ -773,28 +773,37 @@ export class ApiStack extends cdk.Stack {
       "pricing",
       "schedules",
     ];
+    const adminIntegration = new apigateway.Integration({
+      type: apigateway.IntegrationType.AWS_PROXY,
+      integrationHttpMethod: "POST",
+      uri: `arn:aws:apigateway:${cdk.Stack.of(this).region}:lambda:path/2015-03-31/functions/${adminFunction.functionArn}/invocations`,
+    });
+    adminFunction.addPermission("AdminApiInvokePermission", {
+      principal: new iam.ServicePrincipal("apigateway.amazonaws.com"),
+      sourceArn: api.arnForExecuteApi(),
+    });
 
     for (const resourceName of adminResources) {
       const resource = admin.addResource(resourceName);
-      resource.addMethod("GET", new apigateway.LambdaIntegration(adminFunction), {
+      resource.addMethod("GET", adminIntegration, {
         authorizationType: apigateway.AuthorizationType.COGNITO,
         authorizer,
       });
-      resource.addMethod("POST", new apigateway.LambdaIntegration(adminFunction), {
+      resource.addMethod("POST", adminIntegration, {
         authorizationType: apigateway.AuthorizationType.COGNITO,
         authorizer,
       });
 
       const resourceById = resource.addResource("{id}");
-      resourceById.addMethod("GET", new apigateway.LambdaIntegration(adminFunction), {
+      resourceById.addMethod("GET", adminIntegration, {
         authorizationType: apigateway.AuthorizationType.COGNITO,
         authorizer,
       });
-      resourceById.addMethod("PUT", new apigateway.LambdaIntegration(adminFunction), {
+      resourceById.addMethod("PUT", adminIntegration, {
         authorizationType: apigateway.AuthorizationType.COGNITO,
         authorizer,
       });
-      resourceById.addMethod("DELETE", new apigateway.LambdaIntegration(adminFunction), {
+      resourceById.addMethod("DELETE", adminIntegration, {
         authorizationType: apigateway.AuthorizationType.COGNITO,
         authorizer,
       });
@@ -803,11 +812,11 @@ export class ApiStack extends cdk.Stack {
     const users = admin.addResource("users");
     const userByName = users.addResource("{username}");
     const userGroups = userByName.addResource("groups");
-    userGroups.addMethod("POST", new apigateway.LambdaIntegration(adminFunction), {
+    userGroups.addMethod("POST", adminIntegration, {
       authorizationType: apigateway.AuthorizationType.COGNITO,
       authorizer,
     });
-    userGroups.addMethod("DELETE", new apigateway.LambdaIntegration(adminFunction), {
+    userGroups.addMethod("DELETE", adminIntegration, {
       authorizationType: apigateway.AuthorizationType.COGNITO,
       authorizer,
     });
