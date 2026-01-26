@@ -562,6 +562,18 @@ export class ApiStack extends cdk.Stack {
       })
     );
 
+    const apiGatewayLogRole = new iam.Role(this, "ApiGatewayLogRole", {
+      assumedBy: new iam.ServicePrincipal("apigateway.amazonaws.com"),
+      managedPolicies: [
+        iam.ManagedPolicy.fromAwsManagedPolicyName(
+          "service-role/AmazonAPIGatewayPushToCloudWatchLogs"
+        ),
+      ],
+    });
+    new apigateway.CfnAccount(this, "ApiGatewayAccount", {
+      cloudWatchRoleArn: apiGatewayLogRole.roleArn,
+    });
+
     const api = new apigateway.RestApi(this, "ActivitiesApi", {
       restApiName: name("api"),
       defaultCorsPreflightOptions: {
@@ -587,6 +599,8 @@ export class ApiStack extends cdk.Stack {
           status: true,
           user: false,
         }),
+        loggingLevel: apigateway.MethodLoggingLevel.INFO,
+        dataTraceEnabled: false,
         cacheClusterEnabled: true,
         cacheClusterSize: "0.5",
         cacheDataEncrypted: true,
@@ -597,6 +611,10 @@ export class ApiStack extends cdk.Stack {
           },
         },
       },
+    });
+    new logs.LogGroup(this, "ApiExecutionLogs", {
+      logGroupName: `API-Gateway-Execution-Logs_${api.restApiId}/${api.deploymentStage.stageName}`,
+      retention: logs.RetentionDays.ONE_WEEK,
     });
 
     const authorizer = new apigateway.CognitoUserPoolsAuthorizer(
