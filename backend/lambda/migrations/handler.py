@@ -10,6 +10,7 @@ from typing import Mapping
 import psycopg
 from alembic import command
 from alembic.config import Config
+from sqlalchemy.engine import make_url
 
 from app.db.connection import get_database_url
 
@@ -52,7 +53,7 @@ def _run_seed(database_url: str, seed_path: str) -> None:
     if not sql.strip():
         return
 
-    with psycopg.connect(database_url) as connection:
+    with _psycopg_connect(database_url) as connection:
         with connection.cursor() as cursor:
             cursor.execute(sql)
         connection.commit()
@@ -62,6 +63,28 @@ def _escape_config(value: str) -> str:
     """Escape percent signs for configparser interpolation."""
 
     return value.replace("%", "%%")
+
+
+def _psycopg_connect(database_url: str) -> psycopg.Connection:
+    """Connect using keyword args to avoid DSN parsing issues."""
+
+    try:
+        url = make_url(database_url)
+    except Exception:
+        url = make_url(f"postgresql://{database_url}")
+
+    connect_kwargs: dict[str, Any] = {
+        "user": url.username,
+        "password": url.password,
+        "host": url.host,
+        "port": url.port,
+        "dbname": url.database,
+    }
+    sslmode = url.query.get("sslmode")
+    if sslmode:
+        connect_kwargs["sslmode"] = sslmode
+
+    return psycopg.connect(**{k: v for k, v in connect_kwargs.items() if v is not None})
 
 
 def _truthy(value: Any) -> bool:
