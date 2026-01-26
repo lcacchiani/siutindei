@@ -398,7 +398,9 @@ export class ApiStack extends cdk.Stack {
       environment: {
         DATABASE_SECRET_ARN: cluster.secret?.secretArn ?? "",
         DATABASE_NAME: "activities",
-        DATABASE_IAM_AUTH: "false",
+        DATABASE_USERNAME: "activities_admin",
+        DATABASE_PROXY_ENDPOINT: proxy.endpoint,
+        DATABASE_IAM_AUTH: "true",
         PYTHONPATH: "/var/task/src",
         SEED_FILE_PATH: "/var/task/db/seed/seed_data.sql",
       },
@@ -580,6 +582,7 @@ export class ApiStack extends cdk.Stack {
 
     proxy.grantConnect(searchFunction, "activities_app");
     proxy.grantConnect(adminFunction, "activities_admin");
+    proxy.grantConnect(migrationFunction, "activities_admin");
 
     adminFunction.addToRolePolicy(
       new iam.PolicyStatement({
