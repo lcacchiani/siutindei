@@ -54,7 +54,7 @@ def get_database_url() -> str:
     return (
         "postgresql+psycopg://"
         f"{quote_plus(str(username))}:{quote_plus(str(password))}"
-        f"@{host}:{port}/{database}"
+        f"@{host}:{port}/{database}?sslmode=require"
     )
 
 
