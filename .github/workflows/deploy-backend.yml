@@ -116,16 +116,22 @@ jobs:
           project_number = os.getenv("FIREBASE_MESSAGING_SENDER_ID", "").strip()
           android_app_id = os.getenv("FIREBASE_ANDROID_APP_ID", "").strip()
           ios_app_id = os.getenv("FIREBASE_IOS_APP_ID", "").strip()
+          apple_team_id = os.getenv("APPLE_TEAM_ID", "").strip()
 
-          if not project_number or not android_app_id or not ios_app_id:
+          params = {}
+
+          if apple_team_id:
+              params["AppleTeamId"] = apple_team_id
+
+          if project_number and android_app_id and ios_app_id:
+              audience = (
+                  f"projects/{project_number}/apps/{ios_app_id},"
+                  f"projects/{project_number}/apps/{android_app_id}"
+              )
+              params["DeviceAttestationAudience"] = audience
+
+          if not params:
               raise SystemExit(0)
-
-          audience = (
-              f"projects/{project_number}/apps/{ios_app_id},"
-              f"projects/{project_number}/apps/{android_app_id}"
-          )
-
-          params = {"DeviceAttestationAudience": audience}
           output_path = Path("/tmp/cdk-non-secret-params.json")
           output_path.write_text(json.dumps(params), encoding="utf-8")
           env_path = os.environ["GITHUB_ENV"]
@@ -133,6 +139,7 @@ jobs:
               handle.write(f"CDK_NON_SECRET_PARAM_FILE={output_path}\n")
           PY
         env:
+          APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
           FIREBASE_MESSAGING_SENDER_ID: ${{ vars.FIREBASE_MESSAGING_SENDER_ID }}
           FIREBASE_ANDROID_APP_ID: ${{ vars.FIREBASE_ANDROID_APP_ID }}
           FIREBASE_IOS_APP_ID: ${{ vars.FIREBASE_IOS_APP_ID }}

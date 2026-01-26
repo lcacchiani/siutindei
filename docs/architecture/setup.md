@@ -224,7 +224,7 @@ For the OIDC provider itself, add the same tags:
 2. Create a **Services ID**:
    - Services ID → `AppleClientId`
 3. Note your **Team ID**:
-   - Team ID → `AppleTeamId`
+   - Team ID → `AppleTeamId` (CI uses `APPLE_TEAM_ID` to set this automatically)
 4. Create a **Sign In with Apple Key**:
    - **Key ID** → `AppleKeyId`
    - Download `.p8` → `CDK_PARAM_APPLE_PRIVATE_KEY` (full contents)
