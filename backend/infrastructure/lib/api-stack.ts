@@ -307,7 +307,6 @@ export class ApiStack extends cdk.Stack {
       functionName: name("search"),
       runtime: lambda.Runtime.PYTHON_3_11,
       handler: "lambda/activity_search/handler.lambda_handler",
-      logRetention: logs.RetentionDays.ONE_WEEK,
       code: lambda.Code.fromAsset(path.join(__dirname, "../../"), {
         bundling: {
           image: lambda.Runtime.PYTHON_3_11.bundlingImage,
@@ -341,7 +340,6 @@ export class ApiStack extends cdk.Stack {
       functionName: name("admin"),
       runtime: lambda.Runtime.PYTHON_3_11,
       handler: "lambda/admin/handler.lambda_handler",
-      logRetention: logs.RetentionDays.ONE_WEEK,
       code: lambda.Code.fromAsset(path.join(__dirname, "../../"), {
         bundling: {
           image: lambda.Runtime.PYTHON_3_11.bundlingImage,
@@ -377,7 +375,6 @@ export class ApiStack extends cdk.Stack {
       functionName: name("migrations"),
       runtime: lambda.Runtime.PYTHON_3_11,
       handler: "lambda/migrations/handler.lambda_handler",
-      logRetention: logs.RetentionDays.ONE_WEEK,
       code: lambda.Code.fromAsset(path.join(__dirname, "../../"), {
         bundling: {
           image: lambda.Runtime.PYTHON_3_11.bundlingImage,
@@ -426,7 +423,6 @@ export class ApiStack extends cdk.Stack {
       functionName: name("auth-pre-signup"),
       runtime: lambda.Runtime.PYTHON_3_11,
       handler: "lambda/auth/pre_signup/handler.lambda_handler",
-      logRetention: logs.RetentionDays.ONE_WEEK,
       code: authLambdaCode,
       memorySize: 256,
       timeout: cdk.Duration.seconds(10),
@@ -442,7 +438,6 @@ export class ApiStack extends cdk.Stack {
         functionName: name("auth-define-challenge"),
         runtime: lambda.Runtime.PYTHON_3_11,
         handler: "lambda/auth/define_auth_challenge/handler.lambda_handler",
-        logRetention: logs.RetentionDays.ONE_WEEK,
         code: authLambdaCode,
         memorySize: 256,
         timeout: cdk.Duration.seconds(10),
@@ -460,7 +455,6 @@ export class ApiStack extends cdk.Stack {
         functionName: name("auth-create-challenge"),
         runtime: lambda.Runtime.PYTHON_3_11,
         handler: "lambda/auth/create_auth_challenge/handler.lambda_handler",
-        logRetention: logs.RetentionDays.ONE_WEEK,
         code: authLambdaCode,
         memorySize: 256,
         timeout: cdk.Duration.seconds(10),
@@ -479,7 +473,6 @@ export class ApiStack extends cdk.Stack {
         functionName: name("auth-verify-challenge"),
         runtime: lambda.Runtime.PYTHON_3_11,
         handler: "lambda/auth/verify_auth_challenge/handler.lambda_handler",
-        logRetention: logs.RetentionDays.ONE_WEEK,
         code: authLambdaCode,
         memorySize: 256,
         timeout: cdk.Duration.seconds(10),
@@ -496,7 +489,6 @@ export class ApiStack extends cdk.Stack {
         functionName: name("device-attestation"),
         runtime: lambda.Runtime.PYTHON_3_11,
         handler: "lambda/authorizers/device_attestation/handler.lambda_handler",
-        logRetention: logs.RetentionDays.ONE_WEEK,
         code: authLambdaCode,
         memorySize: 256,
         timeout: cdk.Duration.seconds(5),
@@ -507,6 +499,44 @@ export class ApiStack extends cdk.Stack {
           PYTHONPATH: "/var/task/src",
         },
       }
+    );
+
+    const lambdaLogRetention = logs.RetentionDays.ONE_WEEK;
+    const applyLambdaLogRetention = (
+      id: string,
+      logGroupName: string,
+    ): void => {
+      new logs.LogRetention(this, id, {
+        logGroupName,
+        retention: lambdaLogRetention,
+      });
+    };
+
+    applyLambdaLogRetention("SearchFunctionLogRetention", `/aws/lambda/${searchFunction.functionName}`);
+    applyLambdaLogRetention("AdminFunctionLogRetention", `/aws/lambda/${adminFunction.functionName}`);
+    applyLambdaLogRetention(
+      "MigrationFunctionLogRetention",
+      `/aws/lambda/${migrationFunction.functionName}`,
+    );
+    applyLambdaLogRetention(
+      "PreSignUpFunctionLogRetention",
+      `/aws/lambda/${preSignUpFunction.functionName}`,
+    );
+    applyLambdaLogRetention(
+      "DefineChallengeFunctionLogRetention",
+      `/aws/lambda/${defineAuthChallengeFunction.functionName}`,
+    );
+    applyLambdaLogRetention(
+      "CreateChallengeFunctionLogRetention",
+      `/aws/lambda/${createAuthChallengeFunction.functionName}`,
+    );
+    applyLambdaLogRetention(
+      "VerifyChallengeFunctionLogRetention",
+      `/aws/lambda/${verifyAuthChallengeFunction.functionName}`,
+    );
+    applyLambdaLogRetention(
+      "DeviceAttestationFunctionLogRetention",
+      `/aws/lambda/${deviceAttestationFunction.functionName}`,
     );
 
     const deviceAttestationAuthorizer = new apigateway.RequestAuthorizer(
@@ -612,7 +642,7 @@ export class ApiStack extends cdk.Stack {
         },
       },
     });
-    new logs.LogGroup(this, "ApiExecutionLogs", {
+    new logs.LogRetention(this, "ApiExecutionLogRetention", {
       logGroupName: `API-Gateway-Execution-Logs_${api.restApiId}/${api.deploymentStage.stageName}`,
       retention: logs.RetentionDays.ONE_WEEK,
     });
