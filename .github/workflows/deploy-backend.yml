@@ -198,7 +198,9 @@ jobs:
           for key, value in params.items():
               if value is None:
                   continue
-              value_str = str(value).strip()
+              value_str = str(value)
+              value_str = value_str.replace("\r\n", "\n").replace("\r", "\n")
+              value_str = value_str.replace("\n", "\\n").strip()
               if not value_str:
                   continue
               print("--parameters")

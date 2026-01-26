@@ -228,3 +228,5 @@ For the OIDC provider itself, add the same tags:
 4. Create a **Sign In with Apple Key**:
    - **Key ID** → `AppleKeyId`
    - Download `.p8` → `CDK_PARAM_APPLE_PRIVATE_KEY` (full contents)
+   - You can paste the key as multi-line; CI will escape newlines and CDK will
+     restore them automatically. A single-line value with `\n` escapes also works.

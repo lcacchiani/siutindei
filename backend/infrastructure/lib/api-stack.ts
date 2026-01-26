@@ -118,6 +118,10 @@ export class ApiStack extends cdk.Stack {
       noEcho: true,
       description: "Apple Sign In private key",
     });
+    const applePrivateKeyValue = cdk.Fn.join(
+      "\n",
+      cdk.Fn.split("\\n", applePrivateKey.valueAsString),
+    );
     const microsoftTenantId = new cdk.CfnParameter(this, "MicrosoftTenantId", {
       type: "String",
       description: "Microsoft Entra tenant ID",
@@ -222,7 +226,7 @@ export class ApiStack extends cdk.Stack {
           client_id: appleClientId.valueAsString,
           team_id: appleTeamId.valueAsString,
           key_id: appleKeyId.valueAsString,
-          private_key: applePrivateKey.valueAsString,
+          private_key: applePrivateKeyValue,
           authorize_scopes: "name email",
         },
       }
