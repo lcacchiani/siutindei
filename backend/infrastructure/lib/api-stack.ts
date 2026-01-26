@@ -398,9 +398,8 @@ export class ApiStack extends cdk.Stack {
       environment: {
         DATABASE_SECRET_ARN: cluster.secret?.secretArn ?? "",
         DATABASE_NAME: "activities",
-        DATABASE_USERNAME: "activities_admin",
-        DATABASE_PROXY_ENDPOINT: proxy.endpoint,
-        DATABASE_IAM_AUTH: "true",
+        DATABASE_USERNAME: "postgres",
+        DATABASE_IAM_AUTH: "false",
         PYTHONPATH: "/var/task/src",
         SEED_FILE_PATH: "/var/task/db/seed/seed_data.sql",
       },

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import time
 from pathlib import Path
 from typing import Any
 from typing import Mapping
@@ -23,12 +24,12 @@ def lambda_handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
         return {"PhysicalResourceId": "migrations", "Data": {"status": "skipped"}}
 
     database_url = get_database_url()
-    _run_migrations(database_url)
+    _run_with_retry(_run_migrations, database_url)
 
     run_seed = _truthy(event.get("ResourceProperties", {}).get("RunSeed"))
     if run_seed:
         seed_path = os.getenv("SEED_FILE_PATH", "/var/task/db/seed/seed_data.sql")
-        _run_seed(database_url, seed_path)
+        _run_with_retry(_run_seed, database_url, seed_path)
 
     return {"PhysicalResourceId": "migrations", "Data": {"status": "ok"}}
 
@@ -57,6 +58,23 @@ def _run_seed(database_url: str, seed_path: str) -> None:
         with connection.cursor() as cursor:
             cursor.execute(sql)
         connection.commit()
+
+
+def _run_with_retry(func: Any, *args: Any) -> None:
+    """Retry migration operations to wait for DB readiness."""
+
+    delay = 1.0
+    last_error: Exception | None = None
+    for _ in range(5):
+        try:
+            func(*args)
+            return
+        except Exception as exc:  # pragma: no cover - best effort retry
+            last_error = exc
+            time.sleep(delay)
+            delay *= 2
+    if last_error:
+        raise last_error
 
 
 def _escape_config(value: str) -> str:
