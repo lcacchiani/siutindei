@@ -81,7 +81,7 @@ For the OIDC provider itself, add the same tags:
 - `FIREBASE_MESSAGING_SENDER_ID`
 - `FIREBASE_ANDROID_APP_ID`
 - `FIREBASE_IOS_APP_ID`
-- `FIREBASE_IOS_BUNDLE_ID`
+- `FIREBASE_IOS_BUNDLE_ID` (use `IOS_BUNDLE_ID` value)
 - `FIREBASE_STORAGE_BUCKET` (optional)
 - `FIREBASE_APP_CHECK_DEBUG` (optional, `true` for debug providers)
 
