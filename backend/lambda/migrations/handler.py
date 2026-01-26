@@ -37,7 +37,7 @@ def _run_migrations(database_url: str) -> None:
 
     config = Config()
     config.set_main_option("script_location", "/var/task/db/alembic")
-    config.set_main_option("sqlalchemy.url", database_url)
+    config.set_main_option("sqlalchemy.url", _escape_config(database_url))
     command.upgrade(config, "head")
 
 
@@ -56,6 +56,12 @@ def _run_seed(database_url: str, seed_path: str) -> None:
         with connection.cursor() as cursor:
             cursor.execute(sql)
         connection.commit()
+
+
+def _escape_config(value: str) -> str:
+    """Escape percent signs for configparser interpolation."""
+
+    return value.replace("%", "%%")
 
 
 def _truthy(value: Any) -> bool:
