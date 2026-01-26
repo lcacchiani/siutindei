@@ -4,7 +4,7 @@
   "CognitoLogoutUrls": "com.lxsoftware.siutindei://logout",
   "GoogleClientId": "640961587388-b7qm2408gcnh31shppd4r60rkfr1mqnr.apps.googleusercontent.com",
   "GoogleClientSecret": "<FROM_GITHUB_SECRET: CDK_PARAM_GOOGLE_CLIENT_SECRET>",
-  "AppleClientId": "REPLACE_ME",
+  "AppleClientId": "com.lxsoftware.siutindei.auth",
   "AppleTeamId": "REPLACE_ME",
   "AppleKeyId": "REPLACE_ME",
   "ApplePrivateKey": "<FROM_GITHUB_SECRET: CDK_PARAM_APPLE_PRIVATE_KEY>",
