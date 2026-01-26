@@ -17,7 +17,7 @@
   "PublicApiKeyValue": "<FROM_GITHUB_SECRET: CDK_PARAM_PUBLIC_API_KEY_VALUE>",
   "DeviceAttestationJwksUrl": "https://firebaseappcheck.googleapis.com/v1/jwks",
   "DeviceAttestationIssuer": "https://firebaseappcheck.googleapis.com/",
-  "DeviceAttestationAudience": "projects/640961587388/apps/1:640961587388:ios:5c228b747bcea3590ac8b9,projects/640961587388/apps/1:640961587388:android:906c775ff811926d0ac8b9",
+  "DeviceAttestationAudience": "projects/640961587388/apps/1:640961587388:ios:5c228b747bcea3590ac8b9,projects/640961587388/apps/1:640961587388:android:732fede73ce1d9730ac8b9",
   "AdminBootstrapEmail": "",
   "AdminBootstrapTempPassword": "<FROM_GITHUB_SECRET: CDK_PARAM_ADMIN_BOOTSTRAP_TEMP_PASSWORD>"
 }
