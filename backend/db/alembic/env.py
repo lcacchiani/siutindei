@@ -33,6 +33,11 @@ def get_database_url() -> str:
     return url
 
 
+def _escape_for_config(value: str) -> str:
+    """Escape percent signs for configparser interpolation."""
+    return value.replace("%", "%%")
+
+
 def run_migrations_offline() -> None:
     """Run migrations in offline mode."""
     url = get_database_url()
@@ -49,7 +54,7 @@ def run_migrations_offline() -> None:
 
 def run_migrations_online() -> None:
     """Run migrations in online mode."""
-    config.set_main_option("sqlalchemy.url", get_database_url())
+    config.set_main_option("sqlalchemy.url", _escape_for_config(get_database_url()))
     connectable = engine_from_config(
         config.get_section(config.config_ini_section),
         prefix="sqlalchemy.",
