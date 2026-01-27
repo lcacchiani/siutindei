@@ -35,7 +35,7 @@ def get_database_url() -> str:
         secret.get("dbname")
         or secret.get("database")
         or os.getenv("DATABASE_NAME")
-        or "activities"
+        or "siutindei"
     )
 
     if not username or not host:

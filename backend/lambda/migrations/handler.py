@@ -7,6 +7,7 @@ import time
 from pathlib import Path
 from typing import Any
 from typing import Mapping
+from urllib.parse import urlparse
 
 import psycopg
 from alembic import command
@@ -24,6 +25,12 @@ def lambda_handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
         return {"PhysicalResourceId": "migrations", "Data": {"status": "skipped"}}
 
     database_url = get_database_url()
+
+    # Log connection details (without password) for debugging
+    parsed = urlparse(database_url)
+    print(f"Connecting to database: host={parsed.hostname}, port={parsed.port}, "
+          f"user={parsed.username}, database={parsed.path.lstrip('/')}")
+
     _run_with_retry(_run_migrations, database_url)
 
     run_seed = _truthy(event.get("ResourceProperties", {}).get("RunSeed"))
@@ -63,16 +70,21 @@ def _run_seed(database_url: str, seed_path: str) -> None:
 def _run_with_retry(func: Any, *args: Any) -> None:
     """Retry migration operations to wait for DB readiness."""
 
-    delay = 1.0
+    max_attempts = 10
+    delay = 5.0
     last_error: Exception | None = None
-    for _ in range(5):
+    for attempt in range(max_attempts):
         try:
             func(*args)
             return
         except Exception as exc:  # pragma: no cover - best effort retry
+            error_type = type(exc).__name__
+            print(f"Attempt {attempt + 1}/{max_attempts} failed ({error_type}): {exc}")
             last_error = exc
-            time.sleep(delay)
-            delay *= 2
+            if attempt < max_attempts - 1:
+                print(f"Retrying in {delay:.1f} seconds...")
+                time.sleep(delay)
+                delay = min(delay * 1.5, 30.0)  # Cap at 30 seconds
     if last_error:
         raise last_error
 
