@@ -106,6 +106,57 @@ export class ApiStack extends cdk.Stack {
       dbProxyName: name("db-proxy"),
     });
 
+    const createPythonFunction = (
+      id: string,
+      props: {
+        functionName: string;
+        handler: string;
+        environment?: Record<string, string>;
+        timeout?: cdk.Duration;
+        extraCopyCommands?: string[];
+        securityGroups?: ec2.ISecurityGroup[];
+        memorySize?: number;
+        code?: lambda.Code;
+      }
+    ) => {
+      const copyCommands = [
+        "pip install -r requirements.txt -t /asset-output",
+        "cp -au lambda /asset-output/lambda",
+        "cp -au src /asset-output/src",
+        ...(props.extraCopyCommands ?? []),
+      ];
+
+      const fn = new lambda.Function(this, id, {
+        functionName: props.functionName,
+        runtime: lambda.Runtime.PYTHON_3_11,
+        handler: props.handler,
+        code:
+          props.code ??
+          lambda.Code.fromAsset(path.join(__dirname, "../../"), {
+            bundling: {
+              image: lambda.Runtime.PYTHON_3_11.bundlingImage,
+              command: ["bash", "-c", copyCommands.join(" && ")],
+            },
+          }),
+        memorySize: props.memorySize ?? 512,
+        timeout: props.timeout ?? cdk.Duration.seconds(30),
+        vpc,
+        securityGroups: props.securityGroups ?? [lambdaSecurityGroup],
+        vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
+        environment: {
+          PYTHONPATH: "/var/task/src",
+          ...props.environment,
+        },
+      });
+
+      new logs.LogRetention(this, `${id}LogRetention`, {
+        logGroupName: `/aws/lambda/${fn.functionName}`,
+        retention: logs.RetentionDays.ONE_WEEK,
+      });
+
+      return fn;
+    };
+
     const authDomainPrefix = new cdk.CfnParameter(this, "CognitoDomainPrefix", {
       type: "String",
       description: "Hosted UI domain prefix for the Cognito user pool",
@@ -312,62 +363,21 @@ export class ApiStack extends cdk.Stack {
     userPoolClient.addDependency(appleProvider);
     userPoolClient.addDependency(microsoftProvider);
 
-    const searchFunction = new lambda.Function(this, "ActivitiesSearchFunction", {
+    const searchFunction = createPythonFunction("ActivitiesSearchFunction", {
       functionName: name("search"),
-      runtime: lambda.Runtime.PYTHON_3_11,
       handler: "lambda/activity_search/handler.lambda_handler",
-      code: lambda.Code.fromAsset(path.join(__dirname, "../../"), {
-        bundling: {
-          image: lambda.Runtime.PYTHON_3_11.bundlingImage,
-          command: [
-            "bash",
-            "-c",
-            [
-              "pip install -r requirements.txt -t /asset-output",
-              "cp -au lambda /asset-output/lambda",
-              "cp -au src /asset-output/src",
-            ].join(" && "),
-          ],
-        },
-      }),
-      memorySize: 512,
-      timeout: cdk.Duration.seconds(30),
-      vpc,
-      securityGroups: [lambdaSecurityGroup],
-      vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
       environment: {
         DATABASE_SECRET_ARN: cluster.secret?.secretArn ?? "",
         DATABASE_NAME: "activities",
         DATABASE_USERNAME: "activities_app",
         DATABASE_PROXY_ENDPOINT: proxy.endpoint,
         DATABASE_IAM_AUTH: "true",
-        PYTHONPATH: "/var/task/src",
       },
     });
 
-    const adminFunction = new lambda.Function(this, "ActivitiesAdminFunction", {
+    const adminFunction = createPythonFunction("ActivitiesAdminFunction", {
       functionName: name("admin"),
-      runtime: lambda.Runtime.PYTHON_3_11,
       handler: "lambda/admin/handler.lambda_handler",
-      code: lambda.Code.fromAsset(path.join(__dirname, "../../"), {
-        bundling: {
-          image: lambda.Runtime.PYTHON_3_11.bundlingImage,
-          command: [
-            "bash",
-            "-c",
-            [
-              "pip install -r requirements.txt -t /asset-output",
-              "cp -au lambda /asset-output/lambda",
-              "cp -au src /asset-output/src",
-            ].join(" && "),
-          ],
-        },
-      }),
-      memorySize: 512,
-      timeout: cdk.Duration.seconds(30),
-      vpc,
-      securityGroups: [lambdaSecurityGroup],
-      vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
       environment: {
         DATABASE_SECRET_ARN: cluster.secret?.secretArn ?? "",
         DATABASE_NAME: "activities",
@@ -376,34 +386,15 @@ export class ApiStack extends cdk.Stack {
         DATABASE_IAM_AUTH: "true",
         ADMIN_GROUP: "admin",
         COGNITO_USER_POOL_ID: userPool.userPoolId,
-        PYTHONPATH: "/var/task/src",
       },
     });
 
-    const migrationFunction = new lambda.Function(this, "ActivitiesMigrationFunction", {
+    const migrationFunction = createPythonFunction("ActivitiesMigrationFunction", {
       functionName: name("migrations"),
-      runtime: lambda.Runtime.PYTHON_3_11,
       handler: "lambda/migrations/handler.lambda_handler",
-      code: lambda.Code.fromAsset(path.join(__dirname, "../../"), {
-        bundling: {
-          image: lambda.Runtime.PYTHON_3_11.bundlingImage,
-          command: [
-            "bash",
-            "-c",
-            [
-              "pip install -r requirements.txt -t /asset-output",
-              "cp -au lambda /asset-output/lambda",
-              "cp -au src /asset-output/src",
-              "cp -au db /asset-output/db",
-            ].join(" && "),
-          ],
-        },
-      }),
-      memorySize: 512,
       timeout: cdk.Duration.minutes(5),
-      vpc,
       securityGroups: [migrationSecurityGroup],
-      vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
+      extraCopyCommands: ["cp -au db /asset-output/db"],
       environment: {
         DATABASE_SECRET_ARN: cluster.secret?.secretArn ?? "",
         DATABASE_NAME: "activities",
@@ -411,144 +402,67 @@ export class ApiStack extends cdk.Stack {
         DATABASE_IAM_AUTH: "false",
         DATABASE_HOST: cluster.clusterEndpoint.hostname,
         DATABASE_PORT: cluster.clusterEndpoint.port.toString(),
-        PYTHONPATH: "/var/task/src",
         SEED_FILE_PATH: "/var/task/db/seed/seed_data.sql",
       },
     });
 
-    const authLambdaCode = lambda.Code.fromAsset(path.join(__dirname, "../../"), {
-      bundling: {
-        image: lambda.Runtime.PYTHON_3_11.bundlingImage,
-        command: [
-          "bash",
-          "-c",
-          [
-            "pip install -r requirements.txt -t /asset-output",
-            "cp -au lambda /asset-output/lambda",
-            "cp -au src /asset-output/src",
-          ].join(" && "),
-        ],
-      },
-    });
-
-    const preSignUpFunction = new lambda.Function(this, "AuthPreSignUpFunction", {
+    const preSignUpFunction = createPythonFunction("AuthPreSignUpFunction", {
       functionName: name("auth-pre-signup"),
-      runtime: lambda.Runtime.PYTHON_3_11,
       handler: "lambda/auth/pre_signup/handler.lambda_handler",
-      code: authLambdaCode,
       memorySize: 256,
       timeout: cdk.Duration.seconds(10),
-      environment: {
-        PYTHONPATH: "/var/task/src",
-      },
     });
 
-    const defineAuthChallengeFunction = new lambda.Function(
-      this,
+    const defineAuthChallengeFunction = createPythonFunction(
       "AuthDefineChallengeFunction",
       {
         functionName: name("auth-define-challenge"),
-        runtime: lambda.Runtime.PYTHON_3_11,
         handler: "lambda/auth/define_auth_challenge/handler.lambda_handler",
-        code: authLambdaCode,
         memorySize: 256,
         timeout: cdk.Duration.seconds(10),
         environment: {
           MAX_CHALLENGE_ATTEMPTS: maxChallengeAttempts.valueAsString,
-          PYTHONPATH: "/var/task/src",
         },
       }
     );
 
-    const createAuthChallengeFunction = new lambda.Function(
-      this,
+    const createAuthChallengeFunction = createPythonFunction(
       "AuthCreateChallengeFunction",
       {
         functionName: name("auth-create-challenge"),
-        runtime: lambda.Runtime.PYTHON_3_11,
         handler: "lambda/auth/create_auth_challenge/handler.lambda_handler",
-        code: authLambdaCode,
         memorySize: 256,
         timeout: cdk.Duration.seconds(10),
         environment: {
           SES_FROM_ADDRESS: authEmailFromAddress.valueAsString,
           LOGIN_LINK_BASE_URL: loginLinkBaseUrl.valueAsString,
-          PYTHONPATH: "/var/task/src",
         },
       }
     );
 
-    const verifyAuthChallengeFunction = new lambda.Function(
-      this,
+    const verifyAuthChallengeFunction = createPythonFunction(
       "AuthVerifyChallengeFunction",
       {
         functionName: name("auth-verify-challenge"),
-        runtime: lambda.Runtime.PYTHON_3_11,
         handler: "lambda/auth/verify_auth_challenge/handler.lambda_handler",
-        code: authLambdaCode,
         memorySize: 256,
         timeout: cdk.Duration.seconds(10),
-        environment: {
-          PYTHONPATH: "/var/task/src",
-        },
       }
     );
 
-    const deviceAttestationFunction = new lambda.Function(
-      this,
+    const deviceAttestationFunction = createPythonFunction(
       "DeviceAttestationAuthorizer",
       {
         functionName: name("device-attestation"),
-        runtime: lambda.Runtime.PYTHON_3_11,
         handler: "lambda/authorizers/device_attestation/handler.lambda_handler",
-        code: authLambdaCode,
         memorySize: 256,
         timeout: cdk.Duration.seconds(5),
         environment: {
           ATTESTATION_JWKS_URL: deviceAttestationJwksUrl.valueAsString,
           ATTESTATION_ISSUER: deviceAttestationIssuer.valueAsString,
           ATTESTATION_AUDIENCE: deviceAttestationAudience.valueAsString,
-          PYTHONPATH: "/var/task/src",
         },
       }
-    );
-
-    const lambdaLogRetention = logs.RetentionDays.ONE_WEEK;
-    const applyLambdaLogRetention = (
-      id: string,
-      logGroupName: string,
-    ): void => {
-      new logs.LogRetention(this, id, {
-        logGroupName,
-        retention: lambdaLogRetention,
-      });
-    };
-
-    applyLambdaLogRetention("SearchFunctionLogRetention", `/aws/lambda/${searchFunction.functionName}`);
-    applyLambdaLogRetention("AdminFunctionLogRetention", `/aws/lambda/${adminFunction.functionName}`);
-    applyLambdaLogRetention(
-      "MigrationFunctionLogRetention",
-      `/aws/lambda/${migrationFunction.functionName}`,
-    );
-    applyLambdaLogRetention(
-      "PreSignUpFunctionLogRetention",
-      `/aws/lambda/${preSignUpFunction.functionName}`,
-    );
-    applyLambdaLogRetention(
-      "DefineChallengeFunctionLogRetention",
-      `/aws/lambda/${defineAuthChallengeFunction.functionName}`,
-    );
-    applyLambdaLogRetention(
-      "CreateChallengeFunctionLogRetention",
-      `/aws/lambda/${createAuthChallengeFunction.functionName}`,
-    );
-    applyLambdaLogRetention(
-      "VerifyChallengeFunctionLogRetention",
-      `/aws/lambda/${verifyAuthChallengeFunction.functionName}`,
-    );
-    applyLambdaLogRetention(
-      "DeviceAttestationFunctionLogRetention",
-      `/aws/lambda/${deviceAttestationFunction.functionName}`,
     );
 
     const deviceAttestationAuthorizer = new apigateway.RequestAuthorizer(
