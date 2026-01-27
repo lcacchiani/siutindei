@@ -34,6 +34,12 @@ jobs:
         run: flutter pub get
         working-directory: apps/customer_app
 
+      - name: Setup SSH for certificates repo
+        uses: webfactory/ssh-agent@v0.9.0
+        if: ${{ secrets.MATCH_DEPLOY_KEY != '' }}
+        with:
+          ssh-private-key: ${{ secrets.MATCH_DEPLOY_KEY }}
+
       - name: Sync signing assets (match)
         working-directory: apps/customer_app/ios
         run: |

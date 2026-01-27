@@ -151,6 +151,51 @@ Flutter mobile app, Next.js admin console, and AWS serverless backend.
 - iOS: `Podfile.lock`
 - CI workflow: `.github/workflows/check-lockfiles.yml`
 
+## 7) Dependency Updates
+
+**Decision:** Use Dependabot for automated dependency updates.
+
+**Why:**
+- Automatic security vulnerability alerts and patches.
+- Small, frequent updates are easier to review than large version jumps.
+- PR-based workflow integrates with existing CI checks.
+- Low maintenance overhead once configured.
+
+**Configuration (`.github/dependabot.yml`):**
+- GitHub Actions, npm, pip, and pub ecosystems covered.
+- Weekly schedule (Mondays) to reduce PR noise.
+- Dependencies grouped by category (AWS CDK, Firebase, database, etc.).
+- Major version updates ignored to require manual review.
+- PRs labeled by ecosystem (`dependencies`, `ci`, `backend`, `mobile`, `infrastructure`).
+
+**Dependabot commands:**
+- `@dependabot merge` - Merge when CI passes.
+- `@dependabot ignore this major version` - Stop updates for this major version.
+- `@dependabot ignore this dependency` - Stop all updates for this dependency.
+
+## 8) GitHub Rulesets
+
+**Decision:** Protect `main` branch and release tags with GitHub rulesets.
+
+**Why:**
+- Prevents accidental direct pushes to production branch.
+- Enforces code review before merging.
+- Ensures CI checks pass before deployment.
+- Protects release tags from modification or deletion.
+
+**Branch protection for `main`:**
+- Require pull request with at least 1 approval.
+- Require `lint` and `test` status checks to pass.
+- Require branches to be up to date before merging.
+- Block force pushes and deletions.
+
+**Tag protection:**
+- Protect `v*` tags from deletion and modification.
+
+**Verification:**
+- Weekly CI workflow (`.github/workflows/verify-rulesets.yml`) validates configuration.
+- See `docs/architecture/github-rulesets.md` for setup instructions.
+
 ## CI/CD Variables and Secrets
 
 **GitHub Variables**
