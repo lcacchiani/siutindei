@@ -7,6 +7,7 @@ import * as iam from "aws-cdk-lib/aws-iam";
 import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as logs from "aws-cdk-lib/aws-logs";
 import * as rds from "aws-cdk-lib/aws-rds";
+import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
 import { Construct } from "constructs";
 import * as crypto from "crypto";
 import * as fs from "fs";
@@ -65,15 +66,23 @@ export class ApiStack extends cdk.Stack {
       "Migrations access to Aurora"
     );
 
+    const dbCredentialsSecret = new secretsmanager.Secret(this, "DBCredentialsSecret", {
+      secretName: name("database-credentials"),
+      generateSecretString: {
+        secretStringTemplate: JSON.stringify({ username: "postgres" }),
+        generateStringKey: "password",
+        excludePunctuation: true,
+        includeSpace: false,
+      },
+    });
+
     const cluster = new rds.DatabaseCluster(this, "ActivitiesCluster", {
       engine: rds.DatabaseClusterEngine.auroraPostgres({
         version: rds.AuroraPostgresEngineVersion.of("17.7", "17"),
       }),
       cloudwatchLogsExports: ["postgresql"],
       cloudwatchLogsRetention: logs.RetentionDays.ONE_WEEK,
-      credentials: rds.Credentials.fromGeneratedSecret("postgres", {
-        secretName: name("db-credentials"),
-      }),
+      credentials: rds.Credentials.fromSecret(dbCredentialsSecret),
       defaultDatabaseName: "activities",
       iamAuthentication: true,
       serverlessV2MinCapacity: 0.5,

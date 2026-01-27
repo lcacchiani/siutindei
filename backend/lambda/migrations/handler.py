@@ -65,11 +65,12 @@ def _run_with_retry(func: Any, *args: Any) -> None:
 
     delay = 1.0
     last_error: Exception | None = None
-    for _ in range(5):
+    for attempt in range(5):
         try:
             func(*args)
             return
         except Exception as exc:  # pragma: no cover - best effort retry
+            print(f"Attempt {attempt + 1} failed: {exc}")
             last_error = exc
             time.sleep(delay)
             delay *= 2
