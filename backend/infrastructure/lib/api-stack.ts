@@ -83,7 +83,7 @@ export class ApiStack extends cdk.Stack {
       cloudwatchLogsExports: ["postgresql"],
       cloudwatchLogsRetention: logs.RetentionDays.ONE_WEEK,
       credentials: rds.Credentials.fromSecret(dbCredentialsSecret),
-      defaultDatabaseName: "activities",
+      defaultDatabaseName: "siutindei",
       iamAuthentication: true,
       serverlessV2MinCapacity: 0.5,
       serverlessV2MaxCapacity: 2,
@@ -368,7 +368,7 @@ export class ApiStack extends cdk.Stack {
       handler: "lambda/activity_search/handler.lambda_handler",
       environment: {
         DATABASE_SECRET_ARN: cluster.secret?.secretArn ?? "",
-        DATABASE_NAME: "activities",
+        DATABASE_NAME: "siutindei",
         DATABASE_USERNAME: "activities_app",
         DATABASE_PROXY_ENDPOINT: proxy.endpoint,
         DATABASE_IAM_AUTH: "true",
@@ -380,7 +380,7 @@ export class ApiStack extends cdk.Stack {
       handler: "lambda/admin/handler.lambda_handler",
       environment: {
         DATABASE_SECRET_ARN: cluster.secret?.secretArn ?? "",
-        DATABASE_NAME: "activities",
+        DATABASE_NAME: "siutindei",
         DATABASE_USERNAME: "activities_admin",
         DATABASE_PROXY_ENDPOINT: proxy.endpoint,
         DATABASE_IAM_AUTH: "true",
@@ -397,7 +397,7 @@ export class ApiStack extends cdk.Stack {
       extraCopyCommands: ["cp -au db /asset-output/db"],
       environment: {
         DATABASE_SECRET_ARN: cluster.secret?.secretArn ?? "",
-        DATABASE_NAME: "activities",
+        DATABASE_NAME: "siutindei",
         DATABASE_USERNAME: "postgres",
         DATABASE_IAM_AUTH: "false",
         DATABASE_HOST: cluster.clusterEndpoint.hostname,
