@@ -55,15 +55,15 @@ export class ApiStack extends cdk.Stack {
       ec2.Port.tcp(5432),
       "Lambda access to RDS Proxy"
     );
-    proxySecurityGroup.addIngressRule(
-      migrationSecurityGroup,
-      ec2.Port.tcp(5432),
-      "Migration Lambda access to RDS Proxy"
-    );
     dbSecurityGroup.addIngressRule(
       proxySecurityGroup,
       ec2.Port.tcp(5432),
       "RDS Proxy access to Aurora"
+    );
+    dbSecurityGroup.addIngressRule(
+      migrationSecurityGroup,
+      ec2.Port.tcp(5432),
+      "Migration Lambda direct access to Aurora"
     );
 
     const dbCredentialsSecret = new secretsmanager.Secret(this, "DBCredentialsSecret", {
@@ -400,8 +400,8 @@ export class ApiStack extends cdk.Stack {
         DATABASE_NAME: "activities",
         DATABASE_USERNAME: "postgres",
         DATABASE_IAM_AUTH: "false",
-        DATABASE_HOST: proxy.endpoint,
-        DATABASE_PORT: "5432",
+        DATABASE_HOST: cluster.clusterEndpoint.hostname,
+        DATABASE_PORT: cluster.clusterEndpoint.port.toString(),
         SEED_FILE_PATH: "/var/task/db/seed/seed_data.sql",
       },
     });
@@ -900,10 +900,8 @@ export class ApiStack extends cdk.Stack {
       },
     });
     migrateResource.node.addDependency(cluster);
-    migrateResource.node.addDependency(proxy);
 
     migrationFunction.node.addDependency(cluster);
-    migrationFunction.node.addDependency(proxy);
   }
 }
 
