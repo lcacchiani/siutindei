@@ -106,6 +106,44 @@ jobs:
           CDK_PARAM_PUBLIC_API_KEY_VALUE: ${{ secrets.CDK_PARAM_PUBLIC_API_KEY_VALUE }}
           CDK_PARAM_ADMIN_BOOTSTRAP_TEMP_PASSWORD: ${{ secrets.CDK_PARAM_ADMIN_BOOTSTRAP_TEMP_PASSWORD }}
 
+      - name: Build CDK non-secret parameters file
+        run: |
+          python3 - <<'PY'
+          import os
+          import json
+          from pathlib import Path
+
+          project_number = os.getenv("FIREBASE_MESSAGING_SENDER_ID", "").strip()
+          android_app_id = os.getenv("FIREBASE_ANDROID_APP_ID", "").strip()
+          ios_app_id = os.getenv("FIREBASE_IOS_APP_ID", "").strip()
+          apple_team_id = os.getenv("APPLE_TEAM_ID", "").strip()
+
+          params = {}
+
+          if apple_team_id:
+              params["AppleTeamId"] = apple_team_id
+
+          if project_number and android_app_id and ios_app_id:
+              audience = (
+                  f"projects/{project_number}/apps/{ios_app_id},"
+                  f"projects/{project_number}/apps/{android_app_id}"
+              )
+              params["DeviceAttestationAudience"] = audience
+
+          if not params:
+              raise SystemExit(0)
+          output_path = Path("/tmp/cdk-non-secret-params.json")
+          output_path.write_text(json.dumps(params), encoding="utf-8")
+          env_path = os.environ["GITHUB_ENV"]
+          with open(env_path, "a", encoding="utf-8") as handle:
+              handle.write(f"CDK_NON_SECRET_PARAM_FILE={output_path}\n")
+          PY
+        env:
+          APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
+          FIREBASE_MESSAGING_SENDER_ID: ${{ vars.FIREBASE_MESSAGING_SENDER_ID }}
+          FIREBASE_ANDROID_APP_ID: ${{ vars.FIREBASE_ANDROID_APP_ID }}
+          FIREBASE_IOS_APP_ID: ${{ vars.FIREBASE_IOS_APP_ID }}
+
       - name: Deploy backend with CDK
         run: |
           if [ -f "backend/infrastructure/package.json" ]; then
@@ -141,6 +179,9 @@ jobs:
             if [ -n "${CDK_SECRET_PARAM_FILE:-}" ] && [ -f "$CDK_SECRET_PARAM_FILE" ]; then
               PARAM_FILES+=("$CDK_SECRET_PARAM_FILE")
             fi
+            if [ -n "${CDK_NON_SECRET_PARAM_FILE:-}" ] && [ -f "$CDK_NON_SECRET_PARAM_FILE" ]; then
+              PARAM_FILES+=("$CDK_NON_SECRET_PARAM_FILE")
+            fi
             if [ ${#PARAM_FILES[@]} -gt 0 ]; then
               PARAM_FILES_CSV=$(IFS=, ; echo "${PARAM_FILES[*]}")
               PARAM_ARGS_FILE="$(mktemp)"
@@ -157,7 +198,9 @@ jobs:
           for key, value in params.items():
               if value is None:
                   continue
-              value_str = str(value).strip()
+              value_str = str(value)
+              value_str = value_str.replace("\r\n", "\n").replace("\r", "\n")
+              value_str = value_str.replace("\n", "\\n").strip()
               if not value_str:
                   continue
               print("--parameters")
@@ -169,15 +212,26 @@ jobs:
             if [ -n "$CDK_BOOTSTRAP_QUALIFIER" ]; then
               QUALIFIER_ARGS=(--qualifier "$CDK_BOOTSTRAP_QUALIFIER")
             fi
+            STACK_ARGS=()
+            if [ -n "${CDK_STACKS:-}" ]; then
+              IFS=$', \n\t' read -r -a STACK_LIST <<< "$CDK_STACKS"
+              for stack in "${STACK_LIST[@]}"; do
+                trimmed="${stack#"${stack%%[![:space:]]*}"}"
+                trimmed="${trimmed%"${trimmed##*[![:space:]]}"}"
+                if [ -n "$trimmed" ]; then
+                  STACK_ARGS+=("$trimmed")
+                fi
+              done
+            fi
             if [ "${DESTROY_BEFORE_DEPLOY:-false}" = "true" ]; then
-              if [ -n "$CDK_STACKS" ]; then
-                npx cdk destroy --no-notices --force "${QUALIFIER_ARGS[@]}" $CDK_STACKS
+              if [ ${#STACK_ARGS[@]} -gt 0 ]; then
+                npx cdk destroy --no-notices --force "${QUALIFIER_ARGS[@]}" "${STACK_ARGS[@]}"
               else
                 npx cdk destroy --no-notices --force "${QUALIFIER_ARGS[@]}" ActivitiesApiStack
               fi
             fi
-            if [ -n "$CDK_STACKS" ]; then
-              npx cdk deploy --no-notices --require-approval never "${QUALIFIER_ARGS[@]}" $CDK_STACKS "${PARAM_ARGS[@]}"
+            if [ ${#STACK_ARGS[@]} -gt 0 ]; then
+              npx cdk deploy --no-notices --require-approval never "${QUALIFIER_ARGS[@]}" "${PARAM_ARGS[@]}" "${STACK_ARGS[@]}"
             else
               npx cdk deploy --no-notices --require-approval never "${QUALIFIER_ARGS[@]}" "${PARAM_ARGS[@]}"
             fi
@@ -188,5 +242,6 @@ jobs:
           CDK_STACKS: ${{ vars.CDK_STACKS }}
           CDK_PARAM_FILE: ${{ vars.CDK_PARAM_FILE }}
           CDK_SECRET_PARAM_FILE: ${{ env.CDK_SECRET_PARAM_FILE }}
+          CDK_NON_SECRET_PARAM_FILE: ${{ env.CDK_NON_SECRET_PARAM_FILE }}
           CDK_BOOTSTRAP_QUALIFIER: ${{ vars.CDK_BOOTSTRAP_QUALIFIER }}
           DESTROY_BEFORE_DEPLOY: ${{ github.event.inputs.destroy_before_deploy || 'false' }}

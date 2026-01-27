@@ -18,27 +18,27 @@ def upgrade() -> None:
         """
         DO $$
         BEGIN
-          IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'activities_app') THEN
-            CREATE ROLE activities_app LOGIN;
+          IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'siutindei_app') THEN
+            CREATE ROLE siutindei_app LOGIN;
           END IF;
         END
         $$;
         """
     )
-    op.execute("GRANT rds_iam TO activities_app;")
+    op.execute("GRANT rds_iam TO siutindei_app;")
     op.execute(
         """
         DO $$
         BEGIN
-          EXECUTE format('GRANT CONNECT ON DATABASE %I TO activities_app', current_database());
+          EXECUTE format('GRANT CONNECT ON DATABASE %I TO siutindei_app', current_database());
         END
         $$;
         """
     )
-    op.execute("GRANT USAGE ON SCHEMA public TO activities_app;")
-    op.execute("GRANT SELECT ON ALL TABLES IN SCHEMA public TO activities_app;")
+    op.execute("GRANT USAGE ON SCHEMA public TO siutindei_app;")
+    op.execute("GRANT SELECT ON ALL TABLES IN SCHEMA public TO siutindei_app;")
     op.execute(
-        "ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO activities_app;"
+        "ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO siutindei_app;"
     )
     op.execute("GRANT rds_iam TO CURRENT_USER;")
 
@@ -49,13 +49,13 @@ def downgrade() -> None:
         """
         DO $$
         BEGIN
-          IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'activities_app') THEN
-            EXECUTE format('REVOKE CONNECT ON DATABASE %I FROM activities_app', current_database());
-            REVOKE USAGE ON SCHEMA public FROM activities_app;
-            REVOKE SELECT ON ALL TABLES IN SCHEMA public FROM activities_app;
-            ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE SELECT ON TABLES FROM activities_app;
-            REVOKE rds_iam FROM activities_app;
-            DROP ROLE activities_app;
+          IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'siutindei_app') THEN
+            EXECUTE format('REVOKE CONNECT ON DATABASE %I FROM siutindei_app', current_database());
+            REVOKE USAGE ON SCHEMA public FROM siutindei_app;
+            REVOKE SELECT ON ALL TABLES IN SCHEMA public FROM siutindei_app;
+            ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE SELECT ON TABLES FROM siutindei_app;
+            REVOKE rds_iam FROM siutindei_app;
+            DROP ROLE siutindei_app;
           END IF;
         END
         $$;

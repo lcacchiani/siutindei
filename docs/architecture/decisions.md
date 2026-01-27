@@ -156,7 +156,7 @@ Flutter mobile app, Next.js admin console, and AWS serverless backend.
 **GitHub Variables**
 - `AWS_ACCOUNT_ID`
 - `AWS_REGION`
-- `CDK_STACKS` (optional)
+- `CDK_STACKS` (optional; comma/space-separated list, e.g. `ActivitiesApiStack`)
 - `CDK_BOOTSTRAP_QUALIFIER` (optional)
 - `CDK_PARAM_FILE` (optional path to CDK parameter JSON)
 - `AMPLIFY_APP_ID`

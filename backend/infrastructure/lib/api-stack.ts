@@ -5,7 +5,9 @@ import * as customresources from "aws-cdk-lib/custom-resources";
 import * as ec2 from "aws-cdk-lib/aws-ec2";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as lambda from "aws-cdk-lib/aws-lambda";
+import * as logs from "aws-cdk-lib/aws-logs";
 import * as rds from "aws-cdk-lib/aws-rds";
+import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
 import { Construct } from "constructs";
 import * as crypto from "crypto";
 import * as fs from "fs";
@@ -18,7 +20,11 @@ export class ApiStack extends cdk.Stack {
     cdk.Tags.of(this).add("Organization", "LX Software");
     cdk.Tags.of(this).add("Project", "Siu Tin Dei");
 
-    const vpc = new ec2.Vpc(this, "ActivitiesVpc", {
+    const resourcePrefix = "lxsoftware-siutindei";
+    const name = (suffix: string) => `${resourcePrefix}-${suffix}`;
+
+    const vpc = new ec2.Vpc(this, "SiutindeiVpc", {
+      vpcName: name("vpc"),
       maxAzs: 2,
       natGateways: 1,
     });
@@ -26,19 +32,23 @@ export class ApiStack extends cdk.Stack {
     const lambdaSecurityGroup = new ec2.SecurityGroup(this, "LambdaSecurityGroup", {
       vpc,
       allowAllOutbound: true,
+      securityGroupName: name("lambda-sg"),
     });
     const migrationSecurityGroup = new ec2.SecurityGroup(this, "MigrationSecurityGroup", {
       vpc,
       allowAllOutbound: true,
+      securityGroupName: name("migration-sg"),
     });
 
     const dbSecurityGroup = new ec2.SecurityGroup(this, "DatabaseSecurityGroup", {
       vpc,
       allowAllOutbound: true,
+      securityGroupName: name("db-sg"),
     });
     const proxySecurityGroup = new ec2.SecurityGroup(this, "ProxySecurityGroup", {
       vpc,
       allowAllOutbound: true,
+      securityGroupName: name("proxy-sg"),
     });
     proxySecurityGroup.addIngressRule(
       lambdaSecurityGroup,
@@ -53,32 +63,99 @@ export class ApiStack extends cdk.Stack {
     dbSecurityGroup.addIngressRule(
       migrationSecurityGroup,
       ec2.Port.tcp(5432),
-      "Migrations access to Aurora"
+      "Migration Lambda direct access to Aurora"
     );
 
-    const cluster = new rds.DatabaseCluster(this, "ActivitiesCluster", {
+    const dbCredentialsSecret = new secretsmanager.Secret(this, "DBCredentialsSecret", {
+      secretName: name("database-credentials"),
+      generateSecretString: {
+        secretStringTemplate: JSON.stringify({ username: "postgres" }),
+        generateStringKey: "password",
+        excludePunctuation: true,
+        includeSpace: false,
+      },
+    });
+
+    const cluster = new rds.DatabaseCluster(this, "SiutindeiCluster", {
       engine: rds.DatabaseClusterEngine.auroraPostgres({
-        version: rds.AuroraPostgresEngineVersion.of("17.7", "17"),
+        version: rds.AuroraPostgresEngineVersion.VER_16_4,
       }),
-      credentials: rds.Credentials.fromGeneratedSecret("postgres"),
-      defaultDatabaseName: "activities",
-      iamAuthentication: true,
+      cloudwatchLogsExports: ["postgresql"],
+      cloudwatchLogsRetention: logs.RetentionDays.ONE_WEEK,
+      credentials: rds.Credentials.fromSecret(dbCredentialsSecret),
+      defaultDatabaseName: "siutindei",
+      iamAuthentication: false,
       serverlessV2MinCapacity: 0.5,
       serverlessV2MaxCapacity: 2,
-      writer: rds.ClusterInstance.serverlessV2("writer"),
+      writer: rds.ClusterInstance.serverlessV2("writer", {
+        instanceIdentifier: name("db-writer"),
+      }),
+      clusterIdentifier: name("db-cluster"),
       vpc,
       vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
       securityGroups: [dbSecurityGroup],
     });
 
-    const proxy = new rds.DatabaseProxy(this, "ActivitiesProxy", {
+    const proxy = new rds.DatabaseProxy(this, "SiutindeiProxy", {
       proxyTarget: rds.ProxyTarget.fromCluster(cluster),
       secrets: cluster.secret ? [cluster.secret] : [],
       vpc,
       securityGroups: [proxySecurityGroup],
       requireTLS: true,
       iamAuth: true,
+      dbProxyName: name("db-proxy"),
     });
+
+    const createPythonFunction = (
+      id: string,
+      props: {
+        functionName: string;
+        handler: string;
+        environment?: Record<string, string>;
+        timeout?: cdk.Duration;
+        extraCopyCommands?: string[];
+        securityGroups?: ec2.ISecurityGroup[];
+        memorySize?: number;
+        code?: lambda.Code;
+      }
+    ) => {
+      const copyCommands = [
+        "pip install -r requirements.txt -t /asset-output",
+        "cp -au lambda /asset-output/lambda",
+        "cp -au src /asset-output/src",
+        ...(props.extraCopyCommands ?? []),
+      ];
+
+      const fn = new lambda.Function(this, id, {
+        functionName: props.functionName,
+        runtime: lambda.Runtime.PYTHON_3_13,
+        handler: props.handler,
+        code:
+          props.code ??
+          lambda.Code.fromAsset(path.join(__dirname, "../../"), {
+            bundling: {
+              image: lambda.Runtime.PYTHON_3_13.bundlingImage,
+              command: ["bash", "-c", copyCommands.join(" && ")],
+            },
+          }),
+        memorySize: props.memorySize ?? 512,
+        timeout: props.timeout ?? cdk.Duration.seconds(30),
+        vpc,
+        securityGroups: props.securityGroups ?? [lambdaSecurityGroup],
+        vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
+        environment: {
+          PYTHONPATH: "/var/task/src",
+          ...props.environment,
+        },
+      });
+
+      new logs.LogRetention(this, `${id}LogRetention`, {
+        logGroupName: `/aws/lambda/${fn.functionName}`,
+        retention: logs.RetentionDays.ONE_WEEK,
+      });
+
+      return fn;
+    };
 
     const authDomainPrefix = new cdk.CfnParameter(this, "CognitoDomainPrefix", {
       type: "String",
@@ -118,6 +195,10 @@ export class ApiStack extends cdk.Stack {
       noEcho: true,
       description: "Apple Sign In private key",
     });
+    const applePrivateKeyValue = cdk.Fn.join(
+      "\n",
+      cdk.Fn.split("\\n", applePrivateKey.valueAsString),
+    );
     const microsoftTenantId = new cdk.CfnParameter(this, "MicrosoftTenantId", {
       type: "String",
       description: "Microsoft Entra tenant ID",
@@ -181,7 +262,8 @@ export class ApiStack extends cdk.Stack {
       }
     );
 
-    const userPool = new cognito.UserPool(this, "ActivitiesUserPool", {
+    const userPool = new cognito.UserPool(this, "SiutindeiUserPool", {
+      userPoolName: name("user-pool"),
       signInAliases: { email: true },
       autoVerify: { email: true },
       selfSignUpEnabled: true,
@@ -222,7 +304,7 @@ export class ApiStack extends cdk.Stack {
           client_id: appleClientId.valueAsString,
           team_id: appleTeamId.valueAsString,
           key_id: appleKeyId.valueAsString,
-          private_key: applePrivateKey.valueAsString,
+          private_key: applePrivateKeyValue,
           authorize_scopes: "name email",
         },
       }
@@ -248,7 +330,7 @@ export class ApiStack extends cdk.Stack {
       }
     );
 
-    new cognito.UserPoolDomain(this, "ActivitiesUserPoolDomain", {
+    new cognito.UserPoolDomain(this, "SiutindeiUserPoolDomain", {
       userPool,
       cognitoDomain: {
         domainPrefix: authDomainPrefix.valueAsString,
@@ -257,8 +339,9 @@ export class ApiStack extends cdk.Stack {
 
     const userPoolClient = new cognito.CfnUserPoolClient(
       this,
-      "ActivitiesUserPoolClient",
+      "SiutindeiUserPoolClient",
       {
+        clientName: name("user-pool-client"),
         userPoolId: userPool.userPoolId,
         generateSecret: false,
         allowedOAuthFlowsUserPoolClient: true,
@@ -280,192 +363,104 @@ export class ApiStack extends cdk.Stack {
     userPoolClient.addDependency(appleProvider);
     userPoolClient.addDependency(microsoftProvider);
 
-    const searchFunction = new lambda.Function(this, "ActivitiesSearchFunction", {
-      runtime: lambda.Runtime.PYTHON_3_11,
+    const searchFunction = createPythonFunction("SiutindeiSearchFunction", {
+      functionName: name("search"),
       handler: "lambda/activity_search/handler.lambda_handler",
-      code: lambda.Code.fromAsset(path.join(__dirname, "../../"), {
-        bundling: {
-          image: lambda.Runtime.PYTHON_3_11.bundlingImage,
-          command: [
-            "bash",
-            "-c",
-            [
-              "pip install -r requirements.txt -t /asset-output",
-              "cp -au lambda /asset-output/lambda",
-              "cp -au src /asset-output/src",
-            ].join(" && "),
-          ],
-        },
-      }),
-      memorySize: 512,
-      timeout: cdk.Duration.seconds(30),
-      vpc,
-      securityGroups: [lambdaSecurityGroup],
-      vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
       environment: {
         DATABASE_SECRET_ARN: cluster.secret?.secretArn ?? "",
-        DATABASE_NAME: "activities",
-        DATABASE_USERNAME: "activities_app",
+        DATABASE_NAME: "siutindei",
+        DATABASE_USERNAME: "siutindei_app",
         DATABASE_PROXY_ENDPOINT: proxy.endpoint,
         DATABASE_IAM_AUTH: "true",
-        PYTHONPATH: "/var/task/src",
       },
     });
 
-    const adminFunction = new lambda.Function(this, "ActivitiesAdminFunction", {
-      runtime: lambda.Runtime.PYTHON_3_11,
+    const adminFunction = createPythonFunction("SiutindeiAdminFunction", {
+      functionName: name("admin"),
       handler: "lambda/admin/handler.lambda_handler",
-      code: lambda.Code.fromAsset(path.join(__dirname, "../../"), {
-        bundling: {
-          image: lambda.Runtime.PYTHON_3_11.bundlingImage,
-          command: [
-            "bash",
-            "-c",
-            [
-              "pip install -r requirements.txt -t /asset-output",
-              "cp -au lambda /asset-output/lambda",
-              "cp -au src /asset-output/src",
-            ].join(" && "),
-          ],
-        },
-      }),
-      memorySize: 512,
-      timeout: cdk.Duration.seconds(30),
-      vpc,
-      securityGroups: [lambdaSecurityGroup],
-      vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
       environment: {
         DATABASE_SECRET_ARN: cluster.secret?.secretArn ?? "",
-        DATABASE_NAME: "activities",
-        DATABASE_USERNAME: "activities_admin",
+        DATABASE_NAME: "siutindei",
+        DATABASE_USERNAME: "siutindei_admin",
         DATABASE_PROXY_ENDPOINT: proxy.endpoint,
         DATABASE_IAM_AUTH: "true",
         ADMIN_GROUP: "admin",
         COGNITO_USER_POOL_ID: userPool.userPoolId,
-        PYTHONPATH: "/var/task/src",
       },
     });
 
-    const migrationFunction = new lambda.Function(this, "ActivitiesMigrationFunction", {
-      runtime: lambda.Runtime.PYTHON_3_11,
+    const migrationFunction = createPythonFunction("SiutindeiMigrationFunction", {
+      functionName: name("migrations"),
       handler: "lambda/migrations/handler.lambda_handler",
-      code: lambda.Code.fromAsset(path.join(__dirname, "../../"), {
-        bundling: {
-          image: lambda.Runtime.PYTHON_3_11.bundlingImage,
-          command: [
-            "bash",
-            "-c",
-            [
-              "pip install -r requirements.txt -t /asset-output",
-              "cp -au lambda /asset-output/lambda",
-              "cp -au src /asset-output/src",
-              "cp -au db /asset-output/db",
-            ].join(" && "),
-          ],
-        },
-      }),
-      memorySize: 512,
       timeout: cdk.Duration.minutes(5),
-      vpc,
       securityGroups: [migrationSecurityGroup],
-      vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
+      extraCopyCommands: ["cp -au db /asset-output/db"],
       environment: {
         DATABASE_SECRET_ARN: cluster.secret?.secretArn ?? "",
-        DATABASE_NAME: "activities",
+        DATABASE_NAME: "siutindei",
+        DATABASE_USERNAME: "postgres",
         DATABASE_IAM_AUTH: "false",
-        PYTHONPATH: "/var/task/src",
+        DATABASE_HOST: cluster.clusterEndpoint.hostname,
+        DATABASE_PORT: cluster.clusterEndpoint.port.toString(),
         SEED_FILE_PATH: "/var/task/db/seed/seed_data.sql",
       },
     });
 
-    const authLambdaCode = lambda.Code.fromAsset(path.join(__dirname, "../../"), {
-      bundling: {
-        image: lambda.Runtime.PYTHON_3_11.bundlingImage,
-        command: [
-          "bash",
-          "-c",
-          [
-            "pip install -r requirements.txt -t /asset-output",
-            "cp -au lambda /asset-output/lambda",
-            "cp -au src /asset-output/src",
-          ].join(" && "),
-        ],
-      },
-    });
-
-    const preSignUpFunction = new lambda.Function(this, "AuthPreSignUpFunction", {
-      runtime: lambda.Runtime.PYTHON_3_11,
+    const preSignUpFunction = createPythonFunction("AuthPreSignUpFunction", {
+      functionName: name("auth-pre-signup"),
       handler: "lambda/auth/pre_signup/handler.lambda_handler",
-      code: authLambdaCode,
       memorySize: 256,
       timeout: cdk.Duration.seconds(10),
-      environment: {
-        PYTHONPATH: "/var/task/src",
-      },
     });
 
-    const defineAuthChallengeFunction = new lambda.Function(
-      this,
+    const defineAuthChallengeFunction = createPythonFunction(
       "AuthDefineChallengeFunction",
       {
-        runtime: lambda.Runtime.PYTHON_3_11,
+        functionName: name("auth-define-challenge"),
         handler: "lambda/auth/define_auth_challenge/handler.lambda_handler",
-        code: authLambdaCode,
         memorySize: 256,
         timeout: cdk.Duration.seconds(10),
         environment: {
           MAX_CHALLENGE_ATTEMPTS: maxChallengeAttempts.valueAsString,
-          PYTHONPATH: "/var/task/src",
         },
       }
     );
 
-    const createAuthChallengeFunction = new lambda.Function(
-      this,
+    const createAuthChallengeFunction = createPythonFunction(
       "AuthCreateChallengeFunction",
       {
-        runtime: lambda.Runtime.PYTHON_3_11,
+        functionName: name("auth-create-challenge"),
         handler: "lambda/auth/create_auth_challenge/handler.lambda_handler",
-        code: authLambdaCode,
         memorySize: 256,
         timeout: cdk.Duration.seconds(10),
         environment: {
           SES_FROM_ADDRESS: authEmailFromAddress.valueAsString,
           LOGIN_LINK_BASE_URL: loginLinkBaseUrl.valueAsString,
-          PYTHONPATH: "/var/task/src",
         },
       }
     );
 
-    const verifyAuthChallengeFunction = new lambda.Function(
-      this,
+    const verifyAuthChallengeFunction = createPythonFunction(
       "AuthVerifyChallengeFunction",
       {
-        runtime: lambda.Runtime.PYTHON_3_11,
+        functionName: name("auth-verify-challenge"),
         handler: "lambda/auth/verify_auth_challenge/handler.lambda_handler",
-        code: authLambdaCode,
         memorySize: 256,
         timeout: cdk.Duration.seconds(10),
-        environment: {
-          PYTHONPATH: "/var/task/src",
-        },
       }
     );
 
-    const deviceAttestationFunction = new lambda.Function(
-      this,
+    const deviceAttestationFunction = createPythonFunction(
       "DeviceAttestationAuthorizer",
       {
-        runtime: lambda.Runtime.PYTHON_3_11,
+        functionName: name("device-attestation"),
         handler: "lambda/authorizers/device_attestation/handler.lambda_handler",
-        code: authLambdaCode,
         memorySize: 256,
         timeout: cdk.Duration.seconds(5),
         environment: {
           ATTESTATION_JWKS_URL: deviceAttestationJwksUrl.valueAsString,
           ATTESTATION_ISSUER: deviceAttestationIssuer.valueAsString,
           ATTESTATION_AUDIENCE: deviceAttestationAudience.valueAsString,
-          PYTHONPATH: "/var/task/src",
         },
       }
     );
@@ -509,8 +504,9 @@ export class ApiStack extends cdk.Stack {
       cluster.secret.grantRead(adminFunction);
     }
 
-    proxy.grantConnect(searchFunction, "activities_app");
-    proxy.grantConnect(adminFunction, "activities_admin");
+    proxy.grantConnect(searchFunction, "siutindei_app");
+    proxy.grantConnect(adminFunction, "siutindei_admin");
+    proxy.grantConnect(migrationFunction, "postgres");
 
     adminFunction.addToRolePolicy(
       new iam.PolicyStatement({
@@ -523,14 +519,57 @@ export class ApiStack extends cdk.Stack {
       })
     );
 
-    const api = new apigateway.RestApi(this, "ActivitiesApi", {
-      restApiName: "Activities API",
+    const apiGatewayLogRole = new iam.Role(this, "ApiGatewayLogRole", {
+      assumedBy: new iam.ServicePrincipal("apigateway.amazonaws.com"),
+      managedPolicies: [
+        iam.ManagedPolicy.fromAwsManagedPolicyName(
+          "service-role/AmazonAPIGatewayPushToCloudWatchLogs"
+        ),
+      ],
+    });
+    new apigateway.CfnAccount(this, "ApiGatewayAccount", {
+      cloudWatchRoleArn: apiGatewayLogRole.roleArn,
+    });
+
+    const apiAccessLogGroupName = name("api-access-logs");
+    const apiAccessLogRetention = new logs.LogRetention(
+      this,
+      "ApiAccessLogRetention",
+      {
+        logGroupName: apiAccessLogGroupName,
+        retention: logs.RetentionDays.ONE_WEEK,
+      }
+    );
+    const apiAccessLogGroup = logs.LogGroup.fromLogGroupName(
+      this,
+      "ApiAccessLogs",
+      apiAccessLogGroupName
+    );
+
+    const api = new apigateway.RestApi(this, "SiutindeiApi", {
+      restApiName: name("api"),
       defaultCorsPreflightOptions: {
         allowOrigins: apigateway.Cors.ALL_ORIGINS,
         allowMethods: ["GET", "OPTIONS"],
       },
       deployOptions: {
         stageName: "prod",
+        accessLogDestination: new apigateway.LogGroupLogDestination(
+          apiAccessLogGroup
+        ),
+        accessLogFormat: apigateway.AccessLogFormat.jsonWithStandardFields({
+          caller: false,
+          httpMethod: true,
+          ip: true,
+          protocol: true,
+          requestTime: true,
+          resourcePath: true,
+          responseLength: true,
+          status: true,
+          user: false,
+        }),
+        loggingLevel: apigateway.MethodLoggingLevel.INFO,
+        dataTraceEnabled: false,
         cacheClusterEnabled: true,
         cacheClusterSize: "0.5",
         cacheDataEncrypted: true,
@@ -542,19 +581,27 @@ export class ApiStack extends cdk.Stack {
         },
       },
     });
+    api.deploymentStage.node.addDependency(apiAccessLogRetention);
+    new logs.LogRetention(this, "ApiExecutionLogRetention", {
+      logGroupName: `API-Gateway-Execution-Logs_${api.restApiId}/${api.deploymentStage.stageName}`,
+      retention: logs.RetentionDays.ONE_WEEK,
+    });
 
     const authorizer = new apigateway.CognitoUserPoolsAuthorizer(
       this,
-      "ActivitiesAuthorizer",
+      "SiutindeiAuthorizer",
       {
         cognitoUserPools: [userPool],
       }
     );
 
     const mobileApiKey = new apigateway.ApiKey(this, "MobileSearchApiKey", {
+      apiKeyName: name("mobile-search-key"),
       value: publicApiKeyValue.valueAsString,
     });
-    const mobileUsagePlan = api.addUsagePlan("MobileSearchUsagePlan");
+    const mobileUsagePlan = api.addUsagePlan("MobileSearchUsagePlan", {
+      name: name("mobile-search-plan"),
+    });
     mobileUsagePlan.addApiKey(mobileApiKey);
     mobileUsagePlan.addApiStage({ stage: api.deploymentStage });
 
@@ -769,28 +816,37 @@ export class ApiStack extends cdk.Stack {
       "pricing",
       "schedules",
     ];
+    const adminIntegration = new apigateway.Integration({
+      type: apigateway.IntegrationType.AWS_PROXY,
+      integrationHttpMethod: "POST",
+      uri: `arn:aws:apigateway:${cdk.Stack.of(this).region}:lambda:path/2015-03-31/functions/${adminFunction.functionArn}/invocations`,
+    });
+    adminFunction.addPermission("AdminApiInvokePermission", {
+      principal: new iam.ServicePrincipal("apigateway.amazonaws.com"),
+      sourceArn: api.arnForExecuteApi(),
+    });
 
     for (const resourceName of adminResources) {
       const resource = admin.addResource(resourceName);
-      resource.addMethod("GET", new apigateway.LambdaIntegration(adminFunction), {
+      resource.addMethod("GET", adminIntegration, {
         authorizationType: apigateway.AuthorizationType.COGNITO,
         authorizer,
       });
-      resource.addMethod("POST", new apigateway.LambdaIntegration(adminFunction), {
+      resource.addMethod("POST", adminIntegration, {
         authorizationType: apigateway.AuthorizationType.COGNITO,
         authorizer,
       });
 
       const resourceById = resource.addResource("{id}");
-      resourceById.addMethod("GET", new apigateway.LambdaIntegration(adminFunction), {
+      resourceById.addMethod("GET", adminIntegration, {
         authorizationType: apigateway.AuthorizationType.COGNITO,
         authorizer,
       });
-      resourceById.addMethod("PUT", new apigateway.LambdaIntegration(adminFunction), {
+      resourceById.addMethod("PUT", adminIntegration, {
         authorizationType: apigateway.AuthorizationType.COGNITO,
         authorizer,
       });
-      resourceById.addMethod("DELETE", new apigateway.LambdaIntegration(adminFunction), {
+      resourceById.addMethod("DELETE", adminIntegration, {
         authorizationType: apigateway.AuthorizationType.COGNITO,
         authorizer,
       });
@@ -799,11 +855,11 @@ export class ApiStack extends cdk.Stack {
     const users = admin.addResource("users");
     const userByName = users.addResource("{username}");
     const userGroups = userByName.addResource("groups");
-    userGroups.addMethod("POST", new apigateway.LambdaIntegration(adminFunction), {
+    userGroups.addMethod("POST", adminIntegration, {
       authorizationType: apigateway.AuthorizationType.COGNITO,
       authorizer,
     });
-    userGroups.addMethod("DELETE", new apigateway.LambdaIntegration(adminFunction), {
+    userGroups.addMethod("DELETE", adminIntegration, {
       authorizationType: apigateway.AuthorizationType.COGNITO,
       authorizer,
     });

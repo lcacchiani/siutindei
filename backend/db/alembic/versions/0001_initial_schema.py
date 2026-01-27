@@ -23,12 +23,14 @@ def upgrade() -> None:
         "per_month",
         "per_sessions",
         name="pricing_type",
+        create_type=False,
     )
     schedule_type_enum = postgresql.ENUM(
         "weekly",
         "monthly",
         "date_specific",
         name="schedule_type",
+        create_type=False,
     )
     pricing_type_enum.create(op.get_bind(), checkfirst=True)
     schedule_type_enum.create(op.get_bind(), checkfirst=True)
@@ -333,12 +335,14 @@ def downgrade() -> None:
         "monthly",
         "date_specific",
         name="schedule_type",
+        create_type=False,
     )
     pricing_type_enum = postgresql.ENUM(
         "per_class",
         "per_month",
         "per_sessions",
         name="pricing_type",
+        create_type=False,
     )
     schedule_type_enum.drop(op.get_bind(), checkfirst=True)
     pricing_type_enum.drop(op.get_bind(), checkfirst=True)
