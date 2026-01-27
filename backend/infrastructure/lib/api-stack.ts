@@ -128,13 +128,13 @@ export class ApiStack extends cdk.Stack {
 
       const fn = new lambda.Function(this, id, {
         functionName: props.functionName,
-        runtime: lambda.Runtime.PYTHON_3_11,
+        runtime: lambda.Runtime.PYTHON_3_13,
         handler: props.handler,
         code:
           props.code ??
           lambda.Code.fromAsset(path.join(__dirname, "../../"), {
             bundling: {
-              image: lambda.Runtime.PYTHON_3_11.bundlingImage,
+              image: lambda.Runtime.PYTHON_3_13.bundlingImage,
               command: ["bash", "-c", copyCommands.join(" && ")],
             },
           }),
