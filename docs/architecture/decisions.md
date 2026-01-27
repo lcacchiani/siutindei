@@ -151,6 +151,28 @@ Flutter mobile app, Next.js admin console, and AWS serverless backend.
 - iOS: `Podfile.lock`
 - CI workflow: `.github/workflows/check-lockfiles.yml`
 
+## 7) Dependency Updates
+
+**Decision:** Use Dependabot for automated dependency updates.
+
+**Why:**
+- Automatic security vulnerability alerts and patches.
+- Small, frequent updates are easier to review than large version jumps.
+- PR-based workflow integrates with existing CI checks.
+- Low maintenance overhead once configured.
+
+**Configuration (`.github/dependabot.yml`):**
+- GitHub Actions, npm, pip, and pub ecosystems covered.
+- Weekly schedule (Mondays) to reduce PR noise.
+- Dependencies grouped by category (AWS CDK, Firebase, database, etc.).
+- Major version updates ignored to require manual review.
+- PRs labeled by ecosystem (`dependencies`, `ci`, `backend`, `mobile`, `infrastructure`).
+
+**Dependabot commands:**
+- `@dependabot merge` - Merge when CI passes.
+- `@dependabot ignore this major version` - Stop updates for this major version.
+- `@dependabot ignore this dependency` - Stop all updates for this dependency.
+
 ## CI/CD Variables and Secrets
 
 **GitHub Variables**

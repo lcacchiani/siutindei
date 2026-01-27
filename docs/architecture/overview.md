@@ -78,6 +78,25 @@ All times are stored in UTC.
 - CDK bootstrap workflow for initial environment setup.
 - Lockfile checks for Flutter, Node, and iOS.
 - Amplify promotion workflow with gating (staging -> main).
+- Dependabot enabled for automated dependency updates (see below).
+
+## Dependency Management
+
+Dependabot is configured (`.github/dependabot.yml`) to automatically create
+pull requests for dependency updates:
+
+| Ecosystem | Directory | Scope |
+|-----------|-----------|-------|
+| GitHub Actions | `/` | CI workflow action versions |
+| npm | `/backend/infrastructure` | CDK and TypeScript dependencies |
+| pip | `/backend` | Python Lambda dependencies |
+| pub | `/apps/customer_app` | Flutter/Dart dependencies |
+
+**Configuration:**
+- Weekly updates (Mondays) to reduce PR noise.
+- Related dependencies grouped into single PRs (AWS, Firebase, database, etc.).
+- Major version updates ignored (require manual review).
+- PRs labeled by ecosystem for easy filtering.
 
 ## Security
 
