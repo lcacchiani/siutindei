@@ -8,7 +8,8 @@ if (bootstrapQualifier) {
   app.node.setContext("@aws-cdk/core:bootstrapQualifier", bootstrapQualifier);
 }
 
-new ApiStack(app, "ActivitiesApiStack", {
+new ApiStack(app, "lxsoftware-siutindei", {
+  description: "LX Software Siu Tin Dei",
   env: {
     account: process.env.CDK_DEFAULT_ACCOUNT,
     region: process.env.CDK_DEFAULT_REGION,

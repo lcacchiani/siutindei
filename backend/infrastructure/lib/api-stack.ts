@@ -23,7 +23,7 @@ export class ApiStack extends cdk.Stack {
     const resourcePrefix = "lxsoftware-siutindei";
     const name = (suffix: string) => `${resourcePrefix}-${suffix}`;
 
-    const vpc = new ec2.Vpc(this, "ActivitiesVpc", {
+    const vpc = new ec2.Vpc(this, "SiutindeiVpc", {
       vpcName: name("vpc"),
       maxAzs: 2,
       natGateways: 1,
@@ -63,7 +63,7 @@ export class ApiStack extends cdk.Stack {
     dbSecurityGroup.addIngressRule(
       migrationSecurityGroup,
       ec2.Port.tcp(5432),
-      "Migrations access to Aurora"
+      "Migration Lambda direct access to Aurora"
     );
 
     const dbCredentialsSecret = new secretsmanager.Secret(this, "DBCredentialsSecret", {
@@ -76,15 +76,15 @@ export class ApiStack extends cdk.Stack {
       },
     });
 
-    const cluster = new rds.DatabaseCluster(this, "ActivitiesCluster", {
+    const cluster = new rds.DatabaseCluster(this, "SiutindeiCluster", {
       engine: rds.DatabaseClusterEngine.auroraPostgres({
-        version: rds.AuroraPostgresEngineVersion.of("17.7", "17"),
+        version: rds.AuroraPostgresEngineVersion.VER_16_4,
       }),
       cloudwatchLogsExports: ["postgresql"],
       cloudwatchLogsRetention: logs.RetentionDays.ONE_WEEK,
       credentials: rds.Credentials.fromSecret(dbCredentialsSecret),
-      defaultDatabaseName: "activities",
-      iamAuthentication: true,
+      defaultDatabaseName: "siutindei",
+      iamAuthentication: false,
       serverlessV2MinCapacity: 0.5,
       serverlessV2MaxCapacity: 2,
       writer: rds.ClusterInstance.serverlessV2("writer", {
@@ -96,7 +96,7 @@ export class ApiStack extends cdk.Stack {
       securityGroups: [dbSecurityGroup],
     });
 
-    const proxy = new rds.DatabaseProxy(this, "ActivitiesProxy", {
+    const proxy = new rds.DatabaseProxy(this, "SiutindeiProxy", {
       proxyTarget: rds.ProxyTarget.fromCluster(cluster),
       secrets: cluster.secret ? [cluster.secret] : [],
       vpc,
@@ -262,7 +262,7 @@ export class ApiStack extends cdk.Stack {
       }
     );
 
-    const userPool = new cognito.UserPool(this, "ActivitiesUserPool", {
+    const userPool = new cognito.UserPool(this, "SiutindeiUserPool", {
       userPoolName: name("user-pool"),
       signInAliases: { email: true },
       autoVerify: { email: true },
@@ -330,7 +330,7 @@ export class ApiStack extends cdk.Stack {
       }
     );
 
-    new cognito.UserPoolDomain(this, "ActivitiesUserPoolDomain", {
+    new cognito.UserPoolDomain(this, "SiutindeiUserPoolDomain", {
       userPool,
       cognitoDomain: {
         domainPrefix: authDomainPrefix.valueAsString,
@@ -339,7 +339,7 @@ export class ApiStack extends cdk.Stack {
 
     const userPoolClient = new cognito.CfnUserPoolClient(
       this,
-      "ActivitiesUserPoolClient",
+      "SiutindeiUserPoolClient",
       {
         clientName: name("user-pool-client"),
         userPoolId: userPool.userPoolId,
@@ -363,25 +363,25 @@ export class ApiStack extends cdk.Stack {
     userPoolClient.addDependency(appleProvider);
     userPoolClient.addDependency(microsoftProvider);
 
-    const searchFunction = createPythonFunction("ActivitiesSearchFunction", {
+    const searchFunction = createPythonFunction("SiutindeiSearchFunction", {
       functionName: name("search"),
       handler: "lambda/activity_search/handler.lambda_handler",
       environment: {
         DATABASE_SECRET_ARN: cluster.secret?.secretArn ?? "",
-        DATABASE_NAME: "activities",
-        DATABASE_USERNAME: "activities_app",
+        DATABASE_NAME: "siutindei",
+        DATABASE_USERNAME: "siutindei_app",
         DATABASE_PROXY_ENDPOINT: proxy.endpoint,
         DATABASE_IAM_AUTH: "true",
       },
     });
 
-    const adminFunction = createPythonFunction("ActivitiesAdminFunction", {
+    const adminFunction = createPythonFunction("SiutindeiAdminFunction", {
       functionName: name("admin"),
       handler: "lambda/admin/handler.lambda_handler",
       environment: {
         DATABASE_SECRET_ARN: cluster.secret?.secretArn ?? "",
-        DATABASE_NAME: "activities",
-        DATABASE_USERNAME: "activities_admin",
+        DATABASE_NAME: "siutindei",
+        DATABASE_USERNAME: "siutindei_admin",
         DATABASE_PROXY_ENDPOINT: proxy.endpoint,
         DATABASE_IAM_AUTH: "true",
         ADMIN_GROUP: "admin",
@@ -389,7 +389,7 @@ export class ApiStack extends cdk.Stack {
       },
     });
 
-    const migrationFunction = createPythonFunction("ActivitiesMigrationFunction", {
+    const migrationFunction = createPythonFunction("SiutindeiMigrationFunction", {
       functionName: name("migrations"),
       handler: "lambda/migrations/handler.lambda_handler",
       timeout: cdk.Duration.minutes(5),
@@ -397,7 +397,7 @@ export class ApiStack extends cdk.Stack {
       extraCopyCommands: ["cp -au db /asset-output/db"],
       environment: {
         DATABASE_SECRET_ARN: cluster.secret?.secretArn ?? "",
-        DATABASE_NAME: "activities",
+        DATABASE_NAME: "siutindei",
         DATABASE_USERNAME: "postgres",
         DATABASE_IAM_AUTH: "false",
         DATABASE_HOST: cluster.clusterEndpoint.hostname,
@@ -504,9 +504,9 @@ export class ApiStack extends cdk.Stack {
       cluster.secret.grantRead(adminFunction);
     }
 
-    proxy.grantConnect(searchFunction, "activities_app");
-    proxy.grantConnect(adminFunction, "activities_admin");
-    proxy.grantConnect(migrationFunction, "activities_admin");
+    proxy.grantConnect(searchFunction, "siutindei_app");
+    proxy.grantConnect(adminFunction, "siutindei_admin");
+    proxy.grantConnect(migrationFunction, "postgres");
 
     adminFunction.addToRolePolicy(
       new iam.PolicyStatement({
@@ -546,7 +546,7 @@ export class ApiStack extends cdk.Stack {
       apiAccessLogGroupName
     );
 
-    const api = new apigateway.RestApi(this, "ActivitiesApi", {
+    const api = new apigateway.RestApi(this, "SiutindeiApi", {
       restApiName: name("api"),
       defaultCorsPreflightOptions: {
         allowOrigins: apigateway.Cors.ALL_ORIGINS,
@@ -589,7 +589,7 @@ export class ApiStack extends cdk.Stack {
 
     const authorizer = new apigateway.CognitoUserPoolsAuthorizer(
       this,
-      "ActivitiesAuthorizer",
+      "SiutindeiAuthorizer",
       {
         cognitoUserPools: [userPool],
       }

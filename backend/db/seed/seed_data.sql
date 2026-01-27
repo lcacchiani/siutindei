@@ -100,28 +100,28 @@ INSERT INTO activity_schedule (
   id, activity_id, location_id, schedule_type, day_of_week_utc,
   start_minutes_utc, end_minutes_utc, languages
 )
-SELECT 's1111111-1111-1111-1111-111111111111', 'dddddddd-dddd-dddd-dddd-dddddddddddd',
+SELECT '51111111-1111-1111-1111-111111111111', 'dddddddd-dddd-dddd-dddd-dddddddddddd',
        'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'weekly', 6, 120, 240, ARRAY['en','zh']
 WHERE NOT EXISTS (
-  SELECT 1 FROM activity_schedule WHERE id = 's1111111-1111-1111-1111-111111111111'
+  SELECT 1 FROM activity_schedule WHERE id = '51111111-1111-1111-1111-111111111111'
 );
 
 INSERT INTO activity_schedule (
   id, activity_id, location_id, schedule_type, day_of_month,
   start_minutes_utc, end_minutes_utc, languages
 )
-SELECT 's2222222-2222-2222-2222-222222222222', 'dddddddd-dddd-dddd-dddd-dddddddddddd',
+SELECT '52222222-2222-2222-2222-222222222222', 'dddddddd-dddd-dddd-dddd-dddddddddddd',
        'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'monthly', 15, 300, 420, ARRAY['zh']
 WHERE NOT EXISTS (
-  SELECT 1 FROM activity_schedule WHERE id = 's2222222-2222-2222-2222-222222222222'
+  SELECT 1 FROM activity_schedule WHERE id = '52222222-2222-2222-2222-222222222222'
 );
 
 INSERT INTO activity_schedule (
   id, activity_id, location_id, schedule_type, start_at_utc, end_at_utc, languages
 )
-SELECT 's3333333-3333-3333-3333-333333333333', 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
+SELECT '53333333-3333-3333-3333-333333333333', 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
        'cccccccc-cccc-cccc-cccc-cccccccccccc', 'date_specific',
        '2026-02-01T02:00:00+00', '2026-02-01T03:30:00+00', ARRAY['en']
 WHERE NOT EXISTS (
-  SELECT 1 FROM activity_schedule WHERE id = 's3333333-3333-3333-3333-333333333333'
+  SELECT 1 FROM activity_schedule WHERE id = '53333333-3333-3333-3333-333333333333'
 );
