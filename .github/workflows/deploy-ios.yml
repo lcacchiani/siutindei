@@ -35,7 +35,7 @@ jobs:
         working-directory: apps/customer_app
 
       - name: Setup SSH for certificates repo
-        uses: webfactory/ssh-agent@v0.9.0
+        uses: webfactory/ssh-agent@v0.9.1
         if: ${{ secrets.MATCH_DEPLOY_KEY != '' }}
         with:
           ssh-private-key: ${{ secrets.MATCH_DEPLOY_KEY }}
@@ -149,7 +149,7 @@ jobs:
 
       - name: Upload to TestFlight
         if: ${{ env.APPSTORE_ISSUER_ID != '' && env.APPSTORE_API_KEY_ID != '' && env.APPSTORE_API_PRIVATE_KEY != '' }}
-        uses: apple-actions/upload-testflight-build@v1
+        uses: apple-actions/upload-testflight-build@v4
         with:
           app-path: apps/customer_app/build/ios/ipa/*.ipa
           issuer-id: ${{ env.APPSTORE_ISSUER_ID }}
