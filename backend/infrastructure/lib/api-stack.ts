@@ -369,7 +369,7 @@ export class ApiStack extends cdk.Stack {
       environment: {
         DATABASE_SECRET_ARN: cluster.secret?.secretArn ?? "",
         DATABASE_NAME: "siutindei",
-        DATABASE_USERNAME: "activities_app",
+        DATABASE_USERNAME: "siutindei_app",
         DATABASE_PROXY_ENDPOINT: proxy.endpoint,
         DATABASE_IAM_AUTH: "true",
       },
@@ -381,7 +381,7 @@ export class ApiStack extends cdk.Stack {
       environment: {
         DATABASE_SECRET_ARN: cluster.secret?.secretArn ?? "",
         DATABASE_NAME: "siutindei",
-        DATABASE_USERNAME: "activities_admin",
+        DATABASE_USERNAME: "siutindei_admin",
         DATABASE_PROXY_ENDPOINT: proxy.endpoint,
         DATABASE_IAM_AUTH: "true",
         ADMIN_GROUP: "admin",
@@ -504,8 +504,8 @@ export class ApiStack extends cdk.Stack {
       cluster.secret.grantRead(adminFunction);
     }
 
-    proxy.grantConnect(searchFunction, "activities_app");
-    proxy.grantConnect(adminFunction, "activities_admin");
+    proxy.grantConnect(searchFunction, "siutindei_app");
+    proxy.grantConnect(adminFunction, "siutindei_admin");
     proxy.grantConnect(migrationFunction, "postgres");
 
     adminFunction.addToRolePolicy(
