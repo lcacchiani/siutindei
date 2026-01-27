@@ -23,7 +23,7 @@ export class ApiStack extends cdk.Stack {
     const resourcePrefix = "lxsoftware-siutindei";
     const name = (suffix: string) => `${resourcePrefix}-${suffix}`;
 
-    const vpc = new ec2.Vpc(this, "ActivitiesVpc", {
+    const vpc = new ec2.Vpc(this, "SiutindeiVpc", {
       vpcName: name("vpc"),
       maxAzs: 2,
       natGateways: 1,
@@ -76,7 +76,7 @@ export class ApiStack extends cdk.Stack {
       },
     });
 
-    const cluster = new rds.DatabaseCluster(this, "ActivitiesCluster", {
+    const cluster = new rds.DatabaseCluster(this, "SiutindeiCluster", {
       engine: rds.DatabaseClusterEngine.auroraPostgres({
         version: rds.AuroraPostgresEngineVersion.VER_16_4,
       }),
@@ -96,7 +96,7 @@ export class ApiStack extends cdk.Stack {
       securityGroups: [dbSecurityGroup],
     });
 
-    const proxy = new rds.DatabaseProxy(this, "ActivitiesProxy", {
+    const proxy = new rds.DatabaseProxy(this, "SiutindeiProxy", {
       proxyTarget: rds.ProxyTarget.fromCluster(cluster),
       secrets: cluster.secret ? [cluster.secret] : [],
       vpc,
@@ -262,7 +262,7 @@ export class ApiStack extends cdk.Stack {
       }
     );
 
-    const userPool = new cognito.UserPool(this, "ActivitiesUserPool", {
+    const userPool = new cognito.UserPool(this, "SiutindeiUserPool", {
       userPoolName: name("user-pool"),
       signInAliases: { email: true },
       autoVerify: { email: true },
@@ -330,7 +330,7 @@ export class ApiStack extends cdk.Stack {
       }
     );
 
-    new cognito.UserPoolDomain(this, "ActivitiesUserPoolDomain", {
+    new cognito.UserPoolDomain(this, "SiutindeiUserPoolDomain", {
       userPool,
       cognitoDomain: {
         domainPrefix: authDomainPrefix.valueAsString,
@@ -339,7 +339,7 @@ export class ApiStack extends cdk.Stack {
 
     const userPoolClient = new cognito.CfnUserPoolClient(
       this,
-      "ActivitiesUserPoolClient",
+      "SiutindeiUserPoolClient",
       {
         clientName: name("user-pool-client"),
         userPoolId: userPool.userPoolId,
@@ -363,7 +363,7 @@ export class ApiStack extends cdk.Stack {
     userPoolClient.addDependency(appleProvider);
     userPoolClient.addDependency(microsoftProvider);
 
-    const searchFunction = createPythonFunction("ActivitiesSearchFunction", {
+    const searchFunction = createPythonFunction("SiutindeiSearchFunction", {
       functionName: name("search"),
       handler: "lambda/activity_search/handler.lambda_handler",
       environment: {
@@ -375,7 +375,7 @@ export class ApiStack extends cdk.Stack {
       },
     });
 
-    const adminFunction = createPythonFunction("ActivitiesAdminFunction", {
+    const adminFunction = createPythonFunction("SiutindeiAdminFunction", {
       functionName: name("admin"),
       handler: "lambda/admin/handler.lambda_handler",
       environment: {
@@ -389,7 +389,7 @@ export class ApiStack extends cdk.Stack {
       },
     });
 
-    const migrationFunction = createPythonFunction("ActivitiesMigrationFunction", {
+    const migrationFunction = createPythonFunction("SiutindeiMigrationFunction", {
       functionName: name("migrations"),
       handler: "lambda/migrations/handler.lambda_handler",
       timeout: cdk.Duration.minutes(5),
@@ -546,7 +546,7 @@ export class ApiStack extends cdk.Stack {
       apiAccessLogGroupName
     );
 
-    const api = new apigateway.RestApi(this, "ActivitiesApi", {
+    const api = new apigateway.RestApi(this, "SiutindeiApi", {
       restApiName: name("api"),
       defaultCorsPreflightOptions: {
         allowOrigins: apigateway.Cors.ALL_ORIGINS,
@@ -589,7 +589,7 @@ export class ApiStack extends cdk.Stack {
 
     const authorizer = new apigateway.CognitoUserPoolsAuthorizer(
       this,
-      "ActivitiesAuthorizer",
+      "SiutindeiAuthorizer",
       {
         cognitoUserPools: [userPool],
       }
