@@ -4,7 +4,7 @@ info:
   version: 0.1.0
   description: Search activities with filters for age, district, price, time, and language.
 paths:
-  /activities/search:
+  /v1/activities/search:
     get:
       summary: Search activities
       security:

@@ -1,4 +1,5 @@
 """Add admin database role with write access."""
+
 from __future__ import annotations
 
 from typing import Sequence
@@ -36,7 +37,9 @@ def upgrade() -> None:
         """
     )
     op.execute("GRANT USAGE ON SCHEMA public TO siutindei_admin;")
-    op.execute("GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO siutindei_admin;")
+    op.execute(
+        "GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO siutindei_admin;"
+    )
     op.execute(
         "ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO siutindei_admin;"
     )

@@ -207,7 +207,7 @@ The full contents of the service account JSON file you downloaded in Step 2.3.
   "type": "service_account",
   "project_id": "your-project-id",
   "private_key_id": "abc123...",
-  "private_key": "-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n",
+  "private_key": "-----BEGIN EXAMPLE KEY-----\n...\n-----END EXAMPLE KEY-----\n",
   "client_email": "play-store-deploy@your-project.iam.gserviceaccount.com",
   "client_id": "123456789",
   "auth_uri": "https://accounts.google.com/o/oauth2/auth",

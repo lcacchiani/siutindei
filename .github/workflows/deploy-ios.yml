@@ -14,6 +14,8 @@ jobs:
   build-and-deploy:
     runs-on: macos-latest
     environment: production
+    env:
+      MATCH_DEPLOY_KEY: ${{ secrets.MATCH_DEPLOY_KEY }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -36,9 +38,9 @@ jobs:
 
       - name: Setup SSH for certificates repo
         uses: webfactory/ssh-agent@v0.9.1
-        if: secrets.MATCH_DEPLOY_KEY != ''
+        if: ${{ env.MATCH_DEPLOY_KEY != '' }}
         with:
-          ssh-private-key: ${{ secrets.MATCH_DEPLOY_KEY }}
+          ssh-private-key: ${{ env.MATCH_DEPLOY_KEY }}
 
       - name: Sync signing assets (match)
         working-directory: apps/siutindei_app/ios

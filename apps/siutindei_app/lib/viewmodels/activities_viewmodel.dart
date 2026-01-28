@@ -2,8 +2,7 @@ import 'package:flutter_riverpod/legacy.dart';
 
 import '../models/activity_models.dart';
 import '../services/api_service.dart';
-import '../services/auth_service.dart';
-import '../services/device_attestation_service.dart';
+import '../services/service_providers.dart';
 
 class ActivitiesState {
   ActivitiesState({
@@ -91,10 +90,11 @@ class ActivitiesViewModel extends StateNotifier<ActivitiesState> {
   }
 }
 
+/// Provider for the [ActivitiesViewModel].
+///
+/// Uses [apiServiceProvider] for dependency injection, enabling
+/// easier testing through provider overrides.
 final activitiesViewModelProvider =
     StateNotifierProvider<ActivitiesViewModel, ActivitiesState>((ref) {
-  final authService = AuthService();
-  final deviceAttestationService = DeviceAttestationService();
-  final apiService = ApiService(authService, deviceAttestationService);
-  return ActivitiesViewModel(apiService);
+  return ActivitiesViewModel(ref.watch(apiServiceProvider));
 });

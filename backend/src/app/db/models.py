@@ -245,7 +245,9 @@ class ActivitySchedule(Base):
         sa.Enum(ScheduleType, name="schedule_type"),
         nullable=False,
     )
-    day_of_week_utc: Mapped[Optional[int]] = mapped_column(SmallInteger(), nullable=True)
+    day_of_week_utc: Mapped[Optional[int]] = mapped_column(
+        SmallInteger(), nullable=True
+    )
     day_of_month: Mapped[Optional[int]] = mapped_column(SmallInteger(), nullable=True)
     start_minutes_utc: Mapped[Optional[int]] = mapped_column(Integer(), nullable=True)
     end_minutes_utc: Mapped[Optional[int]] = mapped_column(Integer(), nullable=True)
@@ -264,10 +266,18 @@ class ActivitySchedule(Base):
     )
 
     __table_args__ = (
-        CheckConstraint("day_of_week_utc BETWEEN 0 AND 6", name="schedule_day_of_week_range"),
-        CheckConstraint("day_of_month BETWEEN 1 AND 31", name="schedule_day_of_month_range"),
-        CheckConstraint("start_minutes_utc BETWEEN 0 AND 1439", name="schedule_start_minutes_range"),
-        CheckConstraint("end_minutes_utc BETWEEN 0 AND 1439", name="schedule_end_minutes_range"),
+        CheckConstraint(
+            "day_of_week_utc BETWEEN 0 AND 6", name="schedule_day_of_week_range"
+        ),
+        CheckConstraint(
+            "day_of_month BETWEEN 1 AND 31", name="schedule_day_of_month_range"
+        ),
+        CheckConstraint(
+            "start_minutes_utc BETWEEN 0 AND 1439", name="schedule_start_minutes_range"
+        ),
+        CheckConstraint(
+            "end_minutes_utc BETWEEN 0 AND 1439", name="schedule_end_minutes_range"
+        ),
         CheckConstraint(
             "start_minutes_utc IS NULL OR end_minutes_utc IS NULL OR "
             "start_minutes_utc < end_minutes_utc",
