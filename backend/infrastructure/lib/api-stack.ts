@@ -192,10 +192,10 @@ export class ApiStack extends cdk.Stack {
     );
     const corsAllowedOrigins = new cdk.CfnParameter(this, "CorsAllowedOrigins", {
       type: "CommaDelimitedList",
-      default: "",
+      default: "capacitor://localhost,ionic://localhost,http://localhost",
       description:
         "Comma-separated list of allowed CORS origins (e.g., https://app.example.com). " +
-        "If empty, defaults to mobile app origins only. " +
+        "Defaults to mobile app origins only. " +
         "SECURITY: Never use '*' in production.",
     });
     const deviceAttestationFailClosed = new cdk.CfnParameter(
@@ -562,21 +562,7 @@ export class ApiStack extends cdk.Stack {
 
     // SECURITY: Restrict CORS to specific allowed origins
     // Never use Cors.ALL_ORIGINS in production - it allows any website to make requests
-    const resolvedCorsOrigins = cdk.Fn.conditionIf(
-      "HasCorsOrigins",
-      corsAllowedOrigins.valueAsList,
-      // Default: Allow only mobile app deep link schemes and localhost for dev
-      ["capacitor://localhost", "ionic://localhost", "http://localhost"]
-    );
-
-    new cdk.CfnCondition(this, "HasCorsOrigins", {
-      expression: cdk.Fn.conditionNot(
-        cdk.Fn.conditionEquals(
-          cdk.Fn.select(0, corsAllowedOrigins.valueAsList),
-          ""
-        )
-      ),
-    });
+    const resolvedCorsOrigins = corsAllowedOrigins.valueAsList;
 
     const api = new apigateway.RestApi(this, "SiutindeiApi", {
       restApiName: name("api"),
