@@ -1,4 +1,8 @@
-"""Admin CRUD API handlers."""
+"""Admin CRUD API handlers.
+
+This module provides admin CRUD operations using the repository pattern
+for cleaner separation of concerns and better testability.
+"""
 
 from __future__ import annotations
 
@@ -6,21 +10,20 @@ import base64
 import json
 import os
 from dataclasses import dataclass
-from datetime import datetime
 from decimal import Decimal
 from typing import Any
 from typing import Callable
 from typing import Mapping
 from typing import Optional
 from typing import Tuple
+from typing import Type
 from uuid import UUID
 
 import boto3
 from psycopg.types.range import Range
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db.connection import get_database_url
+from app.db.engine import get_engine
 from app.db.models import Activity
 from app.db.models import ActivityPricing
 from app.db.models import ActivitySchedule
@@ -28,6 +31,21 @@ from app.db.models import Location
 from app.db.models import Organization
 from app.db.models import PricingType
 from app.db.models import ScheduleType
+from app.db.repositories import (
+    ActivityPricingRepository,
+    ActivityRepository,
+    ActivityScheduleRepository,
+    BaseRepository,
+    LocationRepository,
+    OrganizationRepository,
+)
+from app.exceptions import AuthorizationError, NotFoundError, ValidationError
+from app.utils import json_response, parse_datetime, parse_int
+from app.utils.logging import configure_logging, get_logger, set_request_context
+
+# Configure logging on module load
+configure_logging()
+logger = get_logger(__name__)
 
 
 @dataclass(frozen=True)
@@ -35,26 +53,39 @@ class ResourceConfig:
     """Configuration for admin resources."""
 
     name: str
-    model: type
+    model: Type
+    repository_class: Type[BaseRepository]
     serializer: Callable[[Any], dict[str, Any]]
-    create_handler: Callable[[Session, dict[str, Any]], Any]
-    update_handler: Callable[[Session, Any, dict[str, Any]], Any]
+    create_handler: Callable[[BaseRepository, dict[str, Any]], Any]
+    update_handler: Callable[[BaseRepository, Any, dict[str, Any]], Any]
 
 
 def lambda_handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
     """Handle admin CRUD requests."""
 
+    # Set request context for logging
+    request_id = event.get("requestContext", {}).get("requestId", "")
+    set_request_context(req_id=request_id)
+
     if not _is_admin(event):
-        return _json_response(403, {"error": "Forbidden"})
+        logger.warning("Unauthorized admin access attempt")
+        return json_response(403, {"error": "Forbidden"})
 
     method = event.get("httpMethod", "")
     path = event.get("path", "")
     resource, resource_id, sub_resource = _parse_path(path)
+
+    logger.info(
+        f"Admin request: {method} {path}",
+        extra={"resource": resource, "resource_id": resource_id},
+    )
+
     if resource == "users" and sub_resource == "groups":
         return _handle_user_group(event, method, resource_id)
+
     config = _RESOURCE_CONFIG.get(resource)
     if not config:
-        return _json_response(404, {"error": "Not found"})
+        return json_response(404, {"error": "Not found"})
 
     try:
         if method == "GET":
@@ -65,11 +96,18 @@ def lambda_handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
             return _handle_put(event, config, resource_id)
         if method == "DELETE":
             return _handle_delete(event, config, resource_id)
-        return _json_response(405, {"error": "Method not allowed"})
+        return json_response(405, {"error": "Method not allowed"})
+    except ValidationError as exc:
+        logger.warning(f"Validation error: {exc.message}")
+        return json_response(exc.status_code, exc.to_dict())
+    except NotFoundError as exc:
+        return json_response(exc.status_code, exc.to_dict())
     except ValueError as exc:
-        return _json_response(400, {"error": str(exc)})
+        logger.warning(f"Value error: {exc}")
+        return json_response(400, {"error": str(exc)})
     except Exception as exc:  # pragma: no cover
-        return _json_response(500, {"error": "Internal server error", "detail": str(exc)})
+        logger.exception("Unexpected error in admin handler")
+        return json_response(500, {"error": "Internal server error", "detail": str(exc)})
 
 
 def _handle_get(
@@ -77,44 +115,45 @@ def _handle_get(
     config: ResourceConfig,
     resource_id: Optional[str],
 ) -> dict[str, Any]:
-    """Handle GET requests for admin resources."""
+    """Handle GET requests for admin resources using repository."""
 
-    limit = _parse_int(_query_param(event, "limit")) or 50
+    limit = parse_int(_query_param(event, "limit")) or 50
     if limit < 1 or limit > 200:
-        raise ValueError("limit must be between 1 and 200")
+        raise ValidationError("limit must be between 1 and 200", field="limit")
 
-    with Session(_get_engine()) as session:
+    with Session(get_engine()) as session:
+        repo = config.repository_class(session)
+
         if resource_id:
-            entity = session.get(config.model, _parse_uuid(resource_id))
+            entity = repo.get_by_id(_parse_uuid(resource_id))
             if entity is None:
-                return _json_response(404, {"error": "Not found"})
-            return _json_response(200, config.serializer(entity))
+                raise NotFoundError(config.name, resource_id)
+            return json_response(200, config.serializer(entity))
 
         cursor = _parse_cursor(_query_param(event, "cursor"))
-        model_id = getattr(config.model, "id")
-        query = select(config.model).order_by(model_id)
-        if cursor is not None:
-            query = query.where(model_id > cursor)
-        rows = session.execute(query.limit(limit + 1)).scalars().all()
+        rows = repo.get_all(limit=limit + 1, cursor=cursor)
         has_more = len(rows) > limit
-        trimmed = rows[:limit]
+        trimmed = list(rows)[:limit]
         next_cursor = _encode_cursor(trimmed[-1].id) if has_more and trimmed else None
-        return _json_response(
+
+        return json_response(
             200,
             {"items": [config.serializer(row) for row in trimmed], "next_cursor": next_cursor},
         )
 
 
 def _handle_post(event: Mapping[str, Any], config: ResourceConfig) -> dict[str, Any]:
-    """Handle POST requests for admin resources."""
+    """Handle POST requests for admin resources using repository."""
 
     body = _parse_body(event)
-    with Session(_get_engine()) as session:
-        entity = config.create_handler(session, body)
-        session.add(entity)
+    with Session(get_engine()) as session:
+        repo = config.repository_class(session)
+        entity = config.create_handler(repo, body)
+        repo.create(entity)
         session.commit()
         session.refresh(entity)
-        return _json_response(201, config.serializer(entity))
+        logger.info(f"Created {config.name}: {entity.id}")
+        return json_response(201, config.serializer(entity))
 
 
 def _handle_put(
@@ -122,21 +161,23 @@ def _handle_put(
     config: ResourceConfig,
     resource_id: Optional[str],
 ) -> dict[str, Any]:
-    """Handle PUT requests for admin resources."""
+    """Handle PUT requests for admin resources using repository."""
 
     if not resource_id:
-        raise ValueError("Resource id is required")
+        raise ValidationError("Resource id is required", field="id")
 
     body = _parse_body(event)
-    with Session(_get_engine()) as session:
-        entity = session.get(config.model, _parse_uuid(resource_id))
+    with Session(get_engine()) as session:
+        repo = config.repository_class(session)
+        entity = repo.get_by_id(_parse_uuid(resource_id))
         if entity is None:
-            return _json_response(404, {"error": "Not found"})
-        updated = config.update_handler(session, entity, body)
-        session.add(updated)
+            raise NotFoundError(config.name, resource_id)
+        updated = config.update_handler(repo, entity, body)
+        repo.update(updated)
         session.commit()
         session.refresh(updated)
-        return _json_response(200, config.serializer(updated))
+        logger.info(f"Updated {config.name}: {resource_id}")
+        return json_response(200, config.serializer(updated))
 
 
 def _handle_delete(
@@ -144,18 +185,23 @@ def _handle_delete(
     config: ResourceConfig,
     resource_id: Optional[str],
 ) -> dict[str, Any]:
-    """Handle DELETE requests for admin resources."""
+    """Handle DELETE requests for admin resources using repository."""
 
     if not resource_id:
-        raise ValueError("Resource id is required")
+        raise ValidationError("Resource id is required", field="id")
 
-    with Session(_get_engine()) as session:
-        entity = session.get(config.model, _parse_uuid(resource_id))
+    with Session(get_engine()) as session:
+        repo = config.repository_class(session)
+        entity = repo.get_by_id(_parse_uuid(resource_id))
         if entity is None:
-            return _json_response(404, {"error": "Not found"})
-        session.delete(entity)
+            raise NotFoundError(config.name, resource_id)
+        repo.delete(entity)
         session.commit()
-        return _json_response(204, {})
+        logger.info(f"Deleted {config.name}: {resource_id}")
+        return json_response(204, {})
+
+
+# --- Request parsing helpers ---
 
 
 def _parse_body(event: Mapping[str, Any]) -> dict[str, Any]:
@@ -165,7 +211,7 @@ def _parse_body(event: Mapping[str, Any]) -> dict[str, Any]:
     if event.get("isBase64Encoded"):
         raw = base64.b64decode(raw).decode("utf-8")
     if not raw:
-        raise ValueError("Request body is required")
+        raise ValidationError("Request body is required")
     return json.loads(raw)
 
 
@@ -206,34 +252,13 @@ def _query_param(event: Mapping[str, Any], name: str) -> Optional[str]:
 def _parse_uuid(value: str) -> UUID:
     """Parse a UUID string."""
 
-    return UUID(value)
+    try:
+        return UUID(value)
+    except (ValueError, TypeError) as e:
+        raise ValidationError(f"Invalid UUID: {value}", field="id") from e
 
 
-def _parse_int(value: Optional[str]) -> Optional[int]:
-    """Parse an integer."""
-
-    if value is None or value == "":
-        return None
-    return int(value)
-
-
-def _parse_datetime(value: Optional[str]) -> Optional[datetime]:
-    """Parse an ISO-8601 datetime string."""
-
-    if value is None or value == "":
-        return None
-    cleaned = value.replace("Z", "+00:00") if value.endswith("Z") else value
-    return datetime.fromisoformat(cleaned)
-
-
-def _json_response(status_code: int, body: dict[str, Any]) -> dict[str, Any]:
-    """Create JSON response."""
-
-    return {
-        "statusCode": status_code,
-        "headers": {"Content-Type": "application/json"},
-        "body": json.dumps(body, default=str),
-    }
+# --- Authorization ---
 
 
 def _is_admin(event: Mapping[str, Any]) -> bool:
@@ -249,19 +274,7 @@ def _is_admin(event: Mapping[str, Any]) -> bool:
     return admin_group in groups.split(",") if groups else False
 
 
-def _get_engine():
-    """Return a SQLAlchemy engine."""
-
-    from sqlalchemy import create_engine
-    from sqlalchemy.pool import NullPool
-
-    database_url = get_database_url()
-    return create_engine(
-        database_url,
-        pool_pre_ping=True,
-        connect_args={"sslmode": "require"},
-        poolclass=NullPool,
-    )
+# --- User group management ---
 
 
 def _handle_user_group(
@@ -272,7 +285,8 @@ def _handle_user_group(
     """Handle user group assignment."""
 
     if not username:
-        raise ValueError("username is required")
+        raise ValidationError("username is required", field="username")
+
     group_name = _parse_group_name(event)
     client = boto3.client("cognito-idp")
     user_pool_id = _require_env("COGNITO_USER_POOL_ID")
@@ -283,16 +297,19 @@ def _handle_user_group(
             Username=username,
             GroupName=group_name,
         )
-        return _json_response(200, {"status": "added", "group": group_name})
+        logger.info(f"Added user {username} to group {group_name}")
+        return json_response(200, {"status": "added", "group": group_name})
+
     if method == "DELETE":
         client.admin_remove_user_from_group(
             UserPoolId=user_pool_id,
             Username=username,
             GroupName=group_name,
         )
-        return _json_response(200, {"status": "removed", "group": group_name})
+        logger.info(f"Removed user {username} from group {group_name}")
+        return json_response(200, {"status": "removed", "group": group_name})
 
-    return _json_response(405, {"error": "Method not allowed"})
+    return json_response(405, {"error": "Method not allowed"})
 
 
 def _parse_group_name(event: Mapping[str, Any]) -> str:
@@ -320,17 +337,51 @@ def _require_env(name: str) -> str:
     return value
 
 
-def _create_organization(session: Session, body: dict[str, Any]) -> Organization:
+# --- Cursor encoding/decoding ---
+
+
+def _parse_cursor(value: Optional[str]) -> Optional[UUID]:
+    """Parse cursor for admin listing."""
+
+    if value is None or value == "":
+        return None
+    try:
+        payload = _decode_cursor(value)
+        return UUID(payload["id"])
+    except (ValueError, KeyError, TypeError) as exc:
+        raise ValidationError("Invalid cursor", field="cursor") from exc
+
+
+def _encode_cursor(value: Any) -> str:
+    """Encode admin cursor."""
+
+    payload = json.dumps({"id": str(value)}).encode("utf-8")
+    encoded = base64.urlsafe_b64encode(payload).decode("utf-8")
+    return encoded.rstrip("=")
+
+
+def _decode_cursor(cursor: str) -> dict[str, Any]:
+    """Decode admin cursor."""
+
+    padding = "=" * (-len(cursor) % 4)
+    raw = base64.urlsafe_b64decode(cursor + padding)
+    return json.loads(raw)
+
+
+# --- Entity creation handlers (using repositories) ---
+
+
+def _create_organization(repo: OrganizationRepository, body: dict[str, Any]) -> Organization:
     """Create an organization."""
 
     name = body.get("name")
     if not name:
-        raise ValueError("name is required")
+        raise ValidationError("name is required", field="name")
     return Organization(name=name, description=body.get("description"))
 
 
 def _update_organization(
-    session: Session,
+    repo: OrganizationRepository,
     entity: Organization,
     body: dict[str, Any],
 ) -> Organization:
@@ -355,13 +406,13 @@ def _serialize_organization(entity: Organization) -> dict[str, Any]:
     }
 
 
-def _create_location(session: Session, body: dict[str, Any]) -> Location:
+def _create_location(repo: LocationRepository, body: dict[str, Any]) -> Location:
     """Create a location."""
 
     org_id = body.get("org_id")
     district = body.get("district")
     if not org_id or not district:
-        raise ValueError("org_id and district are required")
+        raise ValidationError("org_id and district are required")
     return Location(
         org_id=_parse_uuid(org_id),
         district=district,
@@ -371,7 +422,11 @@ def _create_location(session: Session, body: dict[str, Any]) -> Location:
     )
 
 
-def _update_location(session: Session, entity: Location, body: dict[str, Any]) -> Location:
+def _update_location(
+    repo: LocationRepository,
+    entity: Location,
+    body: dict[str, Any],
+) -> Location:
     """Update a location."""
 
     if "district" in body:
@@ -400,7 +455,7 @@ def _serialize_location(entity: Location) -> dict[str, Any]:
     }
 
 
-def _create_activity(session: Session, body: dict[str, Any]) -> Activity:
+def _create_activity(repo: ActivityRepository, body: dict[str, Any]) -> Activity:
     """Create an activity."""
 
     org_id = body.get("org_id")
@@ -408,9 +463,9 @@ def _create_activity(session: Session, body: dict[str, Any]) -> Activity:
     age_min = body.get("age_min")
     age_max = body.get("age_max")
     if not org_id or not name or age_min is None or age_max is None:
-        raise ValueError("org_id, name, age_min, and age_max are required")
+        raise ValidationError("org_id, name, age_min, and age_max are required")
     if int(age_min) >= int(age_max):
-        raise ValueError("age_min must be less than age_max")
+        raise ValidationError("age_min must be less than age_max")
     age_range = Range(int(age_min), int(age_max), bounds="[]")
     return Activity(
         org_id=_parse_uuid(org_id),
@@ -420,7 +475,11 @@ def _create_activity(session: Session, body: dict[str, Any]) -> Activity:
     )
 
 
-def _update_activity(session: Session, entity: Activity, body: dict[str, Any]) -> Activity:
+def _update_activity(
+    repo: ActivityRepository,
+    entity: Activity,
+    body: dict[str, Any],
+) -> Activity:
     """Update an activity."""
 
     if "name" in body:
@@ -431,9 +490,9 @@ def _update_activity(session: Session, entity: Activity, body: dict[str, Any]) -
         age_min = body.get("age_min")
         age_max = body.get("age_max")
         if age_min is None or age_max is None:
-            raise ValueError("age_min and age_max are required together")
+            raise ValidationError("age_min and age_max are required together")
         if int(age_min) >= int(age_max):
-            raise ValueError("age_min must be less than age_max")
+            raise ValidationError("age_min must be less than age_max")
         entity.age_range = Range(int(age_min), int(age_max), bounds="[]")
     return entity
 
@@ -456,7 +515,7 @@ def _serialize_activity(entity: Activity) -> dict[str, Any]:
     }
 
 
-def _create_pricing(session: Session, body: dict[str, Any]) -> ActivityPricing:
+def _create_pricing(repo: ActivityPricingRepository, body: dict[str, Any]) -> ActivityPricing:
     """Create activity pricing."""
 
     activity_id = body.get("activity_id")
@@ -464,12 +523,12 @@ def _create_pricing(session: Session, body: dict[str, Any]) -> ActivityPricing:
     pricing_type = body.get("pricing_type")
     amount = body.get("amount")
     if not activity_id or not location_id or not pricing_type or amount is None:
-        raise ValueError("activity_id, location_id, pricing_type, and amount are required")
+        raise ValidationError("activity_id, location_id, pricing_type, and amount are required")
 
     pricing_enum = PricingType(pricing_type)
     sessions_count = body.get("sessions_count")
     if pricing_enum == PricingType.PER_SESSIONS and not sessions_count:
-        raise ValueError("sessions_count is required for per_sessions pricing")
+        raise ValidationError("sessions_count is required for per_sessions pricing")
     if pricing_enum != PricingType.PER_SESSIONS:
         sessions_count = None
 
@@ -484,7 +543,7 @@ def _create_pricing(session: Session, body: dict[str, Any]) -> ActivityPricing:
 
 
 def _update_pricing(
-    session: Session,
+    repo: ActivityPricingRepository,
     entity: ActivityPricing,
     body: dict[str, Any],
 ) -> ActivityPricing:
@@ -517,14 +576,14 @@ def _serialize_pricing(entity: ActivityPricing) -> dict[str, Any]:
     }
 
 
-def _create_schedule(session: Session, body: dict[str, Any]) -> ActivitySchedule:
+def _create_schedule(repo: ActivityScheduleRepository, body: dict[str, Any]) -> ActivitySchedule:
     """Create activity schedule."""
 
     activity_id = body.get("activity_id")
     location_id = body.get("location_id")
     schedule_type = body.get("schedule_type")
     if not activity_id or not location_id or not schedule_type:
-        raise ValueError("activity_id, location_id, and schedule_type are required")
+        raise ValidationError("activity_id, location_id, and schedule_type are required")
 
     schedule_enum = ScheduleType(schedule_type)
     schedule = ActivitySchedule(
@@ -539,7 +598,7 @@ def _create_schedule(session: Session, body: dict[str, Any]) -> ActivitySchedule
 
 
 def _update_schedule(
-    session: Session,
+    repo: ActivityScheduleRepository,
     entity: ActivitySchedule,
     body: dict[str, Any],
 ) -> ActivitySchedule:
@@ -567,9 +626,9 @@ def _apply_schedule_fields(
     _set_if_present(entity, "end_minutes_utc", body, update_only)
 
     if not update_only or "start_at_utc" in body:
-        entity.start_at_utc = _parse_datetime(body.get("start_at_utc"))
+        entity.start_at_utc = parse_datetime(body.get("start_at_utc"))
     if not update_only or "end_at_utc" in body:
-        entity.end_at_utc = _parse_datetime(body.get("end_at_utc"))
+        entity.end_at_utc = parse_datetime(body.get("end_at_utc"))
 
 
 def _serialize_schedule(entity: ActivitySchedule) -> dict[str, Any]:
@@ -599,35 +658,7 @@ def _parse_languages(value: Any) -> list[str]:
         return [str(item) for item in value]
     if isinstance(value, str):
         return [item.strip() for item in value.split(",") if item.strip()]
-    raise ValueError("languages must be a list or comma-separated string")
-
-
-def _parse_cursor(value: Optional[str]) -> Optional[UUID]:
-    """Parse cursor for admin listing."""
-
-    if value is None or value == "":
-        return None
-    try:
-        payload = _decode_cursor(value)
-        return UUID(payload["id"])
-    except (ValueError, KeyError, TypeError) as exc:
-        raise ValueError("Invalid cursor") from exc
-
-
-def _encode_cursor(value: Any) -> str:
-    """Encode admin cursor."""
-
-    payload = json.dumps({"id": str(value)}).encode("utf-8")
-    encoded = base64.urlsafe_b64encode(payload).decode("utf-8")
-    return encoded.rstrip("=")
-
-
-def _decode_cursor(cursor: str) -> dict[str, Any]:
-    """Decode admin cursor."""
-
-    padding = "=" * (-len(cursor) % 4)
-    raw = base64.urlsafe_b64decode(cursor + padding)
-    return json.loads(raw)
+    raise ValidationError("languages must be a list or comma-separated string", field="languages")
 
 
 def _set_if_present(
@@ -647,23 +678,26 @@ def _validate_schedule(schedule: ActivitySchedule) -> None:
 
     if schedule.schedule_type == ScheduleType.WEEKLY:
         if schedule.day_of_week_utc is None:
-            raise ValueError("day_of_week_utc is required for weekly schedules")
+            raise ValidationError("day_of_week_utc is required for weekly schedules")
         if schedule.start_minutes_utc is None or schedule.end_minutes_utc is None:
-            raise ValueError("start_minutes_utc and end_minutes_utc are required for weekly")
+            raise ValidationError("start_minutes_utc and end_minutes_utc are required for weekly")
     elif schedule.schedule_type == ScheduleType.MONTHLY:
         if schedule.day_of_month is None:
-            raise ValueError("day_of_month is required for monthly schedules")
+            raise ValidationError("day_of_month is required for monthly schedules")
         if schedule.start_minutes_utc is None or schedule.end_minutes_utc is None:
-            raise ValueError("start_minutes_utc and end_minutes_utc are required for monthly")
+            raise ValidationError("start_minutes_utc and end_minutes_utc are required for monthly")
     elif schedule.schedule_type == ScheduleType.DATE_SPECIFIC:
         if schedule.start_at_utc is None or schedule.end_at_utc is None:
-            raise ValueError("start_at_utc and end_at_utc are required for date-specific")
+            raise ValidationError("start_at_utc and end_at_utc are required for date-specific")
 
+
+# --- Resource configuration ---
 
 _RESOURCE_CONFIG = {
     "organizations": ResourceConfig(
         name="organizations",
         model=Organization,
+        repository_class=OrganizationRepository,
         serializer=_serialize_organization,
         create_handler=_create_organization,
         update_handler=_update_organization,
@@ -671,6 +705,7 @@ _RESOURCE_CONFIG = {
     "locations": ResourceConfig(
         name="locations",
         model=Location,
+        repository_class=LocationRepository,
         serializer=_serialize_location,
         create_handler=_create_location,
         update_handler=_update_location,
@@ -678,6 +713,7 @@ _RESOURCE_CONFIG = {
     "activities": ResourceConfig(
         name="activities",
         model=Activity,
+        repository_class=ActivityRepository,
         serializer=_serialize_activity,
         create_handler=_create_activity,
         update_handler=_update_activity,
@@ -685,6 +721,7 @@ _RESOURCE_CONFIG = {
     "pricing": ResourceConfig(
         name="pricing",
         model=ActivityPricing,
+        repository_class=ActivityPricingRepository,
         serializer=_serialize_pricing,
         create_handler=_create_pricing,
         update_handler=_update_pricing,
@@ -692,6 +729,7 @@ _RESOURCE_CONFIG = {
     "schedules": ResourceConfig(
         name="schedules",
         model=ActivitySchedule,
+        repository_class=ActivityScheduleRepository,
         serializer=_serialize_schedule,
         create_handler=_create_schedule,
         update_handler=_update_schedule,

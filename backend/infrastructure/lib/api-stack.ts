@@ -12,6 +12,7 @@ import { Construct } from "constructs";
 import * as crypto from "crypto";
 import * as fs from "fs";
 import * as path from "path";
+import { PythonLambdaFactory } from "./constructs";
 
 export class ApiStack extends cdk.Stack {
   public constructor(scope: Construct, id: string, props?: cdk.StackProps) {
@@ -106,6 +107,14 @@ export class ApiStack extends cdk.Stack {
       dbProxyName: name("db-proxy"),
     });
 
+    // Lambda factory with shared defaults for VPC and security groups
+    const lambdaFactory = new PythonLambdaFactory(this, {
+      vpc,
+      securityGroups: [lambdaSecurityGroup],
+    });
+
+    // Helper to create Lambda functions using the factory
+    // Maintains backward compatibility with existing function signatures
     const createPythonFunction = (
       id: string,
       props: {
@@ -119,42 +128,17 @@ export class ApiStack extends cdk.Stack {
         code?: lambda.Code;
       }
     ) => {
-      const copyCommands = [
-        "pip install -r requirements.txt -t /asset-output",
-        "cp -au lambda /asset-output/lambda",
-        "cp -au src /asset-output/src",
-        ...(props.extraCopyCommands ?? []),
-      ];
-
-      const fn = new lambda.Function(this, id, {
+      const pythonLambda = lambdaFactory.create(id, {
         functionName: props.functionName,
-        runtime: lambda.Runtime.PYTHON_3_13,
         handler: props.handler,
-        code:
-          props.code ??
-          lambda.Code.fromAsset(path.join(__dirname, "../../"), {
-            bundling: {
-              image: lambda.Runtime.PYTHON_3_13.bundlingImage,
-              command: ["bash", "-c", copyCommands.join(" && ")],
-            },
-          }),
-        memorySize: props.memorySize ?? 512,
-        timeout: props.timeout ?? cdk.Duration.seconds(30),
-        vpc,
+        environment: props.environment,
+        timeout: props.timeout,
+        extraCopyCommands: props.extraCopyCommands,
         securityGroups: props.securityGroups ?? [lambdaSecurityGroup],
-        vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
-        environment: {
-          PYTHONPATH: "/var/task/src",
-          ...props.environment,
-        },
+        memorySize: props.memorySize,
+        code: props.code,
       });
-
-      new logs.LogRetention(this, `${id}LogRetention`, {
-        logGroupName: `/aws/lambda/${fn.functionName}`,
-        retention: logs.RetentionDays.ONE_WEEK,
-      });
-
-      return fn;
+      return pythonLambda.function;
     };
 
     const authDomainPrefix = new cdk.CfnParameter(this, "CognitoDomainPrefix", {
@@ -477,6 +461,28 @@ export class ApiStack extends cdk.Stack {
       }
     );
 
+    // Health check endpoint (no VPC needed, lightweight)
+    const healthFunction = createPythonFunction("HealthCheckFunction", {
+      functionName: name("health"),
+      handler: "lambda/health/handler.lambda_handler",
+      memorySize: 256,
+      timeout: cdk.Duration.seconds(10),
+      environment: {
+        DATABASE_SECRET_ARN: cluster.secret?.secretArn ?? "",
+        DATABASE_NAME: "siutindei",
+        DATABASE_PROXY_ENDPOINT: proxy.endpoint,
+        DATABASE_IAM_AUTH: "true",
+        DATABASE_USERNAME: "siutindei_app",
+        ENVIRONMENT: "production",
+        APP_VERSION: "1.0.0",
+      },
+    });
+
+    if (cluster.secret) {
+      cluster.secret.grantRead(healthFunction);
+    }
+    proxy.grantConnect(healthFunction, "siutindei_app");
+
     createAuthChallengeFunction.addToRolePolicy(
       new iam.PolicyStatement({
         actions: ["ses:SendEmail", "ses:SendRawEmail"],
@@ -776,6 +782,13 @@ export class ApiStack extends cdk.Stack {
     const adminGroupCfn = adminGroupResource.node.defaultChild as cdk.CfnResource;
     adminGroupCfn.cfnOptions.condition = bootstrapCondition;
     adminGroupCfn.addDependency(adminPasswordCfn);
+
+    // Health check endpoint (no auth required for load balancer checks)
+    const health = api.root.addResource("health");
+    health.addMethod("GET", new apigateway.LambdaIntegration(healthFunction), {
+      authorizationType: apigateway.AuthorizationType.NONE,
+      apiKeyRequired: false,
+    });
 
     const v1 = api.root.addResource("v1");
     const activities = v1.addResource("activities");
