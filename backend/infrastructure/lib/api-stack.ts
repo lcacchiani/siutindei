@@ -20,6 +20,11 @@ export class ApiStack extends cdk.Stack {
 
     const resourcePrefix = "lxsoftware-siutindei";
     const name = (suffix: string) => `${resourcePrefix}-${suffix}`;
+    const existingDbCredentialsSecretName =
+      process.env.EXISTING_DB_CREDENTIALS_SECRET_NAME;
+    const existingDbSecurityGroupId = process.env.EXISTING_DB_SECURITY_GROUP_ID;
+    const existingProxySecurityGroupId =
+      process.env.EXISTING_PROXY_SECURITY_GROUP_ID;
 
     // ---------------------------------------------------------------------
     // VPC and Security Groups
@@ -59,6 +64,9 @@ export class ApiStack extends cdk.Stack {
       minCapacity: 0.5,
       maxCapacity: 2,
       databaseName: "siutindei",
+      dbCredentialsSecretName: existingDbCredentialsSecretName,
+      dbSecurityGroupId: existingDbSecurityGroupId,
+      proxySecurityGroupId: existingProxySecurityGroupId,
     });
 
     // Allow Lambda access to database via proxy
@@ -190,14 +198,6 @@ export class ApiStack extends cdk.Stack {
         description: "Expected audience for device attestation tokens",
       }
     );
-    const corsAllowedOrigins = new cdk.CfnParameter(this, "CorsAllowedOrigins", {
-      type: "CommaDelimitedList",
-      default: "",
-      description:
-        "Comma-separated list of allowed CORS origins (e.g., https://app.example.com). " +
-        "If empty, defaults to mobile app origins only. " +
-        "SECURITY: Never use '*' in production.",
-    });
     const deviceAttestationFailClosed = new cdk.CfnParameter(
       this,
       "DeviceAttestationFailClosed",
@@ -562,26 +562,12 @@ export class ApiStack extends cdk.Stack {
 
     // SECURITY: Restrict CORS to specific allowed origins
     // Never use Cors.ALL_ORIGINS in production - it allows any website to make requests
-    const resolvedCorsOrigins = cdk.Fn.conditionIf(
-      "HasCorsOrigins",
-      corsAllowedOrigins.valueAsList,
-      // Default: Allow only mobile app deep link schemes and localhost for dev
-      ["capacitor://localhost", "ionic://localhost", "http://localhost"]
-    );
-
-    new cdk.CfnCondition(this, "HasCorsOrigins", {
-      expression: cdk.Fn.conditionNot(
-        cdk.Fn.conditionEquals(
-          cdk.Fn.select(0, corsAllowedOrigins.valueAsList),
-          ""
-        )
-      ),
-    });
+    const resolvedCorsOrigins = resolveCorsAllowedOrigins(this);
 
     const api = new apigateway.RestApi(this, "SiutindeiApi", {
       restApiName: name("api"),
       defaultCorsPreflightOptions: {
-        allowOrigins: resolvedCorsOrigins as unknown as string[],
+        allowOrigins: resolvedCorsOrigins,
         allowMethods: ["GET", "OPTIONS"],
       },
       deployOptions: {
@@ -972,6 +958,41 @@ export class ApiStack extends cdk.Stack {
       value: userPoolClient.ref,
     });
   }
+}
+
+// CORS origins must be concrete at synth time for preflight generation.
+function resolveCorsAllowedOrigins(scope: Construct): string[] {
+  const defaultOrigins = [
+    "capacitor://localhost",
+    "ionic://localhost",
+    "http://localhost",
+  ];
+  const contextOrigins = normalizeCorsOrigins(
+    scope.node.tryGetContext("corsAllowedOrigins")
+  );
+  if (contextOrigins.length > 0) {
+    return contextOrigins;
+  }
+  const envOrigins = normalizeCorsOrigins(process.env.CORS_ALLOWED_ORIGINS);
+  if (envOrigins.length > 0) {
+    return envOrigins;
+  }
+  return defaultOrigins;
+}
+
+function normalizeCorsOrigins(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value
+      .map((origin) => `${origin}`.trim())
+      .filter((origin) => origin.length > 0);
+  }
+  if (typeof value !== "string") {
+    return [];
+  }
+  return value
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter((origin) => origin.length > 0);
 }
 
 function hashFile(filePath: string): string {

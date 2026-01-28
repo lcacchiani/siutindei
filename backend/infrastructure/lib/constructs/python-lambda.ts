@@ -50,7 +50,8 @@ export class PythonLambda extends Construct {
     super(scope, id);
 
     const copyCommands = [
-      "pip install -r requirements.txt -t /asset-output",
+      "python -m pip install --upgrade pip==25.3 --no-warn-script-location",
+      "python -m pip install -r requirements.txt -t /asset-output",
       "cp -au lambda /asset-output/lambda",
       "cp -au src /asset-output/src",
       ...(props.extraCopyCommands ?? []),
@@ -67,6 +68,11 @@ export class PythonLambda extends Construct {
           bundling: {
             image: lambda.Runtime.PYTHON_3_13.bundlingImage,
             command: ["bash", "-c", copyCommands.join(" && ")],
+            environment: {
+              HOME: "/tmp",
+              PIP_CACHE_DIR: "/tmp/pip-cache",
+              PYTHONUSERBASE: "/tmp/.local",
+            },
           },
         }),
       memorySize: props.memorySize ?? 512,

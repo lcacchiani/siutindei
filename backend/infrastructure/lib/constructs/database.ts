@@ -19,6 +19,12 @@ export interface DatabaseConstructProps {
   maxCapacity?: number;
   /** Default database name. */
   databaseName?: string;
+  /** Existing database credentials secret name (optional). */
+  dbCredentialsSecretName?: string;
+  /** Existing database security group id (optional). */
+  dbSecurityGroupId?: string;
+  /** Existing proxy security group id (optional). */
+  proxySecurityGroupId?: string;
 }
 
 /**
@@ -38,30 +44,48 @@ export class DatabaseConstruct extends Construct {
   /** The database credentials secret. */
   public readonly secret: secretsmanager.ISecret;
   /** Security group for the database cluster. */
-  public readonly dbSecurityGroup: ec2.SecurityGroup;
+  public readonly dbSecurityGroup: ec2.ISecurityGroup;
   /** Security group for the RDS Proxy. */
-  public readonly proxySecurityGroup: ec2.SecurityGroup;
+  public readonly proxySecurityGroup: ec2.ISecurityGroup;
 
   constructor(scope: Construct, id: string, props: DatabaseConstructProps) {
     super(scope, id);
 
     const name = (suffix: string) => `${props.resourcePrefix}-${suffix}`;
 
+    const dbSecurityGroupId = props.dbSecurityGroupId?.trim();
+    const proxySecurityGroupId = props.proxySecurityGroupId?.trim();
+    const dbCredentialsSecretName = props.dbCredentialsSecretName?.trim();
+
     // Database security group
-    this.dbSecurityGroup = new ec2.SecurityGroup(this, "DatabaseSecurityGroup", {
-      vpc: props.vpc,
-      allowAllOutbound: true,
-      securityGroupName: name("db-sg"),
-      description: "Security group for Aurora database cluster",
-    });
+    this.dbSecurityGroup = dbSecurityGroupId
+      ? ec2.SecurityGroup.fromSecurityGroupId(
+          this,
+          "DatabaseSecurityGroup",
+          dbSecurityGroupId,
+          { mutable: true }
+        )
+      : new ec2.SecurityGroup(this, "DatabaseSecurityGroup", {
+          vpc: props.vpc,
+          allowAllOutbound: true,
+          securityGroupName: name("db-sg"),
+          description: "Security group for Aurora database cluster",
+        });
 
     // Proxy security group
-    this.proxySecurityGroup = new ec2.SecurityGroup(this, "ProxySecurityGroup", {
-      vpc: props.vpc,
-      allowAllOutbound: true,
-      securityGroupName: name("proxy-sg"),
-      description: "Security group for RDS Proxy",
-    });
+    this.proxySecurityGroup = proxySecurityGroupId
+      ? ec2.SecurityGroup.fromSecurityGroupId(
+          this,
+          "ProxySecurityGroup",
+          proxySecurityGroupId,
+          { mutable: true }
+        )
+      : new ec2.SecurityGroup(this, "ProxySecurityGroup", {
+          vpc: props.vpc,
+          allowAllOutbound: true,
+          securityGroupName: name("proxy-sg"),
+          description: "Security group for RDS Proxy",
+        });
 
     // Allow proxy to access database
     this.dbSecurityGroup.addIngressRule(
@@ -71,19 +95,21 @@ export class DatabaseConstruct extends Construct {
     );
 
     // Database credentials secret
-    const dbCredentialsSecret = new secretsmanager.Secret(
-      this,
-      "DBCredentialsSecret",
-      {
-        secretName: name("database-credentials"),
-        generateSecretString: {
-          secretStringTemplate: JSON.stringify({ username: "postgres" }),
-          generateStringKey: "password",
-          excludePunctuation: true,
-          includeSpace: false,
-        },
-      }
-    );
+    const dbCredentialsSecret = dbCredentialsSecretName
+      ? secretsmanager.Secret.fromSecretNameV2(
+          this,
+          "DBCredentialsSecret",
+          dbCredentialsSecretName
+        )
+      : new secretsmanager.Secret(this, "DBCredentialsSecret", {
+          secretName: name("database-credentials"),
+          generateSecretString: {
+            secretStringTemplate: JSON.stringify({ username: "postgres" }),
+            generateStringKey: "password",
+            excludePunctuation: true,
+            includeSpace: false,
+          },
+        });
     this.secret = dbCredentialsSecret;
 
     // Aurora PostgreSQL Serverless v2 cluster
@@ -110,7 +136,7 @@ export class DatabaseConstruct extends Construct {
     // RDS Proxy for connection pooling and IAM auth
     this.proxy = new rds.DatabaseProxy(this, "Proxy", {
       proxyTarget: rds.ProxyTarget.fromCluster(this.cluster),
-      secrets: this.cluster.secret ? [this.cluster.secret] : [],
+      secrets: [dbCredentialsSecret],
       vpc: props.vpc,
       securityGroups: [this.proxySecurityGroup],
       requireTLS: true,
@@ -155,8 +181,6 @@ export class DatabaseConstruct extends Construct {
    * Grant a Lambda function permission to read the database secret.
    */
   public grantSecretRead(fn: cdk.aws_lambda.IFunction): void {
-    if (this.cluster.secret) {
-      this.cluster.secret.grantRead(fn);
-    }
+    this.secret.grantRead(fn);
   }
 }
