@@ -36,7 +36,7 @@ jobs:
 
       - name: Setup SSH for certificates repo
         uses: webfactory/ssh-agent@v0.9.1
-        if: secrets.MATCH_DEPLOY_KEY != ''
+        if: ${{ secrets.MATCH_DEPLOY_KEY != '' }}
         with:
           ssh-private-key: ${{ secrets.MATCH_DEPLOY_KEY }}
 

@@ -41,11 +41,7 @@ class ActivityRepository(BaseRepository[Activity]):
         Returns:
             Activities belonging to the organization.
         """
-        query = (
-            select(Activity)
-            .where(Activity.org_id == org_id)
-            .order_by(Activity.id)
-        )
+        query = select(Activity).where(Activity.org_id == org_id).order_by(Activity.id)
         if cursor is not None:
             query = query.where(Activity.id > cursor)
         return self._session.execute(query.limit(limit)).scalars().all()
@@ -88,7 +84,7 @@ class ActivityRepository(BaseRepository[Activity]):
         """
         query = (
             select(Activity)
-            .where(Activity.name.ilike(f'%{name_pattern}%'))
+            .where(Activity.name.ilike(f"%{name_pattern}%"))
             .order_by(Activity.name)
             .limit(limit)
         )

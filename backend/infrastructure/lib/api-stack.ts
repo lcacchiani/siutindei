@@ -190,6 +190,27 @@ export class ApiStack extends cdk.Stack {
         description: "Expected audience for device attestation tokens",
       }
     );
+    const corsAllowedOrigins = new cdk.CfnParameter(this, "CorsAllowedOrigins", {
+      type: "CommaDelimitedList",
+      default: "",
+      description:
+        "Comma-separated list of allowed CORS origins (e.g., https://app.example.com). " +
+        "If empty, defaults to mobile app origins only. " +
+        "SECURITY: Never use '*' in production.",
+    });
+    const deviceAttestationFailClosed = new cdk.CfnParameter(
+      this,
+      "DeviceAttestationFailClosed",
+      {
+        type: "String",
+        default: "true",
+        allowedValues: ["true", "false"],
+        description:
+          "If true, deny requests when attestation is not configured (production mode). " +
+          "If false, allow requests without attestation (development mode). " +
+          "SECURITY: Must be 'true' in production.",
+      }
+    );
 
     // ---------------------------------------------------------------------
     // Cognito User Pool and Identity Providers
@@ -311,10 +332,11 @@ export class ApiStack extends cdk.Stack {
     });
 
     // Helper to create Lambda functions using the factory
+    // Note: functionName is omitted to let CloudFormation generate unique names
+    // and avoid conflicts with existing Lambda functions.
     const createPythonFunction = (
       id: string,
       props: {
-        functionName: string;
         handler: string;
         environment?: Record<string, string>;
         timeout?: cdk.Duration;
@@ -324,7 +346,6 @@ export class ApiStack extends cdk.Stack {
       }
     ) => {
       const pythonLambda = lambdaFactory.create(id, {
-        functionName: props.functionName,
         handler: props.handler,
         environment: props.environment,
         timeout: props.timeout,
@@ -337,7 +358,6 @@ export class ApiStack extends cdk.Stack {
 
     // Search function
     const searchFunction = createPythonFunction("SiutindeiSearchFunction", {
-      functionName: name("search"),
       handler: "lambda/activity_search/handler.lambda_handler",
       environment: {
         DATABASE_SECRET_ARN: database.secret?.secretArn ?? "",
@@ -352,7 +372,6 @@ export class ApiStack extends cdk.Stack {
 
     // Admin function
     const adminFunction = createPythonFunction("SiutindeiAdminFunction", {
-      functionName: name("admin"),
       handler: "lambda/admin/handler.lambda_handler",
       environment: {
         DATABASE_SECRET_ARN: database.secret?.secretArn ?? "",
@@ -380,7 +399,6 @@ export class ApiStack extends cdk.Stack {
 
     // Migration function
     const migrationFunction = createPythonFunction("SiutindeiMigrationFunction", {
-      functionName: name("migrations"),
       handler: "lambda/migrations/handler.lambda_handler",
       timeout: cdk.Duration.minutes(5),
       securityGroups: [migrationSecurityGroup],
@@ -401,7 +419,6 @@ export class ApiStack extends cdk.Stack {
 
     // Auth Lambda triggers
     const preSignUpFunction = createPythonFunction("AuthPreSignUpFunction", {
-      functionName: name("auth-pre-signup"),
       handler: "lambda/auth/pre_signup/handler.lambda_handler",
       memorySize: 256,
       timeout: cdk.Duration.seconds(10),
@@ -410,7 +427,6 @@ export class ApiStack extends cdk.Stack {
     const defineAuthChallengeFunction = createPythonFunction(
       "AuthDefineChallengeFunction",
       {
-        functionName: name("auth-define-challenge"),
         handler: "lambda/auth/define_auth_challenge/handler.lambda_handler",
         memorySize: 256,
         timeout: cdk.Duration.seconds(10),
@@ -423,7 +439,6 @@ export class ApiStack extends cdk.Stack {
     const createAuthChallengeFunction = createPythonFunction(
       "AuthCreateChallengeFunction",
       {
-        functionName: name("auth-create-challenge"),
         handler: "lambda/auth/create_auth_challenge/handler.lambda_handler",
         memorySize: 256,
         timeout: cdk.Duration.seconds(10),
@@ -444,7 +459,6 @@ export class ApiStack extends cdk.Stack {
     const verifyAuthChallengeFunction = createPythonFunction(
       "AuthVerifyChallengeFunction",
       {
-        functionName: name("auth-verify-challenge"),
         handler: "lambda/auth/verify_auth_challenge/handler.lambda_handler",
         memorySize: 256,
         timeout: cdk.Duration.seconds(10),
@@ -473,7 +487,6 @@ export class ApiStack extends cdk.Stack {
     const deviceAttestationFunction = createPythonFunction(
       "DeviceAttestationAuthorizer",
       {
-        functionName: name("device-attestation"),
         handler: "lambda/authorizers/device_attestation/handler.lambda_handler",
         memorySize: 256,
         timeout: cdk.Duration.seconds(5),
@@ -481,6 +494,8 @@ export class ApiStack extends cdk.Stack {
           ATTESTATION_JWKS_URL: deviceAttestationJwksUrl.valueAsString,
           ATTESTATION_ISSUER: deviceAttestationIssuer.valueAsString,
           ATTESTATION_AUDIENCE: deviceAttestationAudience.valueAsString,
+          // SECURITY: Fail-closed mode denies requests when attestation is not configured
+          ATTESTATION_FAIL_CLOSED: deviceAttestationFailClosed.valueAsString,
         },
       }
     );
@@ -499,7 +514,6 @@ export class ApiStack extends cdk.Stack {
 
     // Health check function
     const healthFunction = createPythonFunction("HealthCheckFunction", {
-      functionName: name("health"),
       handler: "lambda/health/handler.lambda_handler",
       memorySize: 256,
       timeout: cdk.Duration.seconds(10),
@@ -546,10 +560,28 @@ export class ApiStack extends cdk.Stack {
       apiAccessLogGroupName
     );
 
+    // SECURITY: Restrict CORS to specific allowed origins
+    // Never use Cors.ALL_ORIGINS in production - it allows any website to make requests
+    const resolvedCorsOrigins = cdk.Fn.conditionIf(
+      "HasCorsOrigins",
+      corsAllowedOrigins.valueAsList,
+      // Default: Allow only mobile app deep link schemes and localhost for dev
+      ["capacitor://localhost", "ionic://localhost", "http://localhost"]
+    );
+
+    new cdk.CfnCondition(this, "HasCorsOrigins", {
+      expression: cdk.Fn.conditionNot(
+        cdk.Fn.conditionEquals(
+          cdk.Fn.select(0, corsAllowedOrigins.valueAsList),
+          ""
+        )
+      ),
+    });
+
     const api = new apigateway.RestApi(this, "SiutindeiApi", {
       restApiName: name("api"),
       defaultCorsPreflightOptions: {
-        allowOrigins: apigateway.Cors.ALL_ORIGINS,
+        allowOrigins: resolvedCorsOrigins as unknown as string[],
         allowMethods: ["GET", "OPTIONS"],
       },
       deployOptions: {

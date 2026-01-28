@@ -35,9 +35,9 @@ class AppError(Exception):
 
     def to_dict(self) -> dict[str, Any]:
         """Convert exception to API response body."""
-        result: dict[str, Any] = {'error': self.message}
+        result: dict[str, Any] = {"error": self.message}
         if self.detail:
-            result['detail'] = self.detail
+            result["detail"] = self.detail
         return result
 
 
@@ -49,7 +49,7 @@ class ValidationError(AppError):
     """
 
     def __init__(self, message: str, field: Optional[str] = None):
-        detail = f'Field: {field}' if field else None
+        detail = f"Field: {field}" if field else None
         super().__init__(message, status_code=400, detail=detail)
         self.field = field
 
@@ -62,7 +62,7 @@ class NotFoundError(AppError):
 
     def __init__(self, resource: str, identifier: str):
         super().__init__(
-            f'{resource} not found: {identifier}',
+            f"{resource} not found: {identifier}",
             status_code=404,
         )
         self.resource = resource
@@ -76,7 +76,7 @@ class AuthorizationError(AppError):
     for the requested action.
     """
 
-    def __init__(self, message: str = 'Forbidden'):
+    def __init__(self, message: str = "Forbidden"):
         super().__init__(message, status_code=403)
 
 
@@ -86,7 +86,7 @@ class AuthenticationError(AppError):
     Use when credentials are missing or invalid.
     """
 
-    def __init__(self, message: str = 'Unauthorized'):
+    def __init__(self, message: str = "Unauthorized"):
         super().__init__(message, status_code=401)
 
 
@@ -98,7 +98,7 @@ class ConfigurationError(AppError):
 
     def __init__(self, config_name: str):
         super().__init__(
-            f'Missing required configuration: {config_name}',
+            f"Missing required configuration: {config_name}",
             status_code=500,
         )
         self.config_name = config_name
@@ -124,7 +124,7 @@ class RateLimitError(AppError):
     Use when the client has made too many requests.
     """
 
-    def __init__(self, message: str = 'Rate limit exceeded'):
+    def __init__(self, message: str = "Rate limit exceeded"):
         super().__init__(message, status_code=429)
 
 
@@ -135,5 +135,5 @@ class CursorError(ValidationError):
     """
 
     def __init__(self, detail: Optional[str] = None):
-        super().__init__('Invalid cursor', field='cursor')
+        super().__init__("Invalid cursor", field="cursor")
         self.detail = detail

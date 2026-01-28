@@ -1,4 +1,5 @@
 """Add IAM-enabled database user and grants."""
+
 from __future__ import annotations
 
 from typing import Sequence

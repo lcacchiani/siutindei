@@ -41,11 +41,7 @@ class LocationRepository(BaseRepository[Location]):
         Returns:
             Locations belonging to the organization.
         """
-        query = (
-            select(Location)
-            .where(Location.org_id == org_id)
-            .order_by(Location.id)
-        )
+        query = select(Location).where(Location.org_id == org_id).order_by(Location.id)
         if cursor is not None:
             query = query.where(Location.id > cursor)
         return self._session.execute(query.limit(limit)).scalars().all()

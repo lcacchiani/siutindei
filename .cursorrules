@@ -93,6 +93,17 @@ repo root
 - Optional CDK parameters bootstrap an admin user.
 - Auth is passwordless with email OTP/magic link and federated Google/Apple/Microsoft.
 
+### Security requirements (MANDATORY - see docs/architecture/security.md)
+- NEVER hardcode secrets, API keys, passwords, or tokens in source code.
+- NEVER log PII (emails, names) without masking. Use mask_email() and mask_pii() from app.utils.logging.
+- NEVER use print() in production code. Always use structured logging with get_logger().
+- NEVER use random module for security tokens. Always use secrets module.
+- NEVER use Cors.ALL_ORIGINS in production. Restrict to specific allowed origins.
+- ALWAYS use noEcho: true for CDK parameters containing secrets.
+- ALWAYS use fail-closed mode (ATTESTATION_FAIL_CLOSED=true) in production.
+- ALWAYS validate and sanitize user input before processing.
+- ALWAYS use SSL for database connections (sslmode=require).
+
 ### Code style and structure
 - Write concise and efficient source code.
 - Strive for source code that is easy to read and maintain, and provide accurate examples.

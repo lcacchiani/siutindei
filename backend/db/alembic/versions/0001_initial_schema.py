@@ -1,4 +1,5 @@
 """Initial schema for organizations, activities, locations, pricing, and schedules."""
+
 from __future__ import annotations
 
 from typing import Sequence

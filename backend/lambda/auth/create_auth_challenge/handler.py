@@ -2,10 +2,15 @@
 
 This Lambda creates a custom authentication challenge by generating
 an OTP code and sending it via email.
+
+SECURITY NOTES:
+- OTP codes are generated using cryptographically secure random (secrets module)
+- Email addresses are masked in logs to comply with privacy regulations
+- Never log OTP codes or passwords
 """
 
 from app.auth.passwordless import build_challenge, send_sign_in_email
-from app.utils.logging import configure_logging, get_logger
+from app.utils.logging import configure_logging, get_logger, mask_email
 
 configure_logging()
 logger = get_logger(__name__)
@@ -25,14 +30,17 @@ def lambda_handler(event, _context):
     challenge = build_challenge()
     code = challenge["code"]
 
-    logger.info(f"Creating auth challenge for {email}")
+    # SECURITY: Mask email in logs to protect PII
+    logger.info(f"Creating auth challenge for {mask_email(email)}")
 
     if email:
         try:
             send_sign_in_email(email, code)
-            logger.debug(f"Challenge email sent to {email}")
+            # SECURITY: Don't log success with email - already logged above
+            logger.info("Challenge email sent successfully")
         except Exception as exc:
-            logger.error(f"Failed to send challenge email: {exc}")
+            # SECURITY: Log error type but not full details which may contain PII
+            logger.error(f"Failed to send challenge email: {type(exc).__name__}")
             raise
 
     response["publicChallengeParameters"] = {"email": email}

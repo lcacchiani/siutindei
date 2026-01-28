@@ -44,7 +44,7 @@ def get_engine(
         use_cache = False
         pool_class = NullPool
 
-    cache_key = 'default'
+    cache_key = "default"
     if use_cache and cache_key in _ENGINE_CACHE:
         return _ENGINE_CACHE[cache_key]
 
@@ -74,13 +74,13 @@ def clear_engine_cache() -> None:
 
 def _use_iam_auth() -> bool:
     """Return True if IAM authentication is enabled."""
-    return str(os.getenv('DATABASE_IAM_AUTH', '')).lower() in {'1', 'true', 'yes'}
+    return str(os.getenv("DATABASE_IAM_AUTH", "")).lower() in {"1", "true", "yes"}
 
 
 def _get_connect_args() -> dict[str, str]:
     """Return connection arguments for the database driver."""
-    sslmode = os.getenv('DATABASE_SSLMODE', 'require')
-    return {'sslmode': sslmode}
+    sslmode = os.getenv("DATABASE_SSLMODE", "require")
+    return {"sslmode": sslmode}
 
 
 def _get_pool_settings(
@@ -101,11 +101,11 @@ def _get_pool_settings(
         Dictionary of pool configuration options.
     """
     if use_iam_auth or pool_class == NullPool:
-        return {'poolclass': NullPool}
+        return {"poolclass": NullPool}
 
     return {
-        'pool_size': int(os.getenv('DB_POOL_SIZE', '1')),
-        'max_overflow': int(os.getenv('DB_MAX_OVERFLOW', '0')),
-        'pool_recycle': int(os.getenv('DB_POOL_RECYCLE', '300')),
-        'pool_timeout': int(os.getenv('DB_POOL_TIMEOUT', '30')),
+        "pool_size": int(os.getenv("DB_POOL_SIZE", "1")),
+        "max_overflow": int(os.getenv("DB_MAX_OVERFLOW", "0")),
+        "pool_recycle": int(os.getenv("DB_POOL_RECYCLE", "300")),
+        "pool_timeout": int(os.getenv("DB_POOL_TIMEOUT", "30")),
     }

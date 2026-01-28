@@ -6,11 +6,12 @@ from datetime import datetime
 from decimal import Decimal
 from enum import Enum
 from typing import Any
+from typing import Mapping
 from typing import Optional
 from typing import Sequence
 from typing import TypeVar
 
-T = TypeVar('T', bound=Enum)
+T = TypeVar("T", bound=Enum)
 
 
 def parse_int(value: Optional[str]) -> Optional[int]:
@@ -25,7 +26,7 @@ def parse_int(value: Optional[str]) -> Optional[int]:
     Raises:
         ValueError: If the string cannot be converted to an integer.
     """
-    if value is None or value == '':
+    if value is None or value == "":
         return None
     return int(value)
 
@@ -42,7 +43,7 @@ def parse_decimal(value: Optional[str]) -> Optional[Decimal]:
     Raises:
         ValueError: If the string cannot be converted to a Decimal.
     """
-    if value is None or value == '':
+    if value is None or value == "":
         return None
     return Decimal(value)
 
@@ -61,9 +62,9 @@ def parse_datetime(value: Optional[str]) -> Optional[datetime]:
     Raises:
         ValueError: If the string cannot be parsed as an ISO datetime.
     """
-    if value is None or value == '':
+    if value is None or value == "":
         return None
-    cleaned = value.replace('Z', '+00:00') if value.endswith('Z') else value
+    cleaned = value.replace("Z", "+00:00") if value.endswith("Z") else value
     return datetime.fromisoformat(cleaned)
 
 
@@ -80,7 +81,7 @@ def parse_enum(value: Optional[str], enum_type: type[T]) -> Optional[T]:
     Raises:
         ValueError: If the string is not a valid enum value.
     """
-    if value is None or value == '':
+    if value is None or value == "":
         return None
     return enum_type(value)
 
@@ -98,7 +99,7 @@ def parse_languages(values: Sequence[str]) -> list[str]:
     """
     languages: list[str] = []
     for value in values:
-        for item in value.split(','):
+        for item in value.split(","):
             item = item.strip()
             if item and item not in languages:
                 languages.append(item)
@@ -119,7 +120,7 @@ def first_param(params: dict[str, list[str]], key: str) -> Optional[str]:
     return values[0] if values else None
 
 
-def collect_query_params(event: dict[str, Any]) -> dict[str, list[str]]:
+def collect_query_params(event: Mapping[str, Any]) -> dict[str, list[str]]:
     """Collect query parameters from API Gateway events.
 
     Handles both single and multi-value query string parameters.
@@ -131,8 +132,8 @@ def collect_query_params(event: dict[str, Any]) -> dict[str, list[str]]:
         Dictionary mapping parameter names to lists of values.
     """
     params: dict[str, list[str]] = {}
-    single = event.get('queryStringParameters') or {}
-    multi = event.get('multiValueQueryStringParameters') or {}
+    single = event.get("queryStringParameters") or {}
+    multi = event.get("multiValueQueryStringParameters") or {}
 
     for key, value in single.items():
         if value is None:

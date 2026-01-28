@@ -15,6 +15,8 @@ from typing import Any
 from typing import Callable
 from typing import Mapping
 from typing import Optional
+from typing import Protocol
+from typing import Sequence
 from typing import Tuple
 from typing import Type
 from uuid import UUID
@@ -35,13 +37,31 @@ from app.db.repositories import (
     ActivityPricingRepository,
     ActivityRepository,
     ActivityScheduleRepository,
-    BaseRepository,
     LocationRepository,
     OrganizationRepository,
 )
-from app.exceptions import AuthorizationError, NotFoundError, ValidationError
+from app.exceptions import NotFoundError, ValidationError
 from app.utils import json_response, parse_datetime, parse_int
 from app.utils.logging import configure_logging, get_logger, set_request_context
+
+
+class RepositoryProtocol(Protocol):
+    """Protocol for repository classes used in ResourceConfig."""
+
+    def __init__(self, session: Session) -> None: ...
+
+    def get_by_id(self, entity_id: UUID) -> Any: ...
+
+    def get_all(
+        self, limit: int = 50, cursor: Optional[UUID] = None
+    ) -> Sequence[Any]: ...
+
+    def create(self, entity: Any) -> Any: ...
+
+    def update(self, entity: Any) -> Any: ...
+
+    def delete(self, entity: Any) -> None: ...
+
 
 # Configure logging on module load
 configure_logging()
@@ -53,11 +73,11 @@ class ResourceConfig:
     """Configuration for admin resources."""
 
     name: str
-    model: Type
-    repository_class: Type[BaseRepository]
+    model: Type[Any]
+    repository_class: Type[RepositoryProtocol]
     serializer: Callable[[Any], dict[str, Any]]
-    create_handler: Callable[[BaseRepository, dict[str, Any]], Any]
-    update_handler: Callable[[BaseRepository, Any, dict[str, Any]], Any]
+    create_handler: Callable[..., Any]
+    update_handler: Callable[..., Any]
 
 
 def lambda_handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
@@ -107,7 +127,9 @@ def lambda_handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
         return json_response(400, {"error": str(exc)})
     except Exception as exc:  # pragma: no cover
         logger.exception("Unexpected error in admin handler")
-        return json_response(500, {"error": "Internal server error", "detail": str(exc)})
+        return json_response(
+            500, {"error": "Internal server error", "detail": str(exc)}
+        )
 
 
 def _handle_get(
@@ -138,7 +160,10 @@ def _handle_get(
 
         return json_response(
             200,
-            {"items": [config.serializer(row) for row in trimmed], "next_cursor": next_cursor},
+            {
+                "items": [config.serializer(row) for row in trimmed],
+                "next_cursor": next_cursor,
+            },
         )
 
 
@@ -264,11 +289,7 @@ def _parse_uuid(value: str) -> UUID:
 def _is_admin(event: Mapping[str, Any]) -> bool:
     """Return True when request belongs to an admin user."""
 
-    claims = (
-        event.get("requestContext", {})
-        .get("authorizer", {})
-        .get("claims", {})
-    )
+    claims = event.get("requestContext", {}).get("authorizer", {}).get("claims", {})
     groups = claims.get("cognito:groups", "")
     admin_group = os.getenv("ADMIN_GROUP", "admin")
     return admin_group in groups.split(",") if groups else False
@@ -317,7 +338,7 @@ def _parse_group_name(event: Mapping[str, Any]) -> str:
 
     raw = event.get("body") or ""
     if not raw:
-        return os.getenv("ADMIN_GROUP", "admin")
+        return os.getenv("ADMIN_GROUP") or "admin"
     if event.get("isBase64Encoded"):
         raw = base64.b64decode(raw).decode("utf-8")
     try:
@@ -325,7 +346,7 @@ def _parse_group_name(event: Mapping[str, Any]) -> str:
     except json.JSONDecodeError:
         body = {}
     group = body.get("group") if isinstance(body, dict) else None
-    return group or os.getenv("ADMIN_GROUP", "admin")
+    return group or os.getenv("ADMIN_GROUP") or "admin"
 
 
 def _require_env(name: str) -> str:
@@ -371,7 +392,9 @@ def _decode_cursor(cursor: str) -> dict[str, Any]:
 # --- Entity creation handlers (using repositories) ---
 
 
-def _create_organization(repo: OrganizationRepository, body: dict[str, Any]) -> Organization:
+def _create_organization(
+    repo: OrganizationRepository, body: dict[str, Any]
+) -> Organization:
     """Create an organization."""
 
     name = body.get("name")
@@ -515,7 +538,9 @@ def _serialize_activity(entity: Activity) -> dict[str, Any]:
     }
 
 
-def _create_pricing(repo: ActivityPricingRepository, body: dict[str, Any]) -> ActivityPricing:
+def _create_pricing(
+    repo: ActivityPricingRepository, body: dict[str, Any]
+) -> ActivityPricing:
     """Create activity pricing."""
 
     activity_id = body.get("activity_id")
@@ -523,7 +548,9 @@ def _create_pricing(repo: ActivityPricingRepository, body: dict[str, Any]) -> Ac
     pricing_type = body.get("pricing_type")
     amount = body.get("amount")
     if not activity_id or not location_id or not pricing_type or amount is None:
-        raise ValidationError("activity_id, location_id, pricing_type, and amount are required")
+        raise ValidationError(
+            "activity_id, location_id, pricing_type, and amount are required"
+        )
 
     pricing_enum = PricingType(pricing_type)
     sessions_count = body.get("sessions_count")
@@ -576,14 +603,18 @@ def _serialize_pricing(entity: ActivityPricing) -> dict[str, Any]:
     }
 
 
-def _create_schedule(repo: ActivityScheduleRepository, body: dict[str, Any]) -> ActivitySchedule:
+def _create_schedule(
+    repo: ActivityScheduleRepository, body: dict[str, Any]
+) -> ActivitySchedule:
     """Create activity schedule."""
 
     activity_id = body.get("activity_id")
     location_id = body.get("location_id")
     schedule_type = body.get("schedule_type")
     if not activity_id or not location_id or not schedule_type:
-        raise ValidationError("activity_id, location_id, and schedule_type are required")
+        raise ValidationError(
+            "activity_id, location_id, and schedule_type are required"
+        )
 
     schedule_enum = ScheduleType(schedule_type)
     schedule = ActivitySchedule(
@@ -658,7 +689,9 @@ def _parse_languages(value: Any) -> list[str]:
         return [str(item) for item in value]
     if isinstance(value, str):
         return [item.strip() for item in value.split(",") if item.strip()]
-    raise ValidationError("languages must be a list or comma-separated string", field="languages")
+    raise ValidationError(
+        "languages must be a list or comma-separated string", field="languages"
+    )
 
 
 def _set_if_present(
@@ -680,15 +713,21 @@ def _validate_schedule(schedule: ActivitySchedule) -> None:
         if schedule.day_of_week_utc is None:
             raise ValidationError("day_of_week_utc is required for weekly schedules")
         if schedule.start_minutes_utc is None or schedule.end_minutes_utc is None:
-            raise ValidationError("start_minutes_utc and end_minutes_utc are required for weekly")
+            raise ValidationError(
+                "start_minutes_utc and end_minutes_utc are required for weekly"
+            )
     elif schedule.schedule_type == ScheduleType.MONTHLY:
         if schedule.day_of_month is None:
             raise ValidationError("day_of_month is required for monthly schedules")
         if schedule.start_minutes_utc is None or schedule.end_minutes_utc is None:
-            raise ValidationError("start_minutes_utc and end_minutes_utc are required for monthly")
+            raise ValidationError(
+                "start_minutes_utc and end_minutes_utc are required for monthly"
+            )
     elif schedule.schedule_type == ScheduleType.DATE_SPECIFIC:
         if schedule.start_at_utc is None or schedule.end_at_utc is None:
-            raise ValidationError("start_at_utc and end_at_utc are required for date-specific")
+            raise ValidationError(
+                "start_at_utc and end_at_utc are required for date-specific"
+            )
 
 
 # --- Resource configuration ---

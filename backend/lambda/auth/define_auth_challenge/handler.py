@@ -18,7 +18,9 @@ def lambda_handler(event, _context):
     max_attempts = int(os.getenv("MAX_CHALLENGE_ATTEMPTS", "3"))
     session = event.get("request", {}).get("session", []) or []
     response = event.setdefault("response", {})
-    username = event.get("request", {}).get("userAttributes", {}).get("email", "unknown")
+    username = (
+        event.get("request", {}).get("userAttributes", {}).get("email", "unknown")
+    )
 
     logger.debug(
         f"Define auth challenge for {username}",
@@ -27,7 +29,9 @@ def lambda_handler(event, _context):
 
     if session:
         last = session[-1]
-        if last.get("challengeName") == "CUSTOM_CHALLENGE" and last.get("challengeResult"):
+        if last.get("challengeName") == "CUSTOM_CHALLENGE" and last.get(
+            "challengeResult"
+        ):
             logger.info(f"Auth successful for {username}")
             response["issueTokens"] = True
             response["failAuthentication"] = False

@@ -30,15 +30,15 @@ class HealthCheck:
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
         result: dict[str, Any] = {
-            'name': self.name,
-            'healthy': self.healthy,
+            "name": self.name,
+            "healthy": self.healthy,
         }
         if self.latency_ms is not None:
-            result['latency_ms'] = round(self.latency_ms, 2)
+            result["latency_ms"] = round(self.latency_ms, 2)
         if self.error:
-            result['error'] = self.error
+            result["error"] = self.error
         if self.details:
-            result['details'] = self.details
+            result["details"] = self.details
         return result
 
 
@@ -54,10 +54,10 @@ class HealthStatus:
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
         return {
-            'healthy': self.healthy,
-            'version': self.version,
-            'environment': self.environment,
-            'checks': [check.to_dict() for check in self.checks],
+            "healthy": self.healthy,
+            "version": self.version,
+            "environment": self.environment,
+            "checks": [check.to_dict() for check in self.checks],
         }
 
 
@@ -80,8 +80,8 @@ def check_health(include_details: bool = False) -> HealthStatus:
     return HealthStatus(
         healthy=overall_healthy,
         checks=checks if include_details else [],
-        version=os.getenv('APP_VERSION', 'unknown'),
-        environment=os.getenv('ENVIRONMENT', 'unknown'),
+        version=os.getenv("APP_VERSION", "unknown"),
+        environment=os.getenv("ENVIRONMENT", "unknown"),
     )
 
 
@@ -94,21 +94,21 @@ def _check_database() -> HealthCheck:
 
         engine = get_engine(use_cache=True)
         with Session(engine) as session:
-            result = session.execute(text('SELECT 1'))
+            result = session.execute(text("SELECT 1"))
             result.fetchone()
 
         latency_ms = (time.perf_counter() - start_time) * 1000
 
         return HealthCheck(
-            name='database',
+            name="database",
             healthy=True,
             latency_ms=latency_ms,
-            details={'connection': 'ok'},
+            details={"connection": "ok"},
         )
     except Exception as e:
         latency_ms = (time.perf_counter() - start_time) * 1000
         return HealthCheck(
-            name='database',
+            name="database",
             healthy=False,
             latency_ms=latency_ms,
             error=str(e),
@@ -118,13 +118,13 @@ def _check_database() -> HealthCheck:
 def _check_configuration() -> HealthCheck:
     """Check that required configuration is present."""
     required_vars = [
-        'DATABASE_SECRET_ARN',
-        'DATABASE_NAME',
+        "DATABASE_SECRET_ARN",
+        "DATABASE_NAME",
     ]
 
     optional_vars = [
-        'DATABASE_PROXY_ENDPOINT',
-        'DATABASE_IAM_AUTH',
+        "DATABASE_PROXY_ENDPOINT",
+        "DATABASE_IAM_AUTH",
     ]
 
     missing = [var for var in required_vars if not os.getenv(var)]
@@ -132,17 +132,17 @@ def _check_configuration() -> HealthCheck:
 
     if missing:
         return HealthCheck(
-            name='configuration',
+            name="configuration",
             healthy=False,
             error=f"Missing required variables: {', '.join(missing)}",
         )
 
     return HealthCheck(
-        name='configuration',
+        name="configuration",
         healthy=True,
         details={
-            'required': 'all present',
-            'optional_configured': present_optional,
+            "required": "all present",
+            "optional_configured": present_optional,
         },
     )
 
@@ -160,9 +160,9 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     from app.utils.responses import json_response
 
     # Check if detailed info is requested (only for internal calls)
-    include_details = (
-        event.get('queryStringParameters', {}) or {}
-    ).get('details') == 'true'
+    include_details = (event.get("queryStringParameters", {}) or {}).get(
+        "details"
+    ) == "true"
 
     status = check_health(include_details=include_details)
 

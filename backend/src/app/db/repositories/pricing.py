@@ -111,7 +111,7 @@ class ActivityPricingRepository(BaseRepository[ActivityPricing]):
         location_id: UUID,
         pricing_type: PricingType,
         amount: Decimal,
-        currency: str = 'HKD',
+        currency: str = "HKD",
         sessions_count: Optional[int] = None,
     ) -> ActivityPricing:
         """Create new pricing.
