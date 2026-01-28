@@ -199,8 +199,8 @@ For the OIDC provider itself, add the same tags:
      - Issuer ID
      - Key ID
    - Set **one of**:
-     - `APPSTORE_API_KEY_JSON` secret with:
-       `{"issuer_id":"...","key_id":"...","private_key":"-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----"}`
+    - `APPSTORE_API_KEY_JSON` secret with:
+      `{"issuer_id":"...","key_id":"...","private_key":"-----BEGIN EXAMPLE KEY-----\n...\n-----END EXAMPLE KEY-----"}`
      - or individual secrets:
        `APPSTORE_ISSUER_ID`, `APPSTORE_API_KEY_ID`, `APPSTORE_API_PRIVATE_KEY`
 6. Ensure TestFlight/App record exists:

@@ -117,4 +117,3 @@ jobs:
       - name: Synthesize CDK
         working-directory: backend/infrastructure
         run: npx cdk synth --quiet || echo "CDK synth requires parameters, skipping validation"
-

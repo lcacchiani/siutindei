@@ -201,7 +201,7 @@ Create a JSON string:
 {
   "issuer_id": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
   "key_id": "XXXXXXXXXX",
-  "private_key": "-----BEGIN PRIVATE KEY-----\nMIGTAgEAMBMG...\n-----END PRIVATE KEY-----"
+  "private_key": "-----BEGIN EXAMPLE KEY-----\nMIGTAgEAMBMG...\n-----END EXAMPLE KEY-----"
 }
 ```
 
