@@ -20,15 +20,11 @@ export class ApiStack extends cdk.Stack {
 
     const resourcePrefix = "lxsoftware-siutindei";
     const name = (suffix: string) => `${resourcePrefix}-${suffix}`;
-    const existingDbCredentialsSecretName = getOptionalEnv(
-      "EXISTING_DB_CREDENTIALS_SECRET_NAME"
-    );
-    const existingDbSecurityGroupId = getOptionalEnv(
-      "EXISTING_DB_SECURITY_GROUP_ID"
-    );
-    const existingProxySecurityGroupId = getOptionalEnv(
-      "EXISTING_PROXY_SECURITY_GROUP_ID"
-    );
+    const existingDbCredentialsSecretName =
+      process.env.EXISTING_DB_CREDENTIALS_SECRET_NAME;
+    const existingDbSecurityGroupId = process.env.EXISTING_DB_SECURITY_GROUP_ID;
+    const existingProxySecurityGroupId =
+      process.env.EXISTING_PROXY_SECURITY_GROUP_ID;
 
     // ---------------------------------------------------------------------
     // VPC and Security Groups
@@ -962,18 +958,6 @@ export class ApiStack extends cdk.Stack {
       value: userPoolClient.ref,
     });
   }
-}
-
-function getOptionalEnv(name: string): string | undefined {
-  const value = process.env[name];
-  if (!value) {
-    return undefined;
-  }
-  const trimmed = value.trim();
-  if (!trimmed) {
-    return undefined;
-  }
-  return trimmed;
 }
 
 // CORS origins must be concrete at synth time for preflight generation.
