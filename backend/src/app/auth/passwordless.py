@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import os
-import random
+import secrets
 import string
 from typing import Optional
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
@@ -24,8 +24,9 @@ def _build_login_link(base_url: str, email: str, code: str) -> Optional[str]:
 
 
 def _generate_code(length: int = 6) -> str:
+    # Use cryptographically secure random for OTP generation
     digits = string.digits
-    return "".join(random.choice(digits) for _ in range(length))
+    return "".join(secrets.choice(digits) for _ in range(length))
 
 
 def send_sign_in_email(email: str, code: str) -> None:
