@@ -158,7 +158,7 @@ For the OIDC provider itself, add the same tags:
    - `ANDROID_KEY_PASSWORD` = private key password (set when running `openssl genrsa -aes256`)
    - `ANDROID_KEY_ALIAS` = alias (e.g., `siutindei_release`)
 4. Set GitHub Variables:
-   - `ANDROID_PACKAGE_NAME` (from `apps/customer_app/android/app/build.gradle.kts`, `applicationId`)
+  - `ANDROID_PACKAGE_NAME` (from `apps/siutindei_app/android/app/build.gradle.kts`, `applicationId`)
    - `ANDROID_RELEASE_TRACK` (`internal`, `alpha`, `beta`, or `production`)
 5. Create a Play Console service account:
    - Google Cloud Console -> IAM & Admin -> Service Accounts -> Create

@@ -24,4 +24,4 @@ Provide environment variables in CI:
 - `KEY_ALIAS`
 - `KEY_PASSWORD`
 
-Then decode the keystore to `apps/customer_app/android/app/keystore.p12`.
+Then decode the keystore to `apps/siutindei_app/android/app/keystore.p12`.

@@ -15,7 +15,7 @@ repo root
 │   ├── flutter_ui/         # Flutter widgets
 │   └── react_ui/          # React components (Storybook)
 ├── apps/
-│   ├── customer_app/       # Flutter mobile
+│   ├── siutindei_app/       # Flutter mobile
 │   └── admin_web/          # React/Next.js app
 │       ├── src/
 │       │   ├── app/         # App Router

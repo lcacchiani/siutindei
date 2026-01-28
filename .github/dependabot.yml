@@ -87,7 +87,7 @@ updates:
 
   # Pub - Flutter mobile app
   - package-ecosystem: "pub"
-    directory: "/apps/customer_app"
+    directory: "/apps/siutindei_app"
     schedule:
       interval: "weekly"
       day: "monday"

@@ -119,12 +119,12 @@ Flutter mobile app, Next.js admin console, and AWS serverless backend.
 **Notes:**
 - CI uploads AAB to Play Console when service account secrets are set.
 - Android signing uses a keystore injected at build time in CI.
-- Android signing templates live in `apps/customer_app/android/`.
+- Android signing templates live in `apps/siutindei_app/android/`.
 - CI uploads IPA to TestFlight when App Store API keys are set.
 - iOS signing uses Fastlane match with a private certificates repo.
-- Fastlane config lives in `apps/customer_app/ios/fastlane`.
+- Fastlane config lives in `apps/siutindei_app/ios/fastlane`.
 - iOS export settings are templated at
-  `apps/customer_app/ios/ExportOptions.plist.template`
+  `apps/siutindei_app/ios/ExportOptions.plist.template`
   and generated in CI.
 
 ## 5) Amplify Usage

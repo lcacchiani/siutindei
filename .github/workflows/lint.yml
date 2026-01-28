@@ -32,7 +32,7 @@ jobs:
       - name: Run Dart/Flutter lint
         run: |
           set -e
-          for dir in apps/customer_app packages/flutter_ui packages/api_client_dart; do
+          for dir in apps/siutindei_app packages/flutter_ui packages/api_client_dart; do
             if [ -d "$dir" ]; then
               echo "Linting Dart in $dir"
               (cd "$dir" && flutter pub get && flutter analyze)
