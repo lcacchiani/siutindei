@@ -17,6 +17,7 @@ from app.api.activities_search import _decode_cursor  # noqa: E402
 from app.api.activities_search import _encode_cursor  # noqa: E402
 from app.api.activities_search import _parse_cursor  # noqa: E402
 from app.db.models import ScheduleType  # noqa: E402
+from app.exceptions import CursorError  # noqa: E402
 class _ScheduleStub:
     def __init__(self, schedule_id, schedule_type):
         self.id = schedule_id
@@ -49,9 +50,9 @@ def test_parse_cursor_returns_uuid() -> None:
 
 
 def test_parse_cursor_rejects_invalid_value() -> None:
-    """Ensure invalid cursors raise an error."""
+    """Ensure invalid cursors raise a CursorError."""
 
     raw = json.dumps({"schedule_id": "not-a-uuid"}).encode("utf-8")
     cursor = base64.urlsafe_b64encode(raw).decode("utf-8").rstrip("=")
-    with pytest.raises(ValueError, match="Invalid cursor"):
+    with pytest.raises(CursorError):
         _parse_cursor(cursor)
