@@ -110,8 +110,7 @@ jobs:
       - name: Synthesize CDK templates
         working-directory: backend/infrastructure
         env:
-          CDK_DEFAULT_ACCOUNT: "000000000000"
-          CDK_DEFAULT_REGION: "us-east-1"
+          CDK_DISABLE_CONTEXT_LOOKUPS: "1"
         run: npx cdk synth --quiet --output cdk.out
 
       - name: Run Checkov
