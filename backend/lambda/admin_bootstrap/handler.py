@@ -36,9 +36,7 @@ def lambda_handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
         },
     )
 
-    physical_id = str(
-        event.get("PhysicalResourceId") or f"admin-bootstrap-{user_ref}"
-    )
+    physical_id = str(event.get("PhysicalResourceId") or f"admin-bootstrap-{user_ref}")
     if request_type == "Delete":
         logger.info(
             "Delete request received, skipping admin bootstrap",
@@ -186,5 +184,3 @@ def _require_value(properties: Mapping[str, Any], key: str) -> str:
 
 def _normalize_email(value: str) -> str:
     return value.strip().lower()
-
-
