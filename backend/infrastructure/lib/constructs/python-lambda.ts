@@ -50,6 +50,7 @@ export class PythonLambda extends Construct {
     super(scope, id);
 
     const copyCommands = [
+      "python -m pip install --upgrade pip==25.3",
       "pip install -r requirements.txt -t /asset-output",
       "cp -au lambda /asset-output/lambda",
       "cp -au src /asset-output/src",

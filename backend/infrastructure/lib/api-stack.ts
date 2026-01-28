@@ -190,14 +190,6 @@ export class ApiStack extends cdk.Stack {
         description: "Expected audience for device attestation tokens",
       }
     );
-    const corsAllowedOrigins = new cdk.CfnParameter(this, "CorsAllowedOrigins", {
-      type: "CommaDelimitedList",
-      default: "capacitor://localhost,ionic://localhost,http://localhost",
-      description:
-        "Comma-separated list of allowed CORS origins (e.g., https://app.example.com). " +
-        "Defaults to mobile app origins only. " +
-        "SECURITY: Never use '*' in production.",
-    });
     const deviceAttestationFailClosed = new cdk.CfnParameter(
       this,
       "DeviceAttestationFailClosed",
@@ -562,12 +554,12 @@ export class ApiStack extends cdk.Stack {
 
     // SECURITY: Restrict CORS to specific allowed origins
     // Never use Cors.ALL_ORIGINS in production - it allows any website to make requests
-    const resolvedCorsOrigins = corsAllowedOrigins.valueAsList;
+    const resolvedCorsOrigins = resolveCorsAllowedOrigins(this);
 
     const api = new apigateway.RestApi(this, "SiutindeiApi", {
       restApiName: name("api"),
       defaultCorsPreflightOptions: {
-        allowOrigins: resolvedCorsOrigins as unknown as string[],
+        allowOrigins: resolvedCorsOrigins,
         allowMethods: ["GET", "OPTIONS"],
       },
       deployOptions: {
@@ -958,6 +950,41 @@ export class ApiStack extends cdk.Stack {
       value: userPoolClient.ref,
     });
   }
+}
+
+// CORS origins must be concrete at synth time for preflight generation.
+function resolveCorsAllowedOrigins(scope: Construct): string[] {
+  const defaultOrigins = [
+    "capacitor://localhost",
+    "ionic://localhost",
+    "http://localhost",
+  ];
+  const contextOrigins = normalizeCorsOrigins(
+    scope.node.tryGetContext("corsAllowedOrigins")
+  );
+  if (contextOrigins.length > 0) {
+    return contextOrigins;
+  }
+  const envOrigins = normalizeCorsOrigins(process.env.CORS_ALLOWED_ORIGINS);
+  if (envOrigins.length > 0) {
+    return envOrigins;
+  }
+  return defaultOrigins;
+}
+
+function normalizeCorsOrigins(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value
+      .map((origin) => `${origin}`.trim())
+      .filter((origin) => origin.length > 0);
+  }
+  if (typeof value !== "string") {
+    return [];
+  }
+  return value
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter((origin) => origin.length > 0);
 }
 
 function hashFile(filePath: string): string {
