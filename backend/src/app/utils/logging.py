@@ -15,11 +15,12 @@ from contextvars import ContextVar
 from datetime import datetime
 from datetime import timezone
 from typing import Any
+from typing import MutableMapping
 from typing import Optional
 
 # Context variables for request tracking
-request_id: ContextVar[str] = ContextVar('request_id', default='')
-correlation_id: ContextVar[str] = ContextVar('correlation_id', default='')
+request_id: ContextVar[str] = ContextVar("request_id", default="")
+correlation_id: ContextVar[str] = ContextVar("correlation_id", default="")
 
 
 class StructuredLogFormatter(logging.Formatter):
@@ -32,40 +33,40 @@ class StructuredLogFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
         """Format a log record as JSON."""
         log_data: dict[str, Any] = {
-            'timestamp': datetime.now(timezone.utc).isoformat(),
-            'level': record.levelname,
-            'logger': record.name,
-            'message': record.getMessage(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "level": record.levelname,
+            "logger": record.name,
+            "message": record.getMessage(),
         }
 
         # Add request context if available
         req_id = request_id.get()
         if req_id:
-            log_data['request_id'] = req_id
+            log_data["request_id"] = req_id
 
         corr_id = correlation_id.get()
         if corr_id:
-            log_data['correlation_id'] = corr_id
+            log_data["correlation_id"] = corr_id
 
         # Add source location for debug/error logs
         if record.levelno >= logging.DEBUG:
-            log_data['source'] = {
-                'file': record.filename,
-                'line': record.lineno,
-                'function': record.funcName,
+            log_data["source"] = {
+                "file": record.filename,
+                "line": record.lineno,
+                "function": record.funcName,
             }
 
         # Add exception info if present
         if record.exc_info:
-            log_data['exception'] = {
-                'type': record.exc_info[0].__name__ if record.exc_info[0] else None,
-                'message': str(record.exc_info[1]) if record.exc_info[1] else None,
-                'traceback': traceback.format_exception(*record.exc_info),
+            log_data["exception"] = {
+                "type": record.exc_info[0].__name__ if record.exc_info[0] else None,
+                "message": str(record.exc_info[1]) if record.exc_info[1] else None,
+                "traceback": traceback.format_exception(*record.exc_info),
             }
 
         # Add extra fields from the record
-        if hasattr(record, 'extra') and isinstance(record.extra, dict):
-            log_data['extra'] = record.extra
+        if hasattr(record, "extra") and isinstance(record.extra, dict):
+            log_data["extra"] = record.extra
 
         return json.dumps(log_data, default=str)
 
@@ -76,16 +77,16 @@ class ContextLogger(logging.LoggerAdapter):
     def process(
         self,
         msg: str,
-        kwargs: dict[str, Any],
-    ) -> tuple[str, dict[str, Any]]:
+        kwargs: MutableMapping[str, Any],
+    ) -> tuple[str, MutableMapping[str, Any]]:
         """Process log message to include extra context."""
-        extra = kwargs.get('extra', {})
+        extra = kwargs.get("extra", {})
 
         # Add any context passed to the adapter
         if self.extra:
             extra.update(self.extra)
 
-        kwargs['extra'] = extra
+        kwargs["extra"] = extra
         return msg, kwargs
 
 
@@ -96,7 +97,7 @@ def configure_logging(level: Optional[str] = None) -> None:
         level: Log level (DEBUG, INFO, WARNING, ERROR). Defaults to
                LOG_LEVEL environment variable or INFO.
     """
-    log_level = level or os.getenv('LOG_LEVEL', 'INFO')
+    log_level: str = level or os.getenv("LOG_LEVEL") or "INFO"
 
     # Get root logger
     root_logger = logging.getLogger()
@@ -112,10 +113,10 @@ def configure_logging(level: Optional[str] = None) -> None:
     root_logger.addHandler(handler)
 
     # Reduce noise from libraries
-    logging.getLogger('boto3').setLevel(logging.WARNING)
-    logging.getLogger('botocore').setLevel(logging.WARNING)
-    logging.getLogger('urllib3').setLevel(logging.WARNING)
-    logging.getLogger('sqlalchemy.engine').setLevel(logging.WARNING)
+    logging.getLogger("boto3").setLevel(logging.WARNING)
+    logging.getLogger("botocore").setLevel(logging.WARNING)
+    logging.getLogger("urllib3").setLevel(logging.WARNING)
+    logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
 
 
 def get_logger(name: str, **extra: Any) -> ContextLogger:
@@ -153,8 +154,8 @@ def set_request_context(
 
 def clear_request_context() -> None:
     """Clear request context after Lambda invocation."""
-    request_id.set('')
-    correlation_id.set('')
+    request_id.set("")
+    correlation_id.set("")
 
 
 def log_lambda_event(
@@ -170,15 +171,15 @@ def log_lambda_event(
         include_body: Whether to include the request body (may contain PII).
     """
     log_data = {
-        'http_method': event.get('httpMethod'),
-        'path': event.get('path'),
-        'query_params': event.get('queryStringParameters'),
+        "http_method": event.get("httpMethod"),
+        "path": event.get("path"),
+        "query_params": event.get("queryStringParameters"),
     }
 
-    if include_body and event.get('body'):
-        log_data['body_length'] = len(event.get('body', ''))
+    if include_body and event.get("body"):
+        log_data["body_length"] = len(event.get("body", ""))
 
-    logger.debug('Lambda event received', extra={'event': log_data})
+    logger.debug("Lambda event received", extra={"event": log_data})
 
 
 def log_response(
@@ -193,9 +194,9 @@ def log_response(
         status_code: HTTP status code of the response.
         duration_ms: Request duration in milliseconds.
     """
-    log_data: dict[str, Any] = {'status_code': status_code}
+    log_data: dict[str, Any] = {"status_code": status_code}
     if duration_ms is not None:
-        log_data['duration_ms'] = round(duration_ms, 2)
+        log_data["duration_ms"] = round(duration_ms, 2)
 
     level = logging.INFO if status_code < 400 else logging.WARNING
-    logger.log(level, 'Lambda response', extra={'response': log_data})
+    logger.log(level, "Lambda response", extra={"response": log_data})

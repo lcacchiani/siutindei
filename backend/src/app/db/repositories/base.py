@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 
 from app.db.base import Base
 
-T = TypeVar('T', bound=Base)
+T = TypeVar("T", bound=Base)
 
 
 class BaseRepository(Generic[T]):
@@ -146,7 +146,6 @@ class BaseRepository(Generic[T]):
             Total number of entities.
         """
         from sqlalchemy import func
-        result = self._session.execute(
-            select(func.count()).select_from(self._model)
-        )
+
+        result = self._session.execute(select(func.count()).select_from(self._model))
         return result.scalar() or 0

@@ -26,8 +26,8 @@ def json_response(
         API Gateway response dictionary.
     """
     response_headers = {
-        'Content-Type': 'application/json',
-        'X-Content-Type-Options': 'nosniff',
+        "Content-Type": "application/json",
+        "X-Content-Type-Options": "nosniff",
     }
 
     if headers:
@@ -36,9 +36,9 @@ def json_response(
     payload = _serialize_body(body)
 
     return {
-        'statusCode': status_code,
-        'headers': response_headers,
-        'body': json.dumps(payload, default=str),
+        "statusCode": status_code,
+        "headers": response_headers,
+        "body": json.dumps(payload, default=str),
     }
 
 
@@ -52,11 +52,11 @@ def _serialize_body(body: Any) -> Any:
         JSON-serializable representation of the body.
     """
     if isinstance(body, BaseModel):
-        if hasattr(body, 'model_dump'):
+        if hasattr(body, "model_dump"):
             return body.model_dump()
         return body.dict()
 
-    if hasattr(body, '__dataclass_fields__'):
+    if hasattr(body, "__dataclass_fields__"):
         return asdict(body)
 
     return body
@@ -77,8 +77,8 @@ def error_response(
     Returns:
         API Gateway response dictionary.
     """
-    body: dict[str, Any] = {'error': message}
+    body: dict[str, Any] = {"error": message}
     if detail:
-        body['detail'] = detail
+        body["detail"] = detail
 
     return json_response(status_code, body)

@@ -23,6 +23,8 @@ from app.db.models import Location
 from app.db.models import Organization
 from app.db.models import PricingType
 from app.db.models import ScheduleType
+
+
 @dataclass(frozen=True)
 class ActivitySearchCursor:
     """Cursor for activity search pagination."""
@@ -65,18 +67,28 @@ def validate_filters(filters: ActivitySearchFilters) -> None:
     if (filters.start_at_utc or filters.end_at_utc) and (
         filters.day_of_week_utc is not None or filters.day_of_month is not None
     ):
-        raise ValueError("Date-specific ranges cannot be combined with weekly/monthly fields.")
+        raise ValueError(
+            "Date-specific ranges cannot be combined with weekly/monthly fields."
+        )
 
-    if filters.schedule_type == ScheduleType.WEEKLY and filters.day_of_month is not None:
+    if (
+        filters.schedule_type == ScheduleType.WEEKLY
+        and filters.day_of_month is not None
+    ):
         raise ValueError("Weekly schedules cannot include day_of_month.")
 
-    if filters.schedule_type == ScheduleType.MONTHLY and filters.day_of_week_utc is not None:
+    if (
+        filters.schedule_type == ScheduleType.MONTHLY
+        and filters.day_of_week_utc is not None
+    ):
         raise ValueError("Monthly schedules cannot include day_of_week_utc.")
 
     if filters.schedule_type == ScheduleType.DATE_SPECIFIC and (
         filters.day_of_week_utc is not None or filters.day_of_month is not None
     ):
-        raise ValueError("Date-specific schedules cannot include weekly/monthly fields.")
+        raise ValueError(
+            "Date-specific schedules cannot include weekly/monthly fields."
+        )
 
     if filters.start_minutes_utc is not None and filters.end_minutes_utc is not None:
         if filters.start_minutes_utc >= filters.end_minutes_utc:
@@ -180,7 +192,7 @@ def _apply_schedule_filters(filters: ActivitySearchFilters, conditions: list) ->
 def _build_language_conditions(languages: Iterable[str]) -> list:
     """Build language conditions for session-specific languages."""
 
-    return [ActivitySchedule.languages.any(language) for language in languages]
+    return [ActivitySchedule.languages.any(language) for language in languages]  # type: ignore[arg-type]
 
 
 def _order_columns() -> list:
@@ -200,7 +212,14 @@ def _order_columns() -> list:
     )
     start_minutes = sa.func.coalesce(ActivitySchedule.start_minutes_utc, -1)
 
-    return [type_order, day_of_week, day_of_month, start_at, start_minutes, ActivitySchedule.id]
+    return [
+        type_order,
+        day_of_week,
+        day_of_month,
+        start_at,
+        start_minutes,
+        ActivitySchedule.id,
+    ]
 
 
 def _cursor_values(cursor: ActivitySearchCursor) -> list:
@@ -210,9 +229,18 @@ def _cursor_values(cursor: ActivitySearchCursor) -> list:
     day_of_week = cursor.day_of_week_utc if cursor.day_of_week_utc is not None else -1
     day_of_month = cursor.day_of_month if cursor.day_of_month is not None else -1
     start_at = cursor.start_at_utc or datetime(1970, 1, 1, tzinfo=timezone.utc)
-    start_minutes = cursor.start_minutes_utc if cursor.start_minutes_utc is not None else -1
+    start_minutes = (
+        cursor.start_minutes_utc if cursor.start_minutes_utc is not None else -1
+    )
 
-    return [type_order, day_of_week, day_of_month, start_at, start_minutes, cursor.schedule_id]
+    return [
+        type_order,
+        day_of_week,
+        day_of_month,
+        start_at,
+        start_minutes,
+        cursor.schedule_id,
+    ]
 
 
 def _schedule_type_order(value: ScheduleType) -> int:

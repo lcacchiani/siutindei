@@ -7,7 +7,7 @@ from typing import Optional
 from uuid import UUID
 
 
-def validate_uuid(value: str, field_name: str = 'id') -> UUID:
+def validate_uuid(value: str, field_name: str = "id") -> UUID:
     """Validate and parse a UUID string.
 
     Args:
@@ -23,7 +23,7 @@ def validate_uuid(value: str, field_name: str = 'id') -> UUID:
     try:
         return UUID(value)
     except (ValueError, TypeError) as e:
-        raise ValueError(f'Invalid {field_name}: must be a valid UUID') from e
+        raise ValueError(f"Invalid {field_name}: must be a valid UUID") from e
 
 
 def validate_email(value: str) -> str:
@@ -38,9 +38,9 @@ def validate_email(value: str) -> str:
     Raises:
         ValueError: If the email address is invalid.
     """
-    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    pattern = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
     if not re.match(pattern, value):
-        raise ValueError('Invalid email address')
+        raise ValueError("Invalid email address")
     return value.lower()
 
 
@@ -65,7 +65,7 @@ def validate_range(
         ValueError: If the value is out of range.
     """
     if not min_val <= value <= max_val:
-        raise ValueError(f'{field_name} must be between {min_val} and {max_val}')
+        raise ValueError(f"{field_name} must be between {min_val} and {max_val}")
     return value
 
 
@@ -92,5 +92,5 @@ def sanitize_string(
     if strip:
         value = value.strip()
     if len(value) > max_length:
-        raise ValueError(f'Value exceeds maximum length of {max_length}')
+        raise ValueError(f"Value exceeds maximum length of {max_length}")
     return value if value else None

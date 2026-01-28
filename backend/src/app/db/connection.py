@@ -25,7 +25,9 @@ def get_database_url() -> str:
         raise RuntimeError("DATABASE_URL or DATABASE_SECRET_ARN is required")
 
     secret = _get_secret(secret_arn)
-    username = os.getenv("DATABASE_USERNAME") or secret.get("username") or secret.get("user")
+    username = (
+        os.getenv("DATABASE_USERNAME") or secret.get("username") or secret.get("user")
+    )
     password = secret.get("password")
     host = os.getenv("DATABASE_HOST") or secret.get("host")
     if _use_iam_auth():
@@ -94,4 +96,6 @@ def _generate_iam_token(host: str, port: int, username: str) -> str:
         raise RuntimeError("AWS_REGION is required for IAM auth")
 
     client = boto3.client("rds", region_name=region)
-    return client.generate_db_auth_token(DBHostname=host, Port=port, DBUsername=username)
+    return client.generate_db_auth_token(
+        DBHostname=host, Port=port, DBUsername=username
+    )

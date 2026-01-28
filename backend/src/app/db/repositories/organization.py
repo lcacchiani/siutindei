@@ -51,7 +51,7 @@ class OrganizationRepository(BaseRepository[Organization]):
         """
         query = (
             select(Organization)
-            .where(Organization.name.ilike(f'%{name_pattern}%'))
+            .where(Organization.name.ilike(f"%{name_pattern}%"))
             .order_by(Organization.name)
             .limit(limit)
         )

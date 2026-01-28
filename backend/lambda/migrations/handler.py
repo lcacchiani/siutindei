@@ -28,8 +28,10 @@ def lambda_handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
 
     # Log connection details (without password) for debugging
     parsed = urlparse(database_url)
-    print(f"Connecting to database: host={parsed.hostname}, port={parsed.port}, "
-          f"user={parsed.username}, database={parsed.path.lstrip('/')}")
+    print(
+        f"Connecting to database: host={parsed.hostname}, port={parsed.port}, "
+        f"user={parsed.username}, database={parsed.path.lstrip('/')}"
+    )
 
     _run_with_retry(_run_migrations, database_url)
 

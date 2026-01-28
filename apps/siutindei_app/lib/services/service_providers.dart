@@ -2,6 +2,8 @@
 ///
 /// This module provides Riverpod providers for all services, enabling
 /// proper dependency injection and easier testing through provider overrides.
+library;
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'amplify_service.dart';

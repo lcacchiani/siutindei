@@ -34,7 +34,13 @@ from app.db.queries import ActivitySearchCursor
 from app.db.queries import ActivitySearchFilters
 from app.db.queries import build_activity_search_query
 from app.exceptions import CursorError, ValidationError
-from app.utils import json_response, parse_datetime, parse_decimal, parse_enum, parse_int
+from app.utils import (
+    json_response,
+    parse_datetime,
+    parse_decimal,
+    parse_enum,
+    parse_int,
+)
 from app.utils.logging import configure_logging, get_logger, set_request_context
 from app.utils.parsers import collect_query_params, first_param, parse_languages
 
@@ -56,7 +62,10 @@ def lambda_handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
         response = fetch_activity_search_response(filters)
         logger.info(
             f"Search completed: {len(response.items)} results",
-            extra={"count": len(response.items), "has_more": response.next_cursor is not None},
+            extra={
+                "count": len(response.items),
+                "has_more": response.next_cursor is not None,
+            },
         )
         return _create_response(200, response)
     except (ValidationError, CursorError) as exc:
@@ -67,7 +76,9 @@ def lambda_handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
         return json_response(400, {"error": str(exc)})
     except Exception as exc:  # pragma: no cover - safety net
         logger.exception("Unexpected error in activity search")
-        return json_response(500, {"error": "Internal server error", "detail": str(exc)})
+        return json_response(
+            500, {"error": "Internal server error", "detail": str(exc)}
+        )
 
 
 def parse_filters(event: Mapping[str, Any]) -> ActivitySearchFilters:
@@ -94,7 +105,9 @@ def parse_filters(event: Mapping[str, Any]) -> ActivitySearchFilters:
     )
 
 
-def fetch_activity_search_response(filters: ActivitySearchFilters) -> ActivitySearchResponseSchema:
+def fetch_activity_search_response(
+    filters: ActivitySearchFilters,
+) -> ActivitySearchResponseSchema:
     """Fetch activity search response from the database."""
 
     engine = get_engine()
@@ -185,7 +198,9 @@ def _extract_age_bounds(age_range: Any) -> tuple[int | None, int | None]:
     return None, None
 
 
-def _create_response(status_code: int, body: ActivitySearchResponseSchema) -> dict[str, Any]:
+def _create_response(
+    status_code: int, body: ActivitySearchResponseSchema
+) -> dict[str, Any]:
     """Create a JSON API Gateway response for Pydantic models."""
 
     payload = body.model_dump() if hasattr(body, "model_dump") else body.dict()

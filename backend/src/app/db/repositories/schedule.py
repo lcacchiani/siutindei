@@ -114,7 +114,7 @@ class ActivityScheduleRepository(BaseRepository[ActivitySchedule]):
         """
         query = (
             select(ActivitySchedule)
-            .where(ActivitySchedule.languages.any(language))
+            .where(ActivitySchedule.languages.any(language))  # type: ignore[arg-type]
             .order_by(ActivitySchedule.id)
             .limit(limit)
         )

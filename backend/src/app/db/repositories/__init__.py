@@ -12,10 +12,10 @@ from app.db.repositories.pricing import ActivityPricingRepository
 from app.db.repositories.schedule import ActivityScheduleRepository
 
 __all__ = [
-    'BaseRepository',
-    'OrganizationRepository',
-    'LocationRepository',
-    'ActivityRepository',
-    'ActivityPricingRepository',
-    'ActivityScheduleRepository',
+    "BaseRepository",
+    "OrganizationRepository",
+    "LocationRepository",
+    "ActivityRepository",
+    "ActivityPricingRepository",
+    "ActivityScheduleRepository",
 ]
