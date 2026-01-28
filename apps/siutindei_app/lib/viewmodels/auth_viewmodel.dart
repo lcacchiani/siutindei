@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/legacy.dart';
 
 import '../services/amplify_service.dart';
 import '../services/auth_service.dart';
+import '../services/service_providers.dart';
 
 class AuthState {
   const AuthState({
@@ -177,9 +178,14 @@ class AuthViewModel extends StateNotifier<AuthState> {
   }
 }
 
+/// Provider for the [AuthViewModel].
+///
+/// Uses [amplifyServiceProvider] and [authServiceProvider] for
+/// dependency injection, enabling easier testing through provider overrides.
 final authViewModelProvider =
     StateNotifierProvider<AuthViewModel, AuthState>((ref) {
-  final amplifyService = AmplifyService();
-  final authService = AuthService();
-  return AuthViewModel(amplifyService, authService);
+  return AuthViewModel(
+    ref.watch(amplifyServiceProvider),
+    ref.watch(authServiceProvider),
+  );
 });
