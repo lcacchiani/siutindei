@@ -4,7 +4,7 @@ info:
   version: 0.1.0
   description: CRUD endpoints for managing activities data.
 paths:
-  /admin/organizations:
+  /v1/admin/organizations:
     get:
       summary: List organizations
       parameters:
@@ -23,14 +23,14 @@ paths:
           description: List of organizations
     post:
       summary: Create organization
-  /admin/organizations/{id}:
+  /v1/admin/organizations/{id}:
     get:
       summary: Get organization
     put:
       summary: Update organization
     delete:
       summary: Delete organization
-  /admin/locations:
+  /v1/admin/locations:
     get:
       summary: List locations
       parameters:
@@ -49,14 +49,14 @@ paths:
           description: List of locations
     post:
       summary: Create location
-  /admin/locations/{id}:
+  /v1/admin/locations/{id}:
     get:
       summary: Get location
     put:
       summary: Update location
     delete:
       summary: Delete location
-  /admin/activities:
+  /v1/admin/activities:
     get:
       summary: List activities
       parameters:
@@ -75,14 +75,14 @@ paths:
           description: List of activities
     post:
       summary: Create activity
-  /admin/activities/{id}:
+  /v1/admin/activities/{id}:
     get:
       summary: Get activity
     put:
       summary: Update activity
     delete:
       summary: Delete activity
-  /admin/pricing:
+  /v1/admin/pricing:
     get:
       summary: List pricing entries
       parameters:
@@ -101,14 +101,14 @@ paths:
           description: List of pricing entries
     post:
       summary: Create pricing entry
-  /admin/pricing/{id}:
+  /v1/admin/pricing/{id}:
     get:
       summary: Get pricing entry
     put:
       summary: Update pricing entry
     delete:
       summary: Delete pricing entry
-  /admin/schedules:
+  /v1/admin/schedules:
     get:
       summary: List schedules
       parameters:
@@ -127,14 +127,14 @@ paths:
           description: List of schedules
     post:
       summary: Create schedule
-  /admin/schedules/{id}:
+  /v1/admin/schedules/{id}:
     get:
       summary: Get schedule
     put:
       summary: Update schedule
     delete:
       summary: Delete schedule
-  /admin/users/{username}/groups:
+  /v1/admin/users/{username}/groups:
     post:
       summary: Add user to group
     delete:

@@ -173,12 +173,27 @@ def _parse_path(path: str) -> Tuple[str, Optional[str], Optional[str]]:
     """Parse resource name and id from the request path."""
 
     parts = [segment for segment in path.split("/") if segment]
+    parts = _strip_version_prefix(parts)
     if len(parts) < 2 or parts[0] != "admin":
         return "", None, None
     resource = parts[1]
     resource_id = parts[2] if len(parts) > 2 else None
     sub_resource = parts[3] if len(parts) > 3 else None
     return resource, resource_id, sub_resource
+
+
+def _strip_version_prefix(parts: list[str]) -> list[str]:
+    """Drop an optional version prefix from path segments."""
+
+    if parts and _is_version_segment(parts[0]):
+        return parts[1:]
+    return parts
+
+
+def _is_version_segment(segment: str) -> bool:
+    """Return True if the path segment matches v{number}."""
+
+    return segment.startswith("v") and segment[1:].isdigit()
 
 
 def _query_param(event: Mapping[str, Any], name: str) -> Optional[str]:
