@@ -6,7 +6,7 @@ on:
     branches:
       - main
     paths:
-      - "apps/customer_app/**"
+      - "apps/siutindei_app/**"
       - "packages/flutter_ui/**"
       - "packages/api_client_dart/**"
       - "packages/models_shared/**"
@@ -44,9 +44,9 @@ jobs:
             echo "Skipping Android signing (missing secrets)"
             exit 0
           fi
-          mkdir -p apps/customer_app/android/app
-          echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > apps/customer_app/android/app/keystore.p12
-          chmod 600 apps/customer_app/android/app/keystore.p12
+          mkdir -p apps/siutindei_app/android/app
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > apps/siutindei_app/android/app/keystore.p12
+          chmod 600 apps/siutindei_app/android/app/keystore.p12
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
@@ -55,7 +55,7 @@ jobs:
 
       - name: Install dependencies
         run: flutter pub get
-        working-directory: apps/customer_app
+        working-directory: apps/siutindei_app
 
       - name: Build release AAB
         run: |
@@ -67,7 +67,7 @@ jobs:
             --dart-define=FIREBASE_ANDROID_APP_ID=${{ vars.FIREBASE_ANDROID_APP_ID }} \
             --dart-define=FIREBASE_STORAGE_BUCKET=${{ vars.FIREBASE_STORAGE_BUCKET }} \
             --dart-define=FIREBASE_APP_CHECK_DEBUG=${{ vars.FIREBASE_APP_CHECK_DEBUG }}
-        working-directory: apps/customer_app
+        working-directory: apps/siutindei_app
 
       - name: Check Play Store upload prerequisites
         id: playstore
@@ -98,7 +98,7 @@ jobs:
         with:
           serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT }}
           packageName: ${{ vars.ANDROID_PACKAGE_NAME }}
-          releaseFiles: apps/customer_app/build/app/outputs/bundle/release/app-release.aab
+          releaseFiles: apps/siutindei_app/build/app/outputs/bundle/release/app-release.aab
           track: ${{ vars.ANDROID_RELEASE_TRACK }}
 
       - name: Deploy mobile artifacts

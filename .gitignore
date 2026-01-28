@@ -196,8 +196,8 @@ node_modules/
 !backend/infrastructure/lib/**
 !backend/infrastructure/bin/
 !backend/infrastructure/bin/**
-!apps/customer_app/lib/
-!apps/customer_app/lib/**
+!apps/siutindei_app/lib/
+!apps/siutindei_app/lib/**
 
 # Ruff stuff:
 .ruff_cache/
@@ -218,23 +218,23 @@ node_modules/
 .flutter-plugins-dependencies
 .packages
 .fvm/
-apps/customer_app/android/local.properties
-apps/customer_app/android/app/src/main/java/io/flutter/plugins/
-apps/customer_app/ios/Flutter/Generated.xcconfig
-apps/customer_app/ios/Flutter/flutter_export_environment.sh
-apps/customer_app/ios/Flutter/ephemeral/
-apps/customer_app/ios/Runner/GeneratedPluginRegistrant.h
-apps/customer_app/ios/Runner/GeneratedPluginRegistrant.m
+apps/siutindei_app/android/local.properties
+apps/siutindei_app/android/app/src/main/java/io/flutter/plugins/
+apps/siutindei_app/ios/Flutter/Generated.xcconfig
+apps/siutindei_app/ios/Flutter/flutter_export_environment.sh
+apps/siutindei_app/ios/Flutter/ephemeral/
+apps/siutindei_app/ios/Runner/GeneratedPluginRegistrant.h
+apps/siutindei_app/ios/Runner/GeneratedPluginRegistrant.m
 
 # Flutter signing artifacts
-apps/customer_app/android/key.properties
-apps/customer_app/android/keystore.jks
-apps/customer_app/android/keystore.jks*
-apps/customer_app/android/keystore.p12
-apps/customer_app/android/keystore.p12*
-apps/customer_app/android/app/keystore.jks
-apps/customer_app/android/app/keystore.p12
-apps/customer_app/ios/ExportOptions.plist
+apps/siutindei_app/android/key.properties
+apps/siutindei_app/android/keystore.jks
+apps/siutindei_app/android/keystore.jks*
+apps/siutindei_app/android/keystore.p12
+apps/siutindei_app/android/keystore.p12*
+apps/siutindei_app/android/app/keystore.jks
+apps/siutindei_app/android/app/keystore.p12
+apps/siutindei_app/ios/ExportOptions.plist
 
 # Marimo
 marimo/_static/

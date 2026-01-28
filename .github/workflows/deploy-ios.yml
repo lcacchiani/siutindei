@@ -32,7 +32,7 @@ jobs:
 
       - name: Install dependencies
         run: flutter pub get
-        working-directory: apps/customer_app
+        working-directory: apps/siutindei_app
 
       - name: Setup SSH for certificates repo
         uses: webfactory/ssh-agent@v0.9.1
@@ -41,7 +41,7 @@ jobs:
           ssh-private-key: ${{ secrets.MATCH_DEPLOY_KEY }}
 
       - name: Sync signing assets (match)
-        working-directory: apps/customer_app/ios
+        working-directory: apps/siutindei_app/ios
         run: |
           if [ -z "$MATCH_GIT_URL" ] || [ -z "$MATCH_PASSWORD" ] || [ -z "$FASTLANE_USER" ] || [ -z "$FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD" ]; then
             echo "Skipping fastlane match (missing secrets)"
@@ -88,7 +88,7 @@ jobs:
           else:
               data["signingStyle"] = "automatic"
 
-          output_path = Path("apps/customer_app/ios/ExportOptions.plist")
+          output_path = Path("apps/siutindei_app/ios/ExportOptions.plist")
           output_path.write_bytes(plistlib.dumps(data))
           PY
         env:
@@ -107,7 +107,7 @@ jobs:
             --dart-define=FIREBASE_IOS_BUNDLE_ID=${{ vars.IOS_BUNDLE_ID }} \
             --dart-define=FIREBASE_STORAGE_BUCKET=${{ vars.FIREBASE_STORAGE_BUCKET }} \
             --dart-define=FIREBASE_APP_CHECK_DEBUG=${{ vars.FIREBASE_APP_CHECK_DEBUG }}
-        working-directory: apps/customer_app
+        working-directory: apps/siutindei_app
 
       - name: Load App Store Connect API key
         run: |
@@ -151,7 +151,7 @@ jobs:
         if: env.APPSTORE_ISSUER_ID != '' && env.APPSTORE_API_KEY_ID != '' && env.APPSTORE_API_PRIVATE_KEY != ''
         uses: apple-actions/upload-testflight-build@v4
         with:
-          app-path: apps/customer_app/build/ios/ipa/*.ipa
+          app-path: apps/siutindei_app/build/ios/ipa/*.ipa
           issuer-id: ${{ env.APPSTORE_ISSUER_ID }}
           api-key-id: ${{ env.APPSTORE_API_KEY_ID }}
           api-private-key: ${{ env.APPSTORE_API_PRIVATE_KEY }}

@@ -23,8 +23,8 @@ jobs:
 
       - name: Validate pubspec.lock
         run: |
-          if [ -f "apps/customer_app/pubspec.yaml" ]; then
-            cd apps/customer_app
+          if [ -f "apps/siutindei_app/pubspec.yaml" ]; then
+            cd apps/siutindei_app
             flutter pub get
             if [ ! -f "pubspec.lock" ]; then
               echo "pubspec.lock is missing"
@@ -35,7 +35,7 @@ jobs:
               exit 1
             fi
           else
-            echo "Skipping Flutter lockfile check (apps/customer_app missing)"
+            echo "Skipping Flutter lockfile check (apps/siutindei_app missing)"
           fi
 
   node-lockfiles:
@@ -81,8 +81,8 @@ jobs:
 
       - name: Validate Podfile.lock
         run: |
-          if [ -f "apps/customer_app/ios/Podfile" ]; then
-            cd apps/customer_app/ios
+          if [ -f "apps/siutindei_app/ios/Podfile" ]; then
+            cd apps/siutindei_app/ios
             if [ ! -f "Podfile.lock" ]; then
               echo "Podfile.lock is missing"
               exit 1
