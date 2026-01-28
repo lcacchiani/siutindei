@@ -37,10 +37,12 @@ Flutter Mobile / Next.js Admin
 - Hosted on Amplify Hosting (release jobs triggered in CI).
 
 ### Backend
-- API Gateway exposes REST endpoints (start with `GET /activities/search`).
-- Admin CRUD routes under `/admin/*` for organizations, locations, activities,
-  pricing, and schedules.
-- Admin user group assignment available at `/admin/users/{username}/groups`.
+- API Gateway exposes REST endpoints (start with
+  `GET /v1/activities/search`).
+- Admin CRUD routes under `/v1/admin/*` for organizations, locations,
+  activities, pricing, and schedules.
+- Admin user group assignment available at
+  `/v1/admin/users/{username}/groups`.
 - Admin list endpoints support cursor pagination.
 - Lambda functions in `backend/lambda/` call into shared code in
   `backend/src/app`.

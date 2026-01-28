@@ -25,7 +25,7 @@ class ApiService {
     final attestationToken = await _deviceAttestationService.getToken();
     headers['x-device-attestation'] = attestationToken;
     final response = await Amplify.API.get(
-      '/activities/search',
+      '/v1/activities/search',
       apiName: AppAmplifyConfig.apiName,
       headers: headers,
       queryParameters: filters.toQueryParameters(),

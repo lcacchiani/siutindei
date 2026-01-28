@@ -83,7 +83,8 @@ Flutter mobile app, Next.js admin console, and AWS serverless backend.
 - Public activity search uses an API key; admin routes require Cognito.
 - Admin routes require membership in the `admin` group.
 - Admin group is created via CDK.
-- Admin group membership can be managed via `/admin/users/{username}/groups`.
+- Admin group membership can be managed via
+  `/v1/admin/users/{username}/groups`.
 - Admin bootstrap user can be created with CDK parameters.
 - Authentication is passwordless: email custom challenge (OTP + optional magic
   link) and federated sign-in via Google, Apple, and Microsoft (OIDC).

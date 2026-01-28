@@ -574,7 +574,7 @@ export class ApiStack extends cdk.Stack {
         cacheClusterSize: "0.5",
         cacheDataEncrypted: true,
         methodOptions: {
-          "/activities/search/GET": {
+          "/v1/activities/search/GET": {
             cachingEnabled: true,
             cacheTtl: cdk.Duration.minutes(5),
           },
@@ -777,7 +777,8 @@ export class ApiStack extends cdk.Stack {
     adminGroupCfn.cfnOptions.condition = bootstrapCondition;
     adminGroupCfn.addDependency(adminPasswordCfn);
 
-    const activities = api.root.addResource("activities");
+    const v1 = api.root.addResource("v1");
+    const activities = v1.addResource("activities");
     const search = activities.addResource("search");
     const cacheKeyParameters = [
       "method.request.querystring.age",
@@ -808,7 +809,7 @@ export class ApiStack extends cdk.Stack {
       requestParameters,
     });
 
-    const admin = api.root.addResource("admin");
+    const admin = v1.addResource("admin");
     const adminResources = [
       "organizations",
       "locations",
