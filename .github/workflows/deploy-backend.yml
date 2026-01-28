@@ -144,6 +144,48 @@ jobs:
           FIREBASE_ANDROID_APP_ID: ${{ vars.FIREBASE_ANDROID_APP_ID }}
           FIREBASE_IOS_APP_ID: ${{ vars.FIREBASE_IOS_APP_ID }}
 
+      - name: Detect existing database resources
+        run: |
+          set -e
+          resource_prefix="lxsoftware-siutindei"
+          vpc_name="${resource_prefix}-vpc"
+          db_sg_name="${resource_prefix}-db-sg"
+          proxy_sg_name="${resource_prefix}-proxy-sg"
+          secret_name="${resource_prefix}-database-credentials"
+
+          if aws secretsmanager describe-secret --secret-id "$secret_name" \
+            >/dev/null 2>&1; then
+            echo "EXISTING_DB_CREDENTIALS_SECRET_NAME=$secret_name" \
+              >> "$GITHUB_ENV"
+          fi
+
+          vpc_id=$(aws ec2 describe-vpcs \
+            --filters "Name=tag:Name,Values=$vpc_name" \
+            --query "Vpcs[0].VpcId" \
+            --output text 2>/dev/null || true)
+
+          if [ -n "$vpc_id" ] && [ "$vpc_id" != "None" ]; then
+            db_sg_id=$(aws ec2 describe-security-groups \
+              --filters "Name=vpc-id,Values=$vpc_id" \
+                "Name=group-name,Values=$db_sg_name" \
+              --query "SecurityGroups[0].GroupId" \
+              --output text 2>/dev/null || true)
+            if [ -n "$db_sg_id" ] && [ "$db_sg_id" != "None" ]; then
+              echo "EXISTING_DB_SECURITY_GROUP_ID=$db_sg_id" \
+                >> "$GITHUB_ENV"
+            fi
+
+            proxy_sg_id=$(aws ec2 describe-security-groups \
+              --filters "Name=vpc-id,Values=$vpc_id" \
+                "Name=group-name,Values=$proxy_sg_name" \
+              --query "SecurityGroups[0].GroupId" \
+              --output text 2>/dev/null || true)
+            if [ -n "$proxy_sg_id" ] && [ "$proxy_sg_id" != "None" ]; then
+              echo "EXISTING_PROXY_SECURITY_GROUP_ID=$proxy_sg_id" \
+                >> "$GITHUB_ENV"
+            fi
+          fi
+
       - name: Deploy backend with CDK
         run: |
           if [ -f "backend/infrastructure/package.json" ]; then
@@ -245,3 +287,6 @@ jobs:
           CDK_NON_SECRET_PARAM_FILE: ${{ env.CDK_NON_SECRET_PARAM_FILE }}
           CDK_BOOTSTRAP_QUALIFIER: ${{ vars.CDK_BOOTSTRAP_QUALIFIER }}
           DESTROY_BEFORE_DEPLOY: ${{ github.event.inputs.destroy_before_deploy || 'false' }}
+          EXISTING_DB_CREDENTIALS_SECRET_NAME: ${{ env.EXISTING_DB_CREDENTIALS_SECRET_NAME }}
+          EXISTING_DB_SECURITY_GROUP_ID: ${{ env.EXISTING_DB_SECURITY_GROUP_ID }}
+          EXISTING_PROXY_SECURITY_GROUP_ID: ${{ env.EXISTING_PROXY_SECURITY_GROUP_ID }}
