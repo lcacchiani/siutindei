@@ -191,6 +191,9 @@ cython_debug/
 # Node
 node_modules/
 
+# CDK
+**/cdk.out/
+
 # Allow CDK source under backend/infrastructure
 !backend/infrastructure/lib/
 !backend/infrastructure/lib/**

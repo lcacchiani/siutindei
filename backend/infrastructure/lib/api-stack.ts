@@ -4,15 +4,12 @@ import * as cognito from "aws-cdk-lib/aws-cognito";
 import * as customresources from "aws-cdk-lib/custom-resources";
 import * as ec2 from "aws-cdk-lib/aws-ec2";
 import * as iam from "aws-cdk-lib/aws-iam";
-import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as logs from "aws-cdk-lib/aws-logs";
-import * as rds from "aws-cdk-lib/aws-rds";
-import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
 import { Construct } from "constructs";
 import * as crypto from "crypto";
 import * as fs from "fs";
 import * as path from "path";
-import { PythonLambdaFactory } from "./constructs";
+import { DatabaseConstruct, PythonLambdaFactory } from "./constructs";
 
 export class ApiStack extends cdk.Stack {
   public constructor(scope: Construct, id: string, props?: cdk.StackProps) {
@@ -24,123 +21,58 @@ export class ApiStack extends cdk.Stack {
     const resourcePrefix = "lxsoftware-siutindei";
     const name = (suffix: string) => `${resourcePrefix}-${suffix}`;
 
+    // ---------------------------------------------------------------------
+    // VPC and Security Groups
+    // ---------------------------------------------------------------------
     const vpc = new ec2.Vpc(this, "SiutindeiVpc", {
       vpcName: name("vpc"),
       maxAzs: 2,
       natGateways: 1,
     });
 
-    const lambdaSecurityGroup = new ec2.SecurityGroup(this, "LambdaSecurityGroup", {
+    const lambdaSecurityGroup = new ec2.SecurityGroup(
+      this,
+      "LambdaSecurityGroup",
+      {
+        vpc,
+        allowAllOutbound: true,
+        securityGroupName: name("lambda-sg"),
+      }
+    );
+
+    const migrationSecurityGroup = new ec2.SecurityGroup(
+      this,
+      "MigrationSecurityGroup",
+      {
+        vpc,
+        allowAllOutbound: true,
+        securityGroupName: name("migration-sg"),
+      }
+    );
+
+    // ---------------------------------------------------------------------
+    // Database (Aurora PostgreSQL Serverless v2 + RDS Proxy)
+    // ---------------------------------------------------------------------
+    const database = new DatabaseConstruct(this, "Database", {
+      resourcePrefix,
       vpc,
-      allowAllOutbound: true,
-      securityGroupName: name("lambda-sg"),
-    });
-    const migrationSecurityGroup = new ec2.SecurityGroup(this, "MigrationSecurityGroup", {
-      vpc,
-      allowAllOutbound: true,
-      securityGroupName: name("migration-sg"),
+      minCapacity: 0.5,
+      maxCapacity: 2,
+      databaseName: "siutindei",
     });
 
-    const dbSecurityGroup = new ec2.SecurityGroup(this, "DatabaseSecurityGroup", {
-      vpc,
-      allowAllOutbound: true,
-      securityGroupName: name("db-sg"),
-    });
-    const proxySecurityGroup = new ec2.SecurityGroup(this, "ProxySecurityGroup", {
-      vpc,
-      allowAllOutbound: true,
-      securityGroupName: name("proxy-sg"),
-    });
-    proxySecurityGroup.addIngressRule(
-      lambdaSecurityGroup,
-      ec2.Port.tcp(5432),
-      "Lambda access to RDS Proxy"
-    );
-    dbSecurityGroup.addIngressRule(
-      proxySecurityGroup,
-      ec2.Port.tcp(5432),
-      "RDS Proxy access to Aurora"
-    );
-    dbSecurityGroup.addIngressRule(
+    // Allow Lambda access to database via proxy
+    database.allowFrom(lambdaSecurityGroup, "Lambda access to RDS Proxy");
+
+    // Allow migration Lambda direct access to database
+    database.allowDirectAccessFrom(
       migrationSecurityGroup,
-      ec2.Port.tcp(5432),
       "Migration Lambda direct access to Aurora"
     );
 
-    const dbCredentialsSecret = new secretsmanager.Secret(this, "DBCredentialsSecret", {
-      secretName: name("database-credentials"),
-      generateSecretString: {
-        secretStringTemplate: JSON.stringify({ username: "postgres" }),
-        generateStringKey: "password",
-        excludePunctuation: true,
-        includeSpace: false,
-      },
-    });
-
-    const cluster = new rds.DatabaseCluster(this, "SiutindeiCluster", {
-      engine: rds.DatabaseClusterEngine.auroraPostgres({
-        version: rds.AuroraPostgresEngineVersion.VER_16_4,
-      }),
-      cloudwatchLogsExports: ["postgresql"],
-      cloudwatchLogsRetention: logs.RetentionDays.ONE_WEEK,
-      credentials: rds.Credentials.fromSecret(dbCredentialsSecret),
-      defaultDatabaseName: "siutindei",
-      iamAuthentication: false,
-      serverlessV2MinCapacity: 0.5,
-      serverlessV2MaxCapacity: 2,
-      writer: rds.ClusterInstance.serverlessV2("writer", {
-        instanceIdentifier: name("db-writer"),
-      }),
-      clusterIdentifier: name("db-cluster"),
-      vpc,
-      vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
-      securityGroups: [dbSecurityGroup],
-    });
-
-    const proxy = new rds.DatabaseProxy(this, "SiutindeiProxy", {
-      proxyTarget: rds.ProxyTarget.fromCluster(cluster),
-      secrets: cluster.secret ? [cluster.secret] : [],
-      vpc,
-      securityGroups: [proxySecurityGroup],
-      requireTLS: true,
-      iamAuth: true,
-      dbProxyName: name("db-proxy"),
-    });
-
-    // Lambda factory with shared defaults for VPC and security groups
-    const lambdaFactory = new PythonLambdaFactory(this, {
-      vpc,
-      securityGroups: [lambdaSecurityGroup],
-    });
-
-    // Helper to create Lambda functions using the factory
-    // Maintains backward compatibility with existing function signatures
-    const createPythonFunction = (
-      id: string,
-      props: {
-        functionName: string;
-        handler: string;
-        environment?: Record<string, string>;
-        timeout?: cdk.Duration;
-        extraCopyCommands?: string[];
-        securityGroups?: ec2.ISecurityGroup[];
-        memorySize?: number;
-        code?: lambda.Code;
-      }
-    ) => {
-      const pythonLambda = lambdaFactory.create(id, {
-        functionName: props.functionName,
-        handler: props.handler,
-        environment: props.environment,
-        timeout: props.timeout,
-        extraCopyCommands: props.extraCopyCommands,
-        securityGroups: props.securityGroups ?? [lambdaSecurityGroup],
-        memorySize: props.memorySize,
-        code: props.code,
-      });
-      return pythonLambda.function;
-    };
-
+    // ---------------------------------------------------------------------
+    // CloudFormation Parameters
+    // ---------------------------------------------------------------------
     const authDomainPrefix = new cdk.CfnParameter(this, "CognitoDomainPrefix", {
       type: "String",
       description: "Hosted UI domain prefix for the Cognito user pool",
@@ -181,7 +113,7 @@ export class ApiStack extends cdk.Stack {
     });
     const applePrivateKeyValue = cdk.Fn.join(
       "\n",
-      cdk.Fn.split("\\n", applePrivateKey.valueAsString),
+      cdk.Fn.split("\\n", applePrivateKey.valueAsString)
     );
     const microsoftTenantId = new cdk.CfnParameter(this, "MicrosoftTenantId", {
       type: "String",
@@ -191,25 +123,38 @@ export class ApiStack extends cdk.Stack {
       type: "String",
       description: "Microsoft OAuth client ID",
     });
-    const microsoftClientSecret = new cdk.CfnParameter(this, "MicrosoftClientSecret", {
-      type: "String",
-      noEcho: true,
-      description: "Microsoft OAuth client secret",
-    });
-    const authEmailFromAddress = new cdk.CfnParameter(this, "AuthEmailFromAddress", {
-      type: "String",
-      description: "SES-verified from address for passwordless emails",
-    });
+    const microsoftClientSecret = new cdk.CfnParameter(
+      this,
+      "MicrosoftClientSecret",
+      {
+        type: "String",
+        noEcho: true,
+        description: "Microsoft OAuth client secret",
+      }
+    );
+    const authEmailFromAddress = new cdk.CfnParameter(
+      this,
+      "AuthEmailFromAddress",
+      {
+        type: "String",
+        description: "SES-verified from address for passwordless emails",
+      }
+    );
     const loginLinkBaseUrl = new cdk.CfnParameter(this, "LoginLinkBaseUrl", {
       type: "String",
       default: "",
-      description: "Optional base URL for magic links (adds email+code query params)",
+      description:
+        "Optional base URL for magic links (adds email+code query params)",
     });
-    const maxChallengeAttempts = new cdk.CfnParameter(this, "MaxChallengeAttempts", {
-      type: "Number",
-      default: 3,
-      description: "Maximum passwordless auth attempts before failing",
-    });
+    const maxChallengeAttempts = new cdk.CfnParameter(
+      this,
+      "MaxChallengeAttempts",
+      {
+        type: "Number",
+        default: 3,
+        description: "Maximum passwordless auth attempts before failing",
+      }
+    );
     const publicApiKeyValue = new cdk.CfnParameter(this, "PublicApiKeyValue", {
       type: "String",
       noEcho: true,
@@ -246,6 +191,9 @@ export class ApiStack extends cdk.Stack {
       }
     );
 
+    // ---------------------------------------------------------------------
+    // Cognito User Pool and Identity Providers
+    // ---------------------------------------------------------------------
     const userPool = new cognito.UserPool(this, "SiutindeiUserPool", {
       userPoolName: name("user-pool"),
       signInAliases: { email: true },
@@ -347,32 +295,90 @@ export class ApiStack extends cdk.Stack {
     userPoolClient.addDependency(appleProvider);
     userPoolClient.addDependency(microsoftProvider);
 
+    // Admin group
+    new cognito.CfnUserPoolGroup(this, "AdminGroup", {
+      userPoolId: userPool.userPoolId,
+      groupName: "admin",
+      description: "Administrative users",
+    });
+
+    // ---------------------------------------------------------------------
+    // Lambda Functions
+    // ---------------------------------------------------------------------
+    const lambdaFactory = new PythonLambdaFactory(this, {
+      vpc,
+      securityGroups: [lambdaSecurityGroup],
+    });
+
+    // Helper to create Lambda functions using the factory
+    const createPythonFunction = (
+      id: string,
+      props: {
+        functionName: string;
+        handler: string;
+        environment?: Record<string, string>;
+        timeout?: cdk.Duration;
+        extraCopyCommands?: string[];
+        securityGroups?: ec2.ISecurityGroup[];
+        memorySize?: number;
+      }
+    ) => {
+      const pythonLambda = lambdaFactory.create(id, {
+        functionName: props.functionName,
+        handler: props.handler,
+        environment: props.environment,
+        timeout: props.timeout,
+        extraCopyCommands: props.extraCopyCommands,
+        securityGroups: props.securityGroups ?? [lambdaSecurityGroup],
+        memorySize: props.memorySize,
+      });
+      return pythonLambda.function;
+    };
+
+    // Search function
     const searchFunction = createPythonFunction("SiutindeiSearchFunction", {
       functionName: name("search"),
       handler: "lambda/activity_search/handler.lambda_handler",
       environment: {
-        DATABASE_SECRET_ARN: cluster.secret?.secretArn ?? "",
+        DATABASE_SECRET_ARN: database.secret?.secretArn ?? "",
         DATABASE_NAME: "siutindei",
         DATABASE_USERNAME: "siutindei_app",
-        DATABASE_PROXY_ENDPOINT: proxy.endpoint,
+        DATABASE_PROXY_ENDPOINT: database.proxy.endpoint,
         DATABASE_IAM_AUTH: "true",
       },
     });
+    database.grantSecretRead(searchFunction);
+    database.grantConnect(searchFunction, "siutindei_app");
 
+    // Admin function
     const adminFunction = createPythonFunction("SiutindeiAdminFunction", {
       functionName: name("admin"),
       handler: "lambda/admin/handler.lambda_handler",
       environment: {
-        DATABASE_SECRET_ARN: cluster.secret?.secretArn ?? "",
+        DATABASE_SECRET_ARN: database.secret?.secretArn ?? "",
         DATABASE_NAME: "siutindei",
         DATABASE_USERNAME: "siutindei_admin",
-        DATABASE_PROXY_ENDPOINT: proxy.endpoint,
+        DATABASE_PROXY_ENDPOINT: database.proxy.endpoint,
         DATABASE_IAM_AUTH: "true",
         ADMIN_GROUP: "admin",
         COGNITO_USER_POOL_ID: userPool.userPoolId,
       },
     });
+    database.grantSecretRead(adminFunction);
+    database.grantConnect(adminFunction, "siutindei_admin");
 
+    adminFunction.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: [
+          "cognito-idp:AdminAddUserToGroup",
+          "cognito-idp:AdminRemoveUserFromGroup",
+          "cognito-idp:AdminListGroupsForUser",
+        ],
+        resources: [userPool.userPoolArn],
+      })
+    );
+
+    // Migration function
     const migrationFunction = createPythonFunction("SiutindeiMigrationFunction", {
       functionName: name("migrations"),
       handler: "lambda/migrations/handler.lambda_handler",
@@ -380,16 +386,20 @@ export class ApiStack extends cdk.Stack {
       securityGroups: [migrationSecurityGroup],
       extraCopyCommands: ["cp -au db /asset-output/db"],
       environment: {
-        DATABASE_SECRET_ARN: cluster.secret?.secretArn ?? "",
+        DATABASE_SECRET_ARN: database.secret?.secretArn ?? "",
         DATABASE_NAME: "siutindei",
         DATABASE_USERNAME: "postgres",
         DATABASE_IAM_AUTH: "false",
-        DATABASE_HOST: cluster.clusterEndpoint.hostname,
-        DATABASE_PORT: cluster.clusterEndpoint.port.toString(),
+        DATABASE_HOST: database.cluster.clusterEndpoint.hostname,
+        DATABASE_PORT: database.cluster.clusterEndpoint.port.toString(),
         SEED_FILE_PATH: "/var/task/db/seed/seed_data.sql",
       },
     });
+    database.grantSecretRead(migrationFunction);
+    database.grantConnect(migrationFunction, "postgres");
+    migrationFunction.node.addDependency(database.cluster);
 
+    // Auth Lambda triggers
     const preSignUpFunction = createPythonFunction("AuthPreSignUpFunction", {
       functionName: name("auth-pre-signup"),
       handler: "lambda/auth/pre_signup/handler.lambda_handler",
@@ -424,6 +434,13 @@ export class ApiStack extends cdk.Stack {
       }
     );
 
+    createAuthChallengeFunction.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["ses:SendEmail", "ses:SendRawEmail"],
+        resources: ["*"],
+      })
+    );
+
     const verifyAuthChallengeFunction = createPythonFunction(
       "AuthVerifyChallengeFunction",
       {
@@ -434,6 +451,25 @@ export class ApiStack extends cdk.Stack {
       }
     );
 
+    // Register Cognito triggers
+    userPool.addTrigger(
+      cognito.UserPoolOperation.PRE_SIGN_UP,
+      preSignUpFunction
+    );
+    userPool.addTrigger(
+      cognito.UserPoolOperation.DEFINE_AUTH_CHALLENGE,
+      defineAuthChallengeFunction
+    );
+    userPool.addTrigger(
+      cognito.UserPoolOperation.CREATE_AUTH_CHALLENGE,
+      createAuthChallengeFunction
+    );
+    userPool.addTrigger(
+      cognito.UserPoolOperation.VERIFY_AUTH_CHALLENGE_RESPONSE,
+      verifyAuthChallengeFunction
+    );
+
+    // Device attestation authorizer
     const deviceAttestationFunction = createPythonFunction(
       "DeviceAttestationAuthorizer",
       {
@@ -461,70 +497,28 @@ export class ApiStack extends cdk.Stack {
       }
     );
 
-    // Health check endpoint (no VPC needed, lightweight)
+    // Health check function
     const healthFunction = createPythonFunction("HealthCheckFunction", {
       functionName: name("health"),
       handler: "lambda/health/handler.lambda_handler",
       memorySize: 256,
       timeout: cdk.Duration.seconds(10),
       environment: {
-        DATABASE_SECRET_ARN: cluster.secret?.secretArn ?? "",
+        DATABASE_SECRET_ARN: database.secret?.secretArn ?? "",
         DATABASE_NAME: "siutindei",
-        DATABASE_PROXY_ENDPOINT: proxy.endpoint,
+        DATABASE_PROXY_ENDPOINT: database.proxy.endpoint,
         DATABASE_IAM_AUTH: "true",
         DATABASE_USERNAME: "siutindei_app",
         ENVIRONMENT: "production",
         APP_VERSION: "1.0.0",
       },
     });
+    database.grantSecretRead(healthFunction);
+    database.grantConnect(healthFunction, "siutindei_app");
 
-    if (cluster.secret) {
-      cluster.secret.grantRead(healthFunction);
-    }
-    proxy.grantConnect(healthFunction, "siutindei_app");
-
-    createAuthChallengeFunction.addToRolePolicy(
-      new iam.PolicyStatement({
-        actions: ["ses:SendEmail", "ses:SendRawEmail"],
-        resources: ["*"],
-      })
-    );
-
-    userPool.addTrigger(cognito.UserPoolOperation.PRE_SIGN_UP, preSignUpFunction);
-    userPool.addTrigger(
-      cognito.UserPoolOperation.DEFINE_AUTH_CHALLENGE,
-      defineAuthChallengeFunction
-    );
-    userPool.addTrigger(
-      cognito.UserPoolOperation.CREATE_AUTH_CHALLENGE,
-      createAuthChallengeFunction
-    );
-    userPool.addTrigger(
-      cognito.UserPoolOperation.VERIFY_AUTH_CHALLENGE_RESPONSE,
-      verifyAuthChallengeFunction
-    );
-
-    if (cluster.secret) {
-      cluster.secret.grantRead(searchFunction);
-      cluster.secret.grantRead(migrationFunction);
-      cluster.secret.grantRead(adminFunction);
-    }
-
-    proxy.grantConnect(searchFunction, "siutindei_app");
-    proxy.grantConnect(adminFunction, "siutindei_admin");
-    proxy.grantConnect(migrationFunction, "postgres");
-
-    adminFunction.addToRolePolicy(
-      new iam.PolicyStatement({
-        actions: [
-          "cognito-idp:AdminAddUserToGroup",
-          "cognito-idp:AdminRemoveUserFromGroup",
-          "cognito-idp:AdminListGroupsForUser",
-        ],
-        resources: [userPool.userPoolArn],
-      })
-    );
-
+    // ---------------------------------------------------------------------
+    // API Gateway
+    // ---------------------------------------------------------------------
     const apiGatewayLogRole = new iam.Role(this, "ApiGatewayLogRole", {
       assumedBy: new iam.ServicePrincipal("apigateway.amazonaws.com"),
       managedPolicies: [
@@ -588,6 +582,7 @@ export class ApiStack extends cdk.Stack {
       },
     });
     api.deploymentStage.node.addDependency(apiAccessLogRetention);
+
     new logs.LogRetention(this, "ApiExecutionLogRetention", {
       logGroupName: `API-Gateway-Execution-Logs_${api.restApiId}/${api.deploymentStage.stageName}`,
       retention: logs.RetentionDays.ONE_WEEK,
@@ -611,33 +606,144 @@ export class ApiStack extends cdk.Stack {
     mobileUsagePlan.addApiKey(mobileApiKey);
     mobileUsagePlan.addApiStage({ stage: api.deploymentStage });
 
-    new cognito.CfnUserPoolGroup(this, "AdminGroup", {
-      userPoolId: userPool.userPoolId,
-      groupName: "admin",
-      description: "Administrative users",
+    // ---------------------------------------------------------------------
+    // API Routes
+    // ---------------------------------------------------------------------
+
+    // Health check endpoint (no auth)
+    const health = api.root.addResource("health");
+    health.addMethod("GET", new apigateway.LambdaIntegration(healthFunction), {
+      authorizationType: apigateway.AuthorizationType.NONE,
+      apiKeyRequired: false,
     });
 
-    const adminBootstrapEmail = new cdk.CfnParameter(this, "AdminBootstrapEmail", {
-      type: "String",
-      default: "",
-      description: "Optional admin email for bootstrap user creation",
+    // v1 API
+    const v1 = api.root.addResource("v1");
+    const activities = v1.addResource("activities");
+    const search = activities.addResource("search");
+
+    const cacheKeyParameters = [
+      "method.request.querystring.age",
+      "method.request.querystring.district",
+      "method.request.querystring.pricing_type",
+      "method.request.querystring.price_min",
+      "method.request.querystring.price_max",
+      "method.request.querystring.schedule_type",
+      "method.request.querystring.day_of_week_utc",
+      "method.request.querystring.day_of_month",
+      "method.request.querystring.start_minutes_utc",
+      "method.request.querystring.end_minutes_utc",
+      "method.request.querystring.start_at_utc",
+      "method.request.querystring.end_at_utc",
+      "method.request.querystring.language",
+      "method.request.querystring.limit",
+      "method.request.querystring.cursor",
+    ];
+    const requestParameters: Record<string, boolean> = {};
+    for (const param of cacheKeyParameters) {
+      requestParameters[param] = false;
+    }
+
+    search.addMethod("GET", new apigateway.LambdaIntegration(searchFunction), {
+      authorizationType: apigateway.AuthorizationType.CUSTOM,
+      authorizer: deviceAttestationAuthorizer,
+      apiKeyRequired: true,
+      requestParameters,
     });
-    const adminBootstrapPassword = new cdk.CfnParameter(this, "AdminBootstrapTempPassword", {
-      type: "String",
-      default: "",
-      noEcho: true,
-      description: "Temporary password for bootstrap admin user",
+
+    // Admin routes
+    const admin = v1.addResource("admin");
+    const adminResources = [
+      "organizations",
+      "locations",
+      "activities",
+      "pricing",
+      "schedules",
+    ];
+    const adminIntegration = new apigateway.Integration({
+      type: apigateway.IntegrationType.AWS_PROXY,
+      integrationHttpMethod: "POST",
+      uri: `arn:aws:apigateway:${cdk.Stack.of(this).region}:lambda:path/2015-03-31/functions/${adminFunction.functionArn}/invocations`,
     });
-    const bootstrapCondition = new cdk.CfnCondition(this, "CreateAdminBootstrap", {
-      expression: cdk.Fn.conditionAnd(
-        cdk.Fn.conditionNot(
-          cdk.Fn.conditionEquals(adminBootstrapEmail.valueAsString, "")
+    adminFunction.addPermission("AdminApiInvokePermission", {
+      principal: new iam.ServicePrincipal("apigateway.amazonaws.com"),
+      sourceArn: api.arnForExecuteApi(),
+    });
+
+    for (const resourceName of adminResources) {
+      const resource = admin.addResource(resourceName);
+      resource.addMethod("GET", adminIntegration, {
+        authorizationType: apigateway.AuthorizationType.COGNITO,
+        authorizer,
+      });
+      resource.addMethod("POST", adminIntegration, {
+        authorizationType: apigateway.AuthorizationType.COGNITO,
+        authorizer,
+      });
+
+      const resourceById = resource.addResource("{id}");
+      resourceById.addMethod("GET", adminIntegration, {
+        authorizationType: apigateway.AuthorizationType.COGNITO,
+        authorizer,
+      });
+      resourceById.addMethod("PUT", adminIntegration, {
+        authorizationType: apigateway.AuthorizationType.COGNITO,
+        authorizer,
+      });
+      resourceById.addMethod("DELETE", adminIntegration, {
+        authorizationType: apigateway.AuthorizationType.COGNITO,
+        authorizer,
+      });
+    }
+
+    const users = admin.addResource("users");
+    const userByName = users.addResource("{username}");
+    const userGroups = userByName.addResource("groups");
+    userGroups.addMethod("POST", adminIntegration, {
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+      authorizer,
+    });
+    userGroups.addMethod("DELETE", adminIntegration, {
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+      authorizer,
+    });
+
+    // ---------------------------------------------------------------------
+    // Admin Bootstrap (Conditional)
+    // ---------------------------------------------------------------------
+    const adminBootstrapEmail = new cdk.CfnParameter(
+      this,
+      "AdminBootstrapEmail",
+      {
+        type: "String",
+        default: "",
+        description: "Optional admin email for bootstrap user creation",
+      }
+    );
+    const adminBootstrapPassword = new cdk.CfnParameter(
+      this,
+      "AdminBootstrapTempPassword",
+      {
+        type: "String",
+        default: "",
+        noEcho: true,
+        description: "Temporary password for bootstrap admin user",
+      }
+    );
+    const bootstrapCondition = new cdk.CfnCondition(
+      this,
+      "CreateAdminBootstrap",
+      {
+        expression: cdk.Fn.conditionAnd(
+          cdk.Fn.conditionNot(
+            cdk.Fn.conditionEquals(adminBootstrapEmail.valueAsString, "")
+          ),
+          cdk.Fn.conditionNot(
+            cdk.Fn.conditionEquals(adminBootstrapPassword.valueAsString, "")
+          )
         ),
-        cdk.Fn.conditionNot(
-          cdk.Fn.conditionEquals(adminBootstrapPassword.valueAsString, "")
-        )
-      ),
-    });
+      }
+    );
 
     const createAdminUser = new customresources.AwsCustomResource(
       this,
@@ -735,7 +841,8 @@ export class ApiStack extends cdk.Stack {
     const adminPasswordResource = setAdminPassword.node.findChild(
       "Resource"
     ) as cdk.CustomResource;
-    const adminPasswordCfn = adminPasswordResource.node.defaultChild as cdk.CfnResource;
+    const adminPasswordCfn =
+      adminPasswordResource.node.defaultChild as cdk.CfnResource;
     adminPasswordCfn.cfnOptions.condition = bootstrapCondition;
     adminPasswordCfn.addDependency(adminUserCfn);
 
@@ -779,131 +886,26 @@ export class ApiStack extends cdk.Stack {
     const adminGroupResource = addAdminToGroup.node.findChild(
       "Resource"
     ) as cdk.CustomResource;
-    const adminGroupCfn = adminGroupResource.node.defaultChild as cdk.CfnResource;
+    const adminGroupCfn =
+      adminGroupResource.node.defaultChild as cdk.CfnResource;
     adminGroupCfn.cfnOptions.condition = bootstrapCondition;
     adminGroupCfn.addDependency(adminPasswordCfn);
 
-    // Health check endpoint (no auth required for load balancer checks)
-    const health = api.root.addResource("health");
-    health.addMethod("GET", new apigateway.LambdaIntegration(healthFunction), {
-      authorizationType: apigateway.AuthorizationType.NONE,
-      apiKeyRequired: false,
-    });
-
-    const v1 = api.root.addResource("v1");
-    const activities = v1.addResource("activities");
-    const search = activities.addResource("search");
-    const cacheKeyParameters = [
-      "method.request.querystring.age",
-      "method.request.querystring.district",
-      "method.request.querystring.pricing_type",
-      "method.request.querystring.price_min",
-      "method.request.querystring.price_max",
-      "method.request.querystring.schedule_type",
-      "method.request.querystring.day_of_week_utc",
-      "method.request.querystring.day_of_month",
-      "method.request.querystring.start_minutes_utc",
-      "method.request.querystring.end_minutes_utc",
-      "method.request.querystring.start_at_utc",
-      "method.request.querystring.end_at_utc",
-      "method.request.querystring.language",
-      "method.request.querystring.limit",
-      "method.request.querystring.cursor",
-    ];
-    const requestParameters: Record<string, boolean> = {};
-    for (const param of cacheKeyParameters) {
-      requestParameters[param] = false;
-    }
-
-    search.addMethod("GET", new apigateway.LambdaIntegration(searchFunction), {
-      authorizationType: apigateway.AuthorizationType.CUSTOM,
-      authorizer: deviceAttestationAuthorizer,
-      apiKeyRequired: true,
-      requestParameters,
-    });
-
-    const admin = v1.addResource("admin");
-    const adminResources = [
-      "organizations",
-      "locations",
-      "activities",
-      "pricing",
-      "schedules",
-    ];
-    const adminIntegration = new apigateway.Integration({
-      type: apigateway.IntegrationType.AWS_PROXY,
-      integrationHttpMethod: "POST",
-      uri: `arn:aws:apigateway:${cdk.Stack.of(this).region}:lambda:path/2015-03-31/functions/${adminFunction.functionArn}/invocations`,
-    });
-    adminFunction.addPermission("AdminApiInvokePermission", {
-      principal: new iam.ServicePrincipal("apigateway.amazonaws.com"),
-      sourceArn: api.arnForExecuteApi(),
-    });
-
-    for (const resourceName of adminResources) {
-      const resource = admin.addResource(resourceName);
-      resource.addMethod("GET", adminIntegration, {
-        authorizationType: apigateway.AuthorizationType.COGNITO,
-        authorizer,
-      });
-      resource.addMethod("POST", adminIntegration, {
-        authorizationType: apigateway.AuthorizationType.COGNITO,
-        authorizer,
-      });
-
-      const resourceById = resource.addResource("{id}");
-      resourceById.addMethod("GET", adminIntegration, {
-        authorizationType: apigateway.AuthorizationType.COGNITO,
-        authorizer,
-      });
-      resourceById.addMethod("PUT", adminIntegration, {
-        authorizationType: apigateway.AuthorizationType.COGNITO,
-        authorizer,
-      });
-      resourceById.addMethod("DELETE", adminIntegration, {
-        authorizationType: apigateway.AuthorizationType.COGNITO,
-        authorizer,
-      });
-    }
-
-    const users = admin.addResource("users");
-    const userByName = users.addResource("{username}");
-    const userGroups = userByName.addResource("groups");
-    userGroups.addMethod("POST", adminIntegration, {
-      authorizationType: apigateway.AuthorizationType.COGNITO,
-      authorizer,
-    });
-    userGroups.addMethod("DELETE", adminIntegration, {
-      authorizationType: apigateway.AuthorizationType.COGNITO,
-      authorizer,
-    });
-
-    new cdk.CfnOutput(this, "ApiUrl", {
-      value: api.url,
-    });
-
-    new cdk.CfnOutput(this, "DatabaseSecretArn", {
-      value: cluster.secret?.secretArn ?? "",
-    });
-
-    new cdk.CfnOutput(this, "DatabaseProxyEndpoint", {
-      value: proxy.endpoint,
-    });
-
-    new cdk.CfnOutput(this, "UserPoolId", {
-      value: userPool.userPoolId,
-    });
-
-    new cdk.CfnOutput(this, "UserPoolClientId", {
-      value: userPoolClient.ref,
-    });
-
-    const migrationsHash = hashDirectory(path.join(__dirname, "../../db/alembic/versions"));
+    // ---------------------------------------------------------------------
+    // Database Migrations
+    // ---------------------------------------------------------------------
+    const migrationsHash = hashDirectory(
+      path.join(__dirname, "../../db/alembic/versions")
+    );
     const seedHash = hashFile(path.join(__dirname, "../../db/seed/seed_data.sql"));
 
-    const migrationProvider = new customresources.Provider(this, "MigrationProvider", {
-      onEventHandler: migrationFunction,
-    });
+    const migrationProvider = new customresources.Provider(
+      this,
+      "MigrationProvider",
+      {
+        onEventHandler: migrationFunction,
+      }
+    );
 
     const migrateResource = new cdk.CustomResource(this, "RunMigrations", {
       serviceToken: migrationProvider.serviceToken,
@@ -913,9 +915,30 @@ export class ApiStack extends cdk.Stack {
         RunSeed: true,
       },
     });
-    migrateResource.node.addDependency(cluster);
+    migrateResource.node.addDependency(database.cluster);
 
-    migrationFunction.node.addDependency(cluster);
+    // ---------------------------------------------------------------------
+    // Outputs
+    // ---------------------------------------------------------------------
+    new cdk.CfnOutput(this, "ApiUrl", {
+      value: api.url,
+    });
+
+    new cdk.CfnOutput(this, "DatabaseSecretArn", {
+      value: database.secret?.secretArn ?? "",
+    });
+
+    new cdk.CfnOutput(this, "DatabaseProxyEndpoint", {
+      value: database.proxy.endpoint,
+    });
+
+    new cdk.CfnOutput(this, "UserPoolId", {
+      value: userPool.userPoolId,
+    });
+
+    new cdk.CfnOutput(this, "UserPoolClientId", {
+      value: userPoolClient.ref,
+    });
   }
 }
 

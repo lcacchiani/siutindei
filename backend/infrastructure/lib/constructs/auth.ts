@@ -1,6 +1,8 @@
 import * as cdk from "aws-cdk-lib";
 import * as cognito from "aws-cdk-lib/aws-cognito";
+import * as iam from "aws-cdk-lib/aws-iam";
 import * as lambda from "aws-cdk-lib/aws-lambda";
+import * as customresources from "aws-cdk-lib/custom-resources";
 import { Construct } from "constructs";
 
 /**
@@ -25,6 +27,14 @@ export interface IdentityProviderConfig {
 }
 
 /**
+ * Configuration for admin bootstrap user.
+ */
+export interface AdminBootstrapConfig {
+  email: string;
+  tempPassword: string;
+}
+
+/**
  * Properties for the AuthConstruct.
  */
 export interface AuthConstructProps {
@@ -45,6 +55,8 @@ export interface AuthConstructProps {
     createAuthChallenge?: lambda.IFunction;
     verifyAuthChallengeResponse?: lambda.IFunction;
   };
+  /** Optional admin bootstrap configuration. */
+  adminBootstrap?: AdminBootstrapConfig;
 }
 
 /**
@@ -55,6 +67,7 @@ export interface AuthConstructProps {
  * - Google, Apple, and Microsoft identity providers
  * - User Pool Client with OAuth configuration
  * - Admin group
+ * - Optional bootstrap admin user
  */
 export class AuthConstruct extends Construct {
   /** The Cognito User Pool. */
@@ -106,6 +119,7 @@ export class AuthConstruct extends Construct {
 
     // Identity providers
     const providers: cognito.CfnUserPoolIdentityProvider[] = [];
+    const supportedProviders = ["COGNITO"];
 
     if (props.identityProviders.google) {
       const googleProvider = new cognito.CfnUserPoolIdentityProvider(
@@ -128,6 +142,7 @@ export class AuthConstruct extends Construct {
         }
       );
       providers.push(googleProvider);
+      supportedProviders.push("Google");
     }
 
     if (props.identityProviders.apple) {
@@ -151,6 +166,7 @@ export class AuthConstruct extends Construct {
         }
       );
       providers.push(appleProvider);
+      supportedProviders.push("SignInWithApple");
     }
 
     if (props.identityProviders.microsoft) {
@@ -174,6 +190,7 @@ export class AuthConstruct extends Construct {
         }
       );
       providers.push(microsoftProvider);
+      supportedProviders.push("Microsoft");
     }
 
     // User Pool Domain
@@ -183,12 +200,6 @@ export class AuthConstruct extends Construct {
         domainPrefix: props.domainPrefix,
       },
     });
-
-    // Supported identity provider names
-    const supportedProviders = ["COGNITO"];
-    if (props.identityProviders.google) supportedProviders.push("Google");
-    if (props.identityProviders.apple) supportedProviders.push("SignInWithApple");
-    if (props.identityProviders.microsoft) supportedProviders.push("Microsoft");
 
     // User Pool Client
     this.userPoolClient = new cognito.CfnUserPoolClient(this, "UserPoolClient", {
@@ -215,5 +226,168 @@ export class AuthConstruct extends Construct {
       groupName: this.adminGroupName,
       description: "Administrative users",
     });
+
+    // Bootstrap admin user if configured
+    if (props.adminBootstrap) {
+      this.createBootstrapAdminUser(props.adminBootstrap);
+    }
+  }
+
+  /**
+   * Create a Cognito User Pools authorizer for API Gateway.
+   */
+  public createApiAuthorizer(
+    scope: Construct,
+    id: string
+  ): cdk.aws_apigateway.CognitoUserPoolsAuthorizer {
+    return new cdk.aws_apigateway.CognitoUserPoolsAuthorizer(scope, id, {
+      cognitoUserPools: [this.userPool],
+    });
+  }
+
+  /**
+   * Grant admin group management permissions to a Lambda function.
+   */
+  public grantAdminGroupManagement(fn: lambda.IFunction): void {
+    fn.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: [
+          "cognito-idp:AdminAddUserToGroup",
+          "cognito-idp:AdminRemoveUserFromGroup",
+          "cognito-idp:AdminListGroupsForUser",
+        ],
+        resources: [this.userPool.userPoolArn],
+      })
+    );
+  }
+
+  private createBootstrapAdminUser(config: AdminBootstrapConfig): void {
+    // Create admin user
+    const createAdminUser = new customresources.AwsCustomResource(
+      this,
+      "AdminBootstrapUser",
+      {
+        onCreate: {
+          service: "CognitoIdentityServiceProvider",
+          action: "adminCreateUser",
+          parameters: {
+            UserPoolId: this.userPool.userPoolId,
+            Username: config.email,
+            TemporaryPassword: config.tempPassword,
+            MessageAction: "SUPPRESS",
+            UserAttributes: [
+              { Name: "email", Value: config.email },
+              { Name: "email_verified", Value: "true" },
+            ],
+          },
+          physicalResourceId: customresources.PhysicalResourceId.of(config.email),
+        },
+        onUpdate: {
+          service: "CognitoIdentityServiceProvider",
+          action: "adminUpdateUserAttributes",
+          parameters: {
+            UserPoolId: this.userPool.userPoolId,
+            Username: config.email,
+            UserAttributes: [
+              { Name: "email", Value: config.email },
+              { Name: "email_verified", Value: "true" },
+            ],
+          },
+          physicalResourceId: customresources.PhysicalResourceId.of(config.email),
+        },
+        policy: customresources.AwsCustomResourcePolicy.fromStatements([
+          new iam.PolicyStatement({
+            actions: [
+              "cognito-idp:AdminCreateUser",
+              "cognito-idp:AdminUpdateUserAttributes",
+            ],
+            resources: [this.userPool.userPoolArn],
+          }),
+        ]),
+        installLatestAwsSdk: false,
+      }
+    );
+
+    // Set permanent password
+    const setAdminPassword = new customresources.AwsCustomResource(
+      this,
+      "AdminBootstrapPassword",
+      {
+        onCreate: {
+          service: "CognitoIdentityServiceProvider",
+          action: "adminSetUserPassword",
+          parameters: {
+            UserPoolId: this.userPool.userPoolId,
+            Username: config.email,
+            Password: config.tempPassword,
+            Permanent: true,
+          },
+          physicalResourceId: customresources.PhysicalResourceId.of(
+            `admin-password-${config.email}`
+          ),
+        },
+        onUpdate: {
+          service: "CognitoIdentityServiceProvider",
+          action: "adminSetUserPassword",
+          parameters: {
+            UserPoolId: this.userPool.userPoolId,
+            Username: config.email,
+            Password: config.tempPassword,
+            Permanent: true,
+          },
+          physicalResourceId: customresources.PhysicalResourceId.of(
+            `admin-password-${config.email}`
+          ),
+        },
+        policy: customresources.AwsCustomResourcePolicy.fromStatements([
+          new iam.PolicyStatement({
+            actions: ["cognito-idp:AdminSetUserPassword"],
+            resources: [this.userPool.userPoolArn],
+          }),
+        ]),
+        installLatestAwsSdk: false,
+      }
+    );
+    setAdminPassword.node.addDependency(createAdminUser);
+
+    // Add to admin group
+    const addAdminToGroup = new customresources.AwsCustomResource(
+      this,
+      "AdminBootstrapGroup",
+      {
+        onCreate: {
+          service: "CognitoIdentityServiceProvider",
+          action: "adminAddUserToGroup",
+          parameters: {
+            UserPoolId: this.userPool.userPoolId,
+            Username: config.email,
+            GroupName: this.adminGroupName,
+          },
+          physicalResourceId: customresources.PhysicalResourceId.of(
+            `admin-group-${config.email}`
+          ),
+        },
+        onUpdate: {
+          service: "CognitoIdentityServiceProvider",
+          action: "adminAddUserToGroup",
+          parameters: {
+            UserPoolId: this.userPool.userPoolId,
+            Username: config.email,
+            GroupName: this.adminGroupName,
+          },
+          physicalResourceId: customresources.PhysicalResourceId.of(
+            `admin-group-${config.email}`
+          ),
+        },
+        policy: customresources.AwsCustomResourcePolicy.fromStatements([
+          new iam.PolicyStatement({
+            actions: ["cognito-idp:AdminAddUserToGroup"],
+            resources: [this.userPool.userPoolArn],
+          }),
+        ]),
+        installLatestAwsSdk: false,
+      }
+    );
+    addAdminToGroup.node.addDependency(setAdminPassword);
   }
 }

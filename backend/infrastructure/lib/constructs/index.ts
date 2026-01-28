@@ -1,10 +1,21 @@
 /**
- * CDK Constructs for the Siutindei application.
+ * Reusable CDK constructs for the Siutindei backend.
  *
- * This module exports reusable constructs that encapsulate
- * common infrastructure patterns.
+ * This module exports high-level constructs that encapsulate common patterns:
+ * - DatabaseConstruct: Aurora PostgreSQL Serverless v2 with RDS Proxy
+ * - AuthConstruct: Cognito User Pool with federated identity providers
+ * - PythonLambda / PythonLambdaFactory: Standardized Python Lambda functions
  */
 
-export { AuthConstruct, AuthConstructProps, IdentityProviderConfig } from "./auth";
 export { DatabaseConstruct, DatabaseConstructProps } from "./database";
-export { PythonLambda, PythonLambdaFactory, PythonLambdaProps } from "./python-lambda";
+export {
+  AuthConstruct,
+  AuthConstructProps,
+  IdentityProviderConfig,
+  AdminBootstrapConfig,
+} from "./auth";
+export {
+  PythonLambda,
+  PythonLambdaProps,
+  PythonLambdaFactory,
+} from "./python-lambda";
