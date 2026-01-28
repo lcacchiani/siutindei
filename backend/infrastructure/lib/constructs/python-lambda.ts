@@ -2,7 +2,9 @@ import * as childProcess from "child_process";
 import * as cdk from "aws-cdk-lib";
 import * as ec2 from "aws-cdk-lib/aws-ec2";
 import * as lambda from "aws-cdk-lib/aws-lambda";
+import * as kms from "aws-cdk-lib/aws-kms";
 import * as logs from "aws-cdk-lib/aws-logs";
+import * as sqs from "aws-cdk-lib/aws-sqs";
 import { Construct } from "constructs";
 import * as path from "path";
 
@@ -32,6 +34,12 @@ export interface PythonLambdaProps {
   code?: lambda.Code;
   /** Log retention period. */
   logRetention?: logs.RetentionDays;
+  /** Reserved concurrency limit. */
+  reservedConcurrentExecutions?: number;
+  /** KMS key to encrypt environment variables. */
+  environmentEncryptionKey?: kms.IKey;
+  /** Dead letter queue for failed invocations. */
+  deadLetterQueue?: sqs.IQueue;
 }
 
 /**
@@ -66,6 +74,8 @@ export class PythonLambda extends Construct {
       cwd: string,
       env: NodeJS.ProcessEnv
     ): void {
+      // nosemgrep
+      // Bundling uses trusted local commands with fixed arguments.
       const result = childProcess.spawnSync(command, args, {
         cwd,
         env,
@@ -79,6 +89,8 @@ export class PythonLambda extends Construct {
     function resolvePythonCommand(): string | null {
       const candidates = ["python3", "python"];
       for (const candidate of candidates) {
+        // nosemgrep
+        // Checking local python versions is build-time only.
         const result = childProcess.spawnSync(candidate, ["-V"], {
           stdio: "ignore",
         });
@@ -157,6 +169,19 @@ export class PythonLambda extends Construct {
       }
     }
 
+    const environmentEncryptionKey =
+      props.environmentEncryptionKey ??
+      new kms.Key(this, "EnvironmentEncryptionKey", {
+        enableKeyRotation: true,
+      });
+
+    const deadLetterQueue =
+      props.deadLetterQueue ??
+      new sqs.Queue(this, "DeadLetterQueue", {
+        encryption: sqs.QueueEncryption.KMS_MANAGED,
+        retentionPeriod: cdk.Duration.days(14),
+      });
+
     this.function = new lambda.Function(this, "Function", {
       functionName: props.functionName,
       runtime: lambda.Runtime.PYTHON_3_13,
@@ -187,6 +212,11 @@ export class PythonLambda extends Construct {
       vpcSubnets: props.vpc
         ? { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS }
         : undefined,
+      environmentEncryption: environmentEncryptionKey,
+      deadLetterQueue,
+      deadLetterQueueEnabled: true,
+      reservedConcurrentExecutions:
+        props.reservedConcurrentExecutions ?? 25,
       environment: {
         PYTHONPATH: "/var/task/src",
         LOG_LEVEL: "INFO",

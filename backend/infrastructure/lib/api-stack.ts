@@ -588,6 +588,7 @@ export class ApiStack extends cdk.Stack {
         }),
         loggingLevel: apigateway.MethodLoggingLevel.INFO,
         dataTraceEnabled: false,
+        tracingEnabled: true,
         cacheClusterEnabled: true,
         cacheClusterSize: "0.5",
         cacheDataEncrypted: true,
@@ -628,11 +629,10 @@ export class ApiStack extends cdk.Stack {
     // API Routes
     // ---------------------------------------------------------------------
 
-    // Health check endpoint (no auth)
+    // Health check endpoint (IAM auth)
     const health = api.root.addResource("health");
     health.addMethod("GET", new apigateway.LambdaIntegration(healthFunction), {
-      authorizationType: apigateway.AuthorizationType.NONE,
-      apiKeyRequired: false,
+      authorizationType: apigateway.AuthorizationType.IAM,
     });
 
     // v1 API
@@ -763,151 +763,51 @@ export class ApiStack extends cdk.Stack {
       }
     );
 
-    const createAdminUser = new customresources.AwsCustomResource(
-      this,
-      "AdminBootstrapUser",
+    const adminBootstrapFunction = createPythonFunction(
+      "AdminBootstrapFunction",
       {
-        onCreate: {
-          service: "CognitoIdentityServiceProvider",
-          action: "adminCreateUser",
-          parameters: {
-            UserPoolId: userPool.userPoolId,
-            Username: adminBootstrapEmail.valueAsString,
-            TemporaryPassword: adminBootstrapPassword.valueAsString,
-            MessageAction: "SUPPRESS",
-            UserAttributes: [
-              { Name: "email", Value: adminBootstrapEmail.valueAsString },
-              { Name: "email_verified", Value: "true" },
-            ],
-          },
-          physicalResourceId: customresources.PhysicalResourceId.of(
-            adminBootstrapEmail.valueAsString
-          ),
-        },
-        onUpdate: {
-          service: "CognitoIdentityServiceProvider",
-          action: "adminUpdateUserAttributes",
-          parameters: {
-            UserPoolId: userPool.userPoolId,
-            Username: adminBootstrapEmail.valueAsString,
-            UserAttributes: [
-              { Name: "email", Value: adminBootstrapEmail.valueAsString },
-              { Name: "email_verified", Value: "true" },
-            ],
-          },
-          physicalResourceId: customresources.PhysicalResourceId.of(
-            adminBootstrapEmail.valueAsString
-          ),
-        },
-        policy: customresources.AwsCustomResourcePolicy.fromStatements([
-          new iam.PolicyStatement({
-            actions: [
-              "cognito-idp:AdminCreateUser",
-              "cognito-idp:AdminUpdateUserAttributes",
-            ],
-            resources: [userPool.userPoolArn],
-          }),
-        ]),
-        installLatestAwsSdk: false,
+        handler: "lambda/admin_bootstrap/handler.lambda_handler",
+        memorySize: 256,
+        timeout: cdk.Duration.seconds(30),
       }
     );
-    const adminUserResource = createAdminUser.node.findChild(
-      "Resource"
-    ) as cdk.CustomResource;
-    const adminUserCfn = adminUserResource.node.defaultChild as cdk.CfnResource;
-    adminUserCfn.cfnOptions.condition = bootstrapCondition;
 
-    const setAdminPassword = new customresources.AwsCustomResource(
-      this,
-      "AdminBootstrapPassword",
-      {
-        onCreate: {
-          service: "CognitoIdentityServiceProvider",
-          action: "adminSetUserPassword",
-          parameters: {
-            UserPoolId: userPool.userPoolId,
-            Username: adminBootstrapEmail.valueAsString,
-            Password: adminBootstrapPassword.valueAsString,
-            Permanent: true,
-          },
-          physicalResourceId: customresources.PhysicalResourceId.of(
-            `admin-password-${adminBootstrapEmail.valueAsString}`
-          ),
-        },
-        onUpdate: {
-          service: "CognitoIdentityServiceProvider",
-          action: "adminSetUserPassword",
-          parameters: {
-            UserPoolId: userPool.userPoolId,
-            Username: adminBootstrapEmail.valueAsString,
-            Password: adminBootstrapPassword.valueAsString,
-            Permanent: true,
-          },
-          physicalResourceId: customresources.PhysicalResourceId.of(
-            `admin-password-${adminBootstrapEmail.valueAsString}`
-          ),
-        },
-        policy: customresources.AwsCustomResourcePolicy.fromStatements([
-          new iam.PolicyStatement({
-            actions: ["cognito-idp:AdminSetUserPassword"],
-            resources: [userPool.userPoolArn],
-          }),
-        ]),
-        installLatestAwsSdk: false,
-      }
+    adminBootstrapFunction.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: [
+          "cognito-idp:AdminCreateUser",
+          "cognito-idp:AdminUpdateUserAttributes",
+          "cognito-idp:AdminSetUserPassword",
+          "cognito-idp:AdminAddUserToGroup",
+        ],
+        resources: [userPool.userPoolArn],
+      })
     );
-    const adminPasswordResource = setAdminPassword.node.findChild(
-      "Resource"
-    ) as cdk.CustomResource;
-    const adminPasswordCfn =
-      adminPasswordResource.node.defaultChild as cdk.CfnResource;
-    adminPasswordCfn.cfnOptions.condition = bootstrapCondition;
-    adminPasswordCfn.addDependency(adminUserCfn);
 
-    const addAdminToGroup = new customresources.AwsCustomResource(
+    const adminBootstrapProvider = new customresources.Provider(
       this,
-      "AdminBootstrapGroup",
+      "AdminBootstrapProvider",
       {
-        onCreate: {
-          service: "CognitoIdentityServiceProvider",
-          action: "adminAddUserToGroup",
-          parameters: {
-            UserPoolId: userPool.userPoolId,
-            Username: adminBootstrapEmail.valueAsString,
-            GroupName: "admin",
-          },
-          physicalResourceId: customresources.PhysicalResourceId.of(
-            `admin-group-${adminBootstrapEmail.valueAsString}`
-          ),
-        },
-        onUpdate: {
-          service: "CognitoIdentityServiceProvider",
-          action: "adminAddUserToGroup",
-          parameters: {
-            UserPoolId: userPool.userPoolId,
-            Username: adminBootstrapEmail.valueAsString,
-            GroupName: "admin",
-          },
-          physicalResourceId: customresources.PhysicalResourceId.of(
-            `admin-group-${adminBootstrapEmail.valueAsString}`
-          ),
-        },
-        policy: customresources.AwsCustomResourcePolicy.fromStatements([
-          new iam.PolicyStatement({
-            actions: ["cognito-idp:AdminAddUserToGroup"],
-            resources: [userPool.userPoolArn],
-          }),
-        ]),
-        installLatestAwsSdk: false,
+        onEventHandler: adminBootstrapFunction,
       }
     );
-    const adminGroupResource = addAdminToGroup.node.findChild(
-      "Resource"
-    ) as cdk.CustomResource;
-    const adminGroupCfn =
-      adminGroupResource.node.defaultChild as cdk.CfnResource;
-    adminGroupCfn.cfnOptions.condition = bootstrapCondition;
-    adminGroupCfn.addDependency(adminPasswordCfn);
+
+    const adminBootstrapResource = new cdk.CustomResource(
+      this,
+      "AdminBootstrapResource",
+      {
+        serviceToken: adminBootstrapProvider.serviceToken,
+        properties: {
+          UserPoolId: userPool.userPoolId,
+          Email: adminBootstrapEmail.valueAsString,
+          TempPassword: adminBootstrapPassword.valueAsString,
+          GroupName: "admin",
+        },
+      }
+    );
+    const adminBootstrapCfn =
+      adminBootstrapResource.node.defaultChild as cdk.CfnResource;
+    adminBootstrapCfn.cfnOptions.condition = bootstrapCondition;
 
     // ---------------------------------------------------------------------
     // Database Migrations
