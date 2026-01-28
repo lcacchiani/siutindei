@@ -617,7 +617,7 @@ export class PythonLambda extends Construct {
     
     this.function = new lambda.Function(this, 'Function', {
       functionName: props.functionName,
-      runtime: lambda.Runtime.PYTHON_3_13,
+      runtime: lambda.Runtime.PYTHON_3_12,
       handler: props.handler,
       description: props.description,
       memorySize: props.memorySize ?? 512,
@@ -639,7 +639,7 @@ export class PythonLambda extends Construct {
   private getBundledCode(): lambda.Code {
     return lambda.Code.fromAsset(path.join(__dirname, '../../..'), {
       bundling: {
-        image: lambda.Runtime.PYTHON_3_13.bundlingImage,
+        image: lambda.Runtime.PYTHON_3_12.bundlingImage,
         command: ['bash', '-c', this.getBundlingCommands().join(' && ')],
       },
     });

@@ -91,6 +91,24 @@ export class PythonLambda extends Construct {
       for (const candidate of candidates) {
         // nosemgrep
         // Checking local python versions is build-time only.
+        const versionResult = childProcess.spawnSync(
+          candidate,
+          [
+            "-c",
+            "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')",
+          ],
+          {
+            encoding: "utf-8",
+            stdio: ["ignore", "pipe", "ignore"],
+          }
+        );
+        if (versionResult.status !== 0) {
+          continue;
+        }
+        const version = versionResult.stdout.trim();
+        if (version !== "3.12") {
+          continue;
+        }
         const result = childProcess.spawnSync(candidate, ["-V"], {
           stdio: "ignore",
         });
@@ -184,14 +202,14 @@ export class PythonLambda extends Construct {
 
     this.function = new lambda.Function(this, "Function", {
       functionName: props.functionName,
-      runtime: lambda.Runtime.PYTHON_3_13,
+      runtime: lambda.Runtime.PYTHON_3_12,
       handler: props.handler,
       description: props.description,
       code:
         props.code ??
         lambda.Code.fromAsset(path.join(__dirname, "../../../"), {
           bundling: {
-            image: lambda.Runtime.PYTHON_3_13.bundlingImage,
+            image: lambda.Runtime.PYTHON_3_12.bundlingImage,
             command: ["bash", "-c", copyCommands.join(" && ")],
             environment: {
               HOME: "/tmp",
