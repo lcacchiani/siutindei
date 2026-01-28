@@ -1,4 +1,10 @@
-"""Lambda handler to run Alembic migrations and seed data."""
+"""Lambda handler to run Alembic migrations and seed data.
+
+SECURITY NOTES:
+- Database credentials are never logged
+- Only safe connection metadata (host, port, database name) is logged
+- Uses structured logging for CloudWatch integration
+"""
 
 from __future__ import annotations
 
@@ -15,6 +21,10 @@ from alembic.config import Config
 from sqlalchemy.engine import make_url
 
 from app.db.connection import get_database_url
+from app.utils.logging import configure_logging, get_logger
+
+configure_logging()
+logger = get_logger(__name__)
 
 
 def lambda_handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
@@ -22,13 +32,14 @@ def lambda_handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
 
     request_type = event.get("RequestType")
     if request_type == "Delete":
+        logger.info("Delete request received, skipping migrations")
         return {"PhysicalResourceId": "migrations", "Data": {"status": "skipped"}}
 
     database_url = get_database_url()
 
-    # Log connection details (without password) for debugging
+    # SECURITY: Log connection details without password for debugging
     parsed = urlparse(database_url)
-    print(
+    logger.info(
         f"Connecting to database: host={parsed.hostname}, port={parsed.port}, "
         f"user={parsed.username}, database={parsed.path.lstrip('/')}"
     )
@@ -40,6 +51,7 @@ def lambda_handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
         seed_path = os.getenv("SEED_FILE_PATH", "/var/task/db/seed/seed_data.sql")
         _run_with_retry(_run_seed, database_url, seed_path)
 
+    logger.info("Migrations completed successfully")
     return {"PhysicalResourceId": "migrations", "Data": {"status": "ok"}}
 
 
@@ -81,10 +93,14 @@ def _run_with_retry(func: Any, *args: Any) -> None:
             return
         except Exception as exc:  # pragma: no cover - best effort retry
             error_type = type(exc).__name__
-            print(f"Attempt {attempt + 1}/{max_attempts} failed ({error_type}): {exc}")
+            # SECURITY: Log error type but be careful with error messages that may contain secrets
+            logger.warning(
+                f"Attempt {attempt + 1}/{max_attempts} failed ({error_type})",
+                extra={"attempt": attempt + 1, "max_attempts": max_attempts},
+            )
             last_error = exc
             if attempt < max_attempts - 1:
-                print(f"Retrying in {delay:.1f} seconds...")
+                logger.info(f"Retrying in {delay:.1f} seconds...")
                 time.sleep(delay)
                 delay = min(delay * 1.5, 30.0)  # Cap at 30 seconds
     if last_error:

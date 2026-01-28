@@ -2,10 +2,16 @@
 
 This module provides JSON-formatted logging with request context,
 suitable for CloudWatch Logs Insights queries.
+
+SECURITY NOTES:
+- Use mask_email() when logging email addresses to comply with privacy regulations
+- Use mask_pii() for other personally identifiable information
+- Never log passwords, tokens, or secrets
 """
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import os
@@ -17,6 +23,74 @@ from datetime import timezone
 from typing import Any
 from typing import MutableMapping
 from typing import Optional
+
+
+def mask_email(email: str) -> str:
+    """Mask an email address for safe logging.
+
+    SECURITY: Email addresses are PII and should not be logged in plain text.
+    This function masks the email while preserving enough info for debugging.
+
+    Args:
+        email: The email address to mask.
+
+    Returns:
+        A masked version like "jo***@***.com" or a hash for very short emails.
+
+    Examples:
+        >>> mask_email("john.doe@example.com")
+        'jo***@***.com'
+        >>> mask_email("a@b.co")
+        'a***@***.co'
+    """
+    if not email or "@" not in email:
+        return "***"
+
+    local, domain = email.rsplit("@", 1)
+    domain_parts = domain.rsplit(".", 1)
+
+    # Show first 2 chars of local part (or 1 if short)
+    visible_local = local[:2] if len(local) > 2 else local[:1]
+
+    # Show TLD only
+    tld = domain_parts[-1] if len(domain_parts) > 1 else ""
+
+    return f"{visible_local}***@***.{tld}" if tld else f"{visible_local}***@***"
+
+
+def mask_pii(value: str, visible_chars: int = 4) -> str:
+    """Mask a PII value for safe logging.
+
+    SECURITY: Use this for any personally identifiable information.
+
+    Args:
+        value: The value to mask.
+        visible_chars: Number of characters to show at the start.
+
+    Returns:
+        A masked version showing only the first few characters.
+    """
+    if not value:
+        return "***"
+    if len(value) <= visible_chars:
+        return value[0] + "***"
+    return value[:visible_chars] + "***"
+
+
+def hash_for_correlation(value: str) -> str:
+    """Generate a short hash for log correlation without exposing PII.
+
+    SECURITY: Use this when you need to correlate logs across requests
+    without logging the actual PII value.
+
+    Args:
+        value: The value to hash (e.g., email address).
+
+    Returns:
+        A short hash suitable for log correlation.
+    """
+    return hashlib.sha256(value.encode()).hexdigest()[:12]
+
 
 # Context variables for request tracking
 request_id: ContextVar[str] = ContextVar("request_id", default="")

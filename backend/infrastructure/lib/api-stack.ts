@@ -190,6 +190,27 @@ export class ApiStack extends cdk.Stack {
         description: "Expected audience for device attestation tokens",
       }
     );
+    const corsAllowedOrigins = new cdk.CfnParameter(this, "CorsAllowedOrigins", {
+      type: "CommaDelimitedList",
+      default: "",
+      description:
+        "Comma-separated list of allowed CORS origins (e.g., https://app.example.com). " +
+        "If empty, defaults to mobile app origins only. " +
+        "SECURITY: Never use '*' in production.",
+    });
+    const deviceAttestationFailClosed = new cdk.CfnParameter(
+      this,
+      "DeviceAttestationFailClosed",
+      {
+        type: "String",
+        default: "true",
+        allowedValues: ["true", "false"],
+        description:
+          "If true, deny requests when attestation is not configured (production mode). " +
+          "If false, allow requests without attestation (development mode). " +
+          "SECURITY: Must be 'true' in production.",
+      }
+    );
 
     // ---------------------------------------------------------------------
     // Cognito User Pool and Identity Providers
@@ -473,6 +494,8 @@ export class ApiStack extends cdk.Stack {
           ATTESTATION_JWKS_URL: deviceAttestationJwksUrl.valueAsString,
           ATTESTATION_ISSUER: deviceAttestationIssuer.valueAsString,
           ATTESTATION_AUDIENCE: deviceAttestationAudience.valueAsString,
+          // SECURITY: Fail-closed mode denies requests when attestation is not configured
+          ATTESTATION_FAIL_CLOSED: deviceAttestationFailClosed.valueAsString,
         },
       }
     );
@@ -537,10 +560,28 @@ export class ApiStack extends cdk.Stack {
       apiAccessLogGroupName
     );
 
+    // SECURITY: Restrict CORS to specific allowed origins
+    // Never use Cors.ALL_ORIGINS in production - it allows any website to make requests
+    const resolvedCorsOrigins = cdk.Fn.conditionIf(
+      "HasCorsOrigins",
+      corsAllowedOrigins.valueAsList,
+      // Default: Allow only mobile app deep link schemes and localhost for dev
+      ["capacitor://localhost", "ionic://localhost", "http://localhost"]
+    );
+
+    new cdk.CfnCondition(this, "HasCorsOrigins", {
+      expression: cdk.Fn.conditionNot(
+        cdk.Fn.conditionEquals(
+          cdk.Fn.select(0, corsAllowedOrigins.valueAsList),
+          ""
+        )
+      ),
+    });
+
     const api = new apigateway.RestApi(this, "SiutindeiApi", {
       restApiName: name("api"),
       defaultCorsPreflightOptions: {
-        allowOrigins: apigateway.Cors.ALL_ORIGINS,
+        allowOrigins: resolvedCorsOrigins as unknown as string[],
         allowMethods: ["GET", "OPTIONS"],
       },
       deployOptions: {
