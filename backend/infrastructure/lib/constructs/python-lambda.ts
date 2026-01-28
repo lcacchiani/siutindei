@@ -9,8 +9,8 @@ import * as path from "path";
  * Properties for the PythonLambda construct.
  */
 export interface PythonLambdaProps {
-  /** Function name. */
-  functionName: string;
+  /** Function name (optional - CloudFormation will generate if not provided). */
+  functionName?: string;
   /** Handler path (e.g., "lambda/handler.lambda_handler"). */
   handler: string;
   /** Optional function description. */

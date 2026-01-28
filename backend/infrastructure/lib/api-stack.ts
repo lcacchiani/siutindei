@@ -311,10 +311,11 @@ export class ApiStack extends cdk.Stack {
     });
 
     // Helper to create Lambda functions using the factory
+    // Note: functionName is omitted to let CloudFormation generate unique names
+    // and avoid conflicts with existing Lambda functions.
     const createPythonFunction = (
       id: string,
       props: {
-        functionName: string;
         handler: string;
         environment?: Record<string, string>;
         timeout?: cdk.Duration;
@@ -324,7 +325,6 @@ export class ApiStack extends cdk.Stack {
       }
     ) => {
       const pythonLambda = lambdaFactory.create(id, {
-        functionName: props.functionName,
         handler: props.handler,
         environment: props.environment,
         timeout: props.timeout,
@@ -337,7 +337,6 @@ export class ApiStack extends cdk.Stack {
 
     // Search function
     const searchFunction = createPythonFunction("SiutindeiSearchFunction", {
-      functionName: name("search"),
       handler: "lambda/activity_search/handler.lambda_handler",
       environment: {
         DATABASE_SECRET_ARN: database.secret?.secretArn ?? "",
@@ -352,7 +351,6 @@ export class ApiStack extends cdk.Stack {
 
     // Admin function
     const adminFunction = createPythonFunction("SiutindeiAdminFunction", {
-      functionName: name("admin"),
       handler: "lambda/admin/handler.lambda_handler",
       environment: {
         DATABASE_SECRET_ARN: database.secret?.secretArn ?? "",
@@ -380,7 +378,6 @@ export class ApiStack extends cdk.Stack {
 
     // Migration function
     const migrationFunction = createPythonFunction("SiutindeiMigrationFunction", {
-      functionName: name("migrations"),
       handler: "lambda/migrations/handler.lambda_handler",
       timeout: cdk.Duration.minutes(5),
       securityGroups: [migrationSecurityGroup],
@@ -401,7 +398,6 @@ export class ApiStack extends cdk.Stack {
 
     // Auth Lambda triggers
     const preSignUpFunction = createPythonFunction("AuthPreSignUpFunction", {
-      functionName: name("auth-pre-signup"),
       handler: "lambda/auth/pre_signup/handler.lambda_handler",
       memorySize: 256,
       timeout: cdk.Duration.seconds(10),
@@ -410,7 +406,6 @@ export class ApiStack extends cdk.Stack {
     const defineAuthChallengeFunction = createPythonFunction(
       "AuthDefineChallengeFunction",
       {
-        functionName: name("auth-define-challenge"),
         handler: "lambda/auth/define_auth_challenge/handler.lambda_handler",
         memorySize: 256,
         timeout: cdk.Duration.seconds(10),
@@ -423,7 +418,6 @@ export class ApiStack extends cdk.Stack {
     const createAuthChallengeFunction = createPythonFunction(
       "AuthCreateChallengeFunction",
       {
-        functionName: name("auth-create-challenge"),
         handler: "lambda/auth/create_auth_challenge/handler.lambda_handler",
         memorySize: 256,
         timeout: cdk.Duration.seconds(10),
@@ -444,7 +438,6 @@ export class ApiStack extends cdk.Stack {
     const verifyAuthChallengeFunction = createPythonFunction(
       "AuthVerifyChallengeFunction",
       {
-        functionName: name("auth-verify-challenge"),
         handler: "lambda/auth/verify_auth_challenge/handler.lambda_handler",
         memorySize: 256,
         timeout: cdk.Duration.seconds(10),
@@ -473,7 +466,6 @@ export class ApiStack extends cdk.Stack {
     const deviceAttestationFunction = createPythonFunction(
       "DeviceAttestationAuthorizer",
       {
-        functionName: name("device-attestation"),
         handler: "lambda/authorizers/device_attestation/handler.lambda_handler",
         memorySize: 256,
         timeout: cdk.Duration.seconds(5),
@@ -499,7 +491,6 @@ export class ApiStack extends cdk.Stack {
 
     // Health check function
     const healthFunction = createPythonFunction("HealthCheckFunction", {
-      functionName: name("health"),
       handler: "lambda/health/handler.lambda_handler",
       memorySize: 256,
       timeout: cdk.Duration.seconds(10),
