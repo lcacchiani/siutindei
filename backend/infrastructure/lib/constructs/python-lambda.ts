@@ -1,3 +1,4 @@
+import * as childProcess from "child_process";
 import * as cdk from "aws-cdk-lib";
 import * as ec2 from "aws-cdk-lib/aws-ec2";
 import * as lambda from "aws-cdk-lib/aws-lambda";
@@ -49,13 +50,112 @@ export class PythonLambda extends Construct {
   constructor(scope: Construct, id: string, props: PythonLambdaProps) {
     super(scope, id);
 
+    const sourceRoot = path.join(__dirname, "../../../");
     const copyCommands = [
-      "python -m pip install --upgrade pip==25.3 --no-warn-script-location",
+      "python -m pip install --upgrade " +
+        "pip==25.3 --no-warn-script-location",
       "python -m pip install -r requirements.txt -t /asset-output",
       "cp -au lambda /asset-output/lambda",
       "cp -au src /asset-output/src",
       ...(props.extraCopyCommands ?? []),
     ];
+
+    function runLocalCommand(
+      command: string,
+      args: string[],
+      cwd: string,
+      env: NodeJS.ProcessEnv
+    ): void {
+      const result = childProcess.spawnSync(command, args, {
+        cwd,
+        env,
+        stdio: "inherit",
+      });
+      if (result.status !== 0) {
+        throw new Error(`Command failed: ${command}`);
+      }
+    }
+
+    function resolvePythonCommand(): string | null {
+      const candidates = ["python3", "python"];
+      for (const candidate of candidates) {
+        const result = childProcess.spawnSync(candidate, ["-V"], {
+          stdio: "ignore",
+        });
+        if (result.status === 0) {
+          return candidate;
+        }
+      }
+      return null;
+    }
+
+    function tryLocalBundle(outputDir: string): boolean {
+      const pythonCommand = resolvePythonCommand();
+      if (!pythonCommand) {
+        return false;
+      }
+      const env = {
+        ...process.env,
+        HOME: "/tmp",
+        PIP_CACHE_DIR: "/tmp/pip-cache",
+        PYTHONUSERBASE: "/tmp/.local",
+      };
+      try {
+        runLocalCommand(
+          pythonCommand,
+          [
+            "-m",
+            "pip",
+            "install",
+            "--upgrade",
+            "pip==25.3",
+            "--no-warn-script-location",
+          ],
+          sourceRoot,
+          env
+        );
+        runLocalCommand(
+          pythonCommand,
+          [
+            "-m",
+            "pip",
+            "install",
+            "-r",
+            "requirements.txt",
+            "-t",
+            outputDir,
+          ],
+          sourceRoot,
+          env
+        );
+        runLocalCommand(
+          "cp",
+          ["-au", "lambda", path.join(outputDir, "lambda")],
+          sourceRoot,
+          env
+        );
+        runLocalCommand(
+          "cp",
+          ["-au", "src", path.join(outputDir, "src")],
+          sourceRoot,
+          env
+        );
+        for (const command of props.extraCopyCommands ?? []) {
+          const localCommand = command
+            .split("/asset-output")
+            .join(outputDir);
+          runLocalCommand(
+            "bash",
+            ["-c", localCommand],
+            sourceRoot,
+            env
+          );
+        }
+        return true;
+      } catch {
+        return false;
+      }
+    }
 
     this.function = new lambda.Function(this, "Function", {
       functionName: props.functionName,
@@ -72,6 +172,11 @@ export class PythonLambda extends Construct {
               HOME: "/tmp",
               PIP_CACHE_DIR: "/tmp/pip-cache",
               PYTHONUSERBASE: "/tmp/.local",
+            },
+            local: {
+              tryBundle(outputDir: string) {
+                return tryLocalBundle(outputDir);
+              },
             },
           },
         }),
