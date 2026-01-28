@@ -25,6 +25,20 @@ export interface DatabaseConstructProps {
   dbSecurityGroupId?: string;
   /** Existing proxy security group id (optional). */
   proxySecurityGroupId?: string;
+  /** Existing database cluster identifier (optional). */
+  dbClusterIdentifier?: string;
+  /** Existing database cluster endpoint hostname (optional). */
+  dbClusterEndpoint?: string;
+  /** Existing database cluster reader endpoint hostname (optional). */
+  dbClusterReaderEndpoint?: string;
+  /** Existing database cluster port (optional). */
+  dbClusterPort?: number;
+  /** Existing database proxy name (optional). */
+  dbProxyName?: string;
+  /** Existing database proxy ARN (optional). */
+  dbProxyArn?: string;
+  /** Existing database proxy endpoint (optional). */
+  dbProxyEndpoint?: string;
 }
 
 /**
@@ -38,9 +52,9 @@ export interface DatabaseConstructProps {
  */
 export class DatabaseConstruct extends Construct {
   /** The Aurora database cluster. */
-  public readonly cluster: rds.DatabaseCluster;
+  public readonly cluster: rds.IDatabaseCluster;
   /** The RDS Proxy for connection pooling. */
-  public readonly proxy: rds.DatabaseProxy;
+  public readonly proxy: rds.IDatabaseProxy;
   /** The database credentials secret. */
   public readonly secret: secretsmanager.ISecret;
   /** Security group for the database cluster. */
@@ -56,6 +70,55 @@ export class DatabaseConstruct extends Construct {
     const dbSecurityGroupId = props.dbSecurityGroupId?.trim();
     const proxySecurityGroupId = props.proxySecurityGroupId?.trim();
     const dbCredentialsSecretName = props.dbCredentialsSecretName?.trim();
+    const dbClusterIdentifier = props.dbClusterIdentifier?.trim();
+    const dbClusterEndpoint = props.dbClusterEndpoint?.trim();
+    const dbClusterReaderEndpoint = props.dbClusterReaderEndpoint?.trim();
+    const dbClusterPort = props.dbClusterPort ?? 5432;
+    const dbProxyName = props.dbProxyName?.trim();
+    const dbProxyArn = props.dbProxyArn?.trim();
+    const dbProxyEndpoint = props.dbProxyEndpoint?.trim();
+
+    const useExistingCluster = Boolean(
+      dbClusterIdentifier || dbClusterEndpoint || dbClusterReaderEndpoint
+    );
+    const useExistingProxy = Boolean(
+      dbProxyName || dbProxyArn || dbProxyEndpoint
+    );
+
+    if (useExistingCluster) {
+      if (!dbClusterIdentifier || !dbClusterEndpoint) {
+        throw new Error(
+          "Existing DB cluster requires identifier and endpoint values."
+        );
+      }
+      if (!dbCredentialsSecretName) {
+        throw new Error(
+          "Existing DB cluster requires DB credentials secret name."
+        );
+      }
+      if (!dbSecurityGroupId) {
+        throw new Error("Existing DB cluster requires DB security group ID.");
+      }
+    }
+
+    if (useExistingProxy) {
+      if (!useExistingCluster) {
+        throw new Error("Existing DB proxy requires existing DB cluster.");
+      }
+      if (!dbProxyName || !dbProxyArn || !dbProxyEndpoint) {
+        throw new Error(
+          "Existing DB proxy requires name, ARN, and endpoint values."
+        );
+      }
+      if (!dbCredentialsSecretName) {
+        throw new Error(
+          "Existing DB proxy requires DB credentials secret name."
+        );
+      }
+      if (!proxySecurityGroupId) {
+        throw new Error("Existing DB proxy requires proxy security group ID.");
+      }
+    }
 
     // Database security group
     this.dbSecurityGroup = dbSecurityGroupId
@@ -113,36 +176,60 @@ export class DatabaseConstruct extends Construct {
     this.secret = dbCredentialsSecret;
 
     // Aurora PostgreSQL Serverless v2 cluster
-    this.cluster = new rds.DatabaseCluster(this, "Cluster", {
-      engine: rds.DatabaseClusterEngine.auroraPostgres({
-        version: rds.AuroraPostgresEngineVersion.VER_16_4,
-      }),
-      cloudwatchLogsExports: ["postgresql"],
-      cloudwatchLogsRetention: logs.RetentionDays.ONE_WEEK,
-      credentials: rds.Credentials.fromSecret(dbCredentialsSecret),
-      defaultDatabaseName: props.databaseName ?? "siutindei",
-      iamAuthentication: false,
-      serverlessV2MinCapacity: props.minCapacity ?? 0.5,
-      serverlessV2MaxCapacity: props.maxCapacity ?? 2,
-      writer: rds.ClusterInstance.serverlessV2("writer", {
-        instanceIdentifier: name("db-writer"),
-      }),
-      clusterIdentifier: name("db-cluster"),
-      vpc: props.vpc,
-      vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
-      securityGroups: [this.dbSecurityGroup],
-    });
+    if (useExistingCluster) {
+      const readerEndpoint = dbClusterReaderEndpoint ?? dbClusterEndpoint;
+      this.cluster = rds.DatabaseCluster.fromDatabaseClusterAttributes(
+        this,
+        "Cluster",
+        {
+          clusterIdentifier: dbClusterIdentifier!,
+          clusterEndpointAddress: dbClusterEndpoint!,
+          readerEndpointAddress: readerEndpoint!,
+          port: dbClusterPort,
+          securityGroups: [this.dbSecurityGroup],
+        }
+      );
+    } else {
+      this.cluster = new rds.DatabaseCluster(this, "Cluster", {
+        engine: rds.DatabaseClusterEngine.auroraPostgres({
+          version: rds.AuroraPostgresEngineVersion.VER_16_4,
+        }),
+        cloudwatchLogsExports: ["postgresql"],
+        cloudwatchLogsRetention: logs.RetentionDays.ONE_WEEK,
+        credentials: rds.Credentials.fromSecret(dbCredentialsSecret),
+        defaultDatabaseName: props.databaseName ?? "siutindei",
+        iamAuthentication: false,
+        serverlessV2MinCapacity: props.minCapacity ?? 0.5,
+        serverlessV2MaxCapacity: props.maxCapacity ?? 2,
+        writer: rds.ClusterInstance.serverlessV2("writer", {
+          instanceIdentifier: name("db-writer"),
+        }),
+        clusterIdentifier: name("db-cluster"),
+        vpc: props.vpc,
+        vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
+        securityGroups: [this.dbSecurityGroup],
+      });
+    }
 
     // RDS Proxy for connection pooling and IAM auth
-    this.proxy = new rds.DatabaseProxy(this, "Proxy", {
-      proxyTarget: rds.ProxyTarget.fromCluster(this.cluster),
-      secrets: [dbCredentialsSecret],
-      vpc: props.vpc,
-      securityGroups: [this.proxySecurityGroup],
-      requireTLS: true,
-      iamAuth: true,
-      dbProxyName: name("db-proxy"),
-    });
+    if (useExistingProxy) {
+      this.proxy = rds.DatabaseProxy.fromDatabaseProxyAttributes(this, "Proxy", {
+        dbProxyName: dbProxyName!,
+        dbProxyArn: dbProxyArn!,
+        endpoint: dbProxyEndpoint!,
+        securityGroups: [this.proxySecurityGroup],
+      });
+    } else {
+      this.proxy = new rds.DatabaseProxy(this, "Proxy", {
+        proxyTarget: rds.ProxyTarget.fromCluster(this.cluster),
+        secrets: [dbCredentialsSecret],
+        vpc: props.vpc,
+        securityGroups: [this.proxySecurityGroup],
+        requireTLS: true,
+        iamAuth: true,
+        dbProxyName: name("db-proxy"),
+      });
+    }
   }
 
   /**

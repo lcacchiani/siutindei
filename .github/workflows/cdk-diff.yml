@@ -130,11 +130,64 @@ jobs:
           db_sg_name="${resource_prefix}-db-sg"
           proxy_sg_name="${resource_prefix}-proxy-sg"
           secret_name="${resource_prefix}-database-credentials"
+          cluster_identifier="${resource_prefix}-db-cluster"
+          proxy_name="${resource_prefix}-db-proxy"
 
           if aws secretsmanager describe-secret --secret-id "$secret_name" \
             >/dev/null 2>&1; then
             echo "EXISTING_DB_CREDENTIALS_SECRET_NAME=$secret_name" \
               >> "$GITHUB_ENV"
+          fi
+
+          if aws rds describe-db-clusters \
+            --db-cluster-identifier "$cluster_identifier" >/dev/null 2>&1; then
+            cluster_endpoint=$(aws rds describe-db-clusters \
+              --db-cluster-identifier "$cluster_identifier" \
+              --query "DBClusters[0].Endpoint" \
+              --output text 2>/dev/null || true)
+            cluster_reader_endpoint=$(aws rds describe-db-clusters \
+              --db-cluster-identifier "$cluster_identifier" \
+              --query "DBClusters[0].ReaderEndpoint" \
+              --output text 2>/dev/null || true)
+            cluster_port=$(aws rds describe-db-clusters \
+              --db-cluster-identifier "$cluster_identifier" \
+              --query "DBClusters[0].Port" \
+              --output text 2>/dev/null || true)
+            echo "EXISTING_DB_CLUSTER_IDENTIFIER=$cluster_identifier" \
+              >> "$GITHUB_ENV"
+            if [ -n "$cluster_endpoint" ] && [ "$cluster_endpoint" != "None" ]; then
+              echo "EXISTING_DB_CLUSTER_ENDPOINT=$cluster_endpoint" \
+                >> "$GITHUB_ENV"
+            fi
+            if [ -n "$cluster_reader_endpoint" ] && \
+              [ "$cluster_reader_endpoint" != "None" ]; then
+              echo "EXISTING_DB_CLUSTER_READER_ENDPOINT=$cluster_reader_endpoint" \
+                >> "$GITHUB_ENV"
+            fi
+            if [ -n "$cluster_port" ] && [ "$cluster_port" != "None" ]; then
+              echo "EXISTING_DB_CLUSTER_PORT=$cluster_port" \
+                >> "$GITHUB_ENV"
+            fi
+          fi
+
+          if aws rds describe-db-proxies --db-proxy-name "$proxy_name" \
+            >/dev/null 2>&1; then
+            proxy_arn=$(aws rds describe-db-proxies \
+              --db-proxy-name "$proxy_name" \
+              --query "DBProxies[0].DBProxyArn" \
+              --output text 2>/dev/null || true)
+            proxy_endpoint=$(aws rds describe-db-proxies \
+              --db-proxy-name "$proxy_name" \
+              --query "DBProxies[0].Endpoint" \
+              --output text 2>/dev/null || true)
+            echo "EXISTING_DB_PROXY_NAME=$proxy_name" >> "$GITHUB_ENV"
+            if [ -n "$proxy_arn" ] && [ "$proxy_arn" != "None" ]; then
+              echo "EXISTING_DB_PROXY_ARN=$proxy_arn" >> "$GITHUB_ENV"
+            fi
+            if [ -n "$proxy_endpoint" ] && [ "$proxy_endpoint" != "None" ]; then
+              echo "EXISTING_DB_PROXY_ENDPOINT=$proxy_endpoint" \
+                >> "$GITHUB_ENV"
+            fi
           fi
 
           vpc_id=$(aws ec2 describe-vpcs \
@@ -143,6 +196,7 @@ jobs:
             --output text 2>/dev/null || true)
 
           if [ -n "$vpc_id" ] && [ "$vpc_id" != "None" ]; then
+            echo "EXISTING_VPC_ID=$vpc_id" >> "$GITHUB_ENV"
             db_sg_id=$(aws ec2 describe-security-groups \
               --filters "Name=vpc-id,Values=$vpc_id" \
                 "Name=group-name,Values=$db_sg_name" \
@@ -260,3 +314,11 @@ jobs:
           EXISTING_DB_CREDENTIALS_SECRET_NAME: ${{ env.EXISTING_DB_CREDENTIALS_SECRET_NAME }}
           EXISTING_DB_SECURITY_GROUP_ID: ${{ env.EXISTING_DB_SECURITY_GROUP_ID }}
           EXISTING_PROXY_SECURITY_GROUP_ID: ${{ env.EXISTING_PROXY_SECURITY_GROUP_ID }}
+          EXISTING_DB_CLUSTER_IDENTIFIER: ${{ env.EXISTING_DB_CLUSTER_IDENTIFIER }}
+          EXISTING_DB_CLUSTER_ENDPOINT: ${{ env.EXISTING_DB_CLUSTER_ENDPOINT }}
+          EXISTING_DB_CLUSTER_READER_ENDPOINT: ${{ env.EXISTING_DB_CLUSTER_READER_ENDPOINT }}
+          EXISTING_DB_CLUSTER_PORT: ${{ env.EXISTING_DB_CLUSTER_PORT }}
+          EXISTING_DB_PROXY_NAME: ${{ env.EXISTING_DB_PROXY_NAME }}
+          EXISTING_DB_PROXY_ARN: ${{ env.EXISTING_DB_PROXY_ARN }}
+          EXISTING_DB_PROXY_ENDPOINT: ${{ env.EXISTING_DB_PROXY_ENDPOINT }}
+          EXISTING_VPC_ID: ${{ env.EXISTING_VPC_ID }}
