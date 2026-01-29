@@ -148,95 +148,158 @@ jobs:
         run: |
           set -e
           resource_prefix="lxsoftware-siutindei"
+          stack_name="${resource_prefix}"
           vpc_name="${resource_prefix}-vpc"
-          db_sg_name="${resource_prefix}-db-sg"
-          proxy_sg_name="${resource_prefix}-proxy-sg"
           secret_name="${resource_prefix}-database-credentials"
           cluster_identifier="${resource_prefix}-db-cluster"
           proxy_name="${resource_prefix}-db-proxy"
 
-          if aws secretsmanager describe-secret --secret-id "$secret_name" \
+          normalize_value() {
+            local value="$1"
+            if [ -z "$value" ] || [ "$value" = "None" ] || \
+              [ "$value" = "null" ] || [ "$value" = "N/A" ]; then
+              echo ""
+              return 0
+            fi
+            echo "$value"
+          }
+
+          stack_vpc_id=""
+          stack_db_cluster_id=""
+          stack_db_proxy_name=""
+          stack_secret_id=""
+
+          if aws cloudformation describe-stacks --stack-name "$stack_name" \
             >/dev/null 2>&1; then
-            echo "EXISTING_DB_CREDENTIALS_SECRET_NAME=$secret_name" \
-              >> "$GITHUB_ENV"
+            stack_vpc_id=$(aws cloudformation list-stack-resources \
+              --stack-name "$stack_name" \
+              --query "StackResourceSummaries[?ResourceType=='AWS::EC2::VPC'].PhysicalResourceId | [0]" \
+              --output text 2>/dev/null || true)
+            stack_db_cluster_id=$(aws cloudformation list-stack-resources \
+              --stack-name "$stack_name" \
+              --query "StackResourceSummaries[?ResourceType=='AWS::RDS::DBCluster'].PhysicalResourceId | [0]" \
+              --output text 2>/dev/null || true)
+            stack_db_proxy_name=$(aws cloudformation list-stack-resources \
+              --stack-name "$stack_name" \
+              --query "StackResourceSummaries[?ResourceType=='AWS::RDS::DBProxy'].PhysicalResourceId | [0]" \
+              --output text 2>/dev/null || true)
+            stack_secret_id=$(aws cloudformation list-stack-resources \
+              --stack-name "$stack_name" \
+              --query "StackResourceSummaries[?ResourceType=='AWS::SecretsManager::Secret' && contains(LogicalResourceId, 'DBCredentialsSecret')].PhysicalResourceId | [0]" \
+              --output text 2>/dev/null || true)
           fi
 
-          if aws rds describe-db-clusters \
+          stack_vpc_id=$(normalize_value "$stack_vpc_id")
+          stack_db_cluster_id=$(normalize_value "$stack_db_cluster_id")
+          stack_db_proxy_name=$(normalize_value "$stack_db_proxy_name")
+          stack_secret_id=$(normalize_value "$stack_secret_id")
+
+          if aws secretsmanager describe-secret --secret-id "$secret_name" \
+            >/dev/null 2>&1; then
+            if [ -z "$stack_secret_id" ]; then
+              echo "EXISTING_DB_CREDENTIALS_SECRET_NAME=$secret_name" \
+                >> "$GITHUB_ENV"
+            fi
+          fi
+
+          cluster_vpc_id=""
+          if [ -z "$stack_db_cluster_id" ] && aws rds describe-db-clusters \
             --db-cluster-identifier "$cluster_identifier" >/dev/null 2>&1; then
             cluster_endpoint=$(aws rds describe-db-clusters \
               --db-cluster-identifier "$cluster_identifier" \
               --query "DBClusters[0].Endpoint" \
               --output text 2>/dev/null || true)
+            cluster_endpoint=$(normalize_value "$cluster_endpoint")
             cluster_reader_endpoint=$(aws rds describe-db-clusters \
               --db-cluster-identifier "$cluster_identifier" \
               --query "DBClusters[0].ReaderEndpoint" \
               --output text 2>/dev/null || true)
+            cluster_reader_endpoint=$(normalize_value "$cluster_reader_endpoint")
             cluster_port=$(aws rds describe-db-clusters \
               --db-cluster-identifier "$cluster_identifier" \
               --query "DBClusters[0].Port" \
               --output text 2>/dev/null || true)
+            cluster_port=$(normalize_value "$cluster_port")
+            cluster_sg_id=$(aws rds describe-db-clusters \
+              --db-cluster-identifier "$cluster_identifier" \
+              --query "DBClusters[0].VpcSecurityGroups[0].VpcSecurityGroupId" \
+              --output text 2>/dev/null || true)
+            cluster_sg_id=$(normalize_value "$cluster_sg_id")
+            db_subnet_group=$(aws rds describe-db-clusters \
+              --db-cluster-identifier "$cluster_identifier" \
+              --query "DBClusters[0].DBSubnetGroup" \
+              --output text 2>/dev/null || true)
+            db_subnet_group=$(normalize_value "$db_subnet_group")
+            if [ -n "$cluster_sg_id" ]; then
+              echo "EXISTING_DB_SECURITY_GROUP_ID=$cluster_sg_id" \
+                >> "$GITHUB_ENV"
+            fi
+            if [ -n "$db_subnet_group" ]; then
+              cluster_vpc_id=$(aws rds describe-db-subnet-groups \
+                --db-subnet-group-name "$db_subnet_group" \
+                --query "DBSubnetGroups[0].VpcId" \
+                --output text 2>/dev/null || true)
+              cluster_vpc_id=$(normalize_value "$cluster_vpc_id")
+            fi
             echo "EXISTING_DB_CLUSTER_IDENTIFIER=$cluster_identifier" \
               >> "$GITHUB_ENV"
-            if [ -n "$cluster_endpoint" ] && [ "$cluster_endpoint" != "None" ]; then
+            if [ -n "$cluster_endpoint" ]; then
               echo "EXISTING_DB_CLUSTER_ENDPOINT=$cluster_endpoint" \
                 >> "$GITHUB_ENV"
             fi
-            if [ -n "$cluster_reader_endpoint" ] && \
-              [ "$cluster_reader_endpoint" != "None" ]; then
+            if [ -n "$cluster_reader_endpoint" ]; then
               echo "EXISTING_DB_CLUSTER_READER_ENDPOINT=$cluster_reader_endpoint" \
                 >> "$GITHUB_ENV"
             fi
-            if [ -n "$cluster_port" ] && [ "$cluster_port" != "None" ]; then
+            if [ -n "$cluster_port" ]; then
               echo "EXISTING_DB_CLUSTER_PORT=$cluster_port" \
                 >> "$GITHUB_ENV"
             fi
           fi
 
-          if aws rds describe-db-proxies --db-proxy-name "$proxy_name" \
-            >/dev/null 2>&1; then
+          if [ -z "$stack_db_proxy_name" ] && aws rds describe-db-proxies \
+            --db-proxy-name "$proxy_name" >/dev/null 2>&1; then
             proxy_arn=$(aws rds describe-db-proxies \
               --db-proxy-name "$proxy_name" \
               --query "DBProxies[0].DBProxyArn" \
               --output text 2>/dev/null || true)
+            proxy_arn=$(normalize_value "$proxy_arn")
             proxy_endpoint=$(aws rds describe-db-proxies \
               --db-proxy-name "$proxy_name" \
               --query "DBProxies[0].Endpoint" \
               --output text 2>/dev/null || true)
+            proxy_endpoint=$(normalize_value "$proxy_endpoint")
+            proxy_sg_id=$(aws rds describe-db-proxies \
+              --db-proxy-name "$proxy_name" \
+              --query "DBProxies[0].VpcSecurityGroupIds[0]" \
+              --output text 2>/dev/null || true)
+            proxy_sg_id=$(normalize_value "$proxy_sg_id")
+            if [ -n "$proxy_sg_id" ]; then
+              echo "EXISTING_PROXY_SECURITY_GROUP_ID=$proxy_sg_id" \
+                >> "$GITHUB_ENV"
+            fi
             echo "EXISTING_DB_PROXY_NAME=$proxy_name" >> "$GITHUB_ENV"
-            if [ -n "$proxy_arn" ] && [ "$proxy_arn" != "None" ]; then
+            if [ -n "$proxy_arn" ]; then
               echo "EXISTING_DB_PROXY_ARN=$proxy_arn" >> "$GITHUB_ENV"
             fi
-            if [ -n "$proxy_endpoint" ] && [ "$proxy_endpoint" != "None" ]; then
+            if [ -n "$proxy_endpoint" ]; then
               echo "EXISTING_DB_PROXY_ENDPOINT=$proxy_endpoint" \
                 >> "$GITHUB_ENV"
             fi
           fi
 
-          vpc_id=$(aws ec2 describe-vpcs \
-            --filters "Name=tag:Name,Values=$vpc_name" \
-            --query "Vpcs[0].VpcId" \
-            --output text 2>/dev/null || true)
-
-          if [ -n "$vpc_id" ] && [ "$vpc_id" != "None" ]; then
-            echo "EXISTING_VPC_ID=$vpc_id" >> "$GITHUB_ENV"
-            db_sg_id=$(aws ec2 describe-security-groups \
-              --filters "Name=vpc-id,Values=$vpc_id" \
-                "Name=group-name,Values=$db_sg_name" \
-              --query "SecurityGroups[0].GroupId" \
-              --output text 2>/dev/null || true)
-            if [ -n "$db_sg_id" ] && [ "$db_sg_id" != "None" ]; then
-              echo "EXISTING_DB_SECURITY_GROUP_ID=$db_sg_id" \
-                >> "$GITHUB_ENV"
-            fi
-
-            proxy_sg_id=$(aws ec2 describe-security-groups \
-              --filters "Name=vpc-id,Values=$vpc_id" \
-                "Name=group-name,Values=$proxy_sg_name" \
-              --query "SecurityGroups[0].GroupId" \
-              --output text 2>/dev/null || true)
-            if [ -n "$proxy_sg_id" ] && [ "$proxy_sg_id" != "None" ]; then
-              echo "EXISTING_PROXY_SECURITY_GROUP_ID=$proxy_sg_id" \
-                >> "$GITHUB_ENV"
+          if [ -z "$stack_vpc_id" ]; then
+            if [ -n "$cluster_vpc_id" ]; then
+              echo "EXISTING_VPC_ID=$cluster_vpc_id" >> "$GITHUB_ENV"
+            else
+              vpc_id=$(aws ec2 describe-vpcs \
+                --filters "Name=tag:Name,Values=$vpc_name" \
+                --query "Vpcs[0].VpcId" \
+                --output text 2>/dev/null || true)
+              vpc_id=$(normalize_value "$vpc_id")
+              if [ -n "$vpc_id" ]; then
+                echo "EXISTING_VPC_ID=$vpc_id" >> "$GITHUB_ENV"
+              fi
             fi
           fi
 
