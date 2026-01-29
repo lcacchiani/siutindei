@@ -64,6 +64,7 @@ Key entities:
 - `activity_schedule` (weekly, monthly, date-specific; languages per session)
 
 All times are stored in UTC.
+See `docs/architecture/database-schema.md` for full table details.
 
 ## Database and migrations
 
