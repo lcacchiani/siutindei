@@ -28,6 +28,10 @@ Flutter mobile app, Next.js admin console, and AWS serverless backend.
 
 **Canonical structure:**
 - `backend/infrastructure/` contains CDK app, stacks, and pipeline.
+- Deploy workflows detect and reuse existing database resources and VPCs
+  to avoid replacements.
+- Imports use environment variables for existing resource identifiers,
+  including security groups and Secrets Manager references.
 
 ## Database schema (Aurora PostgreSQL)
 
@@ -76,6 +80,7 @@ Flutter mobile app, Next.js admin console, and AWS serverless backend.
 - Python dependencies are listed in `backend/requirements.txt`.
 - Database migrations and seed are executed during CDK deploy
   via a custom resource Lambda.
+- Lambda packaging is deterministic (no bytecode) to reduce no-op deploys.
 
 ## Authentication
 

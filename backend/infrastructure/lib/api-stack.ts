@@ -22,38 +22,80 @@ export class ApiStack extends cdk.Stack {
     const name = (suffix: string) => `${resourcePrefix}-${suffix}`;
     const existingDbCredentialsSecretName =
       process.env.EXISTING_DB_CREDENTIALS_SECRET_NAME;
+    const existingDbCredentialsSecretArn =
+      process.env.EXISTING_DB_CREDENTIALS_SECRET_ARN;
     const existingDbSecurityGroupId = process.env.EXISTING_DB_SECURITY_GROUP_ID;
     const existingProxySecurityGroupId =
       process.env.EXISTING_PROXY_SECURITY_GROUP_ID;
+    const existingDbClusterIdentifier =
+      process.env.EXISTING_DB_CLUSTER_IDENTIFIER;
+    const existingDbClusterEndpoint = process.env.EXISTING_DB_CLUSTER_ENDPOINT;
+    const existingDbClusterReaderEndpoint =
+      process.env.EXISTING_DB_CLUSTER_READER_ENDPOINT;
+    const existingDbClusterPort = parseOptionalPort(
+      process.env.EXISTING_DB_CLUSTER_PORT
+    );
+    const existingDbProxyName = process.env.EXISTING_DB_PROXY_NAME;
+    const existingDbProxyArn = process.env.EXISTING_DB_PROXY_ARN;
+    const existingDbProxyEndpoint = process.env.EXISTING_DB_PROXY_ENDPOINT;
+    const existingVpcId = process.env.EXISTING_VPC_ID?.trim();
+    const existingLambdaSecurityGroupId =
+      process.env.EXISTING_LAMBDA_SECURITY_GROUP_ID;
+    const existingMigrationSecurityGroupId =
+      process.env.EXISTING_MIGRATION_SECURITY_GROUP_ID;
+    const manageDbSecurityGroupRules =
+      !existingDbSecurityGroupId && !existingProxySecurityGroupId;
 
     // ---------------------------------------------------------------------
     // VPC and Security Groups
     // ---------------------------------------------------------------------
-    const vpc = new ec2.Vpc(this, "SiutindeiVpc", {
-      vpcName: name("vpc"),
-      maxAzs: 2,
-      natGateways: 1,
-    });
+    const vpc = existingVpcId
+      ? ec2.Vpc.fromLookup(this, "ExistingVpc", { vpcId: existingVpcId })
+      : new ec2.Vpc(this, "SiutindeiVpc", {
+          vpcName: name("vpc"),
+          maxAzs: 2,
+          natGateways: 1,
+        });
 
-    const lambdaSecurityGroup = new ec2.SecurityGroup(
-      this,
-      "LambdaSecurityGroup",
-      {
-        vpc,
-        allowAllOutbound: true,
-        securityGroupName: name("lambda-sg"),
-      }
-    );
+    const lambdaSecurityGroup = existingLambdaSecurityGroupId
+      ? ec2.SecurityGroup.fromSecurityGroupId(
+          this,
+          "LambdaSecurityGroup",
+          existingLambdaSecurityGroupId,
+          { mutable: false }
+        )
+      : new ec2.SecurityGroup(this, "LambdaSecurityGroup", {
+          vpc,
+          allowAllOutbound: true,
+          securityGroupName: name("lambda-sg"),
+        });
 
-    const migrationSecurityGroup = new ec2.SecurityGroup(
-      this,
-      "MigrationSecurityGroup",
-      {
-        vpc,
-        allowAllOutbound: true,
-        securityGroupName: name("migration-sg"),
-      }
-    );
+    const migrationSecurityGroup = existingMigrationSecurityGroupId
+      ? ec2.SecurityGroup.fromSecurityGroupId(
+          this,
+          "MigrationSecurityGroup",
+          existingMigrationSecurityGroupId,
+          { mutable: false }
+        )
+      : new ec2.SecurityGroup(this, "MigrationSecurityGroup", {
+          vpc,
+          allowAllOutbound: true,
+          securityGroupName: name("migration-sg"),
+        });
+
+    const lambdaSecurityGroupResource =
+      lambdaSecurityGroup.node.defaultChild as ec2.CfnSecurityGroup | undefined;
+    if (lambdaSecurityGroupResource) {
+      lambdaSecurityGroupResource.cfnOptions.updateReplacePolicy =
+        cdk.CfnDeletionPolicy.RETAIN;
+    }
+    const migrationSecurityGroupResource =
+      migrationSecurityGroup.node
+        .defaultChild as ec2.CfnSecurityGroup | undefined;
+    if (migrationSecurityGroupResource) {
+      migrationSecurityGroupResource.cfnOptions.updateReplacePolicy =
+        cdk.CfnDeletionPolicy.RETAIN;
+    }
 
     // ---------------------------------------------------------------------
     // Database (Aurora PostgreSQL Serverless v2 + RDS Proxy)
@@ -65,8 +107,17 @@ export class ApiStack extends cdk.Stack {
       maxCapacity: 2,
       databaseName: "siutindei",
       dbCredentialsSecretName: existingDbCredentialsSecretName,
+      dbCredentialsSecretArn: existingDbCredentialsSecretArn,
       dbSecurityGroupId: existingDbSecurityGroupId,
       proxySecurityGroupId: existingProxySecurityGroupId,
+      dbClusterIdentifier: existingDbClusterIdentifier,
+      dbClusterEndpoint: existingDbClusterEndpoint,
+      dbClusterReaderEndpoint: existingDbClusterReaderEndpoint,
+      dbClusterPort: existingDbClusterPort,
+      dbProxyName: existingDbProxyName,
+      dbProxyArn: existingDbProxyArn,
+      dbProxyEndpoint: existingDbProxyEndpoint,
+      manageSecurityGroupRules: manageDbSecurityGroupRules,
     });
 
     // Allow Lambda access to database via proxy
@@ -893,6 +944,17 @@ function normalizeCorsOrigins(value: unknown): string[] {
     .split(",")
     .map((origin) => origin.trim())
     .filter((origin) => origin.length > 0);
+}
+
+function parseOptionalPort(value: string | undefined): number | undefined {
+  if (!value) {
+    return undefined;
+  }
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    throw new Error(`Invalid port value: ${value}`);
+  }
+  return parsed;
 }
 
 function hashFile(filePath: string): string {

@@ -59,13 +59,20 @@ export class PythonLambda extends Construct {
     super(scope, id);
 
     const sourceRoot = path.join(__dirname, "../../../");
+    const cleanupCommands = [
+      "find /asset-output -type d -name __pycache__ -prune -exec rm -rf {} +",
+      'find /asset-output -type f -name "*.pyc" -delete',
+      'find /asset-output -type f -name "*.pyo" -delete',
+    ];
     const copyCommands = [
-      "python -m pip install --upgrade " +
+      "PYTHONDONTWRITEBYTECODE=1 python -m pip install --upgrade " +
         "pip==25.3 --no-warn-script-location",
-      "python -m pip install -r requirements.txt -t /asset-output",
+      "PYTHONDONTWRITEBYTECODE=1 python -m pip install -r requirements.txt " +
+        "-t /asset-output --no-compile",
       "cp -au lambda /asset-output/lambda",
       "cp -au src /asset-output/src",
       ...(props.extraCopyCommands ?? []),
+      ...cleanupCommands,
     ];
 
     function runLocalCommand(
@@ -91,6 +98,24 @@ export class PythonLambda extends Construct {
       for (const candidate of candidates) {
         // nosemgrep
         // Checking local python versions is build-time only.
+        const versionResult = childProcess.spawnSync(
+          candidate,
+          [
+            "-c",
+            "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')",
+          ],
+          {
+            encoding: "utf-8",
+            stdio: ["ignore", "pipe", "ignore"],
+          }
+        );
+        if (versionResult.status !== 0) {
+          continue;
+        }
+        const version = versionResult.stdout.trim();
+        if (version !== "3.12") {
+          continue;
+        }
         const result = childProcess.spawnSync(candidate, ["-V"], {
           stdio: "ignore",
         });
@@ -111,6 +136,8 @@ export class PythonLambda extends Construct {
         HOME: "/tmp",
         PIP_CACHE_DIR: "/tmp/pip-cache",
         PYTHONUSERBASE: "/tmp/.local",
+        PYTHONDONTWRITEBYTECODE: "1",
+        PYTHONHASHSEED: "0",
       };
       try {
         runLocalCommand(
@@ -136,6 +163,7 @@ export class PythonLambda extends Construct {
             "requirements.txt",
             "-t",
             outputDir,
+            "--no-compile",
           ],
           sourceRoot,
           env
@@ -156,6 +184,15 @@ export class PythonLambda extends Construct {
           const localCommand = command
             .split("/asset-output")
             .join(outputDir);
+          runLocalCommand(
+            "bash",
+            ["-c", localCommand],
+            sourceRoot,
+            env
+          );
+        }
+        for (const command of cleanupCommands) {
+          const localCommand = command.split("/asset-output").join(outputDir);
           runLocalCommand(
             "bash",
             ["-c", localCommand],
@@ -184,19 +221,36 @@ export class PythonLambda extends Construct {
 
     this.function = new lambda.Function(this, "Function", {
       functionName: props.functionName,
-      runtime: lambda.Runtime.PYTHON_3_13,
+      runtime: lambda.Runtime.PYTHON_3_12,
       handler: props.handler,
       description: props.description,
       code:
         props.code ??
         lambda.Code.fromAsset(path.join(__dirname, "../../../"), {
+          assetHashType: cdk.AssetHashType.SOURCE,
+          exclude: [
+            ".git/**",
+            ".venv/**",
+            ".pytest_cache/**",
+            ".ruff_cache/**",
+            ".mypy_cache/**",
+            "node_modules/**",
+            "dist/**",
+            "build/**",
+            "cdk.out/**",
+            "**/__pycache__/**",
+            "**/*.pyc",
+            "**/*.pyo",
+          ],
           bundling: {
-            image: lambda.Runtime.PYTHON_3_13.bundlingImage,
+            image: lambda.Runtime.PYTHON_3_12.bundlingImage,
             command: ["bash", "-c", copyCommands.join(" && ")],
             environment: {
               HOME: "/tmp",
               PIP_CACHE_DIR: "/tmp/pip-cache",
               PYTHONUSERBASE: "/tmp/.local",
+              PYTHONDONTWRITEBYTECODE: "1",
+              PYTHONHASHSEED: "0",
             },
             local: {
               tryBundle(outputDir: string) {
