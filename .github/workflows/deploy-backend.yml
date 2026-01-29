@@ -164,6 +164,25 @@ jobs:
             echo "$value"
           }
 
+          set_secret_kms_key() {
+            local secret_id="$1"
+            if [ -z "$secret_id" ] || \
+              [ "$existing_secret_kms_key_set" = "true" ]; then
+              return
+            fi
+            local kms_key_id
+            kms_key_id=$(aws secretsmanager describe-secret \
+              --secret-id "$secret_id" \
+              --query "KmsKeyId" \
+              --output text 2>/dev/null || true)
+            kms_key_id=$(normalize_value "$kms_key_id")
+            if [ -n "$kms_key_id" ] && [[ "$kms_key_id" == arn:* ]]; then
+              echo "EXISTING_DB_CREDENTIALS_SECRET_KMS_KEY_ARN=$kms_key_id" \
+                >> "$GITHUB_ENV"
+              existing_secret_kms_key_set="true"
+            fi
+          }
+
           stack_vpc_id=""
           stack_db_cluster_id=""
           stack_db_proxy_name=""
@@ -212,6 +231,7 @@ jobs:
           fi
           existing_secret_name_set="false"
           existing_secret_arn_set="false"
+          existing_secret_kms_key_set="false"
 
           if aws secretsmanager describe-secret --secret-id "$secret_name" \
             >/dev/null 2>&1; then
@@ -219,6 +239,7 @@ jobs:
               echo "EXISTING_DB_CREDENTIALS_SECRET_NAME=$secret_name" \
                 >> "$GITHUB_ENV"
               existing_secret_name_set="true"
+              set_secret_kms_key "$secret_name"
             fi
           fi
 
@@ -251,6 +272,7 @@ jobs:
               echo "EXISTING_DB_CREDENTIALS_SECRET_ARN=$cluster_secret_arn" \
                 >> "$GITHUB_ENV"
               existing_secret_arn_set="true"
+              set_secret_kms_key "$cluster_secret_arn"
             fi
             cluster_sg_id=$(aws rds describe-db-clusters \
               --db-cluster-identifier "$cluster_identifier" \
@@ -318,6 +340,7 @@ jobs:
               echo "EXISTING_DB_CREDENTIALS_SECRET_ARN=$proxy_secret_arn" \
                 >> "$GITHUB_ENV"
               existing_secret_arn_set="true"
+              set_secret_kms_key "$proxy_secret_arn"
             fi
             if [ -n "$proxy_sg_id" ]; then
               echo "EXISTING_PROXY_SECURITY_GROUP_ID=$proxy_sg_id" \
@@ -466,6 +489,7 @@ jobs:
               export SKIP_DB_CLUSTER_IMMUTABLE_UPDATES=false
               unset EXISTING_DB_CREDENTIALS_SECRET_NAME
               unset EXISTING_DB_CREDENTIALS_SECRET_ARN
+              unset EXISTING_DB_CREDENTIALS_SECRET_KMS_KEY_ARN
               unset EXISTING_DB_SECURITY_GROUP_ID
               unset EXISTING_PROXY_SECURITY_GROUP_ID
               unset EXISTING_LAMBDA_SECURITY_GROUP_ID
@@ -496,6 +520,7 @@ jobs:
           DESTROY_BEFORE_DEPLOY: ${{ github.event.inputs.destroy_before_deploy || 'false' }}
           EXISTING_DB_CREDENTIALS_SECRET_NAME: ${{ env.EXISTING_DB_CREDENTIALS_SECRET_NAME }}
           EXISTING_DB_CREDENTIALS_SECRET_ARN: ${{ env.EXISTING_DB_CREDENTIALS_SECRET_ARN }}
+          EXISTING_DB_CREDENTIALS_SECRET_KMS_KEY_ARN: ${{ env.EXISTING_DB_CREDENTIALS_SECRET_KMS_KEY_ARN }}
           EXISTING_DB_SECURITY_GROUP_ID: ${{ env.EXISTING_DB_SECURITY_GROUP_ID }}
           EXISTING_PROXY_SECURITY_GROUP_ID: ${{ env.EXISTING_PROXY_SECURITY_GROUP_ID }}
           EXISTING_LAMBDA_SECURITY_GROUP_ID: ${{ env.EXISTING_LAMBDA_SECURITY_GROUP_ID }}
