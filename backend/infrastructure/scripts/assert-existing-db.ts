@@ -5,15 +5,26 @@ import { DatabaseConstruct } from "../lib/constructs";
 
 function assertExistingResources(): void {
   const app = new cdk.App();
-  const stack = new cdk.Stack(app, "ExistingResourcesStack");
+  const stack = new cdk.Stack(app, "ExistingResourcesStack", {
+    env: { account: "111111111111", region: "us-east-1" },
+  });
   const vpc = new ec2.Vpc(stack, "Vpc", { maxAzs: 2 });
-  const secretArn =
-    "arn:aws:secretsmanager:us-east-1:111111111111:secret:existing";
+  const secretName = "example-000000";
+  const secretArn = stack.formatArn({
+    service: "secretsmanager",
+    resource: "secret",
+    resourceName: secretName,
+    arnFormat: cdk.ArnFormat.COLON_RESOURCE_NAME,
+  });
   const clusterEndpoint = "cluster.example.us-east-1.rds.amazonaws.com";
   const clusterReaderEndpoint =
     "cluster-ro.example.us-east-1.rds.amazonaws.com";
-  const proxyArn =
-    "arn:aws:rds:us-east-1:111111111111:db-proxy:prx-123";
+  const proxyArn = stack.formatArn({
+    service: "rds",
+    resource: "db-proxy",
+    resourceName: "prx-123",
+    arnFormat: cdk.ArnFormat.COLON_RESOURCE_NAME,
+  });
   const proxyEndpoint = "proxy.example.us-east-1.rds.amazonaws.com";
 
   new DatabaseConstruct(stack, "Database", {
@@ -40,7 +51,9 @@ function assertExistingResources(): void {
 
 function assertNewResources(): void {
   const app = new cdk.App();
-  const stack = new cdk.Stack(app, "NewResourcesStack");
+  const stack = new cdk.Stack(app, "NewResourcesStack", {
+    env: { account: "111111111111", region: "us-east-1" },
+  });
   const vpc = new ec2.Vpc(stack, "Vpc", { maxAzs: 2 });
 
   new DatabaseConstruct(stack, "Database", {
