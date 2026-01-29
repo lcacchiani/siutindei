@@ -229,7 +229,7 @@ export class DatabaseConstruct extends Construct {
       const writerInstance = rds.ClusterInstance.serverlessV2("writer", {
         instanceIdentifier: name("db-writer"),
       });
-      this.cluster = new rds.DatabaseCluster(this, "Cluster", {
+      const cluster = new rds.DatabaseCluster(this, "Cluster", {
         engine: rds.DatabaseClusterEngine.auroraPostgres({
           version: rds.AuroraPostgresEngineVersion.VER_16_4,
         }),
@@ -246,10 +246,13 @@ export class DatabaseConstruct extends Construct {
         vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
         securityGroups: [this.dbSecurityGroup],
       });
-      const writerConstruct = writerInstance as unknown as Construct;
-      const writerCfn = writerConstruct.node.defaultChild as rds.CfnDBInstance;
-      writerCfn.monitoringInterval = 60;
-      writerCfn.monitoringRoleArn = monitoringRole.roleArn;
+      this.cluster = cluster;
+      for (const child of cluster.node.findAll()) {
+        if (child instanceof rds.CfnDBInstance) {
+          child.monitoringInterval = 60;
+          child.monitoringRoleArn = monitoringRole.roleArn;
+        }
+      }
     }
 
     // RDS Proxy for connection pooling and IAM auth
