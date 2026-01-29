@@ -46,10 +46,11 @@ Flutter Mobile / Next.js Admin
 - Admin list endpoints support cursor pagination.
 - Lambda functions in `backend/lambda/` call into shared code in
   `backend/src/app`.
+- See `docs/architecture/lambdas.md` for a full function inventory.
 - SQLAlchemy models map to Aurora PostgreSQL.
 - Alembic manages schema migrations, executed via a custom resource Lambda
   during deploy.
- - Cognito User Pool secures admin routes with passwordless email
+- Cognito User Pool secures admin routes with passwordless email
   challenges and federated sign-in (Google, Apple, Microsoft).
 
 ## Data model
@@ -72,6 +73,7 @@ All times are stored in UTC.
 - Seed data stored in `backend/db/seed/seed_data.sql`.
 - Migrations run via a custom resource Lambda using password auth.
 - Application traffic uses IAM auth via the proxy and the `activities_app` role.
+- Deployments reuse existing DB clusters, proxies, and VPCs when detected.
 
 ## CI/CD
 
@@ -81,6 +83,8 @@ All times are stored in UTC.
 - Lockfile checks for Flutter, Node, and iOS.
 - Amplify promotion workflow with gating (staging -> main).
 - Dependabot enabled for automated dependency updates (see below).
+- Infrastructure tests validate CDK templates for new and imported
+  database resources.
 
 ## Dependency Management
 

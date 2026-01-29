@@ -104,6 +104,28 @@ For the OIDC provider itself, add the same tags:
 - `FASTLANE_USER`
 - `FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD`
 
+### Existing infrastructure reuse (auto-detected)
+
+The backend deploy workflow detects existing infrastructure and sets
+environment variables for CDK imports. These values are not required
+GitHub variables. You can set them manually to force imports.
+
+Optional env vars used by CDK:
+- `EXISTING_VPC_ID`
+- `EXISTING_DB_CLUSTER_IDENTIFIER`
+- `EXISTING_DB_CLUSTER_ENDPOINT`
+- `EXISTING_DB_CLUSTER_READER_ENDPOINT`
+- `EXISTING_DB_CLUSTER_PORT`
+- `EXISTING_DB_PROXY_NAME`
+- `EXISTING_DB_PROXY_ARN`
+- `EXISTING_DB_PROXY_ENDPOINT`
+- `EXISTING_DB_CREDENTIALS_SECRET_NAME`
+- `EXISTING_DB_CREDENTIALS_SECRET_ARN`
+- `EXISTING_DB_SECURITY_GROUP_ID`
+- `EXISTING_PROXY_SECURITY_GROUP_ID`
+- `EXISTING_LAMBDA_SECURITY_GROUP_ID`
+- `EXISTING_MIGRATION_SECURITY_GROUP_ID`
+
 ## How to obtain provider values
 
 ### Google (OAuth client)
