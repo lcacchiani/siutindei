@@ -24,6 +24,8 @@ export interface DatabaseConstructProps {
   dbCredentialsSecretName?: string;
   /** Existing database credentials secret ARN (optional). */
   dbCredentialsSecretArn?: string;
+  /** Existing database secret KMS key ARN (optional). */
+  dbCredentialsSecretKmsKeyArn?: string;
   /** Existing database security group id (optional). */
   dbSecurityGroupId?: string;
   /** Existing proxy security group id (optional). */
@@ -70,6 +72,8 @@ export class DatabaseConstruct extends Construct {
   public readonly proxySecurityGroup: ec2.ISecurityGroup;
   /** Whether to manage security group ingress rules. */
   private readonly manageSecurityGroupRules: boolean;
+  /** KMS key used to encrypt the database secret. */
+  private readonly secretKmsKey?: kms.IKey;
 
   constructor(scope: Construct, id: string, props: DatabaseConstructProps) {
     super(scope, id);
@@ -80,6 +84,8 @@ export class DatabaseConstruct extends Construct {
     const proxySecurityGroupId = props.proxySecurityGroupId?.trim();
     const dbCredentialsSecretName = props.dbCredentialsSecretName?.trim();
     const dbCredentialsSecretArn = props.dbCredentialsSecretArn?.trim();
+    const dbCredentialsSecretKmsKeyArn =
+      props.dbCredentialsSecretKmsKeyArn?.trim();
     const dbClusterIdentifier = props.dbClusterIdentifier?.trim();
     const dbClusterEndpoint = props.dbClusterEndpoint?.trim();
     const dbClusterReaderEndpoint = props.dbClusterReaderEndpoint?.trim();
@@ -185,6 +191,13 @@ export class DatabaseConstruct extends Construct {
           secretEncryptionKeyResource.keyArn
         )
       : undefined;
+    const existingSecretKmsKey = dbCredentialsSecretKmsKeyArn
+      ? kms.Key.fromKeyArn(
+          this,
+          "DBCredentialsSecretKmsKey",
+          dbCredentialsSecretKmsKeyArn
+        )
+      : undefined;
 
     // Database credentials secret
     const dbCredentialsSecret = dbCredentialsSecretArn
@@ -212,6 +225,7 @@ export class DatabaseConstruct extends Construct {
               : {}),
           });
     this.secret = dbCredentialsSecret;
+    this.secretKmsKey = existingSecretKmsKey ?? secretEncryptionKey;
 
     // Aurora PostgreSQL Serverless v2 cluster
     if (useExistingCluster) {
@@ -329,5 +343,8 @@ export class DatabaseConstruct extends Construct {
    */
   public grantSecretRead(fn: cdk.aws_lambda.IFunction): void {
     this.secret.grantRead(fn);
+    if (this.secretKmsKey) {
+      this.secretKmsKey.grantDecrypt(fn);
+    }
   }
 }

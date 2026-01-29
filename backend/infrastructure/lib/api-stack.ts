@@ -23,6 +23,8 @@ export class ApiStack extends cdk.Stack {
       process.env.EXISTING_DB_CREDENTIALS_SECRET_NAME;
     const existingDbCredentialsSecretArn =
       process.env.EXISTING_DB_CREDENTIALS_SECRET_ARN;
+    const existingDbCredentialsSecretKmsKeyArn =
+      process.env.EXISTING_DB_CREDENTIALS_SECRET_KMS_KEY_ARN;
     const existingDbSecurityGroupId = process.env.EXISTING_DB_SECURITY_GROUP_ID;
     const existingProxySecurityGroupId =
       process.env.EXISTING_PROXY_SECURITY_GROUP_ID;
@@ -111,6 +113,7 @@ export class ApiStack extends cdk.Stack {
       databaseName: "siutindei",
       dbCredentialsSecretName: existingDbCredentialsSecretName,
       dbCredentialsSecretArn: existingDbCredentialsSecretArn,
+      dbCredentialsSecretKmsKeyArn: existingDbCredentialsSecretKmsKeyArn,
       dbSecurityGroupId: existingDbSecurityGroupId,
       proxySecurityGroupId: existingProxySecurityGroupId,
       dbClusterIdentifier: existingDbClusterIdentifier,
