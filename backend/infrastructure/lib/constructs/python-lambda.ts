@@ -59,13 +59,20 @@ export class PythonLambda extends Construct {
     super(scope, id);
 
     const sourceRoot = path.join(__dirname, "../../../");
+    const cleanupCommands = [
+      "find /asset-output -type d -name __pycache__ -prune -exec rm -rf {} +",
+      'find /asset-output -type f -name "*.pyc" -delete',
+      'find /asset-output -type f -name "*.pyo" -delete',
+    ];
     const copyCommands = [
-      "python -m pip install --upgrade " +
+      "PYTHONDONTWRITEBYTECODE=1 python -m pip install --upgrade " +
         "pip==25.3 --no-warn-script-location",
-      "python -m pip install -r requirements.txt -t /asset-output",
+      "PYTHONDONTWRITEBYTECODE=1 python -m pip install -r requirements.txt " +
+        "-t /asset-output --no-compile",
       "cp -au lambda /asset-output/lambda",
       "cp -au src /asset-output/src",
       ...(props.extraCopyCommands ?? []),
+      ...cleanupCommands,
     ];
 
     function runLocalCommand(
@@ -129,6 +136,8 @@ export class PythonLambda extends Construct {
         HOME: "/tmp",
         PIP_CACHE_DIR: "/tmp/pip-cache",
         PYTHONUSERBASE: "/tmp/.local",
+        PYTHONDONTWRITEBYTECODE: "1",
+        PYTHONHASHSEED: "0",
       };
       try {
         runLocalCommand(
@@ -154,6 +163,7 @@ export class PythonLambda extends Construct {
             "requirements.txt",
             "-t",
             outputDir,
+            "--no-compile",
           ],
           sourceRoot,
           env
@@ -174,6 +184,15 @@ export class PythonLambda extends Construct {
           const localCommand = command
             .split("/asset-output")
             .join(outputDir);
+          runLocalCommand(
+            "bash",
+            ["-c", localCommand],
+            sourceRoot,
+            env
+          );
+        }
+        for (const command of cleanupCommands) {
+          const localCommand = command.split("/asset-output").join(outputDir);
           runLocalCommand(
             "bash",
             ["-c", localCommand],
@@ -215,6 +234,8 @@ export class PythonLambda extends Construct {
               HOME: "/tmp",
               PIP_CACHE_DIR: "/tmp/pip-cache",
               PYTHONUSERBASE: "/tmp/.local",
+              PYTHONDONTWRITEBYTECODE: "1",
+              PYTHONHASHSEED: "0",
             },
             local: {
               tryBundle(outputDir: string) {
