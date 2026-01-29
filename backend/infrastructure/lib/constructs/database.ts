@@ -170,10 +170,17 @@ export class DatabaseConstruct extends Construct {
 
     const needsManagedSecret =
       !dbCredentialsSecretArn && !dbCredentialsSecretName;
-    const secretEncryptionKey = needsManagedSecret
+    const secretEncryptionKeyResource = needsManagedSecret
       ? new kms.Key(this, "DatabaseSecretKey", {
           enableKeyRotation: true,
         })
+      : undefined;
+    const secretEncryptionKey = secretEncryptionKeyResource
+      ? kms.Key.fromKeyArn(
+          this,
+          "DatabaseSecretKeyRef",
+          secretEncryptionKeyResource.keyArn
+        )
       : undefined;
 
     // Database credentials secret
