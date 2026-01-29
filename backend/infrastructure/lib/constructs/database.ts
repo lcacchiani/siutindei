@@ -1,6 +1,7 @@
 import * as cdk from "aws-cdk-lib";
 import * as ec2 from "aws-cdk-lib/aws-ec2";
-import * as logs from "aws-cdk-lib/aws-logs";
+import * as iam from "aws-cdk-lib/aws-iam";
+import * as kms from "aws-cdk-lib/aws-kms";
 import * as rds from "aws-cdk-lib/aws-rds";
 import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
 import { Construct } from "constructs";
@@ -43,6 +44,8 @@ export interface DatabaseConstructProps {
   dbProxyEndpoint?: string;
   /** Manage ingress rules on security groups (optional). */
   manageSecurityGroupRules?: boolean;
+  /** Apply immutable DB settings like encryption and IAM auth. */
+  applyImmutableSettings?: boolean;
 }
 
 /**
@@ -85,6 +88,7 @@ export class DatabaseConstruct extends Construct {
     const dbProxyArn = props.dbProxyArn?.trim();
     const dbProxyEndpoint = props.dbProxyEndpoint?.trim();
     this.manageSecurityGroupRules = props.manageSecurityGroupRules ?? true;
+    const applyImmutableSettings = props.applyImmutableSettings ?? true;
 
     const useExistingCluster = Boolean(
       dbClusterIdentifier || dbClusterEndpoint || dbClusterReaderEndpoint
@@ -167,6 +171,21 @@ export class DatabaseConstruct extends Construct {
       );
     }
 
+    const needsManagedSecret =
+      !dbCredentialsSecretArn && !dbCredentialsSecretName;
+    const secretEncryptionKeyResource = needsManagedSecret
+      ? new kms.Key(this, "DatabaseSecretKey", {
+          enableKeyRotation: true,
+        })
+      : undefined;
+    const secretEncryptionKey = secretEncryptionKeyResource
+      ? kms.Key.fromKeyArn(
+          this,
+          "DatabaseSecretKeyRef",
+          secretEncryptionKeyResource.keyArn
+        )
+      : undefined;
+
     // Database credentials secret
     const dbCredentialsSecret = dbCredentialsSecretArn
       ? secretsmanager.Secret.fromSecretCompleteArn(
@@ -188,6 +207,9 @@ export class DatabaseConstruct extends Construct {
               excludePunctuation: true,
               includeSpace: false,
             },
+            ...(secretEncryptionKey
+              ? { encryptionKey: secretEncryptionKey }
+              : {}),
           });
     this.secret = dbCredentialsSecret;
 
@@ -206,25 +228,41 @@ export class DatabaseConstruct extends Construct {
         }
       );
     } else {
-      this.cluster = new rds.DatabaseCluster(this, "Cluster", {
+      const monitoringRole = new iam.Role(this, "DatabaseMonitoringRole", {
+        assumedBy: new iam.ServicePrincipal("monitoring.rds.amazonaws.com"),
+        managedPolicies: [
+          iam.ManagedPolicy.fromAwsManagedPolicyName(
+            "service-role/AmazonRDSEnhancedMonitoringRole"
+          ),
+        ],
+      });
+      const writerInstance = rds.ClusterInstance.serverlessV2("writer", {
+        instanceIdentifier: name("db-writer"),
+      });
+      const cluster = new rds.DatabaseCluster(this, "Cluster", {
         engine: rds.DatabaseClusterEngine.auroraPostgres({
           version: rds.AuroraPostgresEngineVersion.VER_16_4,
         }),
         cloudwatchLogsExports: ["postgresql"],
-        cloudwatchLogsRetention: logs.RetentionDays.ONE_WEEK,
         credentials: rds.Credentials.fromSecret(dbCredentialsSecret),
         defaultDatabaseName: props.databaseName ?? "siutindei",
-        iamAuthentication: false,
+        iamAuthentication: applyImmutableSettings ? true : undefined,
+        storageEncrypted: applyImmutableSettings ? true : undefined,
         serverlessV2MinCapacity: props.minCapacity ?? 0.5,
         serverlessV2MaxCapacity: props.maxCapacity ?? 2,
-        writer: rds.ClusterInstance.serverlessV2("writer", {
-          instanceIdentifier: name("db-writer"),
-        }),
+        writer: writerInstance,
         clusterIdentifier: name("db-cluster"),
         vpc: props.vpc,
         vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
         securityGroups: [this.dbSecurityGroup],
       });
+      this.cluster = cluster;
+      for (const child of cluster.node.findAll()) {
+        if (child instanceof rds.CfnDBInstance) {
+          child.monitoringInterval = 60;
+          child.monitoringRoleArn = monitoringRole.roleArn;
+        }
+      }
     }
 
     // RDS Proxy for connection pooling and IAM auth

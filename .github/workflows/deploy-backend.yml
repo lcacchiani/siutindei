@@ -205,6 +205,11 @@ jobs:
           stack_secret_id=$(normalize_value "$stack_secret_id")
           stack_lambda_sg_id=$(normalize_value "$stack_lambda_sg_id")
           stack_migration_sg_id=$(normalize_value "$stack_migration_sg_id")
+          if [ -n "$stack_db_cluster_id" ]; then
+            echo "SKIP_DB_CLUSTER_IMMUTABLE_UPDATES=true" >> "$GITHUB_ENV"
+          else
+            echo "SKIP_DB_CLUSTER_IMMUTABLE_UPDATES=false" >> "$GITHUB_ENV"
+          fi
           existing_secret_name_set="false"
           existing_secret_arn_set="false"
 
@@ -456,8 +461,23 @@ jobs:
               if [ ${#STACK_ARGS[@]} -gt 0 ]; then
                 npx cdk destroy --no-notices --force "${QUALIFIER_ARGS[@]}" "${STACK_ARGS[@]}"
               else
-                npx cdk destroy --no-notices --force "${QUALIFIER_ARGS[@]}" ActivitiesApiStack
+                npx cdk destroy --no-notices --force "${QUALIFIER_ARGS[@]}" lxsoftware-siutindei
               fi
+              export SKIP_DB_CLUSTER_IMMUTABLE_UPDATES=false
+              unset EXISTING_DB_CREDENTIALS_SECRET_NAME
+              unset EXISTING_DB_CREDENTIALS_SECRET_ARN
+              unset EXISTING_DB_SECURITY_GROUP_ID
+              unset EXISTING_PROXY_SECURITY_GROUP_ID
+              unset EXISTING_LAMBDA_SECURITY_GROUP_ID
+              unset EXISTING_MIGRATION_SECURITY_GROUP_ID
+              unset EXISTING_DB_CLUSTER_IDENTIFIER
+              unset EXISTING_DB_CLUSTER_ENDPOINT
+              unset EXISTING_DB_CLUSTER_READER_ENDPOINT
+              unset EXISTING_DB_CLUSTER_PORT
+              unset EXISTING_DB_PROXY_NAME
+              unset EXISTING_DB_PROXY_ARN
+              unset EXISTING_DB_PROXY_ENDPOINT
+              unset EXISTING_VPC_ID
             fi
             if [ ${#STACK_ARGS[@]} -gt 0 ]; then
               npx cdk deploy --no-notices --require-approval never "${QUALIFIER_ARGS[@]}" "${PARAM_ARGS[@]}" "${STACK_ARGS[@]}"

@@ -7,6 +7,7 @@ from typing import Any, Mapping
 import boto3
 from botocore.exceptions import ClientError
 
+from app.utils.cfn_response import send_cfn_response
 from app.utils.logging import configure_logging, get_logger
 from app.utils.logging import hash_for_correlation, mask_email
 
@@ -18,68 +19,84 @@ def lambda_handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
     """Handle CloudFormation custom resource events for admin bootstrap."""
 
     request_type = str(event.get("RequestType", ""))
-    properties = event.get("ResourceProperties") or {}
-    user_pool_id = _require_value(properties, "UserPoolId")
-    email = _normalize_email(_require_value(properties, "Email"))
-    temp_password = _require_value(properties, "TempPassword")
-    group_name = _require_value(properties, "GroupName")
+    physical_id = str(event.get("PhysicalResourceId") or "admin-bootstrap")
 
-    user_ref = hash_for_correlation(f"{user_pool_id}:{email}")
-    masked_email = mask_email(email)
-    logger.info(
-        "Handling admin bootstrap request",
-        extra={
-            "request_type": request_type,
-            "user_pool_id": user_pool_id,
-            "user": masked_email,
-            "user_ref": user_ref,
-        },
-    )
-
-    physical_id = str(event.get("PhysicalResourceId") or f"admin-bootstrap-{user_ref}")
     if request_type == "Delete":
+        logger.info("Delete request received, skipping admin bootstrap")
+        data = {"status": "skipped"}
+        send_cfn_response(event, context, "SUCCESS", data, physical_id)
+        return {"PhysicalResourceId": physical_id, "Data": data}
+
+    try:
+        properties = event.get("ResourceProperties") or {}
+        user_pool_id = _require_value(properties, "UserPoolId")
+        email = _normalize_email(_require_value(properties, "Email"))
+        temp_password = _require_value(properties, "TempPassword")
+        group_name = _require_value(properties, "GroupName")
+
+        user_ref = hash_for_correlation(f"{user_pool_id}:{email}")
+        masked_email = mask_email(email)
         logger.info(
-            "Delete request received, skipping admin bootstrap",
-            extra={"user_ref": user_ref},
+            "Handling admin bootstrap request",
+            extra={
+                "request_type": request_type,
+                "user_pool_id": user_pool_id,
+                "user": masked_email,
+                "user_ref": user_ref,
+            },
         )
-        return {
-            "PhysicalResourceId": physical_id,
-            "Data": {"status": "skipped"},
-        }
 
-    if request_type not in {"Create", "Update"}:
-        raise ValueError("Unsupported request type")
+        physical_id = str(
+            event.get("PhysicalResourceId") or f"admin-bootstrap-{user_ref}"
+        )
+        if request_type not in {"Create", "Update"}:
+            raise ValueError("Unsupported request type")
 
-    client = boto3.client("cognito-idp")
-    _create_or_update_user(
-        client,
-        user_pool_id,
-        email,
-        temp_password,
-        masked_email,
-        user_ref,
-    )
-    _set_user_password(
-        client,
-        user_pool_id,
-        email,
-        temp_password,
-        masked_email,
-        user_ref,
-    )
-    _add_user_to_group(
-        client,
-        user_pool_id,
-        email,
-        group_name,
-        masked_email,
-        user_ref,
-    )
+        client = boto3.client("cognito-idp")
+        _create_or_update_user(
+            client,
+            user_pool_id,
+            email,
+            temp_password,
+            masked_email,
+            user_ref,
+        )
+        _set_user_password(
+            client,
+            user_pool_id,
+            email,
+            temp_password,
+            masked_email,
+            user_ref,
+        )
+        _add_user_to_group(
+            client,
+            user_pool_id,
+            email,
+            group_name,
+            masked_email,
+            user_ref,
+        )
 
-    return {
-        "PhysicalResourceId": physical_id,
-        "Data": {"status": "ok"},
-    }
+        data = {"status": "ok"}
+        send_cfn_response(event, context, "SUCCESS", data, physical_id)
+        return {"PhysicalResourceId": physical_id, "Data": data}
+    except Exception:
+        logger.error(
+            "Admin bootstrap failed",
+            extra={"request_type": request_type},
+            exc_info=True,
+        )
+        data = {"status": "failed"}
+        send_cfn_response(
+            event,
+            context,
+            "FAILED",
+            data,
+            physical_id,
+            "Admin bootstrap failed",
+        )
+        return {"PhysicalResourceId": physical_id, "Data": data}
 
 
 def _create_or_update_user(
