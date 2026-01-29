@@ -44,6 +44,8 @@ export interface DatabaseConstructProps {
   dbProxyEndpoint?: string;
   /** Manage ingress rules on security groups (optional). */
   manageSecurityGroupRules?: boolean;
+  /** Apply immutable DB settings like encryption and IAM auth. */
+  applyImmutableSettings?: boolean;
 }
 
 /**
@@ -86,6 +88,7 @@ export class DatabaseConstruct extends Construct {
     const dbProxyArn = props.dbProxyArn?.trim();
     const dbProxyEndpoint = props.dbProxyEndpoint?.trim();
     this.manageSecurityGroupRules = props.manageSecurityGroupRules ?? true;
+    const applyImmutableSettings = props.applyImmutableSettings ?? true;
 
     const useExistingCluster = Boolean(
       dbClusterIdentifier || dbClusterEndpoint || dbClusterReaderEndpoint
@@ -243,8 +246,8 @@ export class DatabaseConstruct extends Construct {
         cloudwatchLogsExports: ["postgresql"],
         credentials: rds.Credentials.fromSecret(dbCredentialsSecret),
         defaultDatabaseName: props.databaseName ?? "siutindei",
-        iamAuthentication: true,
-        storageEncrypted: true,
+        iamAuthentication: applyImmutableSettings ? true : undefined,
+        storageEncrypted: applyImmutableSettings ? true : undefined,
         serverlessV2MinCapacity: props.minCapacity ?? 0.5,
         serverlessV2MaxCapacity: props.maxCapacity ?? 2,
         writer: writerInstance,

@@ -44,6 +44,10 @@ export class ApiStack extends cdk.Stack {
       process.env.EXISTING_MIGRATION_SECURITY_GROUP_ID;
     const manageDbSecurityGroupRules =
       !existingDbSecurityGroupId && !existingProxySecurityGroupId;
+    const skipImmutableDbUpdates =
+      parseOptionalBoolean(
+        process.env.SKIP_DB_CLUSTER_IMMUTABLE_UPDATES
+      ) ?? false;
 
     // ---------------------------------------------------------------------
     // VPC and Security Groups
@@ -117,6 +121,7 @@ export class ApiStack extends cdk.Stack {
       dbProxyArn: existingDbProxyArn,
       dbProxyEndpoint: existingDbProxyEndpoint,
       manageSecurityGroupRules: manageDbSecurityGroupRules,
+      applyImmutableSettings: !skipImmutableDbUpdates,
     });
 
     // Allow Lambda access to database via proxy
@@ -937,6 +942,20 @@ function parseOptionalPort(value: string | undefined): number | undefined {
     throw new Error(`Invalid port value: ${value}`);
   }
   return parsed;
+}
+
+function parseOptionalBoolean(value: string | undefined): boolean | undefined {
+  if (!value) {
+    return undefined;
+  }
+  const normalized = value.trim().toLowerCase();
+  if (["1", "true", "yes", "y"].includes(normalized)) {
+    return true;
+  }
+  if (["0", "false", "no", "n"].includes(normalized)) {
+    return false;
+  }
+  throw new Error(`Invalid boolean value: ${value}`);
 }
 
 function hashFile(filePath: string): string {

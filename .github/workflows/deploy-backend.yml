@@ -205,6 +205,11 @@ jobs:
           stack_secret_id=$(normalize_value "$stack_secret_id")
           stack_lambda_sg_id=$(normalize_value "$stack_lambda_sg_id")
           stack_migration_sg_id=$(normalize_value "$stack_migration_sg_id")
+          if [ -n "$stack_db_cluster_id" ]; then
+            echo "SKIP_DB_CLUSTER_IMMUTABLE_UPDATES=true" >> "$GITHUB_ENV"
+          else
+            echo "SKIP_DB_CLUSTER_IMMUTABLE_UPDATES=false" >> "$GITHUB_ENV"
+          fi
           existing_secret_name_set="false"
           existing_secret_arn_set="false"
 
