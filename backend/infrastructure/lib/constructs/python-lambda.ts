@@ -227,6 +227,21 @@ export class PythonLambda extends Construct {
       code:
         props.code ??
         lambda.Code.fromAsset(path.join(__dirname, "../../../"), {
+          assetHashType: cdk.AssetHashType.SOURCE,
+          exclude: [
+            ".git/**",
+            ".venv/**",
+            ".pytest_cache/**",
+            ".ruff_cache/**",
+            ".mypy_cache/**",
+            "node_modules/**",
+            "dist/**",
+            "build/**",
+            "cdk.out/**",
+            "**/__pycache__/**",
+            "**/*.pyc",
+            "**/*.pyo",
+          ],
           bundling: {
             image: lambda.Runtime.PYTHON_3_12.bundlingImage,
             command: ["bash", "-c", copyCommands.join(" && ")],
