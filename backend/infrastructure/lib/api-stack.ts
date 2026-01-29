@@ -39,6 +39,10 @@ export class ApiStack extends cdk.Stack {
     const existingDbProxyArn = process.env.EXISTING_DB_PROXY_ARN;
     const existingDbProxyEndpoint = process.env.EXISTING_DB_PROXY_ENDPOINT;
     const existingVpcId = process.env.EXISTING_VPC_ID?.trim();
+    const existingLambdaSecurityGroupId =
+      process.env.EXISTING_LAMBDA_SECURITY_GROUP_ID;
+    const existingMigrationSecurityGroupId =
+      process.env.EXISTING_MIGRATION_SECURITY_GROUP_ID;
     const manageDbSecurityGroupRules =
       !existingDbSecurityGroupId && !existingProxySecurityGroupId;
 
@@ -53,25 +57,45 @@ export class ApiStack extends cdk.Stack {
           natGateways: 1,
         });
 
-    const lambdaSecurityGroup = new ec2.SecurityGroup(
-      this,
-      "LambdaSecurityGroup",
-      {
-        vpc,
-        allowAllOutbound: true,
-        ...(existingVpcId ? {} : { securityGroupName: name("lambda-sg") }),
-      }
-    );
+    const lambdaSecurityGroup = existingLambdaSecurityGroupId
+      ? ec2.SecurityGroup.fromSecurityGroupId(
+          this,
+          "LambdaSecurityGroup",
+          existingLambdaSecurityGroupId,
+          { mutable: false }
+        )
+      : new ec2.SecurityGroup(this, "LambdaSecurityGroup", {
+          vpc,
+          allowAllOutbound: true,
+          securityGroupName: name("lambda-sg"),
+        });
 
-    const migrationSecurityGroup = new ec2.SecurityGroup(
-      this,
-      "MigrationSecurityGroup",
-      {
-        vpc,
-        allowAllOutbound: true,
-        ...(existingVpcId ? {} : { securityGroupName: name("migration-sg") }),
-      }
-    );
+    const migrationSecurityGroup = existingMigrationSecurityGroupId
+      ? ec2.SecurityGroup.fromSecurityGroupId(
+          this,
+          "MigrationSecurityGroup",
+          existingMigrationSecurityGroupId,
+          { mutable: false }
+        )
+      : new ec2.SecurityGroup(this, "MigrationSecurityGroup", {
+          vpc,
+          allowAllOutbound: true,
+          securityGroupName: name("migration-sg"),
+        });
+
+    const lambdaSecurityGroupResource =
+      lambdaSecurityGroup.node.defaultChild as ec2.CfnSecurityGroup | undefined;
+    if (lambdaSecurityGroupResource) {
+      lambdaSecurityGroupResource.cfnOptions.updateReplacePolicy =
+        cdk.CfnDeletionPolicy.RETAIN;
+    }
+    const migrationSecurityGroupResource =
+      migrationSecurityGroup.node
+        .defaultChild as ec2.CfnSecurityGroup | undefined;
+    if (migrationSecurityGroupResource) {
+      migrationSecurityGroupResource.cfnOptions.updateReplacePolicy =
+        cdk.CfnDeletionPolicy.RETAIN;
+    }
 
     // ---------------------------------------------------------------------
     // Database (Aurora PostgreSQL Serverless v2 + RDS Proxy)

@@ -168,6 +168,8 @@ jobs:
           stack_db_cluster_id=""
           stack_db_proxy_name=""
           stack_secret_id=""
+          stack_lambda_sg_id=""
+          stack_migration_sg_id=""
 
           if aws cloudformation describe-stacks --stack-name "$stack_name" \
             >/dev/null 2>&1; then
@@ -187,12 +189,22 @@ jobs:
               --stack-name "$stack_name" \
               --query "StackResourceSummaries[?ResourceType=='AWS::SecretsManager::Secret' && contains(LogicalResourceId, 'DBCredentialsSecret')].PhysicalResourceId | [0]" \
               --output text 2>/dev/null || true)
+            stack_lambda_sg_id=$(aws cloudformation list-stack-resources \
+              --stack-name "$stack_name" \
+              --query "StackResourceSummaries[?LogicalResourceId=='LambdaSecurityGroup'].PhysicalResourceId | [0]" \
+              --output text 2>/dev/null || true)
+            stack_migration_sg_id=$(aws cloudformation list-stack-resources \
+              --stack-name "$stack_name" \
+              --query "StackResourceSummaries[?LogicalResourceId=='MigrationSecurityGroup'].PhysicalResourceId | [0]" \
+              --output text 2>/dev/null || true)
           fi
 
           stack_vpc_id=$(normalize_value "$stack_vpc_id")
           stack_db_cluster_id=$(normalize_value "$stack_db_cluster_id")
           stack_db_proxy_name=$(normalize_value "$stack_db_proxy_name")
           stack_secret_id=$(normalize_value "$stack_secret_id")
+          stack_lambda_sg_id=$(normalize_value "$stack_lambda_sg_id")
+          stack_migration_sg_id=$(normalize_value "$stack_migration_sg_id")
           existing_secret_name_set="false"
           existing_secret_arn_set="false"
 
@@ -316,9 +328,10 @@ jobs:
             fi
           fi
 
+          selected_vpc_id=""
           if [ -z "$stack_vpc_id" ]; then
             if [ -n "$cluster_vpc_id" ]; then
-              echo "EXISTING_VPC_ID=$cluster_vpc_id" >> "$GITHUB_ENV"
+              selected_vpc_id="$cluster_vpc_id"
             else
               vpc_id=$(aws ec2 describe-vpcs \
                 --filters "Name=tag:Name,Values=$vpc_name" \
@@ -326,8 +339,37 @@ jobs:
                 --output text 2>/dev/null || true)
               vpc_id=$(normalize_value "$vpc_id")
               if [ -n "$vpc_id" ]; then
-                echo "EXISTING_VPC_ID=$vpc_id" >> "$GITHUB_ENV"
+                selected_vpc_id="$vpc_id"
               fi
+            fi
+            if [ -n "$selected_vpc_id" ]; then
+              echo "EXISTING_VPC_ID=$selected_vpc_id" >> "$GITHUB_ENV"
+            fi
+          fi
+
+          if [ -z "$stack_lambda_sg_id" ] && [ -n "$selected_vpc_id" ]; then
+            lambda_sg_id=$(aws ec2 describe-security-groups \
+              --filters "Name=vpc-id,Values=$selected_vpc_id" \
+                "Name=group-name,Values=${resource_prefix}-lambda-sg" \
+              --query "SecurityGroups[0].GroupId" \
+              --output text 2>/dev/null || true)
+            lambda_sg_id=$(normalize_value "$lambda_sg_id")
+            if [ -n "$lambda_sg_id" ]; then
+              echo "EXISTING_LAMBDA_SECURITY_GROUP_ID=$lambda_sg_id" \
+                >> "$GITHUB_ENV"
+            fi
+          fi
+
+          if [ -z "$stack_migration_sg_id" ] && [ -n "$selected_vpc_id" ]; then
+            migration_sg_id=$(aws ec2 describe-security-groups \
+              --filters "Name=vpc-id,Values=$selected_vpc_id" \
+                "Name=group-name,Values=${resource_prefix}-migration-sg" \
+              --query "SecurityGroups[0].GroupId" \
+              --output text 2>/dev/null || true)
+            migration_sg_id=$(normalize_value "$migration_sg_id")
+            if [ -n "$migration_sg_id" ]; then
+              echo "EXISTING_MIGRATION_SECURITY_GROUP_ID=$migration_sg_id" \
+                >> "$GITHUB_ENV"
             fi
           fi
 
@@ -436,6 +478,8 @@ jobs:
           EXISTING_DB_CREDENTIALS_SECRET_ARN: ${{ env.EXISTING_DB_CREDENTIALS_SECRET_ARN }}
           EXISTING_DB_SECURITY_GROUP_ID: ${{ env.EXISTING_DB_SECURITY_GROUP_ID }}
           EXISTING_PROXY_SECURITY_GROUP_ID: ${{ env.EXISTING_PROXY_SECURITY_GROUP_ID }}
+          EXISTING_LAMBDA_SECURITY_GROUP_ID: ${{ env.EXISTING_LAMBDA_SECURITY_GROUP_ID }}
+          EXISTING_MIGRATION_SECURITY_GROUP_ID: ${{ env.EXISTING_MIGRATION_SECURITY_GROUP_ID }}
           EXISTING_DB_CLUSTER_IDENTIFIER: ${{ env.EXISTING_DB_CLUSTER_IDENTIFIER }}
           EXISTING_DB_CLUSTER_ENDPOINT: ${{ env.EXISTING_DB_CLUSTER_ENDPOINT }}
           EXISTING_DB_CLUSTER_READER_ENDPOINT: ${{ env.EXISTING_DB_CLUSTER_READER_ENDPOINT }}
