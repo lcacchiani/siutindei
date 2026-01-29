@@ -476,6 +476,8 @@ export class ApiStack extends cdk.Stack {
     migrationFunction.node.addDependency(database.cluster);
     migrationFunction.addPermission("MigrationInvokePermission", {
       principal: new iam.ServicePrincipal("cloudformation.amazonaws.com"),
+      sourceArn: cdk.Stack.of(this).stackId,
+      sourceAccount: cdk.Stack.of(this).account,
     });
 
     // Auth Lambda triggers
@@ -826,6 +828,8 @@ export class ApiStack extends cdk.Stack {
       "AdminBootstrapInvokePermission",
       {
         principal: new iam.ServicePrincipal("cloudformation.amazonaws.com"),
+        sourceArn: cdk.Stack.of(this).stackId,
+        sourceAccount: cdk.Stack.of(this).account,
       }
     );
 
