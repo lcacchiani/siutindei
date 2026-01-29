@@ -60,14 +60,6 @@ jobs:
             echo "Missing backend/infrastructure/package.json"
           fi
 
-      - name: Build local Lambda bundle
-        run: |
-          if [ -f "backend/scripts/build_lambda_bundle.py" ]; then
-            python3 backend/scripts/build_lambda_bundle.py
-          else
-            echo "Missing backend/scripts/build_lambda_bundle.py"
-          fi
-
       - name: Bootstrap CDK
         run: |
           if [ -f "backend/infrastructure/package.json" ]; then
