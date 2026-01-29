@@ -33,8 +33,7 @@ def send_cfn_response(
     response_body = {
         "Status": status,
         "Reason": _sanitize_reason(reason, context),
-        "PhysicalResourceId": physical_resource_id
-        or _default_physical_id(context),
+        "PhysicalResourceId": physical_resource_id or _default_physical_id(context),
         "StackId": event.get("StackId", ""),
         "RequestId": event.get("RequestId", ""),
         "LogicalResourceId": event.get("LogicalResourceId", ""),
@@ -85,9 +84,7 @@ def _sanitize_reason(reason: str | None, context: Any) -> str:
         log_stream = ""
         if context:
             log_stream = getattr(context, "log_stream_name", "")
-        safe_reason = (
-            f"See CloudWatch Logs: {log_stream}" if log_stream else "See logs"
-        )
+        safe_reason = f"See CloudWatch Logs: {log_stream}" if log_stream else "See logs"
     return safe_reason[:256]
 
 
