@@ -1,6 +1,7 @@
 import * as cdk from "aws-cdk-lib";
 import * as ec2 from "aws-cdk-lib/aws-ec2";
-import * as logs from "aws-cdk-lib/aws-logs";
+import * as iam from "aws-cdk-lib/aws-iam";
+import * as kms from "aws-cdk-lib/aws-kms";
 import * as rds from "aws-cdk-lib/aws-rds";
 import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
 import { Construct } from "constructs";
@@ -167,6 +168,14 @@ export class DatabaseConstruct extends Construct {
       );
     }
 
+    const needsManagedSecret =
+      !dbCredentialsSecretArn && !dbCredentialsSecretName;
+    const secretEncryptionKey = needsManagedSecret
+      ? new kms.Key(this, "DatabaseSecretKey", {
+          enableKeyRotation: true,
+        })
+      : undefined;
+
     // Database credentials secret
     const dbCredentialsSecret = dbCredentialsSecretArn
       ? secretsmanager.Secret.fromSecretCompleteArn(
@@ -188,6 +197,9 @@ export class DatabaseConstruct extends Construct {
               excludePunctuation: true,
               includeSpace: false,
             },
+            ...(secretEncryptionKey
+              ? { encryptionKey: secretEncryptionKey }
+              : {}),
           });
     this.secret = dbCredentialsSecret;
 
@@ -206,20 +218,31 @@ export class DatabaseConstruct extends Construct {
         }
       );
     } else {
+      const monitoringRole = new iam.Role(this, "DatabaseMonitoringRole", {
+        assumedBy: new iam.ServicePrincipal("monitoring.rds.amazonaws.com"),
+        managedPolicies: [
+          iam.ManagedPolicy.fromAwsManagedPolicyName(
+            "service-role/AmazonRDSEnhancedMonitoringRole"
+          ),
+        ],
+      });
+      const writerInstance = rds.ClusterInstance.serverlessV2("writer", {
+        instanceIdentifier: name("db-writer"),
+        monitoringInterval: cdk.Duration.minutes(1),
+        monitoringRole,
+      });
       this.cluster = new rds.DatabaseCluster(this, "Cluster", {
         engine: rds.DatabaseClusterEngine.auroraPostgres({
           version: rds.AuroraPostgresEngineVersion.VER_16_4,
         }),
         cloudwatchLogsExports: ["postgresql"],
-        cloudwatchLogsRetention: logs.RetentionDays.ONE_WEEK,
         credentials: rds.Credentials.fromSecret(dbCredentialsSecret),
         defaultDatabaseName: props.databaseName ?? "siutindei",
-        iamAuthentication: false,
+        iamAuthentication: true,
+        storageEncrypted: true,
         serverlessV2MinCapacity: props.minCapacity ?? 0.5,
         serverlessV2MaxCapacity: props.maxCapacity ?? 2,
-        writer: rds.ClusterInstance.serverlessV2("writer", {
-          instanceIdentifier: name("db-writer"),
-        }),
+        writer: writerInstance,
         clusterIdentifier: name("db-cluster"),
         vpc: props.vpc,
         vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },

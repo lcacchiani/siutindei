@@ -1,7 +1,6 @@
 import * as cdk from "aws-cdk-lib";
 import * as apigateway from "aws-cdk-lib/aws-apigateway";
 import * as cognito from "aws-cdk-lib/aws-cognito";
-import * as customresources from "aws-cdk-lib/custom-resources";
 import * as ec2 from "aws-cdk-lib/aws-ec2";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as logs from "aws-cdk-lib/aws-logs";
@@ -467,6 +466,9 @@ export class ApiStack extends cdk.Stack {
     database.grantSecretRead(migrationFunction);
     database.grantConnect(migrationFunction, "postgres");
     migrationFunction.node.addDependency(database.cluster);
+    migrationFunction.addPermission("MigrationInvokePermission", {
+      principal: new iam.ServicePrincipal("cloudformation.amazonaws.com"),
+    });
 
     // Auth Lambda triggers
     const preSignUpFunction = createPythonFunction("AuthPreSignUpFunction", {
@@ -500,10 +502,15 @@ export class ApiStack extends cdk.Stack {
       }
     );
 
+    const sesIdentityArn = cdk.Stack.of(this).formatArn({
+      service: "ses",
+      resource: "identity",
+      resourceName: authEmailFromAddress.valueAsString,
+    });
     createAuthChallengeFunction.addToRolePolicy(
       new iam.PolicyStatement({
         actions: ["ses:SendEmail", "ses:SendRawEmail"],
-        resources: ["*"],
+        resources: [sesIdentityArn],
       })
     );
 
@@ -597,14 +604,6 @@ export class ApiStack extends cdk.Stack {
     });
 
     const apiAccessLogGroupName = name("api-access-logs");
-    const apiAccessLogRetention = new logs.LogRetention(
-      this,
-      "ApiAccessLogRetention",
-      {
-        logGroupName: apiAccessLogGroupName,
-        retention: logs.RetentionDays.ONE_WEEK,
-      }
-    );
     const apiAccessLogGroup = logs.LogGroup.fromLogGroupName(
       this,
       "ApiAccessLogs",
@@ -651,13 +650,6 @@ export class ApiStack extends cdk.Stack {
         },
       },
     });
-    api.deploymentStage.node.addDependency(apiAccessLogRetention);
-
-    new logs.LogRetention(this, "ApiExecutionLogRetention", {
-      logGroupName: `API-Gateway-Execution-Logs_${api.restApiId}/${api.deploymentStage.stageName}`,
-      retention: logs.RetentionDays.ONE_WEEK,
-    });
-
     const authorizer = new apigateway.CognitoUserPoolsAuthorizer(
       this,
       "SiutindeiAuthorizer",
@@ -822,6 +814,12 @@ export class ApiStack extends cdk.Stack {
         timeout: cdk.Duration.seconds(30),
       }
     );
+    adminBootstrapFunction.addPermission(
+      "AdminBootstrapInvokePermission",
+      {
+        principal: new iam.ServicePrincipal("cloudformation.amazonaws.com"),
+      }
+    );
 
     adminBootstrapFunction.addToRolePolicy(
       new iam.PolicyStatement({
@@ -835,19 +833,11 @@ export class ApiStack extends cdk.Stack {
       })
     );
 
-    const adminBootstrapProvider = new customresources.Provider(
-      this,
-      "AdminBootstrapProvider",
-      {
-        onEventHandler: adminBootstrapFunction,
-      }
-    );
-
     const adminBootstrapResource = new cdk.CustomResource(
       this,
       "AdminBootstrapResource",
       {
-        serviceToken: adminBootstrapProvider.serviceToken,
+        serviceToken: adminBootstrapFunction.functionArn,
         properties: {
           UserPoolId: userPool.userPoolId,
           Email: adminBootstrapEmail.valueAsString,
@@ -868,16 +858,8 @@ export class ApiStack extends cdk.Stack {
     );
     const seedHash = hashFile(path.join(__dirname, "../../db/seed/seed_data.sql"));
 
-    const migrationProvider = new customresources.Provider(
-      this,
-      "MigrationProvider",
-      {
-        onEventHandler: migrationFunction,
-      }
-    );
-
     const migrateResource = new cdk.CustomResource(this, "RunMigrations", {
-      serviceToken: migrationProvider.serviceToken,
+      serviceToken: migrationFunction.functionArn,
       properties: {
         MigrationsHash: migrationsHash,
         SeedHash: seedHash,

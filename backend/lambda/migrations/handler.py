@@ -21,6 +21,7 @@ from alembic.config import Config
 from sqlalchemy.engine import make_url
 
 from app.db.connection import get_database_url
+from app.utils.cfn_response import send_cfn_response
 from app.utils.logging import configure_logging, get_logger
 
 configure_logging()
@@ -31,28 +32,50 @@ def lambda_handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
     """Handle CloudFormation custom resource events for migrations."""
 
     request_type = event.get("RequestType")
+    physical_id = str(event.get("PhysicalResourceId") or "migrations")
+
     if request_type == "Delete":
         logger.info("Delete request received, skipping migrations")
-        return {"PhysicalResourceId": "migrations", "Data": {"status": "skipped"}}
+        data = {"status": "skipped"}
+        send_cfn_response(event, context, "SUCCESS", data, physical_id)
+        return {"PhysicalResourceId": physical_id, "Data": data}
 
-    database_url = get_database_url()
+    try:
+        database_url = get_database_url()
 
-    # SECURITY: Log connection details without password for debugging
-    parsed = urlparse(database_url)
-    logger.info(
-        f"Connecting to database: host={parsed.hostname}, port={parsed.port}, "
-        f"user={parsed.username}, database={parsed.path.lstrip('/')}"
-    )
+        # SECURITY: Log connection details without password for debugging
+        parsed = urlparse(database_url)
+        logger.info(
+            f"Connecting to database: host={parsed.hostname}, port={parsed.port}, "
+            f"user={parsed.username}, database={parsed.path.lstrip('/')}"
+        )
 
-    _run_with_retry(_run_migrations, database_url)
+        _run_with_retry(_run_migrations, database_url)
 
-    run_seed = _truthy(event.get("ResourceProperties", {}).get("RunSeed"))
-    if run_seed:
-        seed_path = os.getenv("SEED_FILE_PATH", "/var/task/db/seed/seed_data.sql")
-        _run_with_retry(_run_seed, database_url, seed_path)
+        run_seed = _truthy(event.get("ResourceProperties", {}).get("RunSeed"))
+        if run_seed:
+            seed_path = os.getenv(
+                "SEED_FILE_PATH",
+                "/var/task/db/seed/seed_data.sql",
+            )
+            _run_with_retry(_run_seed, database_url, seed_path)
 
-    logger.info("Migrations completed successfully")
-    return {"PhysicalResourceId": "migrations", "Data": {"status": "ok"}}
+        logger.info("Migrations completed successfully")
+        data = {"status": "ok"}
+        send_cfn_response(event, context, "SUCCESS", data, physical_id)
+        return {"PhysicalResourceId": physical_id, "Data": data}
+    except Exception:
+        logger.error("Migrations failed", exc_info=True)
+        data = {"status": "failed"}
+        send_cfn_response(
+            event,
+            context,
+            "FAILED",
+            data,
+            physical_id,
+            "Migrations failed",
+        )
+        return {"PhysicalResourceId": physical_id, "Data": data}
 
 
 def _run_migrations(database_url: str) -> None:
