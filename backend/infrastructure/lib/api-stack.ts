@@ -22,6 +22,8 @@ export class ApiStack extends cdk.Stack {
     const name = (suffix: string) => `${resourcePrefix}-${suffix}`;
     const existingDbCredentialsSecretName =
       process.env.EXISTING_DB_CREDENTIALS_SECRET_NAME;
+    const existingDbCredentialsSecretArn =
+      process.env.EXISTING_DB_CREDENTIALS_SECRET_ARN;
     const existingDbSecurityGroupId = process.env.EXISTING_DB_SECURITY_GROUP_ID;
     const existingProxySecurityGroupId =
       process.env.EXISTING_PROXY_SECURITY_GROUP_ID;
@@ -37,6 +39,8 @@ export class ApiStack extends cdk.Stack {
     const existingDbProxyArn = process.env.EXISTING_DB_PROXY_ARN;
     const existingDbProxyEndpoint = process.env.EXISTING_DB_PROXY_ENDPOINT;
     const existingVpcId = process.env.EXISTING_VPC_ID?.trim();
+    const manageDbSecurityGroupRules =
+      !existingDbSecurityGroupId && !existingProxySecurityGroupId;
 
     // ---------------------------------------------------------------------
     // VPC and Security Groups
@@ -55,7 +59,7 @@ export class ApiStack extends cdk.Stack {
       {
         vpc,
         allowAllOutbound: true,
-        securityGroupName: name("lambda-sg"),
+        ...(existingVpcId ? {} : { securityGroupName: name("lambda-sg") }),
       }
     );
 
@@ -65,7 +69,7 @@ export class ApiStack extends cdk.Stack {
       {
         vpc,
         allowAllOutbound: true,
-        securityGroupName: name("migration-sg"),
+        ...(existingVpcId ? {} : { securityGroupName: name("migration-sg") }),
       }
     );
 
@@ -79,6 +83,7 @@ export class ApiStack extends cdk.Stack {
       maxCapacity: 2,
       databaseName: "siutindei",
       dbCredentialsSecretName: existingDbCredentialsSecretName,
+      dbCredentialsSecretArn: existingDbCredentialsSecretArn,
       dbSecurityGroupId: existingDbSecurityGroupId,
       proxySecurityGroupId: existingProxySecurityGroupId,
       dbClusterIdentifier: existingDbClusterIdentifier,
@@ -88,6 +93,7 @@ export class ApiStack extends cdk.Stack {
       dbProxyName: existingDbProxyName,
       dbProxyArn: existingDbProxyArn,
       dbProxyEndpoint: existingDbProxyEndpoint,
+      manageSecurityGroupRules: manageDbSecurityGroupRules,
     });
 
     // Allow Lambda access to database via proxy

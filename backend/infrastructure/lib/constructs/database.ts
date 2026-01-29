@@ -21,6 +21,8 @@ export interface DatabaseConstructProps {
   databaseName?: string;
   /** Existing database credentials secret name (optional). */
   dbCredentialsSecretName?: string;
+  /** Existing database credentials secret ARN (optional). */
+  dbCredentialsSecretArn?: string;
   /** Existing database security group id (optional). */
   dbSecurityGroupId?: string;
   /** Existing proxy security group id (optional). */
@@ -39,6 +41,8 @@ export interface DatabaseConstructProps {
   dbProxyArn?: string;
   /** Existing database proxy endpoint (optional). */
   dbProxyEndpoint?: string;
+  /** Manage ingress rules on security groups (optional). */
+  manageSecurityGroupRules?: boolean;
 }
 
 /**
@@ -61,6 +65,8 @@ export class DatabaseConstruct extends Construct {
   public readonly dbSecurityGroup: ec2.ISecurityGroup;
   /** Security group for the RDS Proxy. */
   public readonly proxySecurityGroup: ec2.ISecurityGroup;
+  /** Whether to manage security group ingress rules. */
+  private readonly manageSecurityGroupRules: boolean;
 
   constructor(scope: Construct, id: string, props: DatabaseConstructProps) {
     super(scope, id);
@@ -70,6 +76,7 @@ export class DatabaseConstruct extends Construct {
     const dbSecurityGroupId = props.dbSecurityGroupId?.trim();
     const proxySecurityGroupId = props.proxySecurityGroupId?.trim();
     const dbCredentialsSecretName = props.dbCredentialsSecretName?.trim();
+    const dbCredentialsSecretArn = props.dbCredentialsSecretArn?.trim();
     const dbClusterIdentifier = props.dbClusterIdentifier?.trim();
     const dbClusterEndpoint = props.dbClusterEndpoint?.trim();
     const dbClusterReaderEndpoint = props.dbClusterReaderEndpoint?.trim();
@@ -77,6 +84,7 @@ export class DatabaseConstruct extends Construct {
     const dbProxyName = props.dbProxyName?.trim();
     const dbProxyArn = props.dbProxyArn?.trim();
     const dbProxyEndpoint = props.dbProxyEndpoint?.trim();
+    this.manageSecurityGroupRules = props.manageSecurityGroupRules ?? true;
 
     const useExistingCluster = Boolean(
       dbClusterIdentifier || dbClusterEndpoint || dbClusterReaderEndpoint
@@ -91,9 +99,9 @@ export class DatabaseConstruct extends Construct {
           "Existing DB cluster requires identifier and endpoint values."
         );
       }
-      if (!dbCredentialsSecretName) {
+      if (!dbCredentialsSecretName && !dbCredentialsSecretArn) {
         throw new Error(
-          "Existing DB cluster requires DB credentials secret name."
+          "Existing DB cluster requires DB credentials secret reference."
         );
       }
       if (!dbSecurityGroupId) {
@@ -110,9 +118,9 @@ export class DatabaseConstruct extends Construct {
           "Existing DB proxy requires name, ARN, and endpoint values."
         );
       }
-      if (!dbCredentialsSecretName) {
+      if (!dbCredentialsSecretName && !dbCredentialsSecretArn) {
         throw new Error(
-          "Existing DB proxy requires DB credentials secret name."
+          "Existing DB proxy requires DB credentials secret reference."
         );
       }
       if (!proxySecurityGroupId) {
@@ -150,29 +158,37 @@ export class DatabaseConstruct extends Construct {
           description: "Security group for RDS Proxy",
         });
 
-    // Allow proxy to access database
-    this.dbSecurityGroup.addIngressRule(
-      this.proxySecurityGroup,
-      ec2.Port.tcp(5432),
-      "RDS Proxy access to Aurora"
-    );
+    if (this.manageSecurityGroupRules) {
+      // Allow proxy to access database
+      this.dbSecurityGroup.addIngressRule(
+        this.proxySecurityGroup,
+        ec2.Port.tcp(5432),
+        "RDS Proxy access to Aurora"
+      );
+    }
 
     // Database credentials secret
-    const dbCredentialsSecret = dbCredentialsSecretName
-      ? secretsmanager.Secret.fromSecretNameV2(
+    const dbCredentialsSecret = dbCredentialsSecretArn
+      ? secretsmanager.Secret.fromSecretCompleteArn(
           this,
           "DBCredentialsSecret",
-          dbCredentialsSecretName
+          dbCredentialsSecretArn
         )
-      : new secretsmanager.Secret(this, "DBCredentialsSecret", {
-          secretName: name("database-credentials"),
-          generateSecretString: {
-            secretStringTemplate: JSON.stringify({ username: "postgres" }),
-            generateStringKey: "password",
-            excludePunctuation: true,
-            includeSpace: false,
-          },
-        });
+      : dbCredentialsSecretName
+        ? secretsmanager.Secret.fromSecretNameV2(
+            this,
+            "DBCredentialsSecret",
+            dbCredentialsSecretName
+          )
+        : new secretsmanager.Secret(this, "DBCredentialsSecret", {
+            secretName: name("database-credentials"),
+            generateSecretString: {
+              secretStringTemplate: JSON.stringify({ username: "postgres" }),
+              generateStringKey: "password",
+              excludePunctuation: true,
+              includeSpace: false,
+            },
+          });
     this.secret = dbCredentialsSecret;
 
     // Aurora PostgreSQL Serverless v2 cluster
@@ -236,6 +252,9 @@ export class DatabaseConstruct extends Construct {
    * Allow a security group to access the RDS Proxy.
    */
   public allowFrom(securityGroup: ec2.ISecurityGroup, description: string): void {
+    if (!this.manageSecurityGroupRules) {
+      return;
+    }
     this.proxySecurityGroup.addIngressRule(
       securityGroup,
       ec2.Port.tcp(5432),
@@ -250,6 +269,9 @@ export class DatabaseConstruct extends Construct {
     securityGroup: ec2.ISecurityGroup,
     description: string
   ): void {
+    if (!this.manageSecurityGroupRules) {
+      return;
+    }
     this.dbSecurityGroup.addIngressRule(
       securityGroup,
       ec2.Port.tcp(5432),

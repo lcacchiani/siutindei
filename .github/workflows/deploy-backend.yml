@@ -193,12 +193,15 @@ jobs:
           stack_db_cluster_id=$(normalize_value "$stack_db_cluster_id")
           stack_db_proxy_name=$(normalize_value "$stack_db_proxy_name")
           stack_secret_id=$(normalize_value "$stack_secret_id")
+          existing_secret_name_set="false"
+          existing_secret_arn_set="false"
 
           if aws secretsmanager describe-secret --secret-id "$secret_name" \
             >/dev/null 2>&1; then
             if [ -z "$stack_secret_id" ]; then
               echo "EXISTING_DB_CREDENTIALS_SECRET_NAME=$secret_name" \
                 >> "$GITHUB_ENV"
+              existing_secret_name_set="true"
             fi
           fi
 
@@ -220,6 +223,18 @@ jobs:
               --query "DBClusters[0].Port" \
               --output text 2>/dev/null || true)
             cluster_port=$(normalize_value "$cluster_port")
+            cluster_secret_arn=$(aws rds describe-db-clusters \
+              --db-cluster-identifier "$cluster_identifier" \
+              --query "DBClusters[0].MasterUserSecret.SecretArn" \
+              --output text 2>/dev/null || true)
+            cluster_secret_arn=$(normalize_value "$cluster_secret_arn")
+            if [ -z "$stack_secret_id" ] && \
+              [ "$existing_secret_name_set" != "true" ] && \
+              [ -n "$cluster_secret_arn" ]; then
+              echo "EXISTING_DB_CREDENTIALS_SECRET_ARN=$cluster_secret_arn" \
+                >> "$GITHUB_ENV"
+              existing_secret_arn_set="true"
+            fi
             cluster_sg_id=$(aws rds describe-db-clusters \
               --db-cluster-identifier "$cluster_identifier" \
               --query "DBClusters[0].VpcSecurityGroups[0].VpcSecurityGroupId" \
@@ -274,6 +289,19 @@ jobs:
               --query "DBProxies[0].VpcSecurityGroupIds[0]" \
               --output text 2>/dev/null || true)
             proxy_sg_id=$(normalize_value "$proxy_sg_id")
+            proxy_secret_arn=$(aws rds describe-db-proxies \
+              --db-proxy-name "$proxy_name" \
+              --query "DBProxies[0].Auth[0].SecretArn" \
+              --output text 2>/dev/null || true)
+            proxy_secret_arn=$(normalize_value "$proxy_secret_arn")
+            if [ -z "$stack_secret_id" ] && \
+              [ "$existing_secret_name_set" != "true" ] && \
+              [ "$existing_secret_arn_set" != "true" ] && \
+              [ -n "$proxy_secret_arn" ]; then
+              echo "EXISTING_DB_CREDENTIALS_SECRET_ARN=$proxy_secret_arn" \
+                >> "$GITHUB_ENV"
+              existing_secret_arn_set="true"
+            fi
             if [ -n "$proxy_sg_id" ]; then
               echo "EXISTING_PROXY_SECURITY_GROUP_ID=$proxy_sg_id" \
                 >> "$GITHUB_ENV"
@@ -405,6 +433,7 @@ jobs:
           CDK_BOOTSTRAP_QUALIFIER: ${{ vars.CDK_BOOTSTRAP_QUALIFIER }}
           DESTROY_BEFORE_DEPLOY: ${{ github.event.inputs.destroy_before_deploy || 'false' }}
           EXISTING_DB_CREDENTIALS_SECRET_NAME: ${{ env.EXISTING_DB_CREDENTIALS_SECRET_NAME }}
+          EXISTING_DB_CREDENTIALS_SECRET_ARN: ${{ env.EXISTING_DB_CREDENTIALS_SECRET_ARN }}
           EXISTING_DB_SECURITY_GROUP_ID: ${{ env.EXISTING_DB_SECURITY_GROUP_ID }}
           EXISTING_PROXY_SECURITY_GROUP_ID: ${{ env.EXISTING_PROXY_SECURITY_GROUP_ID }}
           EXISTING_DB_CLUSTER_IDENTIFIER: ${{ env.EXISTING_DB_CLUSTER_IDENTIFIER }}
