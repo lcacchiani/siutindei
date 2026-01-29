@@ -246,7 +246,8 @@ export class DatabaseConstruct extends Construct {
         vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
         securityGroups: [this.dbSecurityGroup],
       });
-      const writerCfn = writerInstance.node.defaultChild as rds.CfnDBInstance;
+      const writerConstruct = writerInstance as Construct;
+      const writerCfn = writerConstruct.node.defaultChild as rds.CfnDBInstance;
       writerCfn.monitoringInterval = 60;
       writerCfn.monitoringRoleArn = monitoringRole.roleArn;
     }
