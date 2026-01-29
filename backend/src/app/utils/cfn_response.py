@@ -6,6 +6,7 @@ import json
 from typing import Any
 from typing import Mapping
 from urllib.error import URLError
+from urllib.parse import urlparse
 from urllib.request import Request
 from urllib.request import urlopen
 
@@ -27,6 +28,7 @@ def send_cfn_response(
     response_url = str(event.get("ResponseURL", "")).strip()
     if not response_url:
         raise ValueError("Missing ResponseURL in CloudFormation event")
+    _validate_response_url(response_url)
 
     response_body = {
         "Status": status,
@@ -48,7 +50,7 @@ def send_cfn_response(
     request.add_header("Content-Length", str(len(body_bytes)))
 
     try:
-        with urlopen(request) as response:
+        with urlopen(request) as response:  # nosec B310
             logger.info(
                 "Sent CloudFormation response",
                 extra={
@@ -87,3 +89,15 @@ def _sanitize_reason(reason: str | None, context: Any) -> str:
             f"See CloudWatch Logs: {log_stream}" if log_stream else "See logs"
         )
     return safe_reason[:256]
+
+
+def _validate_response_url(response_url: str) -> None:
+    parsed = urlparse(response_url)
+    if parsed.scheme != "https":
+        raise ValueError("CloudFormation ResponseURL must use https")
+    hostname = parsed.hostname or ""
+    if not hostname:
+        raise ValueError("CloudFormation ResponseURL is missing hostname")
+    allowed_suffixes = (".amazonaws.com", ".amazonaws.com.cn")
+    if not hostname.endswith(allowed_suffixes):
+        raise ValueError("CloudFormation ResponseURL hostname is invalid")
