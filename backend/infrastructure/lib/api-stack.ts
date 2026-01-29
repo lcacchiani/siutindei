@@ -398,7 +398,7 @@ export class ApiStack extends cdk.Stack {
         handler: string;
         environment?: Record<string, string>;
         timeout?: cdk.Duration;
-        extraCopyCommands?: string[];
+        extraCopyPaths?: string[];
         securityGroups?: ec2.ISecurityGroup[];
         memorySize?: number;
       }
@@ -407,7 +407,7 @@ export class ApiStack extends cdk.Stack {
         handler: props.handler,
         environment: props.environment,
         timeout: props.timeout,
-        extraCopyCommands: props.extraCopyCommands,
+        extraCopyPaths: props.extraCopyPaths,
         securityGroups: props.securityGroups ?? [lambdaSecurityGroup],
         memorySize: props.memorySize,
       });
@@ -460,7 +460,7 @@ export class ApiStack extends cdk.Stack {
       handler: "lambda/migrations/handler.lambda_handler",
       timeout: cdk.Duration.minutes(5),
       securityGroups: [migrationSecurityGroup],
-      extraCopyCommands: ["cp -au db /asset-output/db"],
+      extraCopyPaths: ["db"],
       environment: {
         DATABASE_SECRET_ARN: database.secret?.secretArn ?? "",
         DATABASE_NAME: "siutindei",

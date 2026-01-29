@@ -7,6 +7,8 @@ their primary responsibilities.
 
 - Runtime: Python 3.12.
 - Packaging: deterministic bundling (no bytecode files, repeatable output).
+- Local bundling uses `backend/scripts/build_lambda_bundle.py` before
+  `cdk synth/deploy` (CI runs this step).
 
 ## API Gateway Lambdas
 

@@ -4,6 +4,7 @@ import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as kms from "aws-cdk-lib/aws-kms";
 import * as sqs from "aws-cdk-lib/aws-sqs";
 import { Construct } from "constructs";
+import * as fs from "fs";
 import * as path from "path";
 
 /**
@@ -26,8 +27,8 @@ export interface PythonLambdaProps {
   vpc?: ec2.IVpc;
   /** Security groups (required if vpc is provided). */
   securityGroups?: ec2.ISecurityGroup[];
-  /** Additional bundling commands. */
-  extraCopyCommands?: string[];
+  /** Extra paths (relative to backend root) to copy. */
+  extraCopyPaths?: string[];
   /** Custom code asset (overrides default bundling). */
   code?: lambda.Code;
   /** Reserved concurrency limit. */
@@ -53,6 +54,9 @@ export class PythonLambda extends Construct {
   constructor(scope: Construct, id: string, props: PythonLambdaProps) {
     super(scope, id);
 
+    const sourceRoot = path.join(__dirname, "../../../");
+    const extraCopyPaths = normalizeExtraCopyPaths(props.extraCopyPaths);
+    const localBundleBase = path.join(sourceRoot, ".lambda-build", "base");
     const cleanupCommands = [
       "find /asset-output -type d -name __pycache__ -prune -exec rm -rf {} +",
       'find /asset-output -type f -name "*.pyc" -delete',
@@ -65,9 +69,54 @@ export class PythonLambda extends Construct {
         "-t /asset-output --no-compile",
       "cp -au lambda /asset-output/lambda",
       "cp -au src /asset-output/src",
-      ...(props.extraCopyCommands ?? []),
+      ...extraCopyPaths.map(
+        (extraPath) => `cp -au "${extraPath}" "/asset-output/${extraPath}"`
+      ),
       ...cleanupCommands,
     ];
+
+    function normalizeExtraCopyPaths(
+      paths: string[] | undefined
+    ): string[] {
+      const normalized: string[] = [];
+      for (const extraPath of paths ?? []) {
+        const trimmed = extraPath.trim();
+        if (!trimmed) {
+          continue;
+        }
+        if (path.isAbsolute(trimmed)) {
+          throw new Error("Extra copy paths must be relative.");
+        }
+        const sanitized = trimmed.replace(/^(\.\/)+/, "");
+        if (sanitized.startsWith("..")) {
+          throw new Error("Extra copy paths must stay under backend root.");
+        }
+        if (!/^[a-zA-Z0-9._/-]+$/.test(sanitized)) {
+          throw new Error("Extra copy paths contain invalid characters.");
+        }
+        normalized.push(sanitized);
+      }
+      return normalized;
+    }
+
+    function tryLocalBundle(outputDir: string): boolean {
+      if (!fs.existsSync(localBundleBase)) {
+        throw new Error(
+          "Local Lambda bundle missing. Run `python3 " +
+            "backend/scripts/build_lambda_bundle.py` first."
+        );
+      }
+      fs.cpSync(localBundleBase, outputDir, { recursive: true });
+      for (const extraPath of extraCopyPaths) {
+        const sourcePath = path.join(sourceRoot, extraPath);
+        if (!fs.existsSync(sourcePath)) {
+          throw new Error(`Missing extra bundle path: ${extraPath}`);
+        }
+        const targetPath = path.join(outputDir, extraPath);
+        fs.cpSync(sourcePath, targetPath, { recursive: true });
+      }
+      return true;
+    }
 
     const environmentEncryptionKey =
       props.environmentEncryptionKey ??
@@ -114,6 +163,11 @@ export class PythonLambda extends Construct {
               PYTHONUSERBASE: "/tmp/.local",
               PYTHONDONTWRITEBYTECODE: "1",
               PYTHONHASHSEED: "0",
+            },
+            local: {
+              tryBundle(outputDir: string) {
+                return tryLocalBundle(outputDir);
+              },
             },
           },
         }),

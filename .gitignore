@@ -194,6 +194,9 @@ node_modules/
 # CDK
 **/cdk.out/
 
+# Local Lambda bundling
+backend/.lambda-build/
+
 # Allow CDK source under backend/infrastructure
 !backend/infrastructure/lib/
 !backend/infrastructure/lib/**
