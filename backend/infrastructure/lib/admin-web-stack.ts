@@ -62,6 +62,13 @@ export class AdminWebStack extends cdk.Stack {
       certificateArn.valueAsString
     );
 
+    const origin = origins.S3BucketOrigin.withOriginAccessIdentity(
+      this.bucket,
+      {
+        originAccessIdentity,
+      }
+    );
+
     this.distribution = new cloudfront.Distribution(
       this,
       "AdminWebDistribution",
@@ -70,9 +77,7 @@ export class AdminWebStack extends cdk.Stack {
         domainNames: [domainName.valueAsString],
         certificate,
         defaultBehavior: {
-          origin: new origins.S3BucketOrigin(this.bucket, {
-            originAccessIdentity,
-          }),
+          origin,
           viewerProtocolPolicy:
             cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
           allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD_OPTIONS,
