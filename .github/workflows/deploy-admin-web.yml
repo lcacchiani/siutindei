@@ -39,9 +39,21 @@ jobs:
         run: npm ci
         working-directory: apps/admin_web
 
+      - name: Restore Next.js build cache
+        uses: actions/cache@v4
+        with:
+          path: apps/admin_web/.next/cache
+          key: ${{ runner.os }}-nextjs-${{ hashFiles('apps/admin_web/package-lock.json') }}
+          restore-keys: ${{ runner.os }}-nextjs-
+
       - name: Build admin web
         run: npm run build
         working-directory: apps/admin_web
+        env:
+          NEXT_PUBLIC_API_BASE_URL: ${{ vars.NEXT_PUBLIC_API_BASE_URL }}
+          NEXT_PUBLIC_COGNITO_DOMAIN: ${{ vars.NEXT_PUBLIC_COGNITO_DOMAIN }}
+          NEXT_PUBLIC_COGNITO_CLIENT_ID: ${{ vars.NEXT_PUBLIC_COGNITO_CLIENT_ID }}
+          NEXT_TELEMETRY_DISABLED: "1"
 
       - name: Configure AWS credentials
         if: ${{ vars.AWS_ACCOUNT_ID != '' && vars.AWS_REGION != '' }}
