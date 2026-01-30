@@ -53,6 +53,7 @@ jobs:
           NEXT_PUBLIC_API_BASE_URL: ${{ vars.NEXT_PUBLIC_API_BASE_URL }}
           NEXT_PUBLIC_COGNITO_DOMAIN: ${{ vars.NEXT_PUBLIC_COGNITO_DOMAIN }}
           NEXT_PUBLIC_COGNITO_CLIENT_ID: ${{ vars.NEXT_PUBLIC_COGNITO_CLIENT_ID }}
+          NEXT_TELEMETRY_DISABLED: "1"
 
       - name: Configure AWS credentials
         if: ${{ vars.AWS_ACCOUNT_ID != '' && vars.AWS_REGION != '' }}
