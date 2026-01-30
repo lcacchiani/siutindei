@@ -1,6 +1,10 @@
-'use client';
+import { useMemo, useState } from 'react';
 
-import { useEffect, useState } from 'react';
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQueryClient,
+} from '@tanstack/react-query';
 
 import {
   ApiError,
@@ -23,38 +27,21 @@ const emptyForm = {
 };
 
 export function OrganizationsPanel() {
-  const [items, setItems] = useState<Organization[]>([]);
-  const [nextCursor, setNextCursor] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
+  const queryClient = useQueryClient();
   const [error, setError] = useState('');
   const [formState, setFormState] = useState(emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  const loadItems = async (cursor?: string) => {
-    setIsLoading(true);
-    setError('');
-    try {
-      const response = await listResource<Organization>(
-        'organizations',
-        cursor
-      );
-      setItems((prev) =>
-        cursor ? [...prev, ...response.items] : response.items
-      );
-      setNextCursor(response.next_cursor ?? null);
-    } catch (err) {
-      const message =
-        err instanceof ApiError ? err.message : 'Failed to load organizations.';
-      setError(message);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const organizationsQuery = useInfiniteQuery({
+    queryKey: ['organizations'],
+    queryFn: ({ pageParam }) =>
+      listResource<Organization>('organizations', pageParam ?? undefined),
+    getNextPageParam: (lastPage) => lastPage.next_cursor ?? undefined,
+  });
 
-  useEffect(() => {
-    loadItems();
-  }, []);
+  const items = useMemo(() => {
+    return organizationsQuery.data?.pages.flatMap((page) => page.items) ?? [];
+  }, [organizationsQuery.data]);
 
   const resetForm = () => {
     setFormState(emptyForm);
@@ -66,37 +53,12 @@ export function OrganizationsPanel() {
       setError('Name is required.');
       return;
     }
-    setIsSaving(true);
     setError('');
-    try {
-      const payload = {
-        name: formState.name.trim(),
-        description: formState.description.trim() || null,
-      };
-      if (editingId) {
-        const updated = await updateResource<typeof payload, Organization>(
-          'organizations',
-          editingId,
-          payload
-        );
-        setItems((prev) =>
-          prev.map((item) => (item.id === editingId ? updated : item))
-        );
-      } else {
-        const created = await createResource<typeof payload, Organization>(
-          'organizations',
-          payload
-        );
-        setItems((prev) => [created, ...prev]);
-      }
-      resetForm();
-    } catch (err) {
-      const message =
-        err instanceof ApiError ? err.message : 'Unable to save organization.';
-      setError(message);
-    } finally {
-      setIsSaving(false);
-    }
+    const payload = {
+      name: formState.name.trim(),
+      description: formState.description.trim() || null,
+    };
+    saveMutation.mutate(payload);
   };
 
   const startEdit = (item: Organization) => {
@@ -115,39 +77,82 @@ export function OrganizationsPanel() {
       return;
     }
     setError('');
-    try {
-      await deleteResource('organizations', item.id);
-      setItems((prev) => prev.filter((entry) => entry.id !== item.id));
-      if (editingId === item.id) {
+    deleteMutation.mutate(item.id);
+  };
+
+  const saveMutation = useMutation({
+    mutationFn: async (payload: {
+      name: string;
+      description: string | null;
+    }) => {
+      if (editingId) {
+        return updateResource<typeof payload, Organization>(
+          'organizations',
+          editingId,
+          payload
+        );
+      }
+      return createResource<typeof payload, Organization>(
+        'organizations',
+        payload
+      );
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['organizations'] });
+      resetForm();
+    },
+    onError: (err) => {
+      const message =
+        err instanceof ApiError ? err.message : 'Unable to save organization.';
+      setError(message);
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => deleteResource('organizations', id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['organizations'] });
+      if (editingId) {
         resetForm();
       }
-    } catch (err) {
+    },
+    onError: (err) => {
       const message =
         err instanceof ApiError
           ? err.message
           : 'Unable to delete organization.';
       setError(message);
-    }
-  };
+    },
+  });
+
+  const listError =
+    organizationsQuery.error instanceof ApiError
+      ? organizationsQuery.error.message
+      : organizationsQuery.error
+        ? 'Failed to load organizations.'
+        : '';
+  const isSaving = saveMutation.isPending;
+  const isLoading = organizationsQuery.isLoading;
+  const hasNextPage = organizationsQuery.hasNextPage;
 
   return (
-    <div className='space-y-6'>
+    <div className="d-grid gap-4">
       <Card
-        title='Organizations'
-        description='Create and manage organizations.'
+        title="Organizations"
+        description="Create and manage organizations."
       >
-        {error && (
-          <div className='mb-4'>
-            <StatusBanner variant='error' title='Error'>
-              {error}
+        {(error || listError) && (
+          <div className="mb-3">
+            <StatusBanner variant="error" title="Error">
+              {error || listError}
             </StatusBanner>
           </div>
         )}
-        <div className='grid gap-4 md:grid-cols-2'>
-          <div>
-            <Label htmlFor='org-name'>Name</Label>
+        <div className="row g-3">
+          <div className="col-md-6">
+            <Label htmlFor="org-name">Name</Label>
             <Input
-              id='org-name'
+              id="org-name"
               value={formState.name}
               onChange={(event) =>
                 setFormState((prev) => ({
@@ -157,10 +162,10 @@ export function OrganizationsPanel() {
               }
             />
           </div>
-          <div className='md:col-span-2'>
-            <Label htmlFor='org-description'>Description</Label>
+          <div className="col-12">
+            <Label htmlFor="org-description">Description</Label>
             <Textarea
-              id='org-description'
+              id="org-description"
               rows={3}
               value={formState.description}
               onChange={(event) =>
@@ -172,14 +177,14 @@ export function OrganizationsPanel() {
             />
           </div>
         </div>
-        <div className='mt-4 flex flex-wrap gap-3'>
-          <Button type='button' onClick={handleSubmit} disabled={isSaving}>
+        <div className="mt-3 d-flex flex-wrap gap-2">
+          <Button type="button" onClick={handleSubmit} disabled={isSaving}>
             {editingId ? 'Update organization' : 'Add organization'}
           </Button>
           {editingId && (
             <Button
-              type='button'
-              variant='secondary'
+              type="button"
+              variant="secondary"
               onClick={resetForm}
               disabled={isSaving}
             >
@@ -189,47 +194,44 @@ export function OrganizationsPanel() {
         </div>
       </Card>
       <Card
-        title='Existing organizations'
-        description='Select an organization to edit or delete.'
+        title="Existing organizations"
+        description="Select an organization to edit or delete."
       >
         {isLoading ? (
-          <p className='text-sm text-slate-600'>Loading organizations...</p>
+          <p className="text-muted small mb-0">Loading organizations...</p>
         ) : items.length === 0 ? (
-          <p className='text-sm text-slate-600'>No organizations yet.</p>
+          <p className="text-muted small mb-0">No organizations yet.</p>
         ) : (
-          <div className='overflow-x-auto'>
-            <table className='w-full text-left text-sm'>
-              <thead className='border-b border-slate-200 text-slate-500'>
+          <div className="table-responsive">
+            <table className="table table-sm align-middle">
+              <thead className="table-light">
                 <tr>
-                  <th className='py-2'>Name</th>
-                  <th className='py-2'>Description</th>
-                  <th className='py-2 text-right'>Actions</th>
+                  <th>Name</th>
+                  <th>Description</th>
+                  <th className="text-end">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {items.map((item) => (
-                  <tr
-                    key={item.id}
-                    className='border-b border-slate-100'
-                  >
-                    <td className='py-2 font-medium'>{item.name}</td>
-                    <td className='py-2 text-slate-600'>
+                  <tr key={item.id}>
+                    <td className="fw-semibold">{item.name}</td>
+                    <td className="text-muted">
                       {item.description || '—'}
                     </td>
-                    <td className='py-2 text-right'>
-                      <div className='flex justify-end gap-2'>
+                    <td className="text-end table-actions">
+                      <div className="btn-group btn-group-sm">
                         <Button
-                          type='button'
-                          size='sm'
-                          variant='secondary'
+                          type="button"
+                          size="sm"
+                          variant="secondary"
                           onClick={() => startEdit(item)}
                         >
                           Edit
                         </Button>
                         <Button
-                          type='button'
-                          size='sm'
-                          variant='danger'
+                          type="button"
+                          size="sm"
+                          variant="danger"
                           onClick={() => handleDelete(item)}
                         >
                           Delete
@@ -240,14 +242,17 @@ export function OrganizationsPanel() {
                 ))}
               </tbody>
             </table>
-            {nextCursor && (
-              <div className='mt-4'>
+            {hasNextPage && (
+              <div className="mt-3">
                 <Button
-                  type='button'
-                  variant='secondary'
-                  onClick={() => loadItems(nextCursor)}
+                  type="button"
+                  variant="secondary"
+                  onClick={() => organizationsQuery.fetchNextPage()}
+                  disabled={organizationsQuery.isFetchingNextPage}
                 >
-                  Load more
+                  {organizationsQuery.isFetchingNextPage
+                    ? 'Loading...'
+                    : 'Load more'}
                 </Button>
               </div>
             )}

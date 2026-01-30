@@ -1,4 +1,4 @@
-# Cursor rules for Flutter mobile app and AWS Lambda backend
+# Cursor rules for Flutter mobile app, admin web, and backend
 # Sources:
 # - rules/flutter-development-guidelines-cursorrules-prompt-file
 # - rules/python-projects-guide-cursorrules-prompt-file
@@ -16,37 +16,15 @@ repo root
 │   └── react_ui/          # React components (Storybook)
 ├── apps/
 │   ├── siutindei_app/       # Flutter mobile
-│   └── admin_web/          # React/Next.js app
+│   └── admin_web/          # Vite React SPA
+│       ├── index.html
+│       ├── vite.config.ts
 │       ├── src/
-│       │   ├── app/         # App Router
-│       │   │   ├── (auth)/
-│       │   │   │   ├── login/
-│       │   │   │   │   └── page.tsx
-│       │   │   │   └── layout.tsx
-│       │   │   ├── admin/
-│       │   │   │   ├── dashboard/
-│       │   │   │   │   └── page.tsx
-│       │   │   │   ├── users/
-│       │   │   │   │   ├── page.tsx
-│       │   │   │   │   ├── [id]/
-│       │   │   │   │   │   └── page.tsx
-│       │   │   │   │   └── new/
-│       │   │   │   │       └── page.tsx
-│       │   │   │   ├── analytics/
-│       │   │   │   │   └── page.tsx
-│       │   │   │   └── layout.tsx
-│       │   │   ├── api/
-│       │   │   │   ├── admin/
-│       │   │   │   │   └── route.ts
-│       │   │   │   └── webhook/
-│       │   │   │       └── route.ts
-│       │   │   ├── layout.tsx
-│       │   │   ├── page.tsx
-│       │   │   └── middleware.ts
+│       │   ├── App.tsx
+│       │   ├── main.tsx
 │       │   ├── components/
+│       │   ├── routes/
 │       │   └── lib/
-│       ├── public/
-│       ├── next.config.js
 │       └── package.json
 ├── backend/
 │   ├── api_gateway/
@@ -65,11 +43,12 @@ repo root
     └── api/               # OpenAPI specs
 
 ### Architecture decisions
-- Admin console uses Next.js App Router under apps/admin_web/src/app.
+- Admin console uses Vite + React Router under apps/admin_web.
+- Admin web uses TanStack Query and Bootstrap 5.
 - Infrastructure as Code uses AWS CDK (TypeScript) + CDK Pipelines.
 - CI/CD uses GitHub OIDC with IAM roles (no long-lived keys).
 - Mobile distribution uses Android AAB (Play Store) and iOS TestFlight/App Store Connect.
-- Admin web hosting uses Amplify Hosting release jobs triggered in CI.
+- Admin web hosting uses S3 + CloudFront for SPA delivery.
 - Android signing uses CI-injected keystore; iOS signing uses Fastlane match.
 - Amplify staging-to-prod promotions use a gated workflow.
 - Lockfiles are required and validated in CI.
@@ -199,8 +178,15 @@ const additionalInstructions = `
 7. Follow Redux style guide for naming conventions
 `;
 
+### Admin web (Vite SPA) rules
+- Use Vite + React Router for routing.
+- Use TanStack Query for server state.
+- Use Bootstrap 5 for layout and components.
+- Avoid Tailwind/Next.js APIs in apps/admin_web.
+
 ### Next.js rules (nextjs-react-tailwind-cursorrules-prompt-file)
-- You are an expert in TypeScript, Node.js, Next.js App Router, React, Shadcn UI, and Tailwind and Framer Motion.
+- These apply only if a Next.js app is present.
+- Admin web is not Next.js; prefer Vite guidance above.
 
 - Code Style and Structure
 

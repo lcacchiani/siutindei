@@ -1,6 +1,11 @@
-'use client';
+import { useMemo, useState } from 'react';
 
-import { useEffect, useState } from 'react';
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
 
 import {
   ApiError,
@@ -76,55 +81,34 @@ function parseLanguages(value: string) {
 }
 
 export function SchedulesPanel() {
-  const [items, setItems] = useState<ActivitySchedule[]>([]);
-  const [activities, setActivities] = useState<Activity[]>([]);
-  const [locations, setLocations] = useState<Location[]>([]);
-  const [nextCursor, setNextCursor] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
+  const queryClient = useQueryClient();
   const [error, setError] = useState('');
   const [formState, setFormState] = useState(emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  const loadReferences = async () => {
-    try {
-      const [activitiesResponse, locationsResponse] = await Promise.all([
-        listResource<Activity>('activities', undefined, 200),
-        listResource<Location>('locations', undefined, 200),
-      ]);
-      setActivities(activitiesResponse.items);
-      setLocations(locationsResponse.items);
-    } catch {
-      setActivities([]);
-      setLocations([]);
-    }
-  };
+  const activitiesQuery = useQuery({
+    queryKey: ['activities', 'options'],
+    queryFn: () => listResource<Activity>('activities', undefined, 200),
+  });
 
-  const loadItems = async (cursor?: string) => {
-    setIsLoading(true);
-    setError('');
-    try {
-      const response = await listResource<ActivitySchedule>(
-        'schedules',
-        cursor
-      );
-      setItems((prev) =>
-        cursor ? [...prev, ...response.items] : response.items
-      );
-      setNextCursor(response.next_cursor ?? null);
-    } catch (err) {
-      const message =
-        err instanceof ApiError ? err.message : 'Failed to load schedules.';
-      setError(message);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const locationsQuery = useQuery({
+    queryKey: ['locations', 'options'],
+    queryFn: () => listResource<Location>('locations', undefined, 200),
+  });
 
-  useEffect(() => {
-    loadItems();
-    loadReferences();
-  }, []);
+  const schedulesQuery = useInfiniteQuery({
+    queryKey: ['schedules'],
+    queryFn: ({ pageParam }) =>
+      listResource<ActivitySchedule>('schedules', pageParam ?? undefined),
+    getNextPageParam: (lastPage) => lastPage.next_cursor ?? undefined,
+  });
+
+  const items = useMemo(() => {
+    return schedulesQuery.data?.pages.flatMap((page) => page.items) ?? [];
+  }, [schedulesQuery.data]);
+
+  const activities = activitiesQuery.data?.items ?? [];
+  const locations = locationsQuery.data?.items ?? [];
 
   const resetForm = () => {
     setFormState(emptyForm);
@@ -176,45 +160,20 @@ export function SchedulesPanel() {
       setError(validationError);
       return;
     }
-    setIsSaving(true);
     setError('');
-    try {
-      const payload = {
-        activity_id: formState.activity_id,
-        location_id: formState.location_id,
-        schedule_type: formState.schedule_type,
-        day_of_week_utc: parseOptionalNumber(formState.day_of_week_utc),
-        day_of_month: parseOptionalNumber(formState.day_of_month),
-        start_minutes_utc: parseOptionalNumber(formState.start_minutes_utc),
-        end_minutes_utc: parseOptionalNumber(formState.end_minutes_utc),
-        start_at_utc: toUtcIso(formState.start_at_utc),
-        end_at_utc: toUtcIso(formState.end_at_utc),
-        languages: parseLanguages(formState.languages),
-      };
-      if (editingId) {
-        const updated = await updateResource<typeof payload, ActivitySchedule>(
-          'schedules',
-          editingId,
-          payload
-        );
-        setItems((prev) =>
-          prev.map((item) => (item.id === editingId ? updated : item))
-        );
-      } else {
-        const created = await createResource<typeof payload, ActivitySchedule>(
-          'schedules',
-          payload
-        );
-        setItems((prev) => [created, ...prev]);
-      }
-      resetForm();
-    } catch (err) {
-      const message =
-        err instanceof ApiError ? err.message : 'Unable to save schedule.';
-      setError(message);
-    } finally {
-      setIsSaving(false);
-    }
+    const payload = {
+      activity_id: formState.activity_id,
+      location_id: formState.location_id,
+      schedule_type: formState.schedule_type,
+      day_of_week_utc: parseOptionalNumber(formState.day_of_week_utc),
+      day_of_month: parseOptionalNumber(formState.day_of_month),
+      start_minutes_utc: parseOptionalNumber(formState.start_minutes_utc),
+      end_minutes_utc: parseOptionalNumber(formState.end_minutes_utc),
+      start_at_utc: toUtcIso(formState.start_at_utc),
+      end_at_utc: toUtcIso(formState.end_at_utc),
+      languages: parseLanguages(formState.languages),
+    };
+    saveMutation.mutate(payload);
   };
 
   const startEdit = (item: ActivitySchedule) => {
@@ -253,36 +212,91 @@ export function SchedulesPanel() {
       return;
     }
     setError('');
-    try {
-      await deleteResource('schedules', item.id);
-      setItems((prev) => prev.filter((entry) => entry.id !== item.id));
-      if (editingId === item.id) {
+    deleteMutation.mutate(item.id);
+  };
+
+  const saveMutation = useMutation({
+    mutationFn: async (payload: {
+      activity_id: string;
+      location_id: string;
+      schedule_type: string;
+      day_of_week_utc: number | null;
+      day_of_month: number | null;
+      start_minutes_utc: number | null;
+      end_minutes_utc: number | null;
+      start_at_utc: string | null;
+      end_at_utc: string | null;
+      languages: string[];
+    }) => {
+      if (editingId) {
+        return updateResource<typeof payload, ActivitySchedule>(
+          'schedules',
+          editingId,
+          payload
+        );
+      }
+      return createResource<typeof payload, ActivitySchedule>(
+        'schedules',
+        payload
+      );
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['schedules'] });
+      resetForm();
+    },
+    onError: (err) => {
+      const message =
+        err instanceof ApiError ? err.message : 'Unable to save schedule.';
+      setError(message);
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => deleteResource('schedules', id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['schedules'] });
+      if (editingId) {
         resetForm();
       }
-    } catch (err) {
+    },
+    onError: (err) => {
       const message =
         err instanceof ApiError ? err.message : 'Unable to delete schedule.';
       setError(message);
-    }
-  };
+    },
+  });
 
+  const listError =
+    schedulesQuery.error instanceof ApiError
+      ? schedulesQuery.error.message
+      : schedulesQuery.error
+        ? 'Failed to load schedules.'
+        : '';
+  const referenceError =
+    activitiesQuery.error || locationsQuery.error
+      ? 'Failed to load reference data.'
+      : '';
+  const errorMessage = error || listError || referenceError;
+  const isSaving = saveMutation.isPending;
+  const isLoading = schedulesQuery.isLoading;
+  const hasNextPage = schedulesQuery.hasNextPage;
   const scheduleType = formState.schedule_type;
 
   return (
-    <div className='space-y-6'>
-      <Card title='Schedules' description='Manage schedule entries.'>
-        {error && (
-          <div className='mb-4'>
-            <StatusBanner variant='error' title='Error'>
-              {error}
+    <div className="d-grid gap-4">
+      <Card title="Schedules" description="Manage schedule entries.">
+        {errorMessage && (
+          <div className="mb-3">
+            <StatusBanner variant="error" title="Error">
+              {errorMessage}
             </StatusBanner>
           </div>
         )}
-        <div className='grid gap-4 md:grid-cols-2'>
-          <div>
-            <Label htmlFor='schedule-activity'>Activity</Label>
+        <div className="row g-3">
+          <div className="col-md-6">
+            <Label htmlFor="schedule-activity">Activity</Label>
             <Select
-              id='schedule-activity'
+              id="schedule-activity"
               value={formState.activity_id}
               onChange={(event) =>
                 setFormState((prev) => ({
@@ -291,7 +305,7 @@ export function SchedulesPanel() {
                 }))
               }
             >
-              <option value=''>Select activity</option>
+              <option value="">Select activity</option>
               {activities.map((activity) => (
                 <option key={activity.id} value={activity.id}>
                   {activity.name}
@@ -299,10 +313,10 @@ export function SchedulesPanel() {
               ))}
             </Select>
           </div>
-          <div>
-            <Label htmlFor='schedule-location'>Location</Label>
+          <div className="col-md-6">
+            <Label htmlFor="schedule-location">Location</Label>
             <Select
-              id='schedule-location'
+              id="schedule-location"
               value={formState.location_id}
               onChange={(event) =>
                 setFormState((prev) => ({
@@ -311,7 +325,7 @@ export function SchedulesPanel() {
                 }))
               }
             >
-              <option value=''>Select location</option>
+              <option value="">Select location</option>
               {locations.map((location) => (
                 <option key={location.id} value={location.id}>
                   {location.district}
@@ -319,10 +333,10 @@ export function SchedulesPanel() {
               ))}
             </Select>
           </div>
-          <div>
-            <Label htmlFor='schedule-type'>Schedule type</Label>
+          <div className="col-md-6">
+            <Label htmlFor="schedule-type">Schedule type</Label>
             <Select
-              id='schedule-type'
+              id="schedule-type"
               value={formState.schedule_type}
               onChange={(event) =>
                 setFormState((prev) => ({
@@ -346,13 +360,13 @@ export function SchedulesPanel() {
           </div>
           {scheduleType === 'weekly' && (
             <>
-              <div>
-                <Label htmlFor='schedule-day'>Day of week (0-6)</Label>
+              <div className="col-md-6">
+                <Label htmlFor="schedule-day">Day of week (0-6)</Label>
                 <Input
-                  id='schedule-day'
-                  type='number'
-                  min='0'
-                  max='6'
+                  id="schedule-day"
+                  type="number"
+                  min="0"
+                  max="6"
                   value={formState.day_of_week_utc}
                   onChange={(event) =>
                     setFormState((prev) => ({
@@ -362,13 +376,13 @@ export function SchedulesPanel() {
                   }
                 />
               </div>
-              <div>
-                <Label htmlFor='schedule-start'>Start minutes (UTC)</Label>
+              <div className="col-md-6">
+                <Label htmlFor="schedule-start">Start minutes (UTC)</Label>
                 <Input
-                  id='schedule-start'
-                  type='number'
-                  min='0'
-                  max='1439'
+                  id="schedule-start"
+                  type="number"
+                  min="0"
+                  max="1439"
                   value={formState.start_minutes_utc}
                   onChange={(event) =>
                     setFormState((prev) => ({
@@ -378,13 +392,13 @@ export function SchedulesPanel() {
                   }
                 />
               </div>
-              <div>
-                <Label htmlFor='schedule-end'>End minutes (UTC)</Label>
+              <div className="col-md-6">
+                <Label htmlFor="schedule-end">End minutes (UTC)</Label>
                 <Input
-                  id='schedule-end'
-                  type='number'
-                  min='0'
-                  max='1439'
+                  id="schedule-end"
+                  type="number"
+                  min="0"
+                  max="1439"
                   value={formState.end_minutes_utc}
                   onChange={(event) =>
                     setFormState((prev) => ({
@@ -398,13 +412,13 @@ export function SchedulesPanel() {
           )}
           {scheduleType === 'monthly' && (
             <>
-              <div>
-                <Label htmlFor='schedule-month-day'>Day of month (1-31)</Label>
+              <div className="col-md-6">
+                <Label htmlFor="schedule-month-day">Day of month (1-31)</Label>
                 <Input
-                  id='schedule-month-day'
-                  type='number'
-                  min='1'
-                  max='31'
+                  id="schedule-month-day"
+                  type="number"
+                  min="1"
+                  max="31"
                   value={formState.day_of_month}
                   onChange={(event) =>
                     setFormState((prev) => ({
@@ -414,15 +428,15 @@ export function SchedulesPanel() {
                   }
                 />
               </div>
-              <div>
-                <Label htmlFor='schedule-month-start'>
+              <div className="col-md-6">
+                <Label htmlFor="schedule-month-start">
                   Start minutes (UTC)
                 </Label>
                 <Input
-                  id='schedule-month-start'
-                  type='number'
-                  min='0'
-                  max='1439'
+                  id="schedule-month-start"
+                  type="number"
+                  min="0"
+                  max="1439"
                   value={formState.start_minutes_utc}
                   onChange={(event) =>
                     setFormState((prev) => ({
@@ -432,13 +446,13 @@ export function SchedulesPanel() {
                   }
                 />
               </div>
-              <div>
-                <Label htmlFor='schedule-month-end'>End minutes (UTC)</Label>
+              <div className="col-md-6">
+                <Label htmlFor="schedule-month-end">End minutes (UTC)</Label>
                 <Input
-                  id='schedule-month-end'
-                  type='number'
-                  min='0'
-                  max='1439'
+                  id="schedule-month-end"
+                  type="number"
+                  min="0"
+                  max="1439"
                   value={formState.end_minutes_utc}
                   onChange={(event) =>
                     setFormState((prev) => ({
@@ -452,11 +466,11 @@ export function SchedulesPanel() {
           )}
           {scheduleType === 'date_specific' && (
             <>
-              <div>
-                <Label htmlFor='schedule-start-at'>Start (UTC)</Label>
+              <div className="col-md-6">
+                <Label htmlFor="schedule-start-at">Start (UTC)</Label>
                 <Input
-                  id='schedule-start-at'
-                  type='datetime-local'
+                  id="schedule-start-at"
+                  type="datetime-local"
                   value={formState.start_at_utc}
                   onChange={(event) =>
                     setFormState((prev) => ({
@@ -466,11 +480,11 @@ export function SchedulesPanel() {
                   }
                 />
               </div>
-              <div>
-                <Label htmlFor='schedule-end-at'>End (UTC)</Label>
+              <div className="col-md-6">
+                <Label htmlFor="schedule-end-at">End (UTC)</Label>
                 <Input
-                  id='schedule-end-at'
-                  type='datetime-local'
+                  id="schedule-end-at"
+                  type="datetime-local"
                   value={formState.end_at_utc}
                   onChange={(event) =>
                     setFormState((prev) => ({
@@ -482,12 +496,12 @@ export function SchedulesPanel() {
               </div>
             </>
           )}
-          <div className='md:col-span-2'>
-            <Label htmlFor='schedule-languages'>
+          <div className="col-12">
+            <Label htmlFor="schedule-languages">
               Languages (comma-separated)
             </Label>
             <Input
-              id='schedule-languages'
+              id="schedule-languages"
               value={formState.languages}
               onChange={(event) =>
                 setFormState((prev) => ({
@@ -498,14 +512,14 @@ export function SchedulesPanel() {
             />
           </div>
         </div>
-        <div className='mt-4 flex flex-wrap gap-3'>
-          <Button type='button' onClick={handleSubmit} disabled={isSaving}>
+        <div className="mt-3 d-flex flex-wrap gap-2">
+          <Button type="button" onClick={handleSubmit} disabled={isSaving}>
             {editingId ? 'Update schedule' : 'Add schedule'}
           </Button>
           {editingId && (
             <Button
-              type='button'
-              variant='secondary'
+              type="button"
+              variant="secondary"
               onClick={resetForm}
               disabled={isSaving}
             >
@@ -515,23 +529,23 @@ export function SchedulesPanel() {
         </div>
       </Card>
       <Card
-        title='Existing schedules'
-        description='Select a schedule to edit or delete.'
+        title="Existing schedules"
+        description="Select a schedule to edit or delete."
       >
         {isLoading ? (
-          <p className='text-sm text-slate-600'>Loading schedules...</p>
+          <p className="text-muted small mb-0">Loading schedules...</p>
         ) : items.length === 0 ? (
-          <p className='text-sm text-slate-600'>No schedules yet.</p>
+          <p className="text-muted small mb-0">No schedules yet.</p>
         ) : (
-          <div className='overflow-x-auto'>
-            <table className='w-full text-left text-sm'>
-              <thead className='border-b border-slate-200 text-slate-500'>
+          <div className="table-responsive">
+            <table className="table table-sm align-middle">
+              <thead className="table-light">
                 <tr>
-                  <th className='py-2'>Activity</th>
-                  <th className='py-2'>Location</th>
-                  <th className='py-2'>Type</th>
-                  <th className='py-2'>Languages</th>
-                  <th className='py-2 text-right'>Actions</th>
+                  <th>Activity</th>
+                  <th>Location</th>
+                  <th>Type</th>
+                  <th>Languages</th>
+                  <th className="text-end">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -545,34 +559,29 @@ export function SchedulesPanel() {
                       (location) => location.id === item.location_id
                     )?.district || item.location_id;
                   return (
-                    <tr
-                      key={item.id}
-                      className='border-b border-slate-100'
-                    >
-                      <td className='py-2 font-medium'>{activityName}</td>
-                      <td className='py-2 text-slate-600'>{locationName}</td>
-                      <td className='py-2 text-slate-600'>
-                        {item.schedule_type}
-                      </td>
-                      <td className='py-2 text-slate-600'>
+                    <tr key={item.id}>
+                      <td className="fw-semibold">{activityName}</td>
+                      <td className="text-muted">{locationName}</td>
+                      <td className="text-muted">{item.schedule_type}</td>
+                      <td className="text-muted">
                         {item.languages?.length
                           ? item.languages.join(', ')
                           : '—'}
                       </td>
-                      <td className='py-2 text-right'>
-                        <div className='flex justify-end gap-2'>
+                      <td className="text-end table-actions">
+                        <div className="btn-group btn-group-sm">
                           <Button
-                            type='button'
-                            size='sm'
-                            variant='secondary'
+                            type="button"
+                            size="sm"
+                            variant="secondary"
                             onClick={() => startEdit(item)}
                           >
                             Edit
                           </Button>
                           <Button
-                            type='button'
-                            size='sm'
-                            variant='danger'
+                            type="button"
+                            size="sm"
+                            variant="danger"
                             onClick={() => handleDelete(item)}
                           >
                             Delete
@@ -584,14 +593,17 @@ export function SchedulesPanel() {
                 })}
               </tbody>
             </table>
-            {nextCursor && (
-              <div className='mt-4'>
+            {hasNextPage && (
+              <div className="mt-3">
                 <Button
-                  type='button'
-                  variant='secondary'
-                  onClick={() => loadItems(nextCursor)}
+                  type="button"
+                  variant="secondary"
+                  onClick={() => schedulesQuery.fetchNextPage()}
+                  disabled={schedulesQuery.isFetchingNextPage}
                 >
-                  Load more
+                  {schedulesQuery.isFetchingNextPage
+                    ? 'Loading...'
+                    : 'Load more'}
                 </Button>
               </div>
             )}

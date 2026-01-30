@@ -1,5 +1,3 @@
-'use client';
-
 import type { ReactNode } from 'react';
 
 import { Button } from '@/components/ui/button';
@@ -27,52 +25,46 @@ export function AppShell({
   children,
 }: AppShellProps) {
   return (
-    <div className='min-h-screen'>
-      <header className='border-b border-slate-200 bg-white'>
-        <div
-          className={
-            'mx-auto flex max-w-6xl items-center justify-between px-6 py-4'
-          }
-        >
-          <div>
-            <h1 className='text-xl font-semibold'>Siu Tin Dei Admin</h1>
-            <p className='text-sm text-slate-500'>
+    <div className='min-vh-100'>
+      <header className='border-bottom bg-white'>
+        <div className='container py-3 d-flex align-items-center'>
+          <div className='flex-grow-1'>
+            <h1 className='h5 mb-1'>Siu Tin Dei Admin</h1>
+            <p className='mb-0 text-muted small'>
               Manage organizations, activities, and schedules.
             </p>
           </div>
-          <div className='flex items-center gap-3'>
-            {userEmail && (
-              <span className='text-sm text-slate-600'>{userEmail}</span>
-            )}
+          <div className='d-flex align-items-center gap-2'>
+            {userEmail && <span className='text-muted small'>{userEmail}</span>}
             <Button variant='secondary' onClick={onLogout}>
               Log out
             </Button>
           </div>
         </div>
       </header>
-      <div className='mx-auto flex max-w-6xl gap-6 px-6 py-6'>
-        <aside className='w-56 shrink-0'>
-          <nav className='space-y-1'>
-            {sections.map((section) => {
-              const isActive = section.key === activeKey;
-              return (
-                <button
-                  key={section.key}
-                  type='button'
-                  onClick={() => onSelect(section.key)}
-                  className={`w-full rounded-md px-3 py-2 text-left text-sm ${
-                    isActive
-                      ? 'bg-slate-900 text-white'
-                      : 'text-slate-700 hover:bg-slate-100'
-                  }`}
-                >
-                  {section.label}
-                </button>
-              );
-            })}
-          </nav>
-        </aside>
-        <main className='min-w-0 flex-1 space-y-6'>{children}</main>
+      <div className='container py-4'>
+        <div className='row g-4'>
+          <aside className='col-lg-3'>
+            <nav className='nav flex-column nav-pills sidebar'>
+              {sections.map((section) => {
+                const isActive = section.key === activeKey;
+                return (
+                  <button
+                    key={section.key}
+                    type='button'
+                    onClick={() => onSelect(section.key)}
+                    className={`nav-link text-start ${
+                      isActive ? 'active' : 'link-body-emphasis'
+                    }`}
+                  >
+                    {section.label}
+                  </button>
+                );
+              })}
+            </nav>
+          </aside>
+          <main className='col-lg-9 d-grid gap-4'>{children}</main>
+        </div>
       </div>
     </div>
   );

@@ -1,6 +1,11 @@
-'use client';
+import { useMemo, useState } from 'react';
 
-import { useEffect, useState } from 'react';
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
 
 import {
   ApiError,
@@ -42,52 +47,34 @@ function parseOptionalNumber(value: string) {
 }
 
 export function PricingPanel() {
-  const [items, setItems] = useState<ActivityPricing[]>([]);
-  const [activities, setActivities] = useState<Activity[]>([]);
-  const [locations, setLocations] = useState<Location[]>([]);
-  const [nextCursor, setNextCursor] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
+  const queryClient = useQueryClient();
   const [error, setError] = useState('');
   const [formState, setFormState] = useState(emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  const loadReferences = async () => {
-    try {
-      const [activitiesResponse, locationsResponse] = await Promise.all([
-        listResource<Activity>('activities', undefined, 200),
-        listResource<Location>('locations', undefined, 200),
-      ]);
-      setActivities(activitiesResponse.items);
-      setLocations(locationsResponse.items);
-    } catch {
-      setActivities([]);
-      setLocations([]);
-    }
-  };
+  const activitiesQuery = useQuery({
+    queryKey: ['activities', 'options'],
+    queryFn: () => listResource<Activity>('activities', undefined, 200),
+  });
 
-  const loadItems = async (cursor?: string) => {
-    setIsLoading(true);
-    setError('');
-    try {
-      const response = await listResource<ActivityPricing>('pricing', cursor);
-      setItems((prev) =>
-        cursor ? [...prev, ...response.items] : response.items
-      );
-      setNextCursor(response.next_cursor ?? null);
-    } catch (err) {
-      const message =
-        err instanceof ApiError ? err.message : 'Failed to load pricing.';
-      setError(message);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const locationsQuery = useQuery({
+    queryKey: ['locations', 'options'],
+    queryFn: () => listResource<Location>('locations', undefined, 200),
+  });
 
-  useEffect(() => {
-    loadItems();
-    loadReferences();
-  }, []);
+  const pricingQuery = useInfiniteQuery({
+    queryKey: ['pricing'],
+    queryFn: ({ pageParam }) =>
+      listResource<ActivityPricing>('pricing', pageParam ?? undefined),
+    getNextPageParam: (lastPage) => lastPage.next_cursor ?? undefined,
+  });
+
+  const items = useMemo(() => {
+    return pricingQuery.data?.pages.flatMap((page) => page.items) ?? [];
+  }, [pricingQuery.data]);
+
+  const activities = activitiesQuery.data?.items ?? [];
+  const locations = locationsQuery.data?.items ?? [];
 
   const resetForm = () => {
     setFormState(emptyForm);
@@ -115,44 +102,17 @@ export function PricingPanel() {
         return;
       }
     }
-    setIsSaving(true);
     setError('');
-    try {
-      const payload = {
-        activity_id: formState.activity_id,
-        location_id: formState.location_id,
-        pricing_type: formState.pricing_type,
-        amount: formState.amount.trim(),
-        currency: formState.currency.trim() || 'HKD',
-        sessions_count:
-          formState.pricing_type === 'per_sessions'
-            ? sessionsCount
-            : null,
-      };
-      if (editingId) {
-        const updated = await updateResource<typeof payload, ActivityPricing>(
-          'pricing',
-          editingId,
-          payload
-        );
-        setItems((prev) =>
-          prev.map((item) => (item.id === editingId ? updated : item))
-        );
-      } else {
-        const created = await createResource<typeof payload, ActivityPricing>(
-          'pricing',
-          payload
-        );
-        setItems((prev) => [created, ...prev]);
-      }
-      resetForm();
-    } catch (err) {
-      const message =
-        err instanceof ApiError ? err.message : 'Unable to save pricing.';
-      setError(message);
-    } finally {
-      setIsSaving(false);
-    }
+    const payload = {
+      activity_id: formState.activity_id,
+      location_id: formState.location_id,
+      pricing_type: formState.pricing_type,
+      amount: formState.amount.trim(),
+      currency: formState.currency.trim() || 'HKD',
+      sessions_count:
+        formState.pricing_type === 'per_sessions' ? sessionsCount : null,
+    };
+    saveMutation.mutate(payload);
   };
 
   const startEdit = (item: ActivityPricing) => {
@@ -175,36 +135,87 @@ export function PricingPanel() {
       return;
     }
     setError('');
-    try {
-      await deleteResource('pricing', item.id);
-      setItems((prev) => prev.filter((entry) => entry.id !== item.id));
-      if (editingId === item.id) {
+    deleteMutation.mutate(item.id);
+  };
+
+  const saveMutation = useMutation({
+    mutationFn: async (payload: {
+      activity_id: string;
+      location_id: string;
+      pricing_type: string;
+      amount: string;
+      currency: string;
+      sessions_count: number | null;
+    }) => {
+      if (editingId) {
+        return updateResource<typeof payload, ActivityPricing>(
+          'pricing',
+          editingId,
+          payload
+        );
+      }
+      return createResource<typeof payload, ActivityPricing>(
+        'pricing',
+        payload
+      );
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pricing'] });
+      resetForm();
+    },
+    onError: (err) => {
+      const message =
+        err instanceof ApiError ? err.message : 'Unable to save pricing.';
+      setError(message);
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => deleteResource('pricing', id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pricing'] });
+      if (editingId) {
         resetForm();
       }
-    } catch (err) {
+    },
+    onError: (err) => {
       const message =
         err instanceof ApiError ? err.message : 'Unable to delete pricing.';
       setError(message);
-    }
-  };
+    },
+  });
 
+  const listError =
+    pricingQuery.error instanceof ApiError
+      ? pricingQuery.error.message
+      : pricingQuery.error
+        ? 'Failed to load pricing.'
+        : '';
+  const referenceError =
+    activitiesQuery.error || locationsQuery.error
+      ? 'Failed to load reference data.'
+      : '';
+  const errorMessage = error || listError || referenceError;
+  const isSaving = saveMutation.isPending;
+  const isLoading = pricingQuery.isLoading;
+  const hasNextPage = pricingQuery.hasNextPage;
   const showSessionsField = formState.pricing_type === 'per_sessions';
 
   return (
-    <div className='space-y-6'>
-      <Card title='Pricing' description='Manage pricing entries.'>
-        {error && (
-          <div className='mb-4'>
-            <StatusBanner variant='error' title='Error'>
-              {error}
+    <div className="d-grid gap-4">
+      <Card title="Pricing" description="Manage pricing entries.">
+        {errorMessage && (
+          <div className="mb-3">
+            <StatusBanner variant="error" title="Error">
+              {errorMessage}
             </StatusBanner>
           </div>
         )}
-        <div className='grid gap-4 md:grid-cols-2'>
-          <div>
-            <Label htmlFor='pricing-activity'>Activity</Label>
+        <div className="row g-3">
+          <div className="col-md-6">
+            <Label htmlFor="pricing-activity">Activity</Label>
             <Select
-              id='pricing-activity'
+              id="pricing-activity"
               value={formState.activity_id}
               onChange={(event) =>
                 setFormState((prev) => ({
@@ -213,7 +224,7 @@ export function PricingPanel() {
                 }))
               }
             >
-              <option value=''>Select activity</option>
+              <option value="">Select activity</option>
               {activities.map((activity) => (
                 <option key={activity.id} value={activity.id}>
                   {activity.name}
@@ -221,10 +232,10 @@ export function PricingPanel() {
               ))}
             </Select>
           </div>
-          <div>
-            <Label htmlFor='pricing-location'>Location</Label>
+          <div className="col-md-6">
+            <Label htmlFor="pricing-location">Location</Label>
             <Select
-              id='pricing-location'
+              id="pricing-location"
               value={formState.location_id}
               onChange={(event) =>
                 setFormState((prev) => ({
@@ -233,7 +244,7 @@ export function PricingPanel() {
                 }))
               }
             >
-              <option value=''>Select location</option>
+              <option value="">Select location</option>
               {locations.map((location) => (
                 <option key={location.id} value={location.id}>
                   {location.district}
@@ -241,10 +252,10 @@ export function PricingPanel() {
               ))}
             </Select>
           </div>
-          <div>
-            <Label htmlFor='pricing-type'>Pricing type</Label>
+          <div className="col-md-6">
+            <Label htmlFor="pricing-type">Pricing type</Label>
             <Select
-              id='pricing-type'
+              id="pricing-type"
               value={formState.pricing_type}
               onChange={(event) =>
                 setFormState((prev) => ({
@@ -264,12 +275,12 @@ export function PricingPanel() {
               ))}
             </Select>
           </div>
-          <div>
-            <Label htmlFor='pricing-amount'>Amount</Label>
+          <div className="col-md-6">
+            <Label htmlFor="pricing-amount">Amount</Label>
             <Input
-              id='pricing-amount'
-              type='number'
-              step='0.01'
+              id="pricing-amount"
+              type="number"
+              step="0.01"
               value={formState.amount}
               onChange={(event) =>
                 setFormState((prev) => ({
@@ -279,10 +290,10 @@ export function PricingPanel() {
               }
             />
           </div>
-          <div>
-            <Label htmlFor='pricing-currency'>Currency</Label>
+          <div className="col-md-6">
+            <Label htmlFor="pricing-currency">Currency</Label>
             <Input
-              id='pricing-currency'
+              id="pricing-currency"
               value={formState.currency}
               onChange={(event) =>
                 setFormState((prev) => ({
@@ -293,12 +304,12 @@ export function PricingPanel() {
             />
           </div>
           {showSessionsField && (
-            <div>
-              <Label htmlFor='pricing-sessions'>Sessions count</Label>
+            <div className="col-md-6">
+              <Label htmlFor="pricing-sessions">Sessions count</Label>
               <Input
-                id='pricing-sessions'
-                type='number'
-                min='1'
+                id="pricing-sessions"
+                type="number"
+                min="1"
                 value={formState.sessions_count}
                 onChange={(event) =>
                   setFormState((prev) => ({
@@ -310,14 +321,14 @@ export function PricingPanel() {
             </div>
           )}
         </div>
-        <div className='mt-4 flex flex-wrap gap-3'>
-          <Button type='button' onClick={handleSubmit} disabled={isSaving}>
+        <div className="mt-3 d-flex flex-wrap gap-2">
+          <Button type="button" onClick={handleSubmit} disabled={isSaving}>
             {editingId ? 'Update pricing' : 'Add pricing'}
           </Button>
           {editingId && (
             <Button
-              type='button'
-              variant='secondary'
+              type="button"
+              variant="secondary"
               onClick={resetForm}
               disabled={isSaving}
             >
@@ -327,23 +338,23 @@ export function PricingPanel() {
         </div>
       </Card>
       <Card
-        title='Existing pricing'
-        description='Select a pricing entry to edit or delete.'
+        title="Existing pricing"
+        description="Select a pricing entry to edit or delete."
       >
         {isLoading ? (
-          <p className='text-sm text-slate-600'>Loading pricing...</p>
+          <p className="text-muted small mb-0">Loading pricing...</p>
         ) : items.length === 0 ? (
-          <p className='text-sm text-slate-600'>No pricing entries yet.</p>
+          <p className="text-muted small mb-0">No pricing entries yet.</p>
         ) : (
-          <div className='overflow-x-auto'>
-            <table className='w-full text-left text-sm'>
-              <thead className='border-b border-slate-200 text-slate-500'>
+          <div className="table-responsive">
+            <table className="table table-sm align-middle">
+              <thead className="table-light">
                 <tr>
-                  <th className='py-2'>Activity</th>
-                  <th className='py-2'>Location</th>
-                  <th className='py-2'>Type</th>
-                  <th className='py-2'>Amount</th>
-                  <th className='py-2 text-right'>Actions</th>
+                  <th>Activity</th>
+                  <th>Location</th>
+                  <th>Type</th>
+                  <th>Amount</th>
+                  <th className="text-end">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -357,32 +368,27 @@ export function PricingPanel() {
                       (location) => location.id === item.location_id
                     )?.district || item.location_id;
                   return (
-                    <tr
-                      key={item.id}
-                      className='border-b border-slate-100'
-                    >
-                      <td className='py-2 font-medium'>{activityName}</td>
-                      <td className='py-2 text-slate-600'>{locationName}</td>
-                      <td className='py-2 text-slate-600'>
-                        {item.pricing_type}
-                      </td>
-                      <td className='py-2 text-slate-600'>
+                    <tr key={item.id}>
+                      <td className="fw-semibold">{activityName}</td>
+                      <td className="text-muted">{locationName}</td>
+                      <td className="text-muted">{item.pricing_type}</td>
+                      <td className="text-muted">
                         {item.amount} {item.currency}
                       </td>
-                      <td className='py-2 text-right'>
-                        <div className='flex justify-end gap-2'>
+                      <td className="text-end table-actions">
+                        <div className="btn-group btn-group-sm">
                           <Button
-                            type='button'
-                            size='sm'
-                            variant='secondary'
+                            type="button"
+                            size="sm"
+                            variant="secondary"
                             onClick={() => startEdit(item)}
                           >
                             Edit
                           </Button>
                           <Button
-                            type='button'
-                            size='sm'
-                            variant='danger'
+                            type="button"
+                            size="sm"
+                            variant="danger"
                             onClick={() => handleDelete(item)}
                           >
                             Delete
@@ -394,14 +400,17 @@ export function PricingPanel() {
                 })}
               </tbody>
             </table>
-            {nextCursor && (
-              <div className='mt-4'>
+            {hasNextPage && (
+              <div className="mt-3">
                 <Button
-                  type='button'
-                  variant='secondary'
-                  onClick={() => loadItems(nextCursor)}
+                  type="button"
+                  variant="secondary"
+                  onClick={() => pricingQuery.fetchNextPage()}
+                  disabled={pricingQuery.isFetchingNextPage}
                 >
-                  Load more
+                  {pricingQuery.isFetchingNextPage
+                    ? 'Loading...'
+                    : 'Load more'}
                 </Button>
               </div>
             )}

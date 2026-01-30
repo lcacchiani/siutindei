@@ -1,15 +1,14 @@
-'use client';
-
 import type { ReactNode } from 'react';
 
 const variantStyles = {
-  info: 'border-blue-200 bg-blue-50 text-blue-900',
-  error: 'border-red-200 bg-red-50 text-red-900',
-  success: 'border-emerald-200 bg-emerald-50 text-emerald-900',
+  info: 'alert-info',
+  error: 'alert-danger',
+  success: 'alert-success',
+  warning: 'alert-warning',
 };
 
 export interface StatusBannerProps {
-  variant: 'info' | 'error' | 'success';
+  variant: 'info' | 'error' | 'success' | 'warning';
   title: string;
   children: ReactNode;
 }
@@ -20,13 +19,9 @@ export function StatusBanner({
   children,
 }: StatusBannerProps) {
   return (
-    <div
-      className={`w-full rounded-lg border px-4 py-3 ${
-        variantStyles[variant]
-      }`}
-    >
-      <p className='text-sm font-semibold'>{title}</p>
-      <p className='mt-1 text-sm'>{children}</p>
+    <div className={`alert ${variantStyles[variant]} mb-0`} role='alert'>
+      <div className='fw-semibold'>{title}</div>
+      <div className='small'>{children}</div>
     </div>
   );
 }

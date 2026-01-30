@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
 APP_DIR="$ROOT_DIR/apps/admin_web"
-BUILD_DIR="$APP_DIR/out"
+BUILD_DIR="$APP_DIR/dist"
 STACK_NAME="${ADMIN_WEB_STACK_NAME:-lxsoftware-siutindei-admin-web}"
 
 if [ ! -d "$BUILD_DIR" ]; then

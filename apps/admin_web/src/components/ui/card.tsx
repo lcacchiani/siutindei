@@ -1,5 +1,3 @@
-'use client';
-
 import type { ReactNode } from 'react';
 
 export interface CardProps {
@@ -16,19 +14,16 @@ export function Card({
   className = '',
 }: CardProps) {
   return (
-    <section
-      className={`rounded-xl border border-slate-200 bg-white p-6 ` +
-        `shadow-sm ${className}`}
-    >
+    <section className={`card ${className}`}>
       {(title || description) && (
-        <header className='mb-4'>
-          {title && <h2 className='text-lg font-semibold'>{title}</h2>}
+        <div className="card-header bg-white">
+          {title && <h2 className="h6 mb-1">{title}</h2>}
           {description && (
-            <p className='mt-1 text-sm text-slate-600'>{description}</p>
+            <p className="mb-0 text-muted small">{description}</p>
           )}
-        </header>
+        </div>
       )}
-      {children}
+      <div className="card-body">{children}</div>
     </section>
   );
 }

@@ -1,5 +1,3 @@
-'use client';
-
 import { useMemo, useState } from 'react';
 
 import { AppShell } from '@/components/app-shell';
@@ -42,7 +40,7 @@ export function AdminDashboard() {
 
   if (status === 'loading') {
     return (
-      <main className='mx-auto flex min-h-screen max-w-lg items-center px-6'>
+      <main className='container py-5'>
         <StatusBanner variant='info' title='Loading'>
           Preparing your admin session.
         </StatusBanner>
