@@ -70,7 +70,7 @@ export class AdminWebStack extends cdk.Stack {
         domainNames: [domainName.valueAsString],
         certificate,
         defaultBehavior: {
-          origin: new origins.S3Origin(this.bucket, {
+          origin: new origins.S3BucketOrigin(this.bucket, {
             originAccessIdentity,
           }),
           viewerProtocolPolicy:
