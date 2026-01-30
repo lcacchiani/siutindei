@@ -11,12 +11,12 @@ on:
       cdk_stacks:
         description: "CDK stacks to deploy"
         required: false
-        default: "all-stacks"
+        default: "all stacks"
         type: choice
         options:
-          - "all-stacks"
-          - "lxsoftware-siutindei"
-          - "lxsoftware-siutindei-admin-web"
+          - "all stacks"
+          - "lambda apis"
+          - "admin web"
   push:
     branches:
       - main
@@ -484,8 +484,12 @@ jobs:
               QUALIFIER_ARGS=(--qualifier "$CDK_BOOTSTRAP_QUALIFIER")
             fi
             STACK_ARGS=()
-            if [ "${CDK_STACKS:-}" = "all-stacks" ]; then
+            if [ "${CDK_STACKS:-}" = "all stacks" ]; then
               unset CDK_STACKS
+            elif [ "${CDK_STACKS:-}" = "lambda apis" ]; then
+              CDK_STACKS="lxsoftware-siutindei"
+            elif [ "${CDK_STACKS:-}" = "admin web" ]; then
+              CDK_STACKS="lxsoftware-siutindei-admin-web"
             fi
             if [ -n "${CDK_STACKS:-}" ]; then
               IFS=$', \n\t' read -r -a STACK_LIST <<< "$CDK_STACKS"
