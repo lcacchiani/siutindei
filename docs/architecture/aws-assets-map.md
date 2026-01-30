@@ -424,6 +424,216 @@ Tags are **not guaranteed** on the following:
 
 ---
 
+## Logical IDs (Synthesized, no wildcards)
+
+These logical IDs were generated from a local CDK synth using:
+
+- `CDK_DEFAULT_ACCOUNT=111111111111`
+- `CDK_DEFAULT_REGION=us-east-1`
+- `availability-zones` context set to `us-east-1a, us-east-1b`
+
+Logical IDs are stable across accounts and regions. If the deployment
+imports existing resources (via `EXISTING_*` environment variables),
+those resources will not be synthesized and will be absent from this
+list.
+
+Total resources: 190
+
+| Logical ID | Type |
+|---|---|
+| `AdminBootstrapFunction6FD9ACC5` | `AWS::Lambda::Function` |
+| `AdminBootstrapFunctionAdminBootstrapInvokePermission3CCA48B1` | `AWS::Lambda::Permission` |
+| `AdminBootstrapFunctionDeadLetterQueueF416BA67` | `AWS::SQS::Queue` |
+| `AdminBootstrapFunctionEnvironmentEncryptionKey485BAC53` | `AWS::KMS::Key` |
+| `AdminBootstrapFunctionServiceRoleA653140D` | `AWS::IAM::Role` |
+| `AdminBootstrapFunctionServiceRoleDefaultPolicy8272E7DD` | `AWS::IAM::Policy` |
+| `AdminBootstrapResource` | `AWS::CloudFormation::CustomResource` |
+| `AdminGroup` | `AWS::Cognito::UserPoolGroup` |
+| `ApiGatewayAccount` | `AWS::ApiGateway::Account` |
+| `ApiGatewayLogRole03004FC3` | `AWS::IAM::Role` |
+| `AppleIdentityProvider` | `AWS::Cognito::UserPoolIdentityProvider` |
+| `AuthCreateChallengeFunctionDeadLetterQueueFC99F5A3` | `AWS::SQS::Queue` |
+| `AuthCreateChallengeFunctionEnvironmentEncryptionKeyAE829E94` | `AWS::KMS::Key` |
+| `AuthCreateChallengeFunctionF47DBD80` | `AWS::Lambda::Function` |
+| `AuthCreateChallengeFunctionServiceRole8CFAA20D` | `AWS::IAM::Role` |
+| `AuthCreateChallengeFunctionServiceRoleDefaultPolicy33837AEA` | `AWS::IAM::Policy` |
+| `AuthDefineChallengeFunction0FEC94DF` | `AWS::Lambda::Function` |
+| `AuthDefineChallengeFunctionDeadLetterQueueAD5FC46C` | `AWS::SQS::Queue` |
+| `AuthDefineChallengeFunctionEnvironmentEncryptionKeyA182103D` | `AWS::KMS::Key` |
+| `AuthDefineChallengeFunctionServiceRole4CD08888` | `AWS::IAM::Role` |
+| `AuthDefineChallengeFunctionServiceRoleDefaultPolicy56450EF0` | `AWS::IAM::Policy` |
+| `AuthPreSignUpFunction11D320F7` | `AWS::Lambda::Function` |
+| `AuthPreSignUpFunctionDeadLetterQueueB6EBA34F` | `AWS::SQS::Queue` |
+| `AuthPreSignUpFunctionEnvironmentEncryptionKey84F25466` | `AWS::KMS::Key` |
+| `AuthPreSignUpFunctionServiceRoleDE5165E8` | `AWS::IAM::Role` |
+| `AuthPreSignUpFunctionServiceRoleDefaultPolicyCEBCF07D` | `AWS::IAM::Policy` |
+| `AuthVerifyChallengeFunction6CDF7E35` | `AWS::Lambda::Function` |
+| `AuthVerifyChallengeFunctionDeadLetterQueue18040DA1` | `AWS::SQS::Queue` |
+| `AuthVerifyChallengeFunctionEnvironmentEncryptionKey237034B2` | `AWS::KMS::Key` |
+| `AuthVerifyChallengeFunctionServiceRoleAC3F45B3` | `AWS::IAM::Role` |
+| `AuthVerifyChallengeFunctionServiceRoleDefaultPolicyCF86E5CF` | `AWS::IAM::Policy` |
+| `CDKMetadata` | `AWS::CDK::Metadata` |
+| `DatabaseCluster5B53A178` | `AWS::RDS::DBCluster` |
+| `DatabaseClusterSubnets5540150D` | `AWS::RDS::DBSubnetGroup` |
+| `DatabaseClusterwriterF225C73E` | `AWS::RDS::DBInstance` |
+| `DatabaseDBCredentialsSecretAttachmentE4837AFC` | `AWS::SecretsManager::SecretTargetAttachment` |
+| `DatabaseDBCredentialsSecretEAAE2F4B` | `AWS::SecretsManager::Secret` |
+| `DatabaseDatabaseMonitoringRoleAD7C676C` | `AWS::IAM::Role` |
+| `DatabaseDatabaseSecretKey1F148F58` | `AWS::KMS::Key` |
+| `DatabaseDatabaseSecurityGroupDBE5AB2F` | `AWS::EC2::SecurityGroup` |
+| `DatabaseDatabaseSecurityGroupfromlxsoftwaresiutindeiDatabaseProxySecurityGroupAF17056A543243E994F8` | `AWS::EC2::SecurityGroupIngress` |
+| `DatabaseDatabaseSecurityGroupfromlxsoftwaresiutindeiDatabaseProxySecurityGroupAF17056AIndirectPort8BD050BF` | `AWS::EC2::SecurityGroupIngress` |
+| `DatabaseDatabaseSecurityGroupfromlxsoftwaresiutindeiMigrationSecurityGroupDA40BCCD5432F4EEE24D` | `AWS::EC2::SecurityGroupIngress` |
+| `DatabaseProxyE01FC4E6` | `AWS::RDS::DBProxy` |
+| `DatabaseProxyIAMRoleA7127453` | `AWS::IAM::Role` |
+| `DatabaseProxyIAMRoleDefaultPolicy262261D3` | `AWS::IAM::Policy` |
+| `DatabaseProxyProxyTargetGroupCFEDF3AA` | `AWS::RDS::DBProxyTargetGroup` |
+| `DatabaseProxySecurityGroupCCC9DB86` | `AWS::EC2::SecurityGroup` |
+| `DatabaseProxySecurityGroupfromlxsoftwaresiutindeiLambdaSecurityGroupCA6CFF7C5432D30236C0` | `AWS::EC2::SecurityGroupIngress` |
+| `DeviceAttestationAuthorizerDeadLetterQueueE1DFBB53` | `AWS::SQS::Queue` |
+| `DeviceAttestationAuthorizerEnvironmentEncryptionKeyB6068E86` | `AWS::KMS::Key` |
+| `DeviceAttestationAuthorizerFunction21C1AA93` | `AWS::Lambda::Function` |
+| `DeviceAttestationAuthorizerFunctionServiceRole45E5577D` | `AWS::IAM::Role` |
+| `DeviceAttestationAuthorizerFunctionServiceRoleDefaultPolicy8A22BD20` | `AWS::IAM::Policy` |
+| `DeviceAttestationAuthorizerFunctionlxsoftwaresiutindeiDeviceAttestationRequestAuthorizerB8C61717PermissionsB47D3D2B` | `AWS::Lambda::Permission` |
+| `DeviceAttestationRequestAuthorizerB8711957` | `AWS::ApiGateway::Authorizer` |
+| `GoogleIdentityProvider` | `AWS::Cognito::UserPoolIdentityProvider` |
+| `HealthCheckFunctionDeadLetterQueue58B556B4` | `AWS::SQS::Queue` |
+| `HealthCheckFunctionEFA68824` | `AWS::Lambda::Function` |
+| `HealthCheckFunctionEnvironmentEncryptionKeyEF75276E` | `AWS::KMS::Key` |
+| `HealthCheckFunctionServiceRoleABC379C9` | `AWS::IAM::Role` |
+| `HealthCheckFunctionServiceRoleDefaultPolicy1BEE44C8` | `AWS::IAM::Policy` |
+| `LambdaSecurityGroup0BD9FC99` | `AWS::EC2::SecurityGroup` |
+| `MicrosoftIdentityProvider` | `AWS::Cognito::UserPoolIdentityProvider` |
+| `MigrationSecurityGroupBCB362A0` | `AWS::EC2::SecurityGroup` |
+| `MobileSearchApiKeyA8120D46` | `AWS::ApiGateway::ApiKey` |
+| `RunMigrations` | `AWS::CloudFormation::CustomResource` |
+| `SiutindeiAdminFunction685E0E6F` | `AWS::Lambda::Function` |
+| `SiutindeiAdminFunctionAdminApiInvokePermission2FBD09B0` | `AWS::Lambda::Permission` |
+| `SiutindeiAdminFunctionDeadLetterQueueC7203ED8` | `AWS::SQS::Queue` |
+| `SiutindeiAdminFunctionEnvironmentEncryptionKeyCB1D7E16` | `AWS::KMS::Key` |
+| `SiutindeiAdminFunctionServiceRole3C86388A` | `AWS::IAM::Role` |
+| `SiutindeiAdminFunctionServiceRoleDefaultPolicy1C91E99F` | `AWS::IAM::Policy` |
+| `SiutindeiApi5C4753F7` | `AWS::ApiGateway::RestApi` |
+| `SiutindeiApiAccount92BFC85C` | `AWS::ApiGateway::Account` |
+| `SiutindeiApiCloudWatchRole2FD5072B` | `AWS::IAM::Role` |
+| `SiutindeiApiDeployment61AE0A80ffb3d0cc7fbcf7f4a45147165eee3eb0` | `AWS::ApiGateway::Deployment` |
+| `SiutindeiApiDeploymentStageprodC8434C74` | `AWS::ApiGateway::Stage` |
+| `SiutindeiApiMobileSearchUsagePlanC2879D17` | `AWS::ApiGateway::UsagePlan` |
+| `SiutindeiApiMobileSearchUsagePlanUsagePlanKeyResourcelxsoftwaresiutindeiMobileSearchApiKeyE03F905C8A6A77A7` | `AWS::ApiGateway::UsagePlanKey` |
+| `SiutindeiApiOPTIONS6E05F5EF` | `AWS::ApiGateway::Method` |
+| `SiutindeiApihealth1F499F16` | `AWS::ApiGateway::Resource` |
+| `SiutindeiApihealthGET1F498D87` | `AWS::ApiGateway::Method` |
+| `SiutindeiApihealthGETApiPermissionTestlxsoftwaresiutindeiSiutindeiApiC6FCB485GEThealth52CA776B` | `AWS::Lambda::Permission` |
+| `SiutindeiApihealthGETApiPermissionlxsoftwaresiutindeiSiutindeiApiC6FCB485GEThealth18BA22E7` | `AWS::Lambda::Permission` |
+| `SiutindeiApihealthOPTIONS9490129D` | `AWS::ApiGateway::Method` |
+| `SiutindeiApiv1D0FDD2A0` | `AWS::ApiGateway::Resource` |
+| `SiutindeiApiv1OPTIONS844F5FF9` | `AWS::ApiGateway::Method` |
+| `SiutindeiApiv1activities1447C04E` | `AWS::ApiGateway::Resource` |
+| `SiutindeiApiv1activitiesOPTIONS9C5B72E6` | `AWS::ApiGateway::Method` |
+| `SiutindeiApiv1activitiessearch2641876C` | `AWS::ApiGateway::Resource` |
+| `SiutindeiApiv1activitiessearchGET8AA7ACBA` | `AWS::ApiGateway::Method` |
+| `SiutindeiApiv1activitiessearchGETApiPermissionTestlxsoftwaresiutindeiSiutindeiApiC6FCB485GETv1activitiessearchA8DCE272` | `AWS::Lambda::Permission` |
+| `SiutindeiApiv1activitiessearchGETApiPermissionlxsoftwaresiutindeiSiutindeiApiC6FCB485GETv1activitiessearch5280D226` | `AWS::Lambda::Permission` |
+| `SiutindeiApiv1activitiessearchOPTIONS5F46585C` | `AWS::ApiGateway::Method` |
+| `SiutindeiApiv1admin0B8AEE9A` | `AWS::ApiGateway::Resource` |
+| `SiutindeiApiv1adminOPTIONSC7664526` | `AWS::ApiGateway::Method` |
+| `SiutindeiApiv1adminactivities20619C1A` | `AWS::ApiGateway::Resource` |
+| `SiutindeiApiv1adminactivitiesGETF7ED8AA8` | `AWS::ApiGateway::Method` |
+| `SiutindeiApiv1adminactivitiesOPTIONSC1C3175B` | `AWS::ApiGateway::Method` |
+| `SiutindeiApiv1adminactivitiesPOST745042E8` | `AWS::ApiGateway::Method` |
+| `SiutindeiApiv1adminactivitiesid47335C65` | `AWS::ApiGateway::Resource` |
+| `SiutindeiApiv1adminactivitiesidDELETE8EF914D2` | `AWS::ApiGateway::Method` |
+| `SiutindeiApiv1adminactivitiesidGETFAB535BE` | `AWS::ApiGateway::Method` |
+| `SiutindeiApiv1adminactivitiesidOPTIONS5743F7C4` | `AWS::ApiGateway::Method` |
+| `SiutindeiApiv1adminactivitiesidPUT2D5F366D` | `AWS::ApiGateway::Method` |
+| `SiutindeiApiv1adminlocations3D8BC59D` | `AWS::ApiGateway::Resource` |
+| `SiutindeiApiv1adminlocationsGET98F45D7C` | `AWS::ApiGateway::Method` |
+| `SiutindeiApiv1adminlocationsOPTIONS77B2368C` | `AWS::ApiGateway::Method` |
+| `SiutindeiApiv1adminlocationsPOSTEB237722` | `AWS::ApiGateway::Method` |
+| `SiutindeiApiv1adminlocationsidB735FE54` | `AWS::ApiGateway::Resource` |
+| `SiutindeiApiv1adminlocationsidDELETECE70CE84` | `AWS::ApiGateway::Method` |
+| `SiutindeiApiv1adminlocationsidGET017EEB2E` | `AWS::ApiGateway::Method` |
+| `SiutindeiApiv1adminlocationsidOPTIONSF0F606D2` | `AWS::ApiGateway::Method` |
+| `SiutindeiApiv1adminlocationsidPUT7FC2C2FC` | `AWS::ApiGateway::Method` |
+| `SiutindeiApiv1adminorganizationsC0E561DE` | `AWS::ApiGateway::Resource` |
+| `SiutindeiApiv1adminorganizationsGET51B39E90` | `AWS::ApiGateway::Method` |
+| `SiutindeiApiv1adminorganizationsOPTIONSC867D6F8` | `AWS::ApiGateway::Method` |
+| `SiutindeiApiv1adminorganizationsPOSTB28EB34E` | `AWS::ApiGateway::Method` |
+| `SiutindeiApiv1adminorganizationsid9433B393` | `AWS::ApiGateway::Resource` |
+| `SiutindeiApiv1adminorganizationsidDELETE3A3DB26C` | `AWS::ApiGateway::Method` |
+| `SiutindeiApiv1adminorganizationsidGET0FE753A3` | `AWS::ApiGateway::Method` |
+| `SiutindeiApiv1adminorganizationsidOPTIONSBA66AC28` | `AWS::ApiGateway::Method` |
+| `SiutindeiApiv1adminorganizationsidPUT39F52BFE` | `AWS::ApiGateway::Method` |
+| `SiutindeiApiv1adminpricing1EC8C86B` | `AWS::ApiGateway::Resource` |
+| `SiutindeiApiv1adminpricingGETBCA45EA2` | `AWS::ApiGateway::Method` |
+| `SiutindeiApiv1adminpricingOPTIONSDD896829` | `AWS::ApiGateway::Method` |
+| `SiutindeiApiv1adminpricingPOSTFFF2B3FC` | `AWS::ApiGateway::Method` |
+| `SiutindeiApiv1adminpricingidB7DD8C67` | `AWS::ApiGateway::Resource` |
+| `SiutindeiApiv1adminpricingidDELETE5FCFC9D5` | `AWS::ApiGateway::Method` |
+| `SiutindeiApiv1adminpricingidGET4B16995C` | `AWS::ApiGateway::Method` |
+| `SiutindeiApiv1adminpricingidOPTIONS8BA1C02C` | `AWS::ApiGateway::Method` |
+| `SiutindeiApiv1adminpricingidPUT2313DAAC` | `AWS::ApiGateway::Method` |
+| `SiutindeiApiv1adminschedulesDA912B51` | `AWS::ApiGateway::Resource` |
+| `SiutindeiApiv1adminschedulesGET4A5E7AA0` | `AWS::ApiGateway::Method` |
+| `SiutindeiApiv1adminschedulesOPTIONSEF29FE54` | `AWS::ApiGateway::Method` |
+| `SiutindeiApiv1adminschedulesPOSTFB004592` | `AWS::ApiGateway::Method` |
+| `SiutindeiApiv1adminschedulesidB43122C4` | `AWS::ApiGateway::Resource` |
+| `SiutindeiApiv1adminschedulesidDELETED1ECF382` | `AWS::ApiGateway::Method` |
+| `SiutindeiApiv1adminschedulesidGET04AB5A9E` | `AWS::ApiGateway::Method` |
+| `SiutindeiApiv1adminschedulesidOPTIONS696175D5` | `AWS::ApiGateway::Method` |
+| `SiutindeiApiv1adminschedulesidPUT351828D3` | `AWS::ApiGateway::Method` |
+| `SiutindeiApiv1adminusersAE8489F8` | `AWS::ApiGateway::Resource` |
+| `SiutindeiApiv1adminusersOPTIONS8BD1E033` | `AWS::ApiGateway::Method` |
+| `SiutindeiApiv1adminusersusernameF025C681` | `AWS::ApiGateway::Resource` |
+| `SiutindeiApiv1adminusersusernameOPTIONS7704CB48` | `AWS::ApiGateway::Method` |
+| `SiutindeiApiv1adminusersusernamegroups03ACFC33` | `AWS::ApiGateway::Resource` |
+| `SiutindeiApiv1adminusersusernamegroupsDELETE37B3B304` | `AWS::ApiGateway::Method` |
+| `SiutindeiApiv1adminusersusernamegroupsOPTIONS3AF0DBEC` | `AWS::ApiGateway::Method` |
+| `SiutindeiApiv1adminusersusernamegroupsPOST89E7E3D0` | `AWS::ApiGateway::Method` |
+| `SiutindeiAuthorizer8C92AB58` | `AWS::ApiGateway::Authorizer` |
+| `SiutindeiMigrationFunction4FE739F8` | `AWS::Lambda::Function` |
+| `SiutindeiMigrationFunctionDeadLetterQueue9D2397AE` | `AWS::SQS::Queue` |
+| `SiutindeiMigrationFunctionEnvironmentEncryptionKey920DEEC9` | `AWS::KMS::Key` |
+| `SiutindeiMigrationFunctionMigrationInvokePermission1116F160` | `AWS::Lambda::Permission` |
+| `SiutindeiMigrationFunctionServiceRoleA9397A65` | `AWS::IAM::Role` |
+| `SiutindeiMigrationFunctionServiceRoleDefaultPolicy71FE77B3` | `AWS::IAM::Policy` |
+| `SiutindeiSearchFunctionBFAC194B` | `AWS::Lambda::Function` |
+| `SiutindeiSearchFunctionDeadLetterQueueF5EBAA88` | `AWS::SQS::Queue` |
+| `SiutindeiSearchFunctionEnvironmentEncryptionKey579BE3A8` | `AWS::KMS::Key` |
+| `SiutindeiSearchFunctionServiceRoleDefaultPolicy7FD2D07F` | `AWS::IAM::Policy` |
+| `SiutindeiSearchFunctionServiceRoleE0324DA8` | `AWS::IAM::Role` |
+| `SiutindeiUserPoolA200ECAF` | `AWS::Cognito::UserPool` |
+| `SiutindeiUserPoolClient` | `AWS::Cognito::UserPoolClient` |
+| `SiutindeiUserPoolCreateAuthChallengeCognitoD6C48AC3` | `AWS::Lambda::Permission` |
+| `SiutindeiUserPoolDefineAuthChallengeCognitoB3126941` | `AWS::Lambda::Permission` |
+| `SiutindeiUserPoolDomain36DD5649` | `AWS::Cognito::UserPoolDomain` |
+| `SiutindeiUserPoolPreSignUpCognito539211A9` | `AWS::Lambda::Permission` |
+| `SiutindeiUserPoolVerifyAuthChallengeResponseCognito605BA731` | `AWS::Lambda::Permission` |
+| `SiutindeiVpc29599EC1` | `AWS::EC2::VPC` |
+| `SiutindeiVpcIGW810F8C30` | `AWS::EC2::InternetGateway` |
+| `SiutindeiVpcPrivateSubnet1DefaultRoute5B6CE4F8` | `AWS::EC2::Route` |
+| `SiutindeiVpcPrivateSubnet1RouteTable30AF1C9C` | `AWS::EC2::RouteTable` |
+| `SiutindeiVpcPrivateSubnet1RouteTableAssociation8461CE0F` | `AWS::EC2::SubnetRouteTableAssociation` |
+| `SiutindeiVpcPrivateSubnet1SubnetDA30C339` | `AWS::EC2::Subnet` |
+| `SiutindeiVpcPrivateSubnet2DefaultRoute7C4F47B0` | `AWS::EC2::Route` |
+| `SiutindeiVpcPrivateSubnet2RouteTable0279C6AF` | `AWS::EC2::RouteTable` |
+| `SiutindeiVpcPrivateSubnet2RouteTableAssociationE0955199` | `AWS::EC2::SubnetRouteTableAssociation` |
+| `SiutindeiVpcPrivateSubnet2Subnet8D66AF40` | `AWS::EC2::Subnet` |
+| `SiutindeiVpcPublicSubnet1DefaultRouteABFF18EE` | `AWS::EC2::Route` |
+| `SiutindeiVpcPublicSubnet1EIP78A7046B` | `AWS::EC2::EIP` |
+| `SiutindeiVpcPublicSubnet1NATGateway2F2F9903` | `AWS::EC2::NatGateway` |
+| `SiutindeiVpcPublicSubnet1RouteTable12A605AA` | `AWS::EC2::RouteTable` |
+| `SiutindeiVpcPublicSubnet1RouteTableAssociationE10A8BB9` | `AWS::EC2::SubnetRouteTableAssociation` |
+| `SiutindeiVpcPublicSubnet1Subnet9C53F79A` | `AWS::EC2::Subnet` |
+| `SiutindeiVpcPublicSubnet2DefaultRoute17004D03` | `AWS::EC2::Route` |
+| `SiutindeiVpcPublicSubnet2RouteTable958F45FA` | `AWS::EC2::RouteTable` |
+| `SiutindeiVpcPublicSubnet2RouteTableAssociation870F9906` | `AWS::EC2::SubnetRouteTableAssociation` |
+| `SiutindeiVpcPublicSubnet2SubnetAC944B12` | `AWS::EC2::Subnet` |
+| `SiutindeiVpcVPCGW28B13D3C` | `AWS::EC2::VPCGatewayAttachment` |
+
+---
+
 ## Resource Retention Policies
 
 The following resources have **RETAIN** deletion policy (survive stack deletion):
