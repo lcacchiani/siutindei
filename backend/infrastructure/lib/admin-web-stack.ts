@@ -12,6 +12,9 @@ export class AdminWebStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
+    cdk.Tags.of(this).add("Organization", "LX Software");
+    cdk.Tags.of(this).add("Project", "Siu Tin Dei");
+
     const resourcePrefix = "lxsoftware-siutindei";
     const name = (suffix: string) => `${resourcePrefix}-${suffix}`;
 
