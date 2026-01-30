@@ -7,6 +7,8 @@ their primary responsibilities.
 
 - Runtime: Python 3.12.
 - Packaging: deterministic bundling (no bytecode files, repeatable output).
+- CDK runs `backend/scripts/run-cdk-app.sh`, which builds the local
+  bundle via `backend/scripts/build_lambda_bundle.py` before synth/deploy.
 
 ## API Gateway Lambdas
 

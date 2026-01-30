@@ -121,10 +121,16 @@ Optional env vars used by CDK:
 - `EXISTING_DB_PROXY_ENDPOINT`
 - `EXISTING_DB_CREDENTIALS_SECRET_NAME`
 - `EXISTING_DB_CREDENTIALS_SECRET_ARN`
+- `EXISTING_DB_CREDENTIALS_SECRET_KMS_KEY_ARN`
 - `EXISTING_DB_SECURITY_GROUP_ID`
 - `EXISTING_PROXY_SECURITY_GROUP_ID`
 - `EXISTING_LAMBDA_SECURITY_GROUP_ID`
 - `EXISTING_MIGRATION_SECURITY_GROUP_ID`
+
+If the existing DB credentials secret uses a customer-managed KMS key,
+provide `EXISTING_DB_CREDENTIALS_SECRET_KMS_KEY_ARN` so Lambda roles
+can decrypt the secret. The deploy workflow attempts to auto-detect
+this value when an existing secret is found.
 
 ## How to obtain provider values
 

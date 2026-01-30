@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
+import http.client
 import json
+import ssl
 from typing import Any
 from typing import Mapping
-from urllib.error import URLError
 from urllib.parse import urlparse
-from urllib.request import Request
-from urllib.request import urlopen
 
 from app.utils.logging import get_logger
 
@@ -40,25 +39,40 @@ def send_cfn_response(
         "Data": dict(data or {}),
     }
     body_bytes = json.dumps(response_body).encode("utf-8")
-    request = Request(
-        response_url,
-        data=body_bytes,
-        method="PUT",
-    )
-    request.add_header("Content-Type", "")
-    request.add_header("Content-Length", str(len(body_bytes)))
+    parsed_url = urlparse(response_url)
+    target_path = parsed_url.path or "/"
+    if parsed_url.query:
+        target_path = f"{target_path}?{parsed_url.query}"
+    hostname = parsed_url.hostname or ""
+    port = parsed_url.port or 443
+    ssl_context = ssl.create_default_context()
 
+    connection = http.client.HTTPSConnection(
+        hostname,
+        port=port,
+        context=ssl_context,
+    )
     try:
-        with urlopen(request) as response:  # nosec B310
-            logger.info(
-                "Sent CloudFormation response",
-                extra={
-                    "status": status,
-                    "http_status": response.status,
-                    "logical_resource_id": response_body["LogicalResourceId"],
-                },
-            )
-    except URLError:
+        connection.request(
+            "PUT",
+            target_path,
+            body=body_bytes,
+            headers={
+                "Content-Type": "",
+                "Content-Length": str(len(body_bytes)),
+            },
+        )
+        response = connection.getresponse()
+        response.read()
+        logger.info(
+            "Sent CloudFormation response",
+            extra={
+                "status": status,
+                "http_status": response.status,
+                "logical_resource_id": response_body["LogicalResourceId"],
+            },
+        )
+    except (http.client.HTTPException, OSError):
         logger.error(
             "Failed to send CloudFormation response",
             extra={
@@ -68,6 +82,8 @@ def send_cfn_response(
             exc_info=True,
         )
         raise
+    finally:
+        connection.close()
 
 
 def _default_physical_id(context: Any) -> str:

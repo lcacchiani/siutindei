@@ -1,10 +1,10 @@
-import * as childProcess from "child_process";
 import * as cdk from "aws-cdk-lib";
 import * as ec2 from "aws-cdk-lib/aws-ec2";
 import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as kms from "aws-cdk-lib/aws-kms";
 import * as sqs from "aws-cdk-lib/aws-sqs";
 import { Construct } from "constructs";
+import * as fs from "fs";
 import * as path from "path";
 
 /**
@@ -27,8 +27,8 @@ export interface PythonLambdaProps {
   vpc?: ec2.IVpc;
   /** Security groups (required if vpc is provided). */
   securityGroups?: ec2.ISecurityGroup[];
-  /** Additional bundling commands. */
-  extraCopyCommands?: string[];
+  /** Extra paths (relative to backend root) to copy. */
+  extraCopyPaths?: string[];
   /** Custom code asset (overrides default bundling). */
   code?: lambda.Code;
   /** Reserved concurrency limit. */
@@ -55,6 +55,8 @@ export class PythonLambda extends Construct {
     super(scope, id);
 
     const sourceRoot = path.join(__dirname, "../../../");
+    const extraCopyPaths = normalizeExtraCopyPaths(props.extraCopyPaths);
+    const localBundleBase = path.join(sourceRoot, ".lambda-build", "base");
     const cleanupCommands = [
       "find /asset-output -type d -name __pycache__ -prune -exec rm -rf {} +",
       'find /asset-output -type f -name "*.pyc" -delete',
@@ -67,140 +69,53 @@ export class PythonLambda extends Construct {
         "-t /asset-output --no-compile",
       "cp -au lambda /asset-output/lambda",
       "cp -au src /asset-output/src",
-      ...(props.extraCopyCommands ?? []),
+      ...extraCopyPaths.map(
+        (extraPath) => `cp -au "${extraPath}" "/asset-output/${extraPath}"`
+      ),
       ...cleanupCommands,
     ];
 
-    function runLocalCommand(
-      command: string,
-      args: string[],
-      cwd: string,
-      env: NodeJS.ProcessEnv
-    ): void {
-      // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process
-      // Bundling uses trusted local commands with fixed arguments.
-      const result = childProcess.spawnSync(command, args, {
-        cwd,
-        env,
-        stdio: "inherit",
-      });
-      if (result.status !== 0) {
-        throw new Error(`Command failed: ${command}`);
-      }
-    }
-
-    function resolvePythonCommand(): string | null {
-      const candidates = ["python3", "python"];
-      for (const candidate of candidates) {
-        // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process
-        // Checking local python versions is build-time only.
-        const versionResult = childProcess.spawnSync(
-          candidate,
-          [
-            "-c",
-            "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')",
-          ],
-          {
-            encoding: "utf-8",
-            stdio: ["ignore", "pipe", "ignore"],
-          }
-        );
-        if (versionResult.status !== 0) {
+    function normalizeExtraCopyPaths(
+      paths: string[] | undefined
+    ): string[] {
+      const normalized: string[] = [];
+      for (const extraPath of paths ?? []) {
+        const trimmed = extraPath.trim();
+        if (!trimmed) {
           continue;
         }
-        const version = versionResult.stdout.trim();
-        if (version !== "3.12") {
-          continue;
+        if (path.isAbsolute(trimmed)) {
+          throw new Error("Extra copy paths must be relative.");
         }
-        // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process
-        const result = childProcess.spawnSync(candidate, ["-V"], {
-          stdio: "ignore",
-        });
-        if (result.status === 0) {
-          return candidate;
+        const sanitized = trimmed.replace(/^(\.\/)+/, "");
+        if (sanitized.startsWith("..")) {
+          throw new Error("Extra copy paths must stay under backend root.");
         }
+        if (!/^[a-zA-Z0-9._/-]+$/.test(sanitized)) {
+          throw new Error("Extra copy paths contain invalid characters.");
+        }
+        normalized.push(sanitized);
       }
-      return null;
+      return normalized;
     }
 
     function tryLocalBundle(outputDir: string): boolean {
-      const pythonCommand = resolvePythonCommand();
-      if (!pythonCommand) {
-        return false;
+      if (!fs.existsSync(localBundleBase)) {
+        throw new Error(
+          "Local Lambda bundle missing. Run `python3 " +
+            "backend/scripts/build_lambda_bundle.py` first."
+        );
       }
-      const env = {
-        ...process.env,
-        HOME: "/tmp",
-        PIP_CACHE_DIR: "/tmp/pip-cache",
-        PYTHONUSERBASE: "/tmp/.local",
-        PYTHONDONTWRITEBYTECODE: "1",
-        PYTHONHASHSEED: "0",
-      };
-      try {
-        runLocalCommand(
-          pythonCommand,
-          [
-            "-m",
-            "pip",
-            "install",
-            "--upgrade",
-            "pip==25.3",
-            "--no-warn-script-location",
-          ],
-          sourceRoot,
-          env
-        );
-        runLocalCommand(
-          pythonCommand,
-          [
-            "-m",
-            "pip",
-            "install",
-            "-r",
-            "requirements.txt",
-            "-t",
-            outputDir,
-            "--no-compile",
-          ],
-          sourceRoot,
-          env
-        );
-        runLocalCommand(
-          "cp",
-          ["-au", "lambda", path.join(outputDir, "lambda")],
-          sourceRoot,
-          env
-        );
-        runLocalCommand(
-          "cp",
-          ["-au", "src", path.join(outputDir, "src")],
-          sourceRoot,
-          env
-        );
-        for (const command of props.extraCopyCommands ?? []) {
-          const localCommand = command
-            .split("/asset-output")
-            .join(outputDir);
-          runLocalCommand(
-            "bash",
-            ["-c", localCommand],
-            sourceRoot,
-            env
-          );
+      fs.cpSync(localBundleBase, outputDir, { recursive: true });
+      for (const extraPath of extraCopyPaths) {
+        const sourcePath = path.join(sourceRoot, extraPath);
+        if (!fs.existsSync(sourcePath)) {
+          throw new Error(`Missing extra bundle path: ${extraPath}`);
         }
-        for (const command of cleanupCommands) {
-          const localCommand = command.split("/asset-output").join(outputDir);
-          runLocalCommand(
-            "bash",
-            ["-c", localCommand],
-            sourceRoot,
-            env
-          );
-        }
-        return true;
-      } catch {
-        return false;
+        const targetPath = path.join(outputDir, extraPath);
+        fs.cpSync(sourcePath, targetPath, { recursive: true });
       }
+      return true;
     }
 
     const environmentEncryptionKey =
