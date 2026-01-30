@@ -912,7 +912,7 @@ function resolveCorsAllowedOrigins(scope: Construct): string[] {
     "ionic://localhost",
     "http://localhost",
     "http://localhost:3000",
-    "https://siutindei.lx-technology.com",
+    "https://siutindei.lx-software.com",
   ];
   const contextOrigins = normalizeCorsOrigins(
     scope.node.tryGetContext("corsAllowedOrigins")
