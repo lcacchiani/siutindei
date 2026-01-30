@@ -8,6 +8,15 @@ on:
         required: false
         default: false
         type: boolean
+      cdk_stacks:
+        description: "CDK stacks to deploy"
+        required: false
+        default: "all-stacks"
+        type: choice
+        options:
+          - "all-stacks"
+          - "lxsoftware-siutindei"
+          - "lxsoftware-siutindei-admin-web"
   push:
     branches:
       - main
@@ -475,6 +484,9 @@ jobs:
               QUALIFIER_ARGS=(--qualifier "$CDK_BOOTSTRAP_QUALIFIER")
             fi
             STACK_ARGS=()
+            if [ "${CDK_STACKS:-}" = "all-stacks" ]; then
+              unset CDK_STACKS
+            fi
             if [ -n "${CDK_STACKS:-}" ]; then
               IFS=$', \n\t' read -r -a STACK_LIST <<< "$CDK_STACKS"
               for stack in "${STACK_LIST[@]}"; do
@@ -517,7 +529,8 @@ jobs:
             echo "Missing backend/infrastructure/package.json"
           fi
         env:
-          CDK_STACKS: ${{ vars.CDK_STACKS }}
+          CDK_STACKS: >-
+            ${{ github.event.inputs.cdk_stacks || vars.CDK_STACKS }}
           CDK_PARAM_FILE: ${{ vars.CDK_PARAM_FILE }}
           CDK_SECRET_PARAM_FILE: ${{ env.CDK_SECRET_PARAM_FILE }}
           CDK_NON_SECRET_PARAM_FILE: ${{ env.CDK_NON_SECRET_PARAM_FILE }}
