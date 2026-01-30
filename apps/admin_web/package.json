@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "ESLINT_USE_FLAT_CONFIG=false eslint --max-warnings=0 \"src/**/*.{ts,tsx}\""
+    "lint": "eslint --max-warnings=0 ."
   },
   "dependencies": {
     "next": "^16.1.6",
