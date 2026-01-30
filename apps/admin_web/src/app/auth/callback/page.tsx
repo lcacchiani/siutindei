@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react';
 
-import { StatusBanner } from '@/components/status-banner';
-import { completeLogin } from '@/lib/auth';
+import { StatusBanner } from '../../../components/status-banner';
+import { completeLogin } from '../../../lib/auth';
 
 export default function AuthCallbackPage() {
   const [errorMessage, setErrorMessage] = useState('');

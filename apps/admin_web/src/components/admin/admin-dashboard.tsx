@@ -2,15 +2,15 @@
 
 import { useMemo, useState } from 'react';
 
-import { AppShell } from '@/components/app-shell';
-import { useAuth } from '@/components/auth-provider';
-import { LoginScreen } from '@/components/login-screen';
-import { StatusBanner } from '@/components/status-banner';
-import { ActivitiesPanel } from '@/components/admin/activities-panel';
-import { LocationsPanel } from '@/components/admin/locations-panel';
-import { OrganizationsPanel } from '@/components/admin/organizations-panel';
-import { PricingPanel } from '@/components/admin/pricing-panel';
-import { SchedulesPanel } from '@/components/admin/schedules-panel';
+import { AppShell } from '../app-shell';
+import { useAuth } from '../auth-provider';
+import { LoginScreen } from '../login-screen';
+import { StatusBanner } from '../status-banner';
+import { ActivitiesPanel } from './activities-panel';
+import { LocationsPanel } from './locations-panel';
+import { OrganizationsPanel } from './organizations-panel';
+import { PricingPanel } from './pricing-panel';
+import { SchedulesPanel } from './schedules-panel';
 
 const sectionLabels = [
   { key: 'organizations', label: 'Organizations' },

@@ -8,15 +8,15 @@ import {
   deleteResource,
   listResource,
   updateResource,
-} from '@/lib/api-client';
-import type { Activity, Organization } from '@/types/admin';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
-import { StatusBanner } from '@/components/status-banner';
+} from '../../lib/api-client';
+import type { Activity, Organization } from '../../types/admin';
+import { Button } from '../ui/button';
+import { Card } from '../ui/card';
+import { Input } from '../ui/input';
+import { Label } from '../ui/label';
+import { Select } from '../ui/select';
+import { Textarea } from '../ui/textarea';
+import { StatusBanner } from '../status-banner';
 
 const emptyForm = {
   org_id: '',

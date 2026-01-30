@@ -1,9 +1,9 @@
 'use client';
 
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { StatusBanner } from '@/components/status-banner';
-import { useAuth } from '@/components/auth-provider';
+import { Button } from './ui/button';
+import { Card } from './ui/card';
+import { StatusBanner } from './status-banner';
+import { useAuth } from './auth-provider';
 
 export function LoginScreen() {
   const { login, configErrors } = useAuth();

@@ -9,8 +9,8 @@ import {
   getUserProfile,
   startLogin,
   startLogout,
-} from '@/lib/auth';
-import { getConfigErrors } from '@/lib/config';
+} from '../lib/auth';
+import { getConfigErrors } from '../lib/config';
 
 export type AuthStatus = 'loading' | 'authenticated' | 'unauthenticated';
 
