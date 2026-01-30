@@ -401,6 +401,29 @@ Examples:
 
 ---
 
+## Tagging Coverage
+
+The stack applies two tags at the stack level:
+
+- `Organization= LX Software`
+- `Project= Siu Tin Dei`
+
+These tags are inherited by **all taggable resources** created in this
+stack, including implicit resources created by CDK (subnets, route
+tables, etc.).
+
+Tags are **not guaranteed** on the following:
+
+- Resource types that do not support tagging.
+- Imported or existing resources (for example, an existing VPC, DB
+  cluster, security groups, or the API access log group).
+- Resources created outside the stack lifecycle, such as Lambda log
+  groups created on first invocation.
+- CDK bootstrap stack resources (CDKToolkit), which are separate from
+  this stack.
+
+---
+
 ## Resource Retention Policies
 
 The following resources have **RETAIN** deletion policy (survive stack deletion):
