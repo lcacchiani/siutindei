@@ -1,24 +1,22 @@
 # Admin Web (SPA)
 
-Vite + React Router + TanStack Query + Bootstrap 5 admin portal for
-managing organizations, locations, activities, pricing, and schedules.
+Single-page admin portal for managing organizations, locations, activities,
+pricing, and schedules.
 
 ## Configuration
 
 Create a `.env.local` with:
 
 ```
-VITE_API_BASE_URL=
-VITE_COGNITO_DOMAIN=
-VITE_COGNITO_CLIENT_ID=
+NEXT_PUBLIC_API_BASE_URL=
+NEXT_PUBLIC_COGNITO_DOMAIN=
+NEXT_PUBLIC_COGNITO_CLIENT_ID=
 ```
 
 Values:
-- `VITE_API_BASE_URL`: API Gateway base URL (ends with `/prod`).
-- `VITE_COGNITO_DOMAIN`: Cognito hosted UI domain (full URL or domain).
-- `VITE_COGNITO_CLIENT_ID`: User pool app client ID.
-
-The app also accepts `NEXT_PUBLIC_*` as a fallback for CI compatibility.
+- `NEXT_PUBLIC_API_BASE_URL`: API Gateway base URL (ends with `/prod`).
+- `NEXT_PUBLIC_COGNITO_DOMAIN`: Cognito hosted UI domain (full URL or domain).
+- `NEXT_PUBLIC_COGNITO_CLIENT_ID`: User pool app client ID.
 
 ## Development
 
@@ -33,4 +31,4 @@ npm run dev
 npm run build
 ```
 
-The static output is generated in `dist/`.
+The static output is generated in `out/`.

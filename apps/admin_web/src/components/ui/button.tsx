@@ -1,18 +1,24 @@
+'use client';
+
 import type { ButtonHTMLAttributes } from 'react';
 
-const baseStyles = 'btn';
+const baseStyles =
+  'inline-flex items-center justify-center rounded-md text-sm ' +
+  'font-semibold transition focus-visible:outline-none ' +
+  'focus-visible:ring-2 focus-visible:ring-slate-400 ' +
+  'disabled:cursor-not-allowed disabled:opacity-60';
 
 const variantStyles = {
-  primary: 'btn-primary',
-  secondary: 'btn-outline-secondary',
-  ghost: 'btn-link',
-  danger: 'btn-danger',
+  primary: 'bg-slate-900 text-white hover:bg-slate-800',
+  secondary: 'bg-slate-100 text-slate-900 hover:bg-slate-200',
+  ghost: 'text-slate-700 hover:bg-slate-100',
+  danger: 'bg-red-600 text-white hover:bg-red-500',
 };
 
 const sizeStyles = {
-  sm: 'btn-sm',
-  md: '',
-  lg: 'btn-lg',
+  sm: 'h-8 px-3',
+  md: 'h-9 px-4',
+  lg: 'h-10 px-5',
 };
 
 export interface ButtonProps

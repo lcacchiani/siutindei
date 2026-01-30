@@ -1,11 +1,14 @@
+'use client';
+
 import type { LabelHTMLAttributes } from 'react';
 
-export type LabelProps = LabelHTMLAttributes<HTMLLabelElement>;
+export interface LabelProps
+  extends LabelHTMLAttributes<HTMLLabelElement> {}
 
 export function Label({ className = '', ...props }: LabelProps) {
   return (
     <label
-      className={`form-label ${className}`}
+      className={`text-sm font-medium text-slate-700 ${className}`}
       {...props}
     />
   );

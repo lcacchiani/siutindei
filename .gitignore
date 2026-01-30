@@ -190,10 +190,8 @@ cython_debug/
 
 # Node
 node_modules/
-dist/
-out/
-.next/
-apps/admin_web/dist/
+apps/admin_web/.next/
+apps/admin_web/out/
 
 # CDK
 **/cdk.out/

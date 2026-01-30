@@ -1,11 +1,11 @@
+'use client';
+
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 
 import { StatusBanner } from '@/components/status-banner';
 import { completeLogin } from '@/lib/auth';
 
-export function AuthCallbackPage() {
-  const navigate = useNavigate();
+export default function AuthCallbackPage() {
   const [errorMessage, setErrorMessage] = useState('');
 
   useEffect(() => {
@@ -14,7 +14,7 @@ export function AuthCallbackPage() {
     const finishLogin = async () => {
       try {
         await completeLogin();
-        navigate('/', { replace: true });
+        window.location.replace('/');
       } catch (error) {
         if (!isMounted) {
           return;
@@ -32,11 +32,11 @@ export function AuthCallbackPage() {
     return () => {
       isMounted = false;
     };
-  }, [navigate]);
+  }, []);
 
   if (errorMessage) {
     return (
-      <main className='container py-5'>
+      <main className='mx-auto flex min-h-screen max-w-lg items-center px-6'>
         <StatusBanner variant='error' title='Login failed'>
           {errorMessage}
         </StatusBanner>
@@ -45,8 +45,8 @@ export function AuthCallbackPage() {
   }
 
   return (
-      <main className='container py-5'>
-        <StatusBanner variant='info' title='Signing you in...'>
+    <main className='mx-auto flex min-h-screen max-w-lg items-center px-6'>
+      <StatusBanner variant='info' title='Signing you in...'>
         Completing your admin session.
       </StatusBanner>
     </main>

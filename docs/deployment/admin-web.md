@@ -23,8 +23,6 @@ npm ci
 npm run build
 ```
 
-Build output is written to `apps/admin_web/dist`.
-
 From the repo root:
 
 ```
@@ -39,13 +37,3 @@ Set `CORS_ALLOWED_ORIGINS` (or CDK context `corsAllowedOrigins`) to include:
 - `http://localhost:3000`
 
 This is required for the admin SPA to call the admin API endpoints.
-
-## Build-time environment variables
-
-The Vite build expects:
-
-- `VITE_API_BASE_URL`
-- `VITE_COGNITO_DOMAIN`
-- `VITE_COGNITO_CLIENT_ID`
-
-`NEXT_PUBLIC_*` variables are accepted as a fallback for CI.
