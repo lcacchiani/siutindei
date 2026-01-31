@@ -143,6 +143,26 @@ export class ApiStack extends cdk.Stack {
       type: "String",
       description: "Hosted UI domain prefix for the Cognito user pool",
     });
+    const authCustomDomainName = new cdk.CfnParameter(
+      this,
+      "CognitoCustomDomainName",
+      {
+        type: "String",
+        default: "",
+        description: "Optional custom Hosted UI domain (e.g. auth.example.com)",
+      }
+    );
+    const authCustomDomainCertificateArn = new cdk.CfnParameter(
+      this,
+      "CognitoCustomDomainCertificateArn",
+      {
+        type: "String",
+        default: "",
+        description:
+          "ACM certificate ARN for the custom Hosted UI domain " +
+          "(same region as the user pool)",
+      }
+    );
     const oauthCallbackUrls = new cdk.CfnParameter(this, "CognitoCallbackUrls", {
       type: "CommaDelimitedList",
       description: "Comma-separated list of OAuth callback URLs",
@@ -347,12 +367,55 @@ export class ApiStack extends cdk.Stack {
       }
     );
 
-    new cognito.UserPoolDomain(this, "SiutindeiUserPoolDomain", {
-      userPool,
-      cognitoDomain: {
-        domainPrefix: authDomainPrefix.valueAsString,
-      },
+    const useCustomDomain = new cdk.CfnCondition(this, "UseCustomAuthDomain", {
+      expression: cdk.Fn.conditionAnd(
+        cdk.Fn.conditionNot(
+          cdk.Fn.conditionEquals(authCustomDomainName.valueAsString, "")
+        ),
+        cdk.Fn.conditionNot(
+          cdk.Fn.conditionEquals(
+            authCustomDomainCertificateArn.valueAsString,
+            ""
+          )
+        )
+      ),
     });
+    const useCognitoDomain = new cdk.CfnCondition(
+      this,
+      "UseCognitoAuthDomain",
+      {
+        expression: cdk.Fn.conditionOr(
+          cdk.Fn.conditionEquals(authCustomDomainName.valueAsString, ""),
+          cdk.Fn.conditionEquals(
+            authCustomDomainCertificateArn.valueAsString,
+            ""
+          )
+        ),
+      }
+    );
+
+    const cognitoHostedDomain = new cognito.CfnUserPoolDomain(
+      this,
+      "SiutindeiUserPoolDomain",
+      {
+        userPoolId: userPool.userPoolId,
+        domain: authDomainPrefix.valueAsString,
+      }
+    );
+    cognitoHostedDomain.cfnOptions.condition = useCognitoDomain;
+
+    const customHostedDomain = new cognito.CfnUserPoolDomain(
+      this,
+      "SiutindeiUserPoolCustomDomain",
+      {
+        userPoolId: userPool.userPoolId,
+        domain: authCustomDomainName.valueAsString,
+        customDomainConfig: {
+          certificateArn: authCustomDomainCertificateArn.valueAsString,
+        },
+      }
+    );
+    customHostedDomain.cfnOptions.condition = useCustomDomain;
 
     const userPoolClient = new cognito.CfnUserPoolClient(
       this,
