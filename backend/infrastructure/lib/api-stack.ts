@@ -397,7 +397,7 @@ export class ApiStack extends cdk.Stack {
 
     const cognitoHostedDomain = new cognito.CfnUserPoolDomain(
       this,
-      "SiutindeiUserPoolDomain",
+      "SiutindeiCognitoPrefixDomain",
       {
         userPoolId: userPool.userPoolId,
         domain: authDomainPrefix.valueAsString,
@@ -419,7 +419,7 @@ export class ApiStack extends cdk.Stack {
           physicalResourceId: customresources.PhysicalResourceId.of(
             `remove-cognito-domain-${userPool.userPoolId}`
           ),
-          ignoreErrorCodesMatching: "ResourceNotFoundException",
+          ignoreErrorCodesMatching: "ResourceNotFoundException|InvalidParameterException",
         },
         onUpdate: {
           service: "CognitoIdentityServiceProvider",
@@ -431,7 +431,7 @@ export class ApiStack extends cdk.Stack {
           physicalResourceId: customresources.PhysicalResourceId.of(
             `remove-cognito-domain-${userPool.userPoolId}`
           ),
-          ignoreErrorCodesMatching: "ResourceNotFoundException",
+          ignoreErrorCodesMatching: "ResourceNotFoundException|InvalidParameterException",
         },
         policy: customresources.AwsCustomResourcePolicy.fromSdkCalls({
           resources: customresources.AwsCustomResourcePolicy.ANY_RESOURCE,
