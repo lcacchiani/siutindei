@@ -1,5 +1,5 @@
 {
-  "CognitoDomainPrefix": "lxsoftware-siutindei-prod",
+  "CognitoDomainPrefix": "lxsoftware-siutindei",
   "CognitoCustomDomainName": "",
   "CognitoCustomDomainCertificateArn": "",
   "CognitoCallbackUrls": "com.lxsoftware.siutindei://callback,https://siutindei.lx-software.com/auth/callback,http://localhost:3000/auth/callback",
