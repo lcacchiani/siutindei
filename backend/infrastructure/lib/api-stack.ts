@@ -405,6 +405,10 @@ export class ApiStack extends cdk.Stack {
     );
     cognitoHostedDomain.cfnOptions.condition = useCognitoDomain;
 
+    // Custom resource to remove the Cognito prefix domain before adding a custom domain.
+    // Cognito only allows one domain per user pool, so we must delete the existing
+    // prefix domain first. We ignore errors for non-existent domains since the prefix
+    // domain may not exist (fresh deployment or already removed).
     const removeCognitoDomain = new customresources.AwsCustomResource(
       this,
       "RemoveCognitoAuthDomain",
@@ -419,7 +423,9 @@ export class ApiStack extends cdk.Stack {
           physicalResourceId: customresources.PhysicalResourceId.of(
             `remove-cognito-domain-${userPool.userPoolId}`
           ),
-          ignoreErrorCodesMatching: "ResourceNotFoundException",
+          // Ignore errors when domain doesn't exist (ResourceNotFoundException)
+          // or when parameters are invalid due to missing domain (InvalidParameterException)
+          ignoreErrorCodesMatching: "ResourceNotFoundException|InvalidParameterException",
         },
         onUpdate: {
           service: "CognitoIdentityServiceProvider",
@@ -431,7 +437,7 @@ export class ApiStack extends cdk.Stack {
           physicalResourceId: customresources.PhysicalResourceId.of(
             `remove-cognito-domain-${userPool.userPoolId}`
           ),
-          ignoreErrorCodesMatching: "ResourceNotFoundException",
+          ignoreErrorCodesMatching: "ResourceNotFoundException|InvalidParameterException",
         },
         policy: customresources.AwsCustomResourcePolicy.fromSdkCalls({
           resources: customresources.AwsCustomResourcePolicy.ANY_RESOURCE,
