@@ -395,9 +395,11 @@ export class ApiStack extends cdk.Stack {
       }
     );
 
+    // Note: Logical ID changed from "SiutindeiUserPoolDomain" to reset CloudFormation state
+    // after state corruption from failed conditional deployments.
     const cognitoHostedDomain = new cognito.CfnUserPoolDomain(
       this,
-      "SiutindeiUserPoolDomain",
+      "CognitoPrefixDomain",
       {
         userPoolId: userPool.userPoolId,
         domain: authDomainPrefix.valueAsString,
