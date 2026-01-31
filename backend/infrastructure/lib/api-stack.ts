@@ -405,6 +405,42 @@ export class ApiStack extends cdk.Stack {
     );
     cognitoHostedDomain.cfnOptions.condition = useCognitoDomain;
 
+    const removeCognitoDomain = new customresources.AwsCustomResource(
+      this,
+      "RemoveCognitoAuthDomain",
+      {
+        onCreate: {
+          service: "CognitoIdentityServiceProvider",
+          action: "deleteUserPoolDomain",
+          parameters: {
+            UserPoolId: userPool.userPoolId,
+            Domain: authDomainPrefix.valueAsString,
+          },
+          physicalResourceId: customresources.PhysicalResourceId.of(
+            `remove-cognito-domain-${userPool.userPoolId}`
+          ),
+          ignoreErrorCodesMatching: "ResourceNotFoundException",
+        },
+        onUpdate: {
+          service: "CognitoIdentityServiceProvider",
+          action: "deleteUserPoolDomain",
+          parameters: {
+            UserPoolId: userPool.userPoolId,
+            Domain: authDomainPrefix.valueAsString,
+          },
+          physicalResourceId: customresources.PhysicalResourceId.of(
+            `remove-cognito-domain-${userPool.userPoolId}`
+          ),
+          ignoreErrorCodesMatching: "ResourceNotFoundException",
+        },
+        policy: customresources.AwsCustomResourcePolicy.fromSdkCalls({
+          resources: customresources.AwsCustomResourcePolicy.ANY_RESOURCE,
+        }),
+        installLatestAwsSdk: false,
+      }
+    );
+    removeCognitoDomain.cfnOptions.condition = useCustomDomain;
+
     const customHostedDomain = new cognito.CfnUserPoolDomain(
       this,
       "SiutindeiUserPoolCustomDomain",
@@ -417,6 +453,7 @@ export class ApiStack extends cdk.Stack {
       }
     );
     customHostedDomain.cfnOptions.condition = useCustomDomain;
+    customHostedDomain.node.addDependency(removeCognitoDomain);
 
     const userPoolClient = new cognito.CfnUserPoolClient(
       this,
