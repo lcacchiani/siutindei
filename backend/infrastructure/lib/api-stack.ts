@@ -3,6 +3,7 @@ import * as apigateway from "aws-cdk-lib/aws-apigateway";
 import * as cognito from "aws-cdk-lib/aws-cognito";
 import * as ec2 from "aws-cdk-lib/aws-ec2";
 import * as iam from "aws-cdk-lib/aws-iam";
+import * as customresources from "aws-cdk-lib/custom-resources";
 import * as logs from "aws-cdk-lib/aws-logs";
 import { Construct } from "constructs";
 import * as crypto from "crypto";
@@ -442,12 +443,60 @@ export class ApiStack extends cdk.Stack {
     userPoolClient.addDependency(appleProvider);
     userPoolClient.addDependency(microsoftProvider);
 
+    const groupPolicy = customresources.AwsCustomResourcePolicy.fromStatements([
+      new iam.PolicyStatement({
+        actions: [
+          "cognito-idp:CreateGroup",
+          "cognito-idp:UpdateGroup",
+          "cognito-idp:DeleteGroup",
+        ],
+        resources: [userPool.userPoolArn],
+      }),
+    ]);
+
     for (const [index, group] of userPoolGroups.entries()) {
-      new cognito.CfnUserPoolGroup(this, `UserGroup${index}`, {
-        userPoolId: userPool.userPoolId,
-        groupName: group.name,
-        description: group.description,
-      });
+      new customresources.AwsCustomResource(
+        this,
+        `UserGroup${index}`,
+        {
+          onCreate: {
+            service: "CognitoIdentityServiceProvider",
+            action: "createGroup",
+            parameters: {
+              UserPoolId: userPool.userPoolId,
+              GroupName: group.name,
+              Description: group.description,
+            },
+            physicalResourceId: customresources.PhysicalResourceId.of(
+              `${userPool.userPoolId}-${group.name}`
+            ),
+            ignoreErrorCodesMatching: "GroupExistsException",
+          },
+          onUpdate: {
+            service: "CognitoIdentityServiceProvider",
+            action: "updateGroup",
+            parameters: {
+              UserPoolId: userPool.userPoolId,
+              GroupName: group.name,
+              Description: group.description,
+            },
+            physicalResourceId: customresources.PhysicalResourceId.of(
+              `${userPool.userPoolId}-${group.name}`
+            ),
+          },
+          onDelete: {
+            service: "CognitoIdentityServiceProvider",
+            action: "deleteGroup",
+            parameters: {
+              UserPoolId: userPool.userPoolId,
+              GroupName: group.name,
+            },
+            ignoreErrorCodesMatching: "ResourceNotFoundException",
+          },
+          policy: groupPolicy,
+          installLatestAwsSdk: false,
+        }
+      );
     }
 
     // ---------------------------------------------------------------------
