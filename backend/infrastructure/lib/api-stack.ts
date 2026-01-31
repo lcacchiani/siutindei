@@ -439,12 +439,9 @@ export class ApiStack extends cdk.Stack {
         installLatestAwsSdk: false,
       }
     );
-    const removeCognitoDomainResource = (removeCognitoDomain.node
-      .defaultChild ??
-      removeCognitoDomain.node.tryFindChild("Resource") ??
-      removeCognitoDomain.node.tryFindChild("CustomResource")) as
-      | cdk.CfnResource
-      | undefined;
+    const removeCognitoDomainResource = removeCognitoDomain.node.children.find(
+      (child): child is cdk.CfnResource => child instanceof cdk.CfnResource
+    );
     if (!removeCognitoDomainResource) {
       throw new Error(
         "Expected custom resource child for RemoveCognitoAuthDomain."
