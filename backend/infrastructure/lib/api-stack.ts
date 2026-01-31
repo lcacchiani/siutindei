@@ -301,7 +301,7 @@ export class ApiStack extends cdk.Stack {
       accountRecovery: cognito.AccountRecovery.EMAIL_ONLY,
     });
     const adminGroupName = "admin";
-    const userGroups = [
+    const userPoolGroups = [
       { name: adminGroupName, description: "Administrative users" },
       { name: "customer", description: "Customer users" },
       { name: "owner", description: "Owner users" },
@@ -442,7 +442,7 @@ export class ApiStack extends cdk.Stack {
     userPoolClient.addDependency(appleProvider);
     userPoolClient.addDependency(microsoftProvider);
 
-    for (const [index, group] of userGroups.entries()) {
+    for (const [index, group] of userPoolGroups.entries()) {
       new cognito.CfnUserPoolGroup(this, `UserGroup${index}`, {
         userPoolId: userPool.userPoolId,
         groupName: group.name,
