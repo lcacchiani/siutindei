@@ -971,6 +971,15 @@ export class ApiStack extends cdk.Stack {
     new cdk.CfnOutput(this, "UserPoolClientId", {
       value: userPoolClient.ref,
     });
+
+    const customAuthDomainOutput = new cdk.CfnOutput(
+      this,
+      "CognitoCustomDomainCloudFront",
+      {
+        value: customHostedDomain.attrCloudFrontDistribution,
+      }
+    );
+    customAuthDomainOutput.condition = useCustomDomain;
   }
 }
 
