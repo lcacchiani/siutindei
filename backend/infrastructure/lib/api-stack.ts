@@ -440,7 +440,7 @@ export class ApiStack extends cdk.Stack {
       }
     );
     const removeCognitoDomainResource =
-      removeCognitoDomain.node.defaultChild as cdk.CfnResource;
+      removeCognitoDomain.node.findChild("Resource") as cdk.CfnResource;
     removeCognitoDomainResource.cfnOptions.condition = useCustomDomain;
 
     const customHostedDomain = new cognito.CfnUserPoolDomain(
