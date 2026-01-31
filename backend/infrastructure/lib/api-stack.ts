@@ -399,7 +399,7 @@ export class ApiStack extends cdk.Stack {
     // after state corruption from failed conditional deployments.
     const cognitoHostedDomain = new cognito.CfnUserPoolDomain(
       this,
-      "SiuTinDeiCognitoPrefixDomain",
+      "SiutindeiCognitoPrefixDomain",
       {
         userPoolId: userPool.userPoolId,
         domain: authDomainPrefix.valueAsString,
