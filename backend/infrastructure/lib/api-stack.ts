@@ -395,8 +395,6 @@ export class ApiStack extends cdk.Stack {
       }
     );
 
-    // Note: Logical ID changed from "SiutindeiUserPoolDomain" to reset CloudFormation state
-    // after state corruption from failed conditional deployments.
     const cognitoHostedDomain = new cognito.CfnUserPoolDomain(
       this,
       "SiutindeiCognitoPrefixDomain",
@@ -407,10 +405,6 @@ export class ApiStack extends cdk.Stack {
     );
     cognitoHostedDomain.cfnOptions.condition = useCognitoDomain;
 
-    // Custom resource to remove the Cognito prefix domain before adding a custom domain.
-    // Cognito only allows one domain per user pool, so we must delete the existing
-    // prefix domain first. We ignore errors for non-existent domains since the prefix
-    // domain may not exist (fresh deployment or already removed).
     const removeCognitoDomain = new customresources.AwsCustomResource(
       this,
       "RemoveCognitoAuthDomain",
