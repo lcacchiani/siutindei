@@ -57,6 +57,8 @@ export interface AuthConstructProps {
   };
   /** Optional admin bootstrap configuration. */
   adminBootstrap?: AdminBootstrapConfig;
+  /** Optional user groups to create in the user pool. */
+  userGroups?: string[];
 }
 
 /**
@@ -119,7 +121,7 @@ export class AuthConstruct extends Construct {
 
     // Identity providers
     const providers: cognito.CfnUserPoolIdentityProvider[] = [];
-    const supportedProviders = ["COGNITO"];
+    const supportedProviders: string[] = [];
 
     if (props.identityProviders.google) {
       const googleProvider = new cognito.CfnUserPoolIdentityProvider(
@@ -220,12 +222,16 @@ export class AuthConstruct extends Construct {
       this.userPoolClient.addDependency(provider);
     }
 
-    // Admin group
-    new cognito.CfnUserPoolGroup(this, "AdminGroup", {
-      userPoolId: this.userPool.userPoolId,
-      groupName: this.adminGroupName,
-      description: "Administrative users",
-    });
+    const groupNames = props.userGroups ?? [this.adminGroupName];
+    for (const [index, groupName] of groupNames.entries()) {
+      new cognito.CfnUserPoolGroup(this, `UserGroup${index}`, {
+        userPoolId: this.userPool.userPoolId,
+        groupName,
+        description: groupName === this.adminGroupName
+          ? "Administrative users"
+          : "Application users",
+      });
+    }
 
     // Bootstrap admin user if configured
     if (props.adminBootstrap) {

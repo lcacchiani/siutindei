@@ -280,6 +280,12 @@ export class ApiStack extends cdk.Stack {
       selfSignUpEnabled: true,
       accountRecovery: cognito.AccountRecovery.EMAIL_ONLY,
     });
+    const adminGroupName = "admin";
+    const userGroups = [
+      { name: adminGroupName, description: "Administrative users" },
+      { name: "customer", description: "Customer users" },
+      { name: "owner", description: "Owner users" },
+    ];
 
     const googleProvider = new cognito.CfnUserPoolIdentityProvider(
       this,
@@ -361,7 +367,6 @@ export class ApiStack extends cdk.Stack {
         callbackUrLs: oauthCallbackUrls.valueAsList,
         logoutUrLs: oauthLogoutUrls.valueAsList,
         supportedIdentityProviders: [
-          "COGNITO",
           "Google",
           "SignInWithApple",
           "Microsoft",
@@ -374,12 +379,13 @@ export class ApiStack extends cdk.Stack {
     userPoolClient.addDependency(appleProvider);
     userPoolClient.addDependency(microsoftProvider);
 
-    // Admin group
-    new cognito.CfnUserPoolGroup(this, "AdminGroup", {
-      userPoolId: userPool.userPoolId,
-      groupName: "admin",
-      description: "Administrative users",
-    });
+    for (const [index, group] of userGroups.entries()) {
+      new cognito.CfnUserPoolGroup(this, `UserGroup${index}`, {
+        userPoolId: userPool.userPoolId,
+        groupName: group.name,
+        description: group.description,
+      });
+    }
 
     // ---------------------------------------------------------------------
     // Lambda Functions
@@ -437,7 +443,7 @@ export class ApiStack extends cdk.Stack {
         DATABASE_USERNAME: "siutindei_admin",
         DATABASE_PROXY_ENDPOINT: database.proxy.endpoint,
         DATABASE_IAM_AUTH: "true",
-        ADMIN_GROUP: "admin",
+        ADMIN_GROUP: adminGroupName,
         COGNITO_USER_POOL_ID: userPool.userPoolId,
       },
     });
@@ -854,7 +860,7 @@ export class ApiStack extends cdk.Stack {
           UserPoolId: userPool.userPoolId,
           Email: adminBootstrapEmail.valueAsString,
           TempPassword: adminBootstrapPassword.valueAsString,
-          GroupName: "admin",
+          GroupName: adminGroupName,
         },
       }
     );
