@@ -419,8 +419,6 @@ export class ApiStack extends cdk.Stack {
           physicalResourceId: customresources.PhysicalResourceId.of(
             `remove-cognito-domain-${userPool.userPoolId}`
           ),
-          // Ignore errors when domain doesn't exist (ResourceNotFoundException)
-          // or when parameters are invalid due to missing domain (InvalidParameterException)
           ignoreErrorCodesMatching: "ResourceNotFoundException|InvalidParameterException",
         },
         onUpdate: {
