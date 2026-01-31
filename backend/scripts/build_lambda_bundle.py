@@ -64,7 +64,7 @@ def build_bundle(source_root: Path, output_dir: Path) -> None:
             "pip",
             "install",
             "--upgrade",
-            "pip==25.3",
+            "pip",
             "--no-warn-script-location",
         ],
         cwd=source_root,
