@@ -160,8 +160,7 @@ export class ApiStack extends cdk.Stack {
         type: "String",
         default: "",
         description:
-          "ACM certificate ARN for the custom Hosted UI domain " +
-          "(same region as the user pool)",
+          "ACM certificate ARN for the custom Hosted UI domain (must be in us-east-1)",
       }
     );
     const oauthCallbackUrls = new cdk.CfnParameter(this, "CognitoCallbackUrls", {
