@@ -3,6 +3,7 @@ import * as apigateway from "aws-cdk-lib/aws-apigateway";
 import * as cognito from "aws-cdk-lib/aws-cognito";
 import * as ec2 from "aws-cdk-lib/aws-ec2";
 import * as iam from "aws-cdk-lib/aws-iam";
+import * as customresources from "aws-cdk-lib/custom-resources";
 import * as logs from "aws-cdk-lib/aws-logs";
 import { Construct } from "constructs";
 import * as crypto from "crypto";
@@ -143,6 +144,25 @@ export class ApiStack extends cdk.Stack {
       type: "String",
       description: "Hosted UI domain prefix for the Cognito user pool",
     });
+    const authCustomDomainName = new cdk.CfnParameter(
+      this,
+      "CognitoCustomDomainName",
+      {
+        type: "String",
+        default: "",
+        description: "Optional custom Hosted UI domain (e.g. auth.example.com)",
+      }
+    );
+    const authCustomDomainCertificateArn = new cdk.CfnParameter(
+      this,
+      "CognitoCustomDomainCertificateArn",
+      {
+        type: "String",
+        default: "",
+        description:
+          "ACM certificate ARN for the custom Hosted UI domain (must be in us-east-1)",
+      }
+    );
     const oauthCallbackUrls = new cdk.CfnParameter(this, "CognitoCallbackUrls", {
       type: "CommaDelimitedList",
       description: "Comma-separated list of OAuth callback URLs",
@@ -280,6 +300,12 @@ export class ApiStack extends cdk.Stack {
       selfSignUpEnabled: true,
       accountRecovery: cognito.AccountRecovery.EMAIL_ONLY,
     });
+    const adminGroupName = "admin";
+    const userPoolGroups = [
+      { name: adminGroupName, description: "Administrative users" },
+      { name: "customer", description: "Customer users" },
+      { name: "owner", description: "Owner users" },
+    ];
 
     const googleProvider = new cognito.CfnUserPoolIdentityProvider(
       this,
@@ -341,12 +367,97 @@ export class ApiStack extends cdk.Stack {
       }
     );
 
-    new cognito.UserPoolDomain(this, "SiutindeiUserPoolDomain", {
-      userPool,
-      cognitoDomain: {
-        domainPrefix: authDomainPrefix.valueAsString,
-      },
+    const useCustomDomain = new cdk.CfnCondition(this, "UseCustomAuthDomain", {
+      expression: cdk.Fn.conditionAnd(
+        cdk.Fn.conditionNot(
+          cdk.Fn.conditionEquals(authCustomDomainName.valueAsString, "")
+        ),
+        cdk.Fn.conditionNot(
+          cdk.Fn.conditionEquals(
+            authCustomDomainCertificateArn.valueAsString,
+            ""
+          )
+        )
+      ),
     });
+    const useCognitoDomain = new cdk.CfnCondition(
+      this,
+      "UseCognitoAuthDomain",
+      {
+        expression: cdk.Fn.conditionOr(
+          cdk.Fn.conditionEquals(authCustomDomainName.valueAsString, ""),
+          cdk.Fn.conditionEquals(
+            authCustomDomainCertificateArn.valueAsString,
+            ""
+          )
+        ),
+      }
+    );
+
+    const cognitoHostedDomain = new cognito.CfnUserPoolDomain(
+      this,
+      "SiutindeiCognitoPrefixDomain",
+      {
+        userPoolId: userPool.userPoolId,
+        domain: authDomainPrefix.valueAsString,
+      }
+    );
+    cognitoHostedDomain.cfnOptions.condition = useCognitoDomain;
+
+    const removeCognitoDomain = new customresources.AwsCustomResource(
+      this,
+      "RemoveCognitoAuthDomain",
+      {
+        onCreate: {
+          service: "CognitoIdentityServiceProvider",
+          action: "deleteUserPoolDomain",
+          parameters: {
+            UserPoolId: userPool.userPoolId,
+            Domain: authDomainPrefix.valueAsString,
+          },
+          physicalResourceId: customresources.PhysicalResourceId.of(
+            `remove-cognito-domain-${userPool.userPoolId}`
+          ),
+          ignoreErrorCodesMatching: "ResourceNotFoundException|InvalidParameterException",
+        },
+        onUpdate: {
+          service: "CognitoIdentityServiceProvider",
+          action: "deleteUserPoolDomain",
+          parameters: {
+            UserPoolId: userPool.userPoolId,
+            Domain: authDomainPrefix.valueAsString,
+          },
+          physicalResourceId: customresources.PhysicalResourceId.of(
+            `remove-cognito-domain-${userPool.userPoolId}`
+          ),
+          ignoreErrorCodesMatching: "ResourceNotFoundException|InvalidParameterException",
+        },
+        policy: customresources.AwsCustomResourcePolicy.fromSdkCalls({
+          resources: customresources.AwsCustomResourcePolicy.ANY_RESOURCE,
+        }),
+        installLatestAwsSdk: false,
+      }
+    );
+    const removeCognitoDomainCustomResource = (
+      removeCognitoDomain as unknown as { customResource: cdk.CustomResource }
+    ).customResource;
+    const removeCognitoDomainResource =
+      removeCognitoDomainCustomResource.node.defaultChild as cdk.CfnResource;
+    removeCognitoDomainResource.cfnOptions.condition = useCustomDomain;
+
+    const customHostedDomain = new cognito.CfnUserPoolDomain(
+      this,
+      "SiutindeiUserPoolCustomDomain",
+      {
+        userPoolId: userPool.userPoolId,
+        domain: authCustomDomainName.valueAsString,
+        customDomainConfig: {
+          certificateArn: authCustomDomainCertificateArn.valueAsString,
+        },
+      }
+    );
+    customHostedDomain.cfnOptions.condition = useCustomDomain;
+    customHostedDomain.node.addDependency(removeCognitoDomain);
 
     const userPoolClient = new cognito.CfnUserPoolClient(
       this,
@@ -361,7 +472,6 @@ export class ApiStack extends cdk.Stack {
         callbackUrLs: oauthCallbackUrls.valueAsList,
         logoutUrLs: oauthLogoutUrls.valueAsList,
         supportedIdentityProviders: [
-          "COGNITO",
           "Google",
           "SignInWithApple",
           "Microsoft",
@@ -374,12 +484,61 @@ export class ApiStack extends cdk.Stack {
     userPoolClient.addDependency(appleProvider);
     userPoolClient.addDependency(microsoftProvider);
 
-    // Admin group
-    new cognito.CfnUserPoolGroup(this, "AdminGroup", {
-      userPoolId: userPool.userPoolId,
-      groupName: "admin",
-      description: "Administrative users",
-    });
+    const groupPolicy = customresources.AwsCustomResourcePolicy.fromStatements([
+      new iam.PolicyStatement({
+        actions: [
+          "cognito-idp:CreateGroup",
+          "cognito-idp:UpdateGroup",
+          "cognito-idp:DeleteGroup",
+        ],
+        resources: [userPool.userPoolArn],
+      }),
+    ]);
+
+    for (const [index, group] of userPoolGroups.entries()) {
+      new customresources.AwsCustomResource(
+        this,
+        `UserGroup${index}`,
+        {
+          onCreate: {
+            service: "CognitoIdentityServiceProvider",
+            action: "createGroup",
+            parameters: {
+              UserPoolId: userPool.userPoolId,
+              GroupName: group.name,
+              Description: group.description,
+            },
+            physicalResourceId: customresources.PhysicalResourceId.of(
+              `${userPool.userPoolId}-${group.name}`
+            ),
+            ignoreErrorCodesMatching: "GroupExistsException",
+          },
+          onUpdate: {
+            service: "CognitoIdentityServiceProvider",
+            action: "updateGroup",
+            parameters: {
+              UserPoolId: userPool.userPoolId,
+              GroupName: group.name,
+              Description: group.description,
+            },
+            physicalResourceId: customresources.PhysicalResourceId.of(
+              `${userPool.userPoolId}-${group.name}`
+            ),
+          },
+          onDelete: {
+            service: "CognitoIdentityServiceProvider",
+            action: "deleteGroup",
+            parameters: {
+              UserPoolId: userPool.userPoolId,
+              GroupName: group.name,
+            },
+            ignoreErrorCodesMatching: "ResourceNotFoundException",
+          },
+          policy: groupPolicy,
+          installLatestAwsSdk: false,
+        }
+      );
+    }
 
     // ---------------------------------------------------------------------
     // Lambda Functions
@@ -437,7 +596,7 @@ export class ApiStack extends cdk.Stack {
         DATABASE_USERNAME: "siutindei_admin",
         DATABASE_PROXY_ENDPOINT: database.proxy.endpoint,
         DATABASE_IAM_AUTH: "true",
-        ADMIN_GROUP: "admin",
+        ADMIN_GROUP: adminGroupName,
         COGNITO_USER_POOL_ID: userPool.userPoolId,
       },
     });
@@ -854,7 +1013,7 @@ export class ApiStack extends cdk.Stack {
           UserPoolId: userPool.userPoolId,
           Email: adminBootstrapEmail.valueAsString,
           TempPassword: adminBootstrapPassword.valueAsString,
-          GroupName: "admin",
+          GroupName: adminGroupName,
         },
       }
     );
@@ -902,6 +1061,15 @@ export class ApiStack extends cdk.Stack {
     new cdk.CfnOutput(this, "UserPoolClientId", {
       value: userPoolClient.ref,
     });
+
+    const customAuthDomainOutput = new cdk.CfnOutput(
+      this,
+      "CognitoCustomDomainCloudFront",
+      {
+        value: customHostedDomain.attrCloudFrontDistribution,
+      }
+    );
+    customAuthDomainOutput.condition = useCustomDomain;
   }
 }
 

@@ -29,8 +29,11 @@ jobs:
         with:
           python-version: '3.13'
 
+      - name: Upgrade pip
+        run: python -m pip install --upgrade pip
+
       - name: Install pip-audit
-        run: pip install pip-audit
+        run: python -m pip install pip-audit
 
       - name: Run pip-audit
         working-directory: backend
@@ -59,8 +62,11 @@ jobs:
         with:
           python-version: '3.13'
 
+      - name: Upgrade pip
+        run: python -m pip install --upgrade pip
+
       - name: Install Bandit
-        run: pip install bandit[toml]
+        run: python -m pip install bandit[toml]
 
       - name: Run Bandit
         working-directory: backend
@@ -97,7 +103,7 @@ jobs:
           python-version: "3.12"
 
       - name: Upgrade pip
-        run: python -m pip install --upgrade pip==25.3
+        run: python -m pip install --upgrade pip
 
       - name: Install CDK dependencies
         working-directory: backend/infrastructure
