@@ -404,6 +404,14 @@ export class ApiStack extends cdk.Stack {
     );
     cognitoHostedDomain.cfnOptions.condition = useCognitoDomain;
 
+    // SECURITY: Use explicit policy with constrained resources instead of ANY_RESOURCE
+    const removeCognitoDomainPolicy = customresources.AwsCustomResourcePolicy.fromStatements([
+      new iam.PolicyStatement({
+        actions: ["cognito-idp:DeleteUserPoolDomain"],
+        resources: [userPool.userPoolArn],
+      }),
+    ]);
+
     const removeCognitoDomain = new customresources.AwsCustomResource(
       this,
       "RemoveCognitoAuthDomain",
@@ -432,9 +440,7 @@ export class ApiStack extends cdk.Stack {
           ),
           ignoreErrorCodesMatching: "ResourceNotFoundException|InvalidParameterException",
         },
-        policy: customresources.AwsCustomResourcePolicy.fromSdkCalls({
-          resources: customresources.AwsCustomResourcePolicy.ANY_RESOURCE,
-        }),
+        policy: removeCognitoDomainPolicy,
         installLatestAwsSdk: false,
       }
     );
