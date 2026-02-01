@@ -6,8 +6,9 @@ import { StatusBanner } from './status-banner';
 import { useAuth } from './auth-provider';
 
 export function LoginScreen() {
-  const { login, configErrors } = useAuth();
+  const { login, configErrors, error } = useAuth();
   const hasConfigErrors = configErrors.length > 0;
+  const hasError = error.length > 0;
 
   return (
     <main className='mx-auto flex min-h-screen max-w-lg items-center px-6'>
@@ -16,11 +17,16 @@ export function LoginScreen() {
         description='Sign in with your admin account to manage entries.'
         className='w-full'
       >
-        {hasConfigErrors && (
+        {(hasError || hasConfigErrors) && (
           <div className='mb-4 space-y-2'>
-            {configErrors.map((error) => (
-              <StatusBanner key={error} variant='error' title='Config'>
+            {hasError && (
+              <StatusBanner variant='error' title='Login'>
                 {error}
+              </StatusBanner>
+            )}
+            {configErrors.map((configError) => (
+              <StatusBanner key={configError} variant='error' title='Config'>
+                {configError}
               </StatusBanner>
             ))}
           </div>

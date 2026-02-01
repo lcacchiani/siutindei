@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 
 import {
+  completeLogin,
   ensureFreshTokens,
   getUserProfile,
   startLogin,
@@ -43,12 +44,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
       try {
-        const tokens = await ensureFreshTokens();
+        let tokens = await ensureFreshTokens();
+        if (typeof window !== 'undefined') {
+          const url = new URL(window.location.href);
+          if (!tokens && url.searchParams.has('code')) {
+            const redirectPath = await completeLogin();
+            if (!isMounted) {
+              return;
+            }
+            tokens = await ensureFreshTokens();
+            if (!isMounted) {
+              return;
+            }
+            if (redirectPath !== url.pathname) {
+              window.location.replace(redirectPath);
+              return;
+            }
+          }
+        }
         if (!isMounted) {
           return;
         }
         if (tokens) {
           const profile = getUserProfile(tokens);
+          setError('');
           setUser(profile);
           setStatus('authenticated');
         } else {

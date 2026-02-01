@@ -13,8 +13,8 @@ export default function AuthCallbackPage() {
 
     const finishLogin = async () => {
       try {
-        await completeLogin();
-        window.location.replace('/');
+        const redirectPath = await completeLogin();
+        window.location.replace(redirectPath);
       } catch (error) {
         if (!isMounted) {
           return;
