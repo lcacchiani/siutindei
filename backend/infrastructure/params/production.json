@@ -23,5 +23,6 @@
   "AdminBootstrapEmail": "",
   "AdminBootstrapTempPassword": "<FROM_GITHUB_SECRET: CDK_PARAM_ADMIN_BOOTSTRAP_TEMP_PASSWORD>",
   "AdminWebDomainName": "siutindei.lx-software.com",
-  "AdminWebCertificateArn": "arn:aws:acm:us-east-1:588024549699:certificate/ea553e5a-e7af-43ba-bdd4-d46e2f8458aa"
+  "AdminWebCertificateArn": "arn:aws:acm:us-east-1:588024549699:certificate/ea553e5a-e7af-43ba-bdd4-d46e2f8458aa",
+  "WafWebAclArn": "arn:aws:wafv2:us-east-1:588024549699:global/webacl/lxsoftware-siutindei-cloudfront-waf/100ec25a-0688-43fc-bc1f-6bb531af0355"
 }
