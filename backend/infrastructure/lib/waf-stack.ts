@@ -135,10 +135,10 @@ export class WafStack extends cdk.Stack {
       // Optionally redact sensitive fields from logs
       redactedFields: [
         {
-          singleHeader: { name: "authorization" },
+          singleHeader: { Name: "authorization" },
         },
         {
-          singleHeader: { name: "cookie" },
+          singleHeader: { Name: "cookie" },
         },
       ],
     });
