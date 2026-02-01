@@ -138,6 +138,12 @@ export class PythonLambda extends Construct {
         retentionPeriod: cdk.Duration.days(14),
       });
 
+    // Standard 90-day log retention for all Lambda functions
+    const logGroup = new logs.LogGroup(this, "LogGroup", {
+      retention: STANDARD_LOG_RETENTION,
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+    });
+
     this.function = new lambda.Function(this, "Function", {
       functionName: props.functionName,
       runtime: lambda.Runtime.PYTHON_3_12,
@@ -190,8 +196,7 @@ export class PythonLambda extends Construct {
       deadLetterQueueEnabled: true,
       reservedConcurrentExecutions:
         props.reservedConcurrentExecutions ?? 25,
-      // Standard 90-day log retention for all Lambda functions
-      logRetention: STANDARD_LOG_RETENTION,
+      logGroup,
       environment: {
         PYTHONPATH: "/var/task/src",
         LOG_LEVEL: "INFO",
