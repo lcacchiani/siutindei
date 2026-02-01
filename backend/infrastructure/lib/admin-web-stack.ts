@@ -122,7 +122,7 @@ export class AdminWebStack extends cdk.Stack {
     // -------------------------------------------------------------------------
     // CloudFront distribution with WAF and access logging
     // -------------------------------------------------------------------------
-    
+
     // Determine WAF ARN - use parameter if provided, otherwise undefined
     // WAF is optional but strongly recommended for production
     const resolvedWafArn = wafWebAclArn.valueAsString || undefined;
