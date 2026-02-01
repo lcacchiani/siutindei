@@ -42,7 +42,7 @@ export class WafStack extends cdk.Stack {
         sampledRequestsEnabled: true,
       },
       name: name("cloudfront-waf"),
-      description: "WAF WebACL for CloudFront distributions (admin web)",
+      description: "WAF WebACL for CloudFront distributions - admin web",
       rules: [
         // AWS Managed Common Rule Set - protects against common web exploits
         // Includes protection against OWASP Top 10 vulnerabilities
