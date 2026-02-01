@@ -3,6 +3,7 @@ import { generatePkcePair } from './pkce';
 
 const tokenStorageKey = 'admin_auth_tokens';
 const pkceStorageKey = 'admin_auth_pkce';
+const loginRedirectStorageKey = 'admin_auth_redirect';
 
 export interface StoredTokens {
   accessToken: string;
@@ -53,6 +54,42 @@ function clearTokens() {
     return;
   }
   window.localStorage.removeItem(tokenStorageKey);
+}
+
+function storeLoginRedirect(value: string) {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  window.sessionStorage.setItem(loginRedirectStorageKey, value);
+}
+
+function loadLoginRedirect() {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+  return window.sessionStorage.getItem(loginRedirectStorageKey);
+}
+
+function clearLoginRedirect() {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  window.sessionStorage.removeItem(loginRedirectStorageKey);
+}
+
+function resolveLoginRedirect() {
+  if (typeof window === 'undefined') {
+    return '/';
+  }
+  const stored = loadLoginRedirect();
+  clearLoginRedirect();
+  if (!stored || !stored.startsWith('/')) {
+    return '/';
+  }
+  if (stored.startsWith('/auth/callback')) {
+    return '/';
+  }
+  return stored;
 }
 
 function getClientId() {
@@ -110,6 +147,8 @@ export async function startLogin() {
   if (typeof window === 'undefined') {
     return;
   }
+  const returnTo = `${window.location.pathname}${window.location.search}`;
+  storeLoginRedirect(returnTo);
   const { verifier, challenge } = await generatePkcePair();
   window.sessionStorage.setItem(pkceStorageKey, verifier);
   const params = new URLSearchParams({
@@ -126,7 +165,7 @@ export async function startLogin() {
 
 export async function completeLogin() {
   if (typeof window === 'undefined') {
-    return;
+    return '/';
   }
   const url = new URL(window.location.href);
   const code = url.searchParams.get('code');
@@ -169,7 +208,9 @@ export async function completeLogin() {
   };
   storeTokens(tokens);
   window.sessionStorage.removeItem(pkceStorageKey);
+  const redirectPath = resolveLoginRedirect();
   window.history.replaceState({}, document.title, url.pathname);
+  return redirectPath;
 }
 
 export async function ensureFreshTokens() {
