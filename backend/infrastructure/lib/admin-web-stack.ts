@@ -3,14 +3,12 @@ import * as acm from "aws-cdk-lib/aws-certificatemanager";
 import * as cloudfront from "aws-cdk-lib/aws-cloudfront";
 import * as origins from "aws-cdk-lib/aws-cloudfront-origins";
 import * as s3 from "aws-cdk-lib/aws-s3";
-import * as wafv2 from "aws-cdk-lib/aws-wafv2";
 import { Construct } from "constructs";
 
 export class AdminWebStack extends cdk.Stack {
   public readonly bucket: s3.Bucket;
   public readonly distribution: cloudfront.Distribution;
   public readonly loggingBucket: s3.Bucket;
-  public readonly webAcl: wafv2.CfnWebACL;
 
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
@@ -36,72 +34,17 @@ export class AdminWebStack extends cdk.Stack {
     );
 
     // -------------------------------------------------------------------------
-    // WAF Web ACL for CloudFront protection
-    // SECURITY: WAF must be created in us-east-1 for CloudFront association
-    // This stack must be deployed to us-east-1 or use a separate cross-region stack
+    // WAF Web ACL ARN (created separately in us-east-1 via WafStack)
+    // SECURITY: WAF WebACLs for CloudFront must be in us-east-1
+    // Deploy WafStack first: cdk deploy WafStack --region us-east-1
     // -------------------------------------------------------------------------
-    this.webAcl = new wafv2.CfnWebACL(this, "AdminWebWafAcl", {
-      defaultAction: { allow: {} },
-      scope: "CLOUDFRONT",
-      visibilityConfig: {
-        cloudWatchMetricsEnabled: true,
-        metricName: name("admin-web-waf"),
-        sampledRequestsEnabled: true,
-      },
-      name: name("admin-web-waf"),
-      rules: [
-        // AWS Managed Common Rule Set - protects against common web exploits
-        {
-          name: "AWSManagedRulesCommonRuleSet",
-          priority: 1,
-          overrideAction: { none: {} },
-          statement: {
-            managedRuleGroupStatement: {
-              vendorName: "AWS",
-              name: "AWSManagedRulesCommonRuleSet",
-            },
-          },
-          visibilityConfig: {
-            cloudWatchMetricsEnabled: true,
-            metricName: name("common-rules"),
-            sampledRequestsEnabled: true,
-          },
-        },
-        // AWS Managed Known Bad Inputs Rule Set
-        {
-          name: "AWSManagedRulesKnownBadInputsRuleSet",
-          priority: 2,
-          overrideAction: { none: {} },
-          statement: {
-            managedRuleGroupStatement: {
-              vendorName: "AWS",
-              name: "AWSManagedRulesKnownBadInputsRuleSet",
-            },
-          },
-          visibilityConfig: {
-            cloudWatchMetricsEnabled: true,
-            metricName: name("known-bad-inputs"),
-            sampledRequestsEnabled: true,
-          },
-        },
-        // Rate limiting - 1000 requests per 5 minutes per IP
-        {
-          name: "RateLimitRule",
-          priority: 3,
-          action: { block: {} },
-          statement: {
-            rateBasedStatement: {
-              limit: 1000,
-              aggregateKeyType: "IP",
-            },
-          },
-          visibilityConfig: {
-            cloudWatchMetricsEnabled: true,
-            metricName: name("rate-limit"),
-            sampledRequestsEnabled: true,
-          },
-        },
-      ],
+    const wafWebAclArn = new cdk.CfnParameter(this, "WafWebAclArn", {
+      type: "String",
+      default: "",
+      description:
+        "WAF WebACL ARN for CloudFront protection (must be from us-east-1). " +
+        "Deploy WafStack to us-east-1 first and use its output. " +
+        "Leave empty to skip WAF (not recommended for production).",
     });
 
     // -------------------------------------------------------------------------
@@ -179,6 +122,11 @@ export class AdminWebStack extends cdk.Stack {
     // -------------------------------------------------------------------------
     // CloudFront distribution with WAF and access logging
     // -------------------------------------------------------------------------
+    
+    // Determine WAF ARN - use parameter if provided, otherwise undefined
+    // WAF is optional but strongly recommended for production
+    const resolvedWafArn = wafWebAclArn.valueAsString || undefined;
+
     this.distribution = new cloudfront.Distribution(
       this,
       "AdminWebDistribution",
@@ -186,8 +134,8 @@ export class AdminWebStack extends cdk.Stack {
         defaultRootObject: "index.html",
         domainNames: [domainName.valueAsString],
         certificate,
-        // SECURITY: Associate WAF Web ACL
-        webAclId: this.webAcl.attrArn,
+        // SECURITY: Associate WAF Web ACL (if provided)
+        webAclId: resolvedWafArn,
         // SECURITY: Enable CloudFront access logging
         enableLogging: true,
         logBucket: this.loggingBucket,
@@ -232,11 +180,6 @@ export class AdminWebStack extends cdk.Stack {
     new cdk.CfnOutput(this, "AdminWebLoggingBucketName", {
       value: this.loggingBucket.bucketName,
       description: "S3 bucket for CloudFront and S3 access logs",
-    });
-
-    new cdk.CfnOutput(this, "AdminWebWafAclArn", {
-      value: this.webAcl.attrArn,
-      description: "WAF Web ACL ARN protecting CloudFront distribution",
     });
   }
 }
