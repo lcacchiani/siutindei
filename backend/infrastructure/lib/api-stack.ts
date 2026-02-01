@@ -160,8 +160,7 @@ export class ApiStack extends cdk.Stack {
         type: "String",
         default: "",
         description:
-          "ACM certificate ARN for the custom Hosted UI domain " +
-          "(same region as the user pool)",
+          "ACM certificate ARN for the custom Hosted UI domain (must be in us-east-1)",
       }
     );
     const oauthCallbackUrls = new cdk.CfnParameter(this, "CognitoCallbackUrls", {
@@ -397,7 +396,7 @@ export class ApiStack extends cdk.Stack {
 
     const cognitoHostedDomain = new cognito.CfnUserPoolDomain(
       this,
-      "SiutindeiUserPoolDomain",
+      "SiutindeiCognitoPrefixDomain",
       {
         userPoolId: userPool.userPoolId,
         domain: authDomainPrefix.valueAsString,
@@ -419,7 +418,7 @@ export class ApiStack extends cdk.Stack {
           physicalResourceId: customresources.PhysicalResourceId.of(
             `remove-cognito-domain-${userPool.userPoolId}`
           ),
-          ignoreErrorCodesMatching: "ResourceNotFoundException",
+          ignoreErrorCodesMatching: "ResourceNotFoundException|InvalidParameterException",
         },
         onUpdate: {
           service: "CognitoIdentityServiceProvider",
@@ -431,7 +430,7 @@ export class ApiStack extends cdk.Stack {
           physicalResourceId: customresources.PhysicalResourceId.of(
             `remove-cognito-domain-${userPool.userPoolId}`
           ),
-          ignoreErrorCodesMatching: "ResourceNotFoundException",
+          ignoreErrorCodesMatching: "ResourceNotFoundException|InvalidParameterException",
         },
         policy: customresources.AwsCustomResourcePolicy.fromSdkCalls({
           resources: customresources.AwsCustomResourcePolicy.ANY_RESOURCE,
