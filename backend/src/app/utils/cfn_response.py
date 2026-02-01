@@ -59,9 +59,9 @@ def send_cfn_response(
     )
 
     try:
-        # nosec B310 - URL is validated by _validate_response_url() to be HTTPS
+        # URL is validated by _validate_response_url() to be HTTPS
         # and restricted to *.amazonaws.com domains only
-        with urllib.request.urlopen(request, context=ssl_context) as response:
+        with urllib.request.urlopen(request, context=ssl_context) as response:  # nosec B310
             response.read()
             logger.info(
                 "Sent CloudFormation response",
