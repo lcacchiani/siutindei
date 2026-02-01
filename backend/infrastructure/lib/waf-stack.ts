@@ -1,6 +1,8 @@
 import * as cdk from "aws-cdk-lib";
+import * as logs from "aws-cdk-lib/aws-logs";
 import * as wafv2 from "aws-cdk-lib/aws-wafv2";
 import { Construct } from "constructs";
+import { STANDARD_LOG_RETENTION } from "./constructs";
 
 /**
  * WAF Stack for CloudFront protection.
@@ -16,6 +18,7 @@ import { Construct } from "constructs";
  */
 export class WafStack extends cdk.Stack {
   public readonly webAcl: wafv2.CfnWebACL;
+  public readonly logGroup: logs.LogGroup;
 
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
@@ -117,6 +120,30 @@ export class WafStack extends cdk.Stack {
     });
 
     // -------------------------------------------------------------------------
+    // WAF Logging to CloudWatch with 90-day retention
+    // Log group name must start with "aws-waf-logs-" for WAF logging
+    // -------------------------------------------------------------------------
+    this.logGroup = new logs.LogGroup(this, "WafLogGroup", {
+      logGroupName: `aws-waf-logs-${name("cloudfront")}`,
+      retention: STANDARD_LOG_RETENTION,
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+    });
+
+    new wafv2.CfnLoggingConfiguration(this, "WafLoggingConfig", {
+      resourceArn: this.webAcl.attrArn,
+      logDestinationConfigs: [this.logGroup.logGroupArn],
+      // Optionally redact sensitive fields from logs
+      redactedFields: [
+        {
+          singleHeader: { name: "authorization" },
+        },
+        {
+          singleHeader: { name: "cookie" },
+        },
+      ],
+    });
+
+    // -------------------------------------------------------------------------
     // Outputs
     // -------------------------------------------------------------------------
     new cdk.CfnOutput(this, "WebAclArn", {
@@ -133,6 +160,11 @@ export class WafStack extends cdk.Stack {
     new cdk.CfnOutput(this, "WebAclName", {
       value: this.webAcl.name || name("cloudfront-waf"),
       description: "WAF WebACL Name",
+    });
+
+    new cdk.CfnOutput(this, "WafLogGroupName", {
+      value: this.logGroup.logGroupName,
+      description: "CloudWatch Log Group for WAF logs (90-day retention)",
     });
   }
 }

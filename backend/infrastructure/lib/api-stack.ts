@@ -9,7 +9,7 @@ import { Construct } from "constructs";
 import * as crypto from "crypto";
 import * as fs from "fs";
 import * as path from "path";
-import { DatabaseConstruct, PythonLambdaFactory } from "./constructs";
+import { DatabaseConstruct, PythonLambdaFactory, STANDARD_LOG_RETENTION } from "./constructs";
 
 export class ApiStack extends cdk.Stack {
   public constructor(scope: Construct, id: string, props?: cdk.StackProps) {
@@ -778,12 +778,12 @@ export class ApiStack extends cdk.Stack {
       cloudWatchRoleArn: apiGatewayLogRole.roleArn,
     });
 
-    const apiAccessLogGroupName = name("api-access-logs");
-    const apiAccessLogGroup = logs.LogGroup.fromLogGroupName(
-      this,
-      "ApiAccessLogs",
-      apiAccessLogGroupName
-    );
+    // API Gateway access logs with standard 90-day retention
+    const apiAccessLogGroup = new logs.LogGroup(this, "ApiAccessLogs", {
+      logGroupName: name("api-access-logs"),
+      retention: STANDARD_LOG_RETENTION,
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+    });
 
     // SECURITY: Restrict CORS to specific allowed origins
     // Never use Cors.ALL_ORIGINS in production - it allows any website to make requests

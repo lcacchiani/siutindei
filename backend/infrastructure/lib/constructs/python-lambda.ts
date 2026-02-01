@@ -1,11 +1,18 @@
 import * as cdk from "aws-cdk-lib";
 import * as ec2 from "aws-cdk-lib/aws-ec2";
 import * as lambda from "aws-cdk-lib/aws-lambda";
+import * as logs from "aws-cdk-lib/aws-logs";
 import * as kms from "aws-cdk-lib/aws-kms";
 import * as sqs from "aws-cdk-lib/aws-sqs";
 import { Construct } from "constructs";
 import * as fs from "fs";
 import * as path from "path";
+
+/**
+ * Standard log retention period for all CloudWatch log groups.
+ * 90 days balances cost with debugging/compliance needs.
+ */
+export const STANDARD_LOG_RETENTION = logs.RetentionDays.THREE_MONTHS;
 
 /**
  * Properties for the PythonLambda construct.
@@ -183,6 +190,8 @@ export class PythonLambda extends Construct {
       deadLetterQueueEnabled: true,
       reservedConcurrentExecutions:
         props.reservedConcurrentExecutions ?? 25,
+      // Standard 90-day log retention for all Lambda functions
+      logRetention: STANDARD_LOG_RETENTION,
       environment: {
         PYTHONPATH: "/var/task/src",
         LOG_LEVEL: "INFO",

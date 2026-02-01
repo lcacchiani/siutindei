@@ -2,9 +2,11 @@ import * as cdk from "aws-cdk-lib";
 import * as ec2 from "aws-cdk-lib/aws-ec2";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as kms from "aws-cdk-lib/aws-kms";
+import * as logs from "aws-cdk-lib/aws-logs";
 import * as rds from "aws-cdk-lib/aws-rds";
 import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
 import { Construct } from "constructs";
+import { STANDARD_LOG_RETENTION } from "./python-lambda";
 
 /**
  * Properties for the DatabaseConstruct.
@@ -258,6 +260,8 @@ export class DatabaseConstruct extends Construct {
           version: rds.AuroraPostgresEngineVersion.VER_16_4,
         }),
         cloudwatchLogsExports: ["postgresql"],
+        // Standard 90-day retention for database logs
+        cloudwatchLogsRetention: STANDARD_LOG_RETENTION,
         credentials: rds.Credentials.fromSecret(dbCredentialsSecret),
         defaultDatabaseName: props.databaseName ?? "siutindei",
         iamAuthentication: applyImmutableSettings ? true : undefined,
