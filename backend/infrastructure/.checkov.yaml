@@ -25,12 +25,19 @@ soft-fail: true
 # These are logging destination buckets that receive access logs from CloudFront
 # and S3. Enabling access logging on a logging bucket would create an infinite
 # loop of log entries. This is a standard AWS pattern.
+#
+# LogRetention Lambda skips:
+# This is a CDK-internal Lambda function automatically created to manage
+# CloudWatch log group retention policies. It's not user-managed code and
+# runs infrequently (only during deployments), so concurrent execution
+# limits are not necessary.
 skip-check:
   - CKV_AWS_54:AWS::S3::Bucket.OrganizationImagesBucket347D331B  # Public access intentional - serves organization images
   - CKV_AWS_55:AWS::S3::Bucket.OrganizationImagesBucket347D331B  # Public access intentional - serves organization images
   - CKV_AWS_56:AWS::S3::Bucket.OrganizationImagesBucket347D331B  # Public access intentional - serves organization images
   - CKV_AWS_18:AWS::S3::Bucket.AdminWebLoggingBucketF51DF562  # Logging bucket - no self-logging to avoid infinite loop
   - CKV_AWS_18:AWS::S3::Bucket.OrganizationImagesLogBucket6FCE8FC4  # Logging bucket - no self-logging to avoid infinite loop
+  - CKV_AWS_115:AWS::Lambda::Function.LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aFD4BFC8A  # CDK internal - runs only during deployments
 
 # Compact output - reduce noise in CI logs
 compact: true
