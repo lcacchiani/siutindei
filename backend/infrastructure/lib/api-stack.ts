@@ -4,14 +4,73 @@ import * as cognito from "aws-cdk-lib/aws-cognito";
 import * as ec2 from "aws-cdk-lib/aws-ec2";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as kms from "aws-cdk-lib/aws-kms";
+import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as s3 from "aws-cdk-lib/aws-s3";
 import * as customresources from "aws-cdk-lib/custom-resources";
 import * as logs from "aws-cdk-lib/aws-logs";
-import { Construct } from "constructs";
+import { Construct, IConstruct } from "constructs";
 import * as crypto from "crypto";
 import * as fs from "fs";
 import * as path from "path";
 import { DatabaseConstruct, PythonLambdaFactory, STANDARD_LOG_RETENTION } from "./constructs";
+
+/**
+ * CDK Aspect that adds Checkov suppressions to CDK-internal Lambda functions.
+ * These Lambda functions are created automatically by CDK for:
+ * - LogRetention: Manages CloudWatch log group retention policies
+ * - AwsCustomResource: Executes SDK calls for custom resources
+ *
+ * These are not user-managed code and don't require VPC, DLQ, or concurrent
+ * execution limits because they run infrequently during deployments only.
+ */
+class CdkInternalLambdaCheckovSuppression implements cdk.IAspect {
+  public visit(node: IConstruct): void {
+    // Check for CfnFunction using duck typing since the LogRetention singleton
+    // might create Lambda functions differently
+    const cfnType = (node as cdk.CfnResource).cfnResourceType;
+    if (cfnType === "AWS::Lambda::Function") {
+      const cfnNode = node as cdk.CfnResource;
+      // Use the construct path to identify CDK-internal Lambda functions
+      const nodePath = cfnNode.node.path;
+      // LogRetention Lambda: path contains "LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8a"
+      // AwsCustomResource Lambda: path contains "AWS679f53fac002430cb0da5b7982bd2287"
+      const isLogRetentionLambda = nodePath.includes("LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8a");
+      const isAwsCustomResourceLambda = nodePath.includes("AWS679f53fac002430cb0da5b7982bd2287");
+
+      if (isLogRetentionLambda || isAwsCustomResourceLambda) {
+        const comment = isLogRetentionLambda
+          ? "CDK-internal LogRetention Lambda - runs only during deployments"
+          : "CDK-internal AwsCustomResource Lambda - runs only during deployments";
+
+        cfnNode.addMetadata("checkov", {
+          skip: [
+            { id: "CKV_AWS_115", comment },
+            { id: "CKV_AWS_116", comment },
+            { id: "CKV_AWS_117", comment },
+          ],
+        });
+      }
+    }
+
+    // Also handle IAM policies for LogRetention Lambda
+    const cfnPolicyType = (node as cdk.CfnResource).cfnResourceType;
+    if (cfnPolicyType === "AWS::IAM::Policy") {
+      const cfnNode = node as cdk.CfnResource;
+      const nodePath = cfnNode.node.path;
+      if (nodePath.includes("LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8a") &&
+          nodePath.includes("ServiceRole/DefaultPolicy")) {
+        cfnNode.addMetadata("checkov", {
+          skip: [
+            {
+              id: "CKV_AWS_111",
+              comment: "CDK-internal LogRetention policy - required for log retention management",
+            },
+          ],
+        });
+      }
+    }
+  }
+}
 
 export class ApiStack extends cdk.Stack {
   public constructor(scope: Construct, id: string, props?: cdk.StackProps) {
@@ -610,12 +669,27 @@ export class ApiStack extends cdk.Stack {
       }
     );
 
+    // Checkov suppression: Logging bucket cannot have self-logging (infinite loop)
+    const imagesLogBucketCfn = organizationImagesLogBucket.node.defaultChild as s3.CfnBucket;
+    imagesLogBucketCfn.addMetadata("checkov", {
+      skip: [
+        {
+          id: "CKV_AWS_18",
+          comment: "Logging bucket - enabling access logging would create infinite loop",
+        },
+      ],
+    });
+
     const imagesBucketName = buildBucketName([
       name("org-images"),
       cdk.Aws.ACCOUNT_ID,
       cdk.Aws.REGION,
     ]);
 
+    // SECURITY NOTE: This bucket is intentionally public to serve organization images
+    // (logos, photos). It uses BLOCK_ACLS to prevent ACL-based public access while
+    // allowing bucket policy based public read. Access is logged to the logging bucket.
+    // Future improvement: Consider using CloudFront with OAC for better security and caching.
     const organizationImagesBucket = new s3.Bucket(
       this,
       "OrganizationImagesBucket",
@@ -644,6 +718,25 @@ export class ApiStack extends cdk.Stack {
         ],
       }
     );
+
+    // Checkov suppression: Public access is intentional for serving organization images
+    const imagesBucketCfn = organizationImagesBucket.node.defaultChild as s3.CfnBucket;
+    imagesBucketCfn.addMetadata("checkov", {
+      skip: [
+        {
+          id: "CKV_AWS_54",
+          comment: "Public access intentional - bucket serves organization images via public URL",
+        },
+        {
+          id: "CKV_AWS_55",
+          comment: "Public access intentional - bucket serves organization images via public URL",
+        },
+        {
+          id: "CKV_AWS_56",
+          comment: "Public access intentional - bucket serves organization images via public URL",
+        },
+      ],
+    });
 
     // Search function
     const searchFunction = createPythonFunction("SiutindeiSearchFunction", {
@@ -1321,6 +1414,9 @@ export class ApiStack extends cdk.Stack {
       }
     );
     customAuthDomainOutput.condition = useCustomDomain;
+
+    // Apply Checkov suppressions to CDK-internal Lambda functions
+    cdk.Aspects.of(this).add(new CdkInternalLambdaCheckovSuppression());
   }
 }
 
