@@ -40,6 +40,7 @@ skip-check:
   - CKV_AWS_115:AWS::Lambda::Function.LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aFD4BFC8A  # CDK internal - runs only during deployments
   - CKV_AWS_116:AWS::Lambda::Function.LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aFD4BFC8A  # CDK internal - runs only during deployments
   - CKV_AWS_117:AWS::Lambda::Function.LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aFD4BFC8A  # CDK internal - no VPC resources needed
+  - CKV_AWS_111:AWS::IAM::Policy.LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aServiceRoleDefaultPolicyADDA7DEB  # CDK internal - required for log retention management
 
 # Compact output - reduce noise in CI logs
 compact: true
