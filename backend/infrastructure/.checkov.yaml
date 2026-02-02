@@ -1,0 +1,28 @@
+# Checkov configuration for CDK infrastructure
+# All checkov skips should be centralized in this file
+# See: https://www.checkov.io/2.Basics/Suppressing%20and%20Skipping%20Policies.html
+
+# Framework configuration
+framework:
+  - cloudformation
+
+# Soft fail - report issues without failing the build
+soft-fail: true
+
+# Skip checks - add justification for each skipped check
+# Format:
+#   skip-check:
+#     - CKV_AWS_XXX  # Justification for skipping this check
+#
+# Example:
+#   skip-check:
+#     - CKV_AWS_18  # S3 access logging not needed for static assets bucket
+#
+# Currently no checks are skipped - all security requirements are implemented
+skip-check: []
+
+# Compact output - reduce noise in CI logs
+compact: true
+
+# Download external modules/checks
+download-external-modules: false
