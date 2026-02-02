@@ -134,9 +134,7 @@ def _sync_proxy_user_passwords(database_url: str) -> None:
                     (username,),
                 )
                 if cursor.fetchone() is None:
-                    raise RuntimeError(
-                        f"Database role {username} does not exist"
-                    )
+                    raise RuntimeError(f"Database role {username} does not exist")
                 cursor.execute(
                     f'ALTER ROLE "{username}" PASSWORD %s',
                     (password,),
