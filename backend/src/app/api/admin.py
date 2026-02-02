@@ -9,6 +9,7 @@ from __future__ import annotations
 import base64
 import json
 import os
+import re
 from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any
@@ -19,7 +20,8 @@ from typing import Protocol
 from typing import Sequence
 from typing import Tuple
 from typing import Type
-from uuid import UUID
+from urllib.parse import urlparse
+from uuid import UUID, uuid4
 
 import boto3
 from psycopg.types.range import Range
@@ -102,6 +104,8 @@ def lambda_handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
 
     if resource == "users" and sub_resource == "groups":
         return _handle_user_group(event, method, resource_id)
+    if resource == "organizations" and sub_resource == "pictures":
+        return _handle_organization_pictures(event, method, resource_id)
 
     config = _RESOURCE_CONFIG.get(resource)
     if not config:
@@ -331,6 +335,169 @@ def _handle_user_group(
         return json_response(200, {"status": "removed", "group": group_name})
 
     return json_response(405, {"error": "Method not allowed"})
+
+
+def _handle_organization_pictures(
+    event: Mapping[str, Any],
+    method: str,
+    organization_id: Optional[str],
+) -> dict[str, Any]:
+    """Handle organization picture uploads and deletions."""
+
+    if not organization_id:
+        raise ValidationError("organization id is required", field="id")
+
+    org_uuid = _parse_uuid(organization_id)
+
+    if method == "POST":
+        return _handle_picture_upload(event, org_uuid)
+    if method == "DELETE":
+        return _handle_picture_delete(event, org_uuid)
+    return json_response(405, {"error": "Method not allowed"})
+
+
+def _handle_picture_upload(
+    event: Mapping[str, Any],
+    organization_id: UUID,
+) -> dict[str, Any]:
+    """Create a presigned URL for an organization picture."""
+
+    body = _parse_body(event)
+    if isinstance(body, dict):
+        file_name = body.get("file_name")
+        content_type = body.get("content_type")
+    else:
+        file_name = None
+        content_type = None
+
+    if not file_name:
+        raise ValidationError("file_name is required", field="file_name")
+    if not content_type:
+        raise ValidationError("content_type is required", field="content_type")
+    if not str(content_type).startswith("image/"):
+        raise ValidationError(
+            "content_type must be an image",
+            field="content_type",
+        )
+
+    bucket = _require_env("ORGANIZATION_PICTURES_BUCKET")
+    object_key = _build_picture_key(str(organization_id), str(file_name))
+    base_url = _picture_base_url()
+
+    client = boto3.client("s3")
+    upload_url = client.generate_presigned_url(
+        "put_object",
+        Params={
+            "Bucket": bucket,
+            "Key": object_key,
+            "ContentType": str(content_type),
+        },
+        ExpiresIn=900,
+    )
+
+    return json_response(
+        200,
+        {
+            "upload_url": upload_url,
+            "picture_url": f"{base_url}/{object_key}",
+            "object_key": object_key,
+            "expires_in": 900,
+        },
+    )
+
+
+def _handle_picture_delete(
+    event: Mapping[str, Any],
+    organization_id: UUID,
+) -> dict[str, Any]:
+    """Delete an organization picture from S3."""
+
+    body = _parse_body(event)
+    if isinstance(body, dict):
+        object_key = body.get("object_key")
+        picture_url = body.get("picture_url")
+    else:
+        object_key = None
+        picture_url = None
+
+    if object_key:
+        key = str(object_key)
+    elif picture_url:
+        key = _extract_picture_key(str(picture_url))
+    else:
+        raise ValidationError(
+            "picture_url or object_key is required",
+            field="picture_url",
+        )
+
+    _validate_picture_key(str(organization_id), key)
+    bucket = _require_env("ORGANIZATION_PICTURES_BUCKET")
+
+    client = boto3.client("s3")
+    client.delete_object(Bucket=bucket, Key=key)
+
+    return json_response(204, {})
+
+
+def _build_picture_key(organization_id: str, file_name: str) -> str:
+    """Build an S3 object key for a picture."""
+
+    cleaned = _sanitize_picture_filename(file_name)
+    base, extension = os.path.splitext(cleaned)
+    trimmed_base = base[:40].strip("_") or "image"
+    suffix = extension.lower() if extension else ""
+    unique = uuid4().hex
+    return (
+        f"organizations/{organization_id}/{unique}-"
+        f"{trimmed_base}{suffix}"
+    )
+
+
+def _sanitize_picture_filename(file_name: str) -> str:
+    """Normalize user-supplied filenames."""
+
+    trimmed = file_name.strip() or "image"
+    return re.sub(r"[^A-Za-z0-9._-]", "_", trimmed)
+
+
+def _picture_base_url() -> str:
+    """Return the base URL for organization pictures."""
+
+    return _require_env("ORGANIZATION_PICTURES_BASE_URL").rstrip("/")
+
+
+def _extract_picture_key(picture_url: str) -> str:
+    """Extract an object key from a picture URL."""
+
+    base_url = _picture_base_url()
+    parsed_url = urlparse(picture_url)
+    base_parsed = urlparse(base_url)
+
+    if parsed_url.netloc != base_parsed.netloc:
+        raise ValidationError(
+            "picture_url is not hosted in the images bucket",
+            field="picture_url",
+        )
+
+    key = parsed_url.path.lstrip("/")
+    if not key:
+        raise ValidationError(
+            "picture_url must include an object key",
+            field="picture_url",
+        )
+
+    return key
+
+
+def _validate_picture_key(organization_id: str, object_key: str) -> None:
+    """Ensure the object key matches the organization prefix."""
+
+    prefix = f"organizations/{organization_id}/"
+    if not object_key.startswith(prefix):
+        raise ValidationError(
+            "picture_url does not match the organization",
+            field="picture_url",
+        )
 
 
 def _parse_group_name(event: Mapping[str, Any]) -> str:

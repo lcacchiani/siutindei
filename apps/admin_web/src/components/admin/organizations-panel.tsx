@@ -5,7 +5,9 @@ import type { ChangeEvent } from 'react';
 
 import {
   ApiError,
+  createOrganizationPictureUpload,
   createResource,
+  deleteOrganizationPicture,
   deleteResource,
   listResource,
   updateResource,
@@ -31,21 +33,40 @@ function normalizePictureUrls(urls: string[]) {
   return Array.from(new Set(cleaned));
 }
 
-function readFileAsDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => {
-      reject(new Error('Unable to read file.'));
-    };
-    reader.onload = () => {
-      if (typeof reader.result === 'string') {
-        resolve(reader.result);
-        return;
-      }
-      reject(new Error('Unsupported file result.'));
-    };
-    reader.readAsDataURL(file);
+function isManagedPictureUrl(url: string) {
+  return url.startsWith('http') && url.includes('amazonaws.com/');
+}
+
+async function uploadPictureFile(
+  organizationId: string,
+  file: File
+): Promise<string> {
+  if (!file.type.startsWith('image/')) {
+    throw new Error('Only image files are supported.');
+  }
+
+  const payload = {
+    file_name: file.name,
+    content_type: file.type,
+  };
+  const upload = await createOrganizationPictureUpload(
+    organizationId,
+    payload
+  );
+
+  const response = await fetch(upload.upload_url, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': file.type,
+    },
+    body: file,
   });
+
+  if (!response.ok) {
+    throw new Error('Failed to upload picture.');
+  }
+
+  return upload.picture_url;
 }
 
 const emptyForm: OrganizationFormState = {
@@ -65,6 +86,12 @@ export function OrganizationsPanel() {
   const [formState, setFormState] = useState(emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [newPictureUrl, setNewPictureUrl] = useState('');
+  const [pendingPictureDeletes, setPendingPictureDeletes] = useState<
+    string[]
+  >([]);
+  const [uploadedPictureUrls, setUploadedPictureUrls] = useState<
+    string[]
+  >([]);
 
   const isPictureBusy = isSaving || isProcessingPictures;
 
@@ -99,6 +126,68 @@ export function OrganizationsPanel() {
     setFormState(emptyForm);
     setEditingId(null);
     setNewPictureUrl('');
+    setPendingPictureDeletes([]);
+    setUploadedPictureUrls([]);
+  };
+
+  const handleCancelEdit = async () => {
+    if (!editingId || uploadedPictureUrls.length === 0) {
+      resetForm();
+      return;
+    }
+
+    setIsProcessingPictures(true);
+    try {
+      await Promise.all(
+        uploadedPictureUrls.map((url) =>
+          deleteOrganizationPicture(editingId, { picture_url: url })
+        )
+      );
+    } catch (err) {
+      const message =
+        err instanceof ApiError
+          ? err.message
+          : 'Unable to clean up uploaded pictures.';
+      setError(message);
+    } finally {
+      setIsProcessingPictures(false);
+      resetForm();
+    }
+  };
+
+  const flushPictureDeletes = async (
+    organizationId: string,
+    pictureUrls: string[]
+  ) => {
+    if (pendingPictureDeletes.length === 0) {
+      return;
+    }
+
+    const remaining = new Set(pictureUrls);
+    const deletions = pendingPictureDeletes.filter(
+      (url) => !remaining.has(url)
+    );
+    const managedDeletes = deletions.filter(isManagedPictureUrl);
+    if (managedDeletes.length === 0) {
+      setPendingPictureDeletes([]);
+      return;
+    }
+
+    try {
+      await Promise.all(
+        managedDeletes.map((url) =>
+          deleteOrganizationPicture(organizationId, { picture_url: url })
+        )
+      );
+    } catch (err) {
+      const message =
+        err instanceof ApiError
+          ? err.message
+          : 'Saved organization, but failed to delete some pictures.';
+      setError(message);
+    } finally {
+      setPendingPictureDeletes([]);
+    }
   };
 
   const handleSubmit = async () => {
@@ -113,10 +202,11 @@ export function OrganizationsPanel() {
     setIsSaving(true);
     setError('');
     try {
+      const pictureUrls = normalizePictureUrls(formState.picture_urls);
       const payload = {
         name: formState.name.trim(),
         description: formState.description.trim() || null,
-        picture_urls: normalizePictureUrls(formState.picture_urls),
+        picture_urls: pictureUrls,
       };
       if (editingId) {
         const updated = await updateResource<
@@ -128,6 +218,7 @@ export function OrganizationsPanel() {
             item.id === editingId ? updated : item
           )
         );
+        await flushPictureDeletes(editingId, pictureUrls);
       } else {
         const created = await createResource<
           typeof payload,
@@ -155,6 +246,8 @@ export function OrganizationsPanel() {
       picture_urls: item.picture_urls ?? [],
     });
     setNewPictureUrl('');
+    setPendingPictureDeletes([]);
+    setUploadedPictureUrls([]);
   };
 
   const handleDelete = async (item: Organization) => {
@@ -193,6 +286,9 @@ export function OrganizationsPanel() {
         [...prev.picture_urls, trimmed]
       ),
     }));
+    setPendingPictureDeletes((prev) =>
+      prev.filter((url) => url !== trimmed)
+    );
     setNewPictureUrl('');
   };
 
@@ -204,22 +300,54 @@ export function OrganizationsPanel() {
     if (!files || files.length === 0) {
       return;
     }
+    if (!editingId) {
+      setError('Save the organization before uploading pictures.');
+      target.value = '';
+      return;
+    }
     setIsProcessingPictures(true);
     setError('');
     try {
-      const uploads = await Promise.all(
-        Array.from(files).map((file) =>
-          readFileAsDataUrl(file)
-        )
+      const selectedFiles = Array.from(files);
+      const validFiles = selectedFiles.filter((file) =>
+        file.type.startsWith('image/')
       );
-      setFormState((prev) => ({
-        ...prev,
-        picture_urls: normalizePictureUrls(
-          [...prev.picture_urls, ...uploads]
-        ),
-      }));
+      if (validFiles.length === 0) {
+        setError('Only image files can be uploaded.');
+        return;
+      }
+
+      const results = await Promise.allSettled(
+        validFiles.map((file) => uploadPictureFile(editingId, file))
+      );
+      const uploadedUrls = results
+        .filter(
+          (result): result is PromiseFulfilledResult<string> =>
+            result.status === 'fulfilled'
+        )
+        .map((result) => result.value);
+
+      if (uploadedUrls.length > 0) {
+        setFormState((prev) => ({
+          ...prev,
+          picture_urls: normalizePictureUrls(
+            [...prev.picture_urls, ...uploadedUrls]
+          ),
+        }));
+        setUploadedPictureUrls((prev) =>
+          normalizePictureUrls([...prev, ...uploadedUrls])
+        );
+      }
+
+      if (results.some((result) => result.status === 'rejected')) {
+        setError('Some uploads failed. Please retry.');
+      }
     } catch (err) {
-      setError('Unable to read selected picture files.');
+      const message =
+        err instanceof ApiError
+          ? err.message
+          : 'Unable to upload selected picture files.';
+      setError(message);
     } finally {
       setIsProcessingPictures(false);
       target.value = '';
@@ -227,11 +355,17 @@ export function OrganizationsPanel() {
   };
 
   const removePictureAt = (index: number) => {
+    const removedUrl = formState.picture_urls[index];
     setFormState((prev) => {
       const nextPictures = [...prev.picture_urls];
       nextPictures.splice(index, 1);
       return { ...prev, picture_urls: nextPictures };
     });
+    if (removedUrl && editingId && isManagedPictureUrl(removedUrl)) {
+      setPendingPictureDeletes((prev) =>
+        normalizePictureUrls([...prev, removedUrl])
+      );
+    }
   };
 
   return (
@@ -304,11 +438,12 @@ export function OrganizationsPanel() {
                   accept='image/*'
                   multiple
                   onChange={handlePictureFiles}
-                  disabled={isPictureBusy}
+                  disabled={isPictureBusy || !editingId}
                 />
                 <p className='text-xs text-slate-500 sm:self-center'>
-                  Upload files or add URLs. Pictures are saved when
-                  you save the organization.
+                  {editingId
+                    ? 'Upload files or add URLs. Save to apply changes.'
+                    : 'Save the organization before uploading files.'}
                 </p>
               </div>
               {formState.picture_urls.length > 0 ? (
@@ -359,15 +494,19 @@ export function OrganizationsPanel() {
           </div>
         </div>
         <div className='mt-4 flex flex-wrap gap-3'>
-          <Button type='button' onClick={handleSubmit} disabled={isSaving}>
+          <Button
+            type='button'
+            onClick={handleSubmit}
+            disabled={isPictureBusy}
+          >
             {editingId ? 'Update organization' : 'Add organization'}
           </Button>
           {editingId && (
             <Button
               type='button'
               variant='secondary'
-              onClick={resetForm}
-              disabled={isSaving}
+              onClick={() => void handleCancelEdit()}
+              disabled={isPictureBusy}
             >
               Cancel edit
             </Button>
