@@ -1455,44 +1455,46 @@ export class ApiStack extends cdk.Stack {
 
     // ---------------------------------------------------------------------
     // API Custom Domain (Conditional)
+    // NOTE: Temporarily disabled to diagnose S3 bucket deployment issue.
+    // TODO: Re-enable once the root cause is identified.
     // ---------------------------------------------------------------------
-    const useApiCustomDomain = new cdk.CfnCondition(this, "UseApiCustomDomain", {
-      expression: cdk.Fn.conditionAnd(
-        cdk.Fn.conditionNot(
-          cdk.Fn.conditionEquals(apiCustomDomainName.valueAsString, "")
-        ),
-        cdk.Fn.conditionNot(
-          cdk.Fn.conditionEquals(apiCustomDomainCertificateArn.valueAsString, "")
-        )
-      ),
-    });
+    // const useApiCustomDomain = new cdk.CfnCondition(this, "UseApiCustomDomain", {
+    //   expression: cdk.Fn.conditionAnd(
+    //     cdk.Fn.conditionNot(
+    //       cdk.Fn.conditionEquals(apiCustomDomainName.valueAsString, "")
+    //     ),
+    //     cdk.Fn.conditionNot(
+    //       cdk.Fn.conditionEquals(apiCustomDomainCertificateArn.valueAsString, "")
+    //     )
+    //   ),
+    // });
 
-    // Import certificate for custom domain
-    const apiCertificate = acm.Certificate.fromCertificateArn(
-      this,
-      "ApiCertificate",
-      apiCustomDomainCertificateArn.valueAsString
-    );
+    // // Import certificate for custom domain
+    // const apiCertificate = acm.Certificate.fromCertificateArn(
+    //   this,
+    //   "ApiCertificate",
+    //   apiCustomDomainCertificateArn.valueAsString
+    // );
 
-    // Create custom domain for API Gateway (Regional endpoint)
-    // Regional is preferred for APIs not requiring global edge caching
-    const apiDomain = new apigateway.DomainName(this, "ApiCustomDomain", {
-      domainName: apiCustomDomainName.valueAsString,
-      certificate: apiCertificate,
-      endpointType: apigateway.EndpointType.REGIONAL,
-      securityPolicy: apigateway.SecurityPolicy.TLS_1_2,
-    });
-    const apiDomainCfn = apiDomain.node.defaultChild as apigateway.CfnDomainName;
-    apiDomainCfn.cfnOptions.condition = useApiCustomDomain;
+    // // Create custom domain for API Gateway (Regional endpoint)
+    // // Regional is preferred for APIs not requiring global edge caching
+    // const apiDomain = new apigateway.DomainName(this, "ApiCustomDomain", {
+    //   domainName: apiCustomDomainName.valueAsString,
+    //   certificate: apiCertificate,
+    //   endpointType: apigateway.EndpointType.REGIONAL,
+    //   securityPolicy: apigateway.SecurityPolicy.TLS_1_2,
+    // });
+    // const apiDomainCfn = apiDomain.node.defaultChild as apigateway.CfnDomainName;
+    // apiDomainCfn.cfnOptions.condition = useApiCustomDomain;
 
-    // Map the custom domain to the API stage
-    const apiMapping = new apigateway.BasePathMapping(this, "ApiBasePathMapping", {
-      domainName: apiDomain,
-      restApi: api,
-      stage: api.deploymentStage,
-    });
-    const apiMappingCfn = apiMapping.node.defaultChild as apigateway.CfnBasePathMapping;
-    apiMappingCfn.cfnOptions.condition = useApiCustomDomain;
+    // // Map the custom domain to the API stage
+    // const apiMapping = new apigateway.BasePathMapping(this, "ApiBasePathMapping", {
+    //   domainName: apiDomain,
+    //   restApi: api,
+    //   stage: api.deploymentStage,
+    // });
+    // const apiMappingCfn = apiMapping.node.defaultChild as apigateway.CfnBasePathMapping;
+    // apiMappingCfn.cfnOptions.condition = useApiCustomDomain;
 
     // ---------------------------------------------------------------------
     // Outputs
@@ -1536,28 +1538,29 @@ export class ApiStack extends cdk.Stack {
     customAuthDomainOutput.condition = useCustomDomain;
 
     // Output the API custom domain target for DNS configuration
-    const apiCustomDomainTarget = new cdk.CfnOutput(
-      this,
-      "ApiCustomDomainTarget",
-      {
-        value: apiDomain.domainNameAliasDomainName,
-        description:
-          "CNAME target for API custom domain. " +
-          "Create a CNAME record in Cloudflare pointing to this value " +
-          "(with Proxy disabled / grey cloud).",
-      }
-    );
-    apiCustomDomainTarget.condition = useApiCustomDomain;
+    // NOTE: Temporarily disabled - see API Custom Domain section above
+    // const apiCustomDomainTarget = new cdk.CfnOutput(
+    //   this,
+    //   "ApiCustomDomainTarget",
+    //   {
+    //     value: apiDomain.domainNameAliasDomainName,
+    //     description:
+    //       "CNAME target for API custom domain. " +
+    //       "Create a CNAME record in Cloudflare pointing to this value " +
+    //       "(with Proxy disabled / grey cloud).",
+    //   }
+    // );
+    // apiCustomDomainTarget.condition = useApiCustomDomain;
 
-    const apiCustomDomainUrlOutput = new cdk.CfnOutput(
-      this,
-      "ApiCustomDomainUrl",
-      {
-        value: `https://${apiCustomDomainName.valueAsString}`,
-        description: "The custom domain URL for the API.",
-      }
-    );
-    apiCustomDomainUrlOutput.condition = useApiCustomDomain;
+    // const apiCustomDomainUrlOutput = new cdk.CfnOutput(
+    //   this,
+    //   "ApiCustomDomainUrl",
+    //   {
+    //     value: `https://${apiCustomDomainName.valueAsString}`,
+    //     description: "The custom domain URL for the API.",
+    //   }
+    // );
+    // apiCustomDomainUrlOutput.condition = useApiCustomDomain;
 
     // Apply Checkov suppressions to CDK-internal Lambda functions
     cdk.Aspects.of(this).add(new CdkInternalLambdaCheckovSuppression());
