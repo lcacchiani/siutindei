@@ -198,27 +198,12 @@ jobs:
 
           normalize_value() {
             local value="$1"
-            value=$(printf "%s" "$value" | tr -d '\r')
-            value=$(printf "%s" "$value" | tr '\n' ' ')
-            value=$(printf "%s" "$value" | xargs)
-            local lower
-            lower=$(printf "%s" "$value" | tr '[:upper:]' '[:lower:]')
-            if [ -z "$value" ] || [ "$lower" = "none" ] || \
-              [ "$lower" = "null" ] || [ "$lower" = "n/a" ]; then
+            if [ -z "$value" ] || [ "$value" = "None" ] || \
+              [ "$value" = "null" ] || [ "$value" = "N/A" ]; then
               echo ""
               return 0
             fi
             echo "$value"
-          }
-
-          write_env() {
-            local key="$1"
-            local value
-            value=$(normalize_value "$2")
-            if [ -z "$value" ]; then
-              return 0
-            fi
-            echo "${key}=${value}" >> "$GITHUB_ENV"
           }
 
           set_secret_kms_key() {
@@ -234,7 +219,8 @@ jobs:
               --output text 2>/dev/null || true)
             kms_key_id=$(normalize_value "$kms_key_id")
             if [ -n "$kms_key_id" ] && [[ "$kms_key_id" == arn:* ]]; then
-              write_env "EXISTING_DB_CREDENTIALS_SECRET_KMS_KEY_ARN" "$kms_key_id"
+              echo "EXISTING_DB_CREDENTIALS_SECRET_KMS_KEY_ARN=$kms_key_id" \
+                >> "$GITHUB_ENV"
               existing_secret_kms_key_set="true"
             fi
           }
@@ -292,8 +278,8 @@ jobs:
             echo "SKIP_DB_CLUSTER_IMMUTABLE_UPDATES=false" >> "$GITHUB_ENV"
           fi
           if [ -n "$stack_org_images_log_bucket" ]; then
-            write_env "EXISTING_ORG_IMAGES_LOG_BUCKET_NAME" \
-              "$stack_org_images_log_bucket"
+            echo "EXISTING_ORG_IMAGES_LOG_BUCKET_NAME=$stack_org_images_log_bucket" \
+              >> "$GITHUB_ENV"
           fi
           existing_secret_name_set="false"
           existing_secret_arn_set="false"
@@ -302,7 +288,8 @@ jobs:
           if aws secretsmanager describe-secret --secret-id "$secret_name" \
             >/dev/null 2>&1; then
             if [ -z "$stack_secret_id" ]; then
-              write_env "EXISTING_DB_CREDENTIALS_SECRET_NAME" "$secret_name"
+              echo "EXISTING_DB_CREDENTIALS_SECRET_NAME=$secret_name" \
+                >> "$GITHUB_ENV"
               existing_secret_name_set="true"
               set_secret_kms_key "$secret_name"
             fi
@@ -334,8 +321,8 @@ jobs:
             if [ -z "$stack_secret_id" ] && \
               [ "$existing_secret_name_set" != "true" ] && \
               [ -n "$cluster_secret_arn" ]; then
-              write_env "EXISTING_DB_CREDENTIALS_SECRET_ARN" \
-                "$cluster_secret_arn"
+              echo "EXISTING_DB_CREDENTIALS_SECRET_ARN=$cluster_secret_arn" \
+                >> "$GITHUB_ENV"
               existing_secret_arn_set="true"
               set_secret_kms_key "$cluster_secret_arn"
             fi
@@ -350,7 +337,8 @@ jobs:
               --output text 2>/dev/null || true)
             db_subnet_group=$(normalize_value "$db_subnet_group")
             if [ -n "$cluster_sg_id" ]; then
-              write_env "EXISTING_DB_SECURITY_GROUP_ID" "$cluster_sg_id"
+              echo "EXISTING_DB_SECURITY_GROUP_ID=$cluster_sg_id" \
+                >> "$GITHUB_ENV"
             fi
             if [ -n "$db_subnet_group" ]; then
               cluster_vpc_id=$(aws rds describe-db-subnet-groups \
@@ -359,16 +347,19 @@ jobs:
                 --output text 2>/dev/null || true)
               cluster_vpc_id=$(normalize_value "$cluster_vpc_id")
             fi
-            write_env "EXISTING_DB_CLUSTER_IDENTIFIER" "$cluster_identifier"
+            echo "EXISTING_DB_CLUSTER_IDENTIFIER=$cluster_identifier" \
+              >> "$GITHUB_ENV"
             if [ -n "$cluster_endpoint" ]; then
-              write_env "EXISTING_DB_CLUSTER_ENDPOINT" "$cluster_endpoint"
+              echo "EXISTING_DB_CLUSTER_ENDPOINT=$cluster_endpoint" \
+                >> "$GITHUB_ENV"
             fi
             if [ -n "$cluster_reader_endpoint" ]; then
-              write_env "EXISTING_DB_CLUSTER_READER_ENDPOINT" \
-                "$cluster_reader_endpoint"
+              echo "EXISTING_DB_CLUSTER_READER_ENDPOINT=$cluster_reader_endpoint" \
+                >> "$GITHUB_ENV"
             fi
             if [ -n "$cluster_port" ]; then
-              write_env "EXISTING_DB_CLUSTER_PORT" "$cluster_port"
+              echo "EXISTING_DB_CLUSTER_PORT=$cluster_port" \
+                >> "$GITHUB_ENV"
             fi
           fi
 
@@ -398,19 +389,22 @@ jobs:
               [ "$existing_secret_name_set" != "true" ] && \
               [ "$existing_secret_arn_set" != "true" ] && \
               [ -n "$proxy_secret_arn" ]; then
-              write_env "EXISTING_DB_CREDENTIALS_SECRET_ARN" "$proxy_secret_arn"
+              echo "EXISTING_DB_CREDENTIALS_SECRET_ARN=$proxy_secret_arn" \
+                >> "$GITHUB_ENV"
               existing_secret_arn_set="true"
               set_secret_kms_key "$proxy_secret_arn"
             fi
             if [ -n "$proxy_sg_id" ]; then
-              write_env "EXISTING_PROXY_SECURITY_GROUP_ID" "$proxy_sg_id"
+              echo "EXISTING_PROXY_SECURITY_GROUP_ID=$proxy_sg_id" \
+                >> "$GITHUB_ENV"
             fi
-            write_env "EXISTING_DB_PROXY_NAME" "$proxy_name"
+            echo "EXISTING_DB_PROXY_NAME=$proxy_name" >> "$GITHUB_ENV"
             if [ -n "$proxy_arn" ]; then
-              write_env "EXISTING_DB_PROXY_ARN" "$proxy_arn"
+              echo "EXISTING_DB_PROXY_ARN=$proxy_arn" >> "$GITHUB_ENV"
             fi
             if [ -n "$proxy_endpoint" ]; then
-              write_env "EXISTING_DB_PROXY_ENDPOINT" "$proxy_endpoint"
+              echo "EXISTING_DB_PROXY_ENDPOINT=$proxy_endpoint" \
+                >> "$GITHUB_ENV"
             fi
           fi
 
@@ -429,7 +423,7 @@ jobs:
               fi
             fi
             if [ -n "$selected_vpc_id" ]; then
-              write_env "EXISTING_VPC_ID" "$selected_vpc_id"
+              echo "EXISTING_VPC_ID=$selected_vpc_id" >> "$GITHUB_ENV"
             fi
           fi
 
@@ -441,7 +435,8 @@ jobs:
               --output text 2>/dev/null || true)
             lambda_sg_id=$(normalize_value "$lambda_sg_id")
             if [ -n "$lambda_sg_id" ]; then
-              write_env "EXISTING_LAMBDA_SECURITY_GROUP_ID" "$lambda_sg_id"
+              echo "EXISTING_LAMBDA_SECURITY_GROUP_ID=$lambda_sg_id" \
+                >> "$GITHUB_ENV"
             fi
           fi
 
@@ -453,7 +448,8 @@ jobs:
               --output text 2>/dev/null || true)
             migration_sg_id=$(normalize_value "$migration_sg_id")
             if [ -n "$migration_sg_id" ]; then
-              write_env "EXISTING_MIGRATION_SECURITY_GROUP_ID" "$migration_sg_id"
+              echo "EXISTING_MIGRATION_SECURITY_GROUP_ID=$migration_sg_id" \
+                >> "$GITHUB_ENV"
             fi
           fi
 
