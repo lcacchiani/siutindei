@@ -30,6 +30,11 @@ paths:
       summary: Update organization
     delete:
       summary: Delete organization
+  /v1/admin/organizations/{id}/pictures:
+    post:
+      summary: Create organization picture upload
+    delete:
+      summary: Delete organization picture
   /v1/admin/locations:
     get:
       summary: List locations

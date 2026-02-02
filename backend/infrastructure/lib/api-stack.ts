@@ -4,6 +4,7 @@ import * as cognito from "aws-cdk-lib/aws-cognito";
 import * as ec2 from "aws-cdk-lib/aws-ec2";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as kms from "aws-cdk-lib/aws-kms";
+import * as s3 from "aws-cdk-lib/aws-s3";
 import * as customresources from "aws-cdk-lib/custom-resources";
 import * as logs from "aws-cdk-lib/aws-logs";
 import { Construct } from "constructs";
@@ -580,6 +581,70 @@ export class ApiStack extends cdk.Stack {
       return pythonLambda.function;
     };
 
+    const corsAllowedOrigins = resolveCorsAllowedOrigins(this);
+
+    const imagesLogBucketName = [
+      name("org-images-logs"),
+      cdk.Aws.ACCOUNT_ID,
+      cdk.Aws.REGION,
+    ].join("-");
+
+    const organizationImagesLogBucket = new s3.Bucket(
+      this,
+      "OrganizationImagesLogBucket",
+      {
+        bucketName: imagesLogBucketName,
+        blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+        encryption: s3.BucketEncryption.S3_MANAGED,
+        enforceSSL: true,
+        versioned: true,
+        removalPolicy: cdk.RemovalPolicy.RETAIN,
+        lifecycleRules: [
+          {
+            id: "ExpireOldLogs",
+            enabled: true,
+            expiration: cdk.Duration.days(90),
+            noncurrentVersionExpiration: cdk.Duration.days(30),
+          },
+        ],
+      }
+    );
+
+    const imagesBucketName = [
+      name("org-images"),
+      cdk.Aws.ACCOUNT_ID,
+      cdk.Aws.REGION,
+    ].join("-");
+
+    const organizationImagesBucket = new s3.Bucket(
+      this,
+      "OrganizationImagesBucket",
+      {
+        bucketName: imagesBucketName,
+        blockPublicAccess: s3.BlockPublicAccess.BLOCK_ACLS,
+        publicReadAccess: true,
+        encryption: s3.BucketEncryption.S3_MANAGED,
+        enforceSSL: true,
+        versioned: true,
+        removalPolicy: cdk.RemovalPolicy.RETAIN,
+        serverAccessLogsBucket: organizationImagesLogBucket,
+        serverAccessLogsPrefix: "s3-access-logs/",
+        cors: [
+          {
+            allowedMethods: [
+              s3.HttpMethods.GET,
+              s3.HttpMethods.PUT,
+              s3.HttpMethods.HEAD,
+            ],
+            allowedOrigins: corsAllowedOrigins,
+            allowedHeaders: ["*"],
+            exposedHeaders: ["ETag"],
+            maxAge: 3000,
+          },
+        ],
+      }
+    );
+
     // Search function
     const searchFunction = createPythonFunction("SiutindeiSearchFunction", {
       handler: "lambda/activity_search/handler.lambda_handler",
@@ -605,10 +670,14 @@ export class ApiStack extends cdk.Stack {
         DATABASE_IAM_AUTH: "true",
         ADMIN_GROUP: adminGroupName,
         COGNITO_USER_POOL_ID: userPool.userPoolId,
+        ORGANIZATION_PICTURES_BUCKET: organizationImagesBucket.bucketName,
+        ORGANIZATION_PICTURES_BASE_URL:
+          `https://${organizationImagesBucket.bucketRegionalDomainName}`,
       },
     });
     database.grantSecretRead(adminFunction);
     database.grantConnect(adminFunction, "siutindei_admin");
+    organizationImagesBucket.grantReadWrite(adminFunction);
 
     adminFunction.addToRolePolicy(
       new iam.PolicyStatement({
@@ -942,12 +1011,10 @@ export class ApiStack extends cdk.Stack {
 
     // SECURITY: Restrict CORS to specific allowed origins
     // Never use Cors.ALL_ORIGINS in production - it allows any website to make requests
-    const resolvedCorsOrigins = resolveCorsAllowedOrigins(this);
-
     const api = new apigateway.RestApi(this, "SiutindeiApi", {
       restApiName: name("api"),
       defaultCorsPreflightOptions: {
-        allowOrigins: resolvedCorsOrigins,
+        allowOrigins: corsAllowedOrigins,
         allowMethods: ["GET", "OPTIONS", "POST", "PUT", "DELETE"],
       },
       deployOptions: {
@@ -1087,6 +1154,18 @@ export class ApiStack extends cdk.Stack {
         authorizationType: apigateway.AuthorizationType.COGNITO,
         authorizer,
       });
+
+      if (resourceName === "organizations") {
+        const pictures = resourceById.addResource("pictures");
+        pictures.addMethod("POST", adminIntegration, {
+          authorizationType: apigateway.AuthorizationType.COGNITO,
+          authorizer,
+        });
+        pictures.addMethod("DELETE", adminIntegration, {
+          authorizationType: apigateway.AuthorizationType.COGNITO,
+          authorizer,
+        });
+      }
     }
 
     const users = admin.addResource("users");
@@ -1223,6 +1302,15 @@ export class ApiStack extends cdk.Stack {
 
     new cdk.CfnOutput(this, "UserPoolClientId", {
       value: userPoolClient.ref,
+    });
+
+    new cdk.CfnOutput(this, "OrganizationImagesBucketName", {
+      value: organizationImagesBucket.bucketName,
+    });
+
+    new cdk.CfnOutput(this, "OrganizationImagesBaseUrl", {
+      value:
+        `https://${organizationImagesBucket.bucketRegionalDomainName}`,
     });
 
     const customAuthDomainOutput = new cdk.CfnOutput(

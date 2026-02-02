@@ -585,7 +585,7 @@ jobs:
           fi
         env:
           CDK_STACKS: >-
-            ${{ github.event.inputs.cdk_stacks || vars.CDK_STACKS }}
+            ${{ github.event.inputs.cdk_stacks || vars.CDK_STACKS || 'all stacks' }}
           CDK_PARAM_FILE: ${{ vars.CDK_PARAM_FILE }}
           CDK_SECRET_PARAM_FILE: ${{ env.CDK_SECRET_PARAM_FILE }}
           CDK_NON_SECRET_PARAM_FILE: ${{ env.CDK_NON_SECRET_PARAM_FILE }}

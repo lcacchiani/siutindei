@@ -61,17 +61,23 @@ class OrganizationRepository(BaseRepository[Organization]):
         self,
         name: str,
         description: Optional[str] = None,
+        picture_urls: Optional[Sequence[str]] = None,
     ) -> Organization:
         """Create a new organization.
 
         Args:
             name: Organization name.
             description: Optional description.
+            picture_urls: Optional list of picture URLs.
 
         Returns:
             The created organization.
         """
-        org = Organization(name=name, description=description)
+        org = Organization(
+            name=name,
+            description=description,
+            picture_urls=list(picture_urls or []),
+        )
         return self.create(org)
 
     def update_organization(
@@ -79,6 +85,7 @@ class OrganizationRepository(BaseRepository[Organization]):
         organization: Organization,
         name: Optional[str] = None,
         description: Optional[str] = None,
+        picture_urls: Optional[Sequence[str]] = None,
     ) -> Organization:
         """Update an organization.
 
@@ -86,6 +93,7 @@ class OrganizationRepository(BaseRepository[Organization]):
             organization: The organization to update.
             name: New name (if provided).
             description: New description (if provided).
+            picture_urls: New picture URLs (if provided).
 
         Returns:
             The updated organization.
@@ -94,4 +102,6 @@ class OrganizationRepository(BaseRepository[Organization]):
             organization.name = name
         if description is not None:
             organization.description = description
+        if picture_urls is not None:
+            organization.picture_urls = list(picture_urls)
         return self.update(organization)

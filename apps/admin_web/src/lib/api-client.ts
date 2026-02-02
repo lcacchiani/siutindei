@@ -13,6 +13,23 @@ export interface ListResponse<T> {
   next_cursor?: string | null;
 }
 
+export interface OrganizationPictureUploadRequest {
+  file_name: string;
+  content_type: string;
+}
+
+export interface OrganizationPictureUploadResponse {
+  upload_url: string;
+  picture_url: string;
+  object_key: string;
+  expires_in: number;
+}
+
+export interface OrganizationPictureDeleteRequest {
+  picture_url?: string;
+  object_key?: string;
+}
+
 export class ApiError extends Error {
   status: number;
   detail?: string;
@@ -28,6 +45,13 @@ function buildResourceUrl(resource: ResourceName, id?: string) {
   const base = getApiBaseUrl();
   const normalized = base.endsWith('/') ? base : `${base}/`;
   const suffix = id ? `v1/admin/${resource}/${id}` : `v1/admin/${resource}`;
+  return new URL(suffix, normalized).toString();
+}
+
+function buildOrganizationPictureUrl(organizationId: string) {
+  const base = getApiBaseUrl();
+  const normalized = base.endsWith('/') ? base : `${base}/`;
+  const suffix = `v1/admin/organizations/${organizationId}/pictures`;
   return new URL(suffix, normalized).toString();
 }
 
@@ -118,5 +142,34 @@ export async function updateResource<TInput, TOutput>(
 export async function deleteResource(resource: ResourceName, id: string) {
   return request<void>(buildResourceUrl(resource, id), {
     method: 'DELETE',
+  });
+}
+
+export async function createOrganizationPictureUpload(
+  organizationId: string,
+  payload: OrganizationPictureUploadRequest
+) {
+  return request<OrganizationPictureUploadResponse>(
+    buildOrganizationPictureUrl(organizationId),
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    }
+  );
+}
+
+export async function deleteOrganizationPicture(
+  organizationId: string,
+  payload: OrganizationPictureDeleteRequest
+) {
+  return request<void>(buildOrganizationPictureUrl(organizationId), {
+    method: 'DELETE',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
   });
 }

@@ -1,10 +1,14 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import type { ChangeEvent } from 'react';
+import Image, { type ImageLoaderProps } from 'next/image';
 
 import {
   ApiError,
+  createOrganizationPictureUpload,
   createResource,
+  deleteOrganizationPicture,
   deleteResource,
   listResource,
   updateResource,
@@ -17,9 +21,63 @@ import { Label } from '../ui/label';
 import { Textarea } from '../ui/textarea';
 import { StatusBanner } from '../status-banner';
 
-const emptyForm = {
+interface OrganizationFormState {
+  name: string;
+  description: string;
+  picture_urls: string[];
+}
+
+function normalizePictureUrls(urls: string[]) {
+  const cleaned = urls
+    .map((url) => url.trim())
+    .filter((url) => url.length > 0);
+  return Array.from(new Set(cleaned));
+}
+
+function imageLoader({ src }: ImageLoaderProps) {
+  return src;
+}
+
+function isManagedPictureUrl(url: string) {
+  return url.startsWith('http') && url.includes('amazonaws.com/');
+}
+
+async function uploadPictureFile(
+  organizationId: string,
+  file: File
+): Promise<string> {
+  if (!file.type.startsWith('image/')) {
+    throw new Error('Only image files are supported.');
+  }
+
+  const payload = {
+    file_name: file.name,
+    content_type: file.type,
+  };
+  const upload = await createOrganizationPictureUpload(
+    organizationId,
+    payload
+  );
+
+  const response = await fetch(upload.upload_url, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': file.type,
+    },
+    body: file,
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to upload picture.');
+  }
+
+  return upload.picture_url;
+}
+
+const emptyForm: OrganizationFormState = {
   name: '',
   description: '',
+  picture_urls: [],
 };
 
 export function OrganizationsPanel() {
@@ -27,9 +85,20 @@ export function OrganizationsPanel() {
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isProcessingPictures, setIsProcessingPictures] =
+    useState(false);
   const [error, setError] = useState('');
   const [formState, setFormState] = useState(emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [newPictureUrl, setNewPictureUrl] = useState('');
+  const [pendingPictureDeletes, setPendingPictureDeletes] = useState<
+    string[]
+  >([]);
+  const [uploadedPictureUrls, setUploadedPictureUrls] = useState<
+    string[]
+  >([]);
+
+  const isPictureBusy = isSaving || isProcessingPictures;
 
   const loadItems = async (cursor?: string) => {
     setIsLoading(true);
@@ -45,7 +114,9 @@ export function OrganizationsPanel() {
       setNextCursor(response.next_cursor ?? null);
     } catch (err) {
       const message =
-        err instanceof ApiError ? err.message : 'Failed to load organizations.';
+        err instanceof ApiError
+          ? err.message
+          : 'Failed to load organizations.';
       setError(message);
     } finally {
       setIsLoading(false);
@@ -59,6 +130,69 @@ export function OrganizationsPanel() {
   const resetForm = () => {
     setFormState(emptyForm);
     setEditingId(null);
+    setNewPictureUrl('');
+    setPendingPictureDeletes([]);
+    setUploadedPictureUrls([]);
+  };
+
+  const handleCancelEdit = async () => {
+    if (!editingId || uploadedPictureUrls.length === 0) {
+      resetForm();
+      return;
+    }
+
+    setIsProcessingPictures(true);
+    try {
+      await Promise.all(
+        uploadedPictureUrls.map((url) =>
+          deleteOrganizationPicture(editingId, { picture_url: url })
+        )
+      );
+    } catch (err) {
+      const message =
+        err instanceof ApiError
+          ? err.message
+          : 'Unable to clean up uploaded pictures.';
+      setError(message);
+    } finally {
+      setIsProcessingPictures(false);
+      resetForm();
+    }
+  };
+
+  const flushPictureDeletes = async (
+    organizationId: string,
+    pictureUrls: string[]
+  ) => {
+    if (pendingPictureDeletes.length === 0) {
+      return;
+    }
+
+    const remaining = new Set(pictureUrls);
+    const deletions = pendingPictureDeletes.filter(
+      (url) => !remaining.has(url)
+    );
+    const managedDeletes = deletions.filter(isManagedPictureUrl);
+    if (managedDeletes.length === 0) {
+      setPendingPictureDeletes([]);
+      return;
+    }
+
+    try {
+      await Promise.all(
+        managedDeletes.map((url) =>
+          deleteOrganizationPicture(organizationId, { picture_url: url })
+        )
+      );
+    } catch (err) {
+      const message =
+        err instanceof ApiError
+          ? err.message
+          : 'Saved organization, but failed to delete some pictures.';
+      setError(message);
+    } finally {
+      setPendingPictureDeletes([]);
+    }
   };
 
   const handleSubmit = async () => {
@@ -66,33 +200,43 @@ export function OrganizationsPanel() {
       setError('Name is required.');
       return;
     }
+    if (isProcessingPictures) {
+      setError('Please wait for picture processing to finish.');
+      return;
+    }
     setIsSaving(true);
     setError('');
     try {
+      const pictureUrls = normalizePictureUrls(formState.picture_urls);
       const payload = {
         name: formState.name.trim(),
         description: formState.description.trim() || null,
+        picture_urls: pictureUrls,
       };
       if (editingId) {
-        const updated = await updateResource<typeof payload, Organization>(
-          'organizations',
-          editingId,
-          payload
-        );
+        const updated = await updateResource<
+          typeof payload,
+          Organization
+        >('organizations', editingId, payload);
         setItems((prev) =>
-          prev.map((item) => (item.id === editingId ? updated : item))
+          prev.map((item) =>
+            item.id === editingId ? updated : item
+          )
         );
+        await flushPictureDeletes(editingId, pictureUrls);
       } else {
-        const created = await createResource<typeof payload, Organization>(
-          'organizations',
-          payload
-        );
+        const created = await createResource<
+          typeof payload,
+          Organization
+        >('organizations', payload);
         setItems((prev) => [created, ...prev]);
       }
       resetForm();
     } catch (err) {
       const message =
-        err instanceof ApiError ? err.message : 'Unable to save organization.';
+        err instanceof ApiError
+          ? err.message
+          : 'Unable to save organization.';
       setError(message);
     } finally {
       setIsSaving(false);
@@ -104,7 +248,11 @@ export function OrganizationsPanel() {
     setFormState({
       name: item.name ?? '',
       description: item.description ?? '',
+      picture_urls: item.picture_urls ?? [],
     });
+    setNewPictureUrl('');
+    setPendingPictureDeletes([]);
+    setUploadedPictureUrls([]);
   };
 
   const handleDelete = async (item: Organization) => {
@@ -117,7 +265,9 @@ export function OrganizationsPanel() {
     setError('');
     try {
       await deleteResource('organizations', item.id);
-      setItems((prev) => prev.filter((entry) => entry.id !== item.id));
+      setItems((prev) =>
+        prev.filter((entry) => entry.id !== item.id)
+      );
       if (editingId === item.id) {
         resetForm();
       }
@@ -127,6 +277,99 @@ export function OrganizationsPanel() {
           ? err.message
           : 'Unable to delete organization.';
       setError(message);
+    }
+  };
+
+  const handleAddPictureUrl = () => {
+    const trimmed = newPictureUrl.trim();
+    if (!trimmed) {
+      return;
+    }
+    setFormState((prev) => ({
+      ...prev,
+      picture_urls: normalizePictureUrls(
+        [...prev.picture_urls, trimmed]
+      ),
+    }));
+    setPendingPictureDeletes((prev) =>
+      prev.filter((url) => url !== trimmed)
+    );
+    setNewPictureUrl('');
+  };
+
+  const handlePictureFiles = async (
+    event: ChangeEvent<HTMLInputElement>
+  ) => {
+    const target = event.target;
+    const files = target.files;
+    if (!files || files.length === 0) {
+      return;
+    }
+    if (!editingId) {
+      setError('Save the organization before uploading pictures.');
+      target.value = '';
+      return;
+    }
+    setIsProcessingPictures(true);
+    setError('');
+    try {
+      const selectedFiles = Array.from(files);
+      const validFiles = selectedFiles.filter((file) =>
+        file.type.startsWith('image/')
+      );
+      if (validFiles.length === 0) {
+        setError('Only image files can be uploaded.');
+        return;
+      }
+
+      const results = await Promise.allSettled(
+        validFiles.map((file) => uploadPictureFile(editingId, file))
+      );
+      const uploadedUrls = results
+        .filter(
+          (result): result is PromiseFulfilledResult<string> =>
+            result.status === 'fulfilled'
+        )
+        .map((result) => result.value);
+
+      if (uploadedUrls.length > 0) {
+        setFormState((prev) => ({
+          ...prev,
+          picture_urls: normalizePictureUrls(
+            [...prev.picture_urls, ...uploadedUrls]
+          ),
+        }));
+        setUploadedPictureUrls((prev) =>
+          normalizePictureUrls([...prev, ...uploadedUrls])
+        );
+      }
+
+      if (results.some((result) => result.status === 'rejected')) {
+        setError('Some uploads failed. Please retry.');
+      }
+    } catch (err) {
+      const message =
+        err instanceof ApiError
+          ? err.message
+          : 'Unable to upload selected picture files.';
+      setError(message);
+    } finally {
+      setIsProcessingPictures(false);
+      target.value = '';
+    }
+  };
+
+  const removePictureAt = (index: number) => {
+    const removedUrl = formState.picture_urls[index];
+    setFormState((prev) => {
+      const nextPictures = [...prev.picture_urls];
+      nextPictures.splice(index, 1);
+      return { ...prev, picture_urls: nextPictures };
+    });
+    if (removedUrl && editingId && isManagedPictureUrl(removedUrl)) {
+      setPendingPictureDeletes((prev) =>
+        normalizePictureUrls([...prev, removedUrl])
+      );
     }
   };
 
@@ -171,17 +414,111 @@ export function OrganizationsPanel() {
               }
             />
           </div>
+          <div className='md:col-span-2'>
+            <Label>Pictures</Label>
+            <div className='mt-2 space-y-3'>
+              <div className='flex flex-col gap-2 sm:flex-row'>
+                <Input
+                  id='org-picture-url'
+                  type='url'
+                  placeholder='https://example.com/photo.jpg'
+                  value={newPictureUrl}
+                  onChange={(event) =>
+                    setNewPictureUrl(event.target.value)
+                  }
+                />
+                <Button
+                  type='button'
+                  variant='secondary'
+                  onClick={handleAddPictureUrl}
+                  disabled={isPictureBusy || !newPictureUrl.trim()}
+                >
+                  Add URL
+                </Button>
+              </div>
+              <div className='flex flex-col gap-2 sm:flex-row'>
+                <Input
+                  id='org-picture-upload'
+                  type='file'
+                  accept='image/*'
+                  multiple
+                  onChange={handlePictureFiles}
+                  disabled={isPictureBusy || !editingId}
+                />
+                <p className='text-xs text-slate-500 sm:self-center'>
+                  {editingId
+                    ? 'Upload files or add URLs. Save to apply changes.'
+                    : 'Save the organization before uploading files.'}
+                </p>
+              </div>
+              {formState.picture_urls.length > 0 ? (
+                <div className='grid gap-3 sm:grid-cols-2 lg:grid-cols-3'>
+                  {formState.picture_urls.map((url, index) => (
+                    <div
+                      key={`${url}-${index}`}
+                      className='overflow-hidden rounded-lg border border-slate-200'
+                    >
+                      <Image
+                        src={url}
+                        alt={`Organization picture ${index + 1}`}
+                        width={320}
+                        height={112}
+                        sizes={
+                          '(min-width: 1024px) 33vw, ' +
+                          '(min-width: 640px) 50vw, 100vw'
+                        }
+                        className='h-28 w-full object-cover'
+                        loading='lazy'
+                        loader={imageLoader}
+                      />
+                      <div
+                        className={
+                          'flex items-center justify-between gap-2 ' +
+                          'px-3 py-2 text-xs'
+                        }
+                      >
+                        <a
+                          href={url}
+                          target='_blank'
+                          rel='noreferrer'
+                          className='truncate text-slate-600'
+                        >
+                          Open
+                        </a>
+                        <Button
+                          type='button'
+                          size='sm'
+                          variant='danger'
+                          onClick={() => removePictureAt(index)}
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className='text-xs text-slate-500'>
+                  No pictures added yet.
+                </p>
+              )}
+            </div>
+          </div>
         </div>
         <div className='mt-4 flex flex-wrap gap-3'>
-          <Button type='button' onClick={handleSubmit} disabled={isSaving}>
+          <Button
+            type='button'
+            onClick={handleSubmit}
+            disabled={isPictureBusy}
+          >
             {editingId ? 'Update organization' : 'Add organization'}
           </Button>
           {editingId && (
             <Button
               type='button'
               variant='secondary'
-              onClick={resetForm}
-              disabled={isSaving}
+              onClick={() => void handleCancelEdit()}
+              disabled={isPictureBusy}
             >
               Cancel edit
             </Button>
@@ -203,6 +540,7 @@ export function OrganizationsPanel() {
                 <tr>
                   <th className='py-2'>Name</th>
                   <th className='py-2'>Description</th>
+                  <th className='py-2'>Pictures</th>
                   <th className='py-2 text-right'>Actions</th>
                 </tr>
               </thead>
@@ -215,6 +553,11 @@ export function OrganizationsPanel() {
                     <td className='py-2 font-medium'>{item.name}</td>
                     <td className='py-2 text-slate-600'>
                       {item.description || '—'}
+                    </td>
+                    <td className='py-2 text-slate-600'>
+                      {item.picture_urls?.length
+                        ? `${item.picture_urls.length} total`
+                        : '—'}
                     </td>
                     <td className='py-2 text-right'>
                       <div className='flex justify-end gap-2'>

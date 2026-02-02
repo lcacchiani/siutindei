@@ -162,6 +162,10 @@ components:
         description:
           type: string
           nullable: true
+        picture_urls:
+          type: array
+          items:
+            type: string
     Location:
       type: object
       properties:
