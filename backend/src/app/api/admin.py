@@ -447,10 +447,7 @@ def _build_picture_key(organization_id: str, file_name: str) -> str:
     trimmed_base = base[:40].strip("_") or "image"
     suffix = extension.lower() if extension else ""
     unique = uuid4().hex
-    return (
-        f"organizations/{organization_id}/{unique}-"
-        f"{trimmed_base}{suffix}"
-    )
+    return f"organizations/{organization_id}/{unique}-" f"{trimmed_base}{suffix}"
 
 
 def _sanitize_picture_filename(file_name: str) -> str:
