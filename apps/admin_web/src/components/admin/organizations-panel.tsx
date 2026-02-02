@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import type { ChangeEvent } from 'react';
+import Image, { type ImageLoaderProps } from 'next/image';
 
 import {
   ApiError,
@@ -31,6 +32,10 @@ function normalizePictureUrls(urls: string[]) {
     .map((url) => url.trim())
     .filter((url) => url.length > 0);
   return Array.from(new Set(cleaned));
+}
+
+function imageLoader({ src }: ImageLoaderProps) {
+  return src;
 }
 
 function isManagedPictureUrl(url: string) {
@@ -453,11 +458,18 @@ export function OrganizationsPanel() {
                       key={`${url}-${index}`}
                       className='overflow-hidden rounded-lg border border-slate-200'
                     >
-                      <img
+                      <Image
                         src={url}
                         alt={`Organization picture ${index + 1}`}
+                        width={320}
+                        height={112}
+                        sizes={
+                          '(min-width: 1024px) 33vw, ' +
+                          '(min-width: 640px) 50vw, 100vw'
+                        }
                         className='h-28 w-full object-cover'
                         loading='lazy'
+                        loader={imageLoader}
                       />
                       <div
                         className={
