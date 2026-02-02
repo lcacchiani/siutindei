@@ -819,7 +819,9 @@ export class ApiStack extends cdk.Stack {
       service: "logs",
       resource: "log-group",
       resourceName: apiAccessLogGroupName,
+      arnFormat: cdk.ArnFormat.COLON_RESOURCE_NAME,
     });
+    const apiAccessLogGroupArnWildcard = `${apiAccessLogGroupArn}:*`;
     const apiAccessLogGroupPolicy =
       customresources.AwsCustomResourcePolicy.fromStatements([
         new iam.PolicyStatement({
@@ -831,7 +833,7 @@ export class ApiStack extends cdk.Stack {
             "logs:AssociateKmsKey",
             "logs:PutRetentionPolicy",
           ],
-          resources: [apiAccessLogGroupArn],
+          resources: [apiAccessLogGroupArnWildcard],
         }),
       ]);
 
