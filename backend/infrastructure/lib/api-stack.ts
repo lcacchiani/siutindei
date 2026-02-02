@@ -782,6 +782,7 @@ export class ApiStack extends cdk.Stack {
         DATABASE_USERNAME: "siutindei_app",
         DATABASE_PROXY_ENDPOINT: database.proxy.endpoint,
         DATABASE_IAM_AUTH: "true",
+        CORS_ALLOWED_ORIGINS: corsAllowedOrigins.join(","),
       },
     });
     database.grantAppUserSecretRead(searchFunction);
@@ -801,6 +802,7 @@ export class ApiStack extends cdk.Stack {
         ORGANIZATION_PICTURES_BUCKET: organizationImagesBucket.bucketName,
         ORGANIZATION_PICTURES_BASE_URL:
           `https://${organizationImagesBucket.bucketRegionalDomainName}`,
+        CORS_ALLOWED_ORIGINS: corsAllowedOrigins.join(","),
       },
     });
     database.grantAdminUserSecretRead(adminFunction);

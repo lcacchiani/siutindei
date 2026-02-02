@@ -169,4 +169,4 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     # Return 200 for healthy, 503 for unhealthy
     status_code = 200 if status.healthy else 503
 
-    return json_response(status_code, status.to_dict())
+    return json_response(status_code, status.to_dict(), event=event)
