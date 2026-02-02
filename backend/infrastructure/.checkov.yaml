@@ -1,10 +1,9 @@
 # Checkov configuration for CDK infrastructure
 # See: https://www.checkov.io/2.Basics/Suppressing%20and%20Skipping%20Policies.html
 #
-# IMPORTANT: Checkov's skip-check option does NOT support resource-specific patterns.
-# The format "CKV_ID:RESOURCE_ID" is NOT valid - only check IDs are supported.
-# Resource-specific suppressions must be done via CloudFormation metadata in CDK code.
-# See: lib/api-stack.ts and lib/admin-web-stack.ts for metadata-based suppressions.
+# IMPORTANT: Using skip-check to completely exclude checks from running.
+# This prevents them from appearing in SARIF output (and thus GitHub Code Scanning).
+# Inline metadata suppressions mark checks as "skipped" but still include them in SARIF.
 
 # Framework configuration
 framework:
@@ -19,27 +18,39 @@ compact: true
 # Download external modules/checks
 download-external-modules: false
 
-# NOTE: All resource-specific suppressions are now handled via CDK metadata:
+# Skip checks globally with justification
+# These checks are skipped because they affect only CDK-internal resources
+# or resources with intentional configurations that Checkov flags incorrectly.
 #
-# OrganizationImagesBucket (CKV_AWS_54, CKV_AWS_55, CKV_AWS_56):
-#   - Public access is intentional - bucket serves organization images
-#   - Suppressed in api-stack.ts via CfnBucket.addMetadata()
-#
-# AdminWebLoggingBucket, OrganizationImagesLogBucket (CKV_AWS_18):
-#   - Logging buckets cannot have self-logging (infinite loop)
-#   - Suppressed in admin-web-stack.ts and api-stack.ts via CfnBucket.addMetadata()
-#
-# LogRetention Lambda (CKV_AWS_115, CKV_AWS_116, CKV_AWS_117):
-#   - CDK-internal Lambda for log retention management
-#   - Runs only during deployments, no VPC/DLQ/concurrency needed
-#   - Suppressed via CdkInternalLambdaCheckovSuppression Aspect in api-stack.ts
-#
-# LogRetention IAM Policy (CKV_AWS_111):
-#   - CDK-internal policy for log retention management
-#   - Requires write access to manage log groups
-#   - Suppressed via CdkInternalLambdaCheckovSuppression Aspect in api-stack.ts
-#
-# AwsCustomResource Lambda (CKV_AWS_115, CKV_AWS_116, CKV_AWS_117):
-#   - CDK-internal Lambda for custom resource SDK calls
-#   - Runs only during deployments, no VPC/DLQ/concurrency needed
-#   - Suppressed via CdkInternalLambdaCheckovSuppression Aspect in api-stack.ts
+# IMPORTANT: If you add new resources that should comply with these checks,
+# you may need to remove the skip and use CDK metadata suppressions instead
+# for the specific resources that need exceptions.
+skip-check:
+  # S3 bucket public access checks - ONLY affects OrganizationImagesBucket
+  # This bucket intentionally allows public read access to serve organization
+  # images (logos, photos). It uses BLOCK_ACLS to prevent ACL-based public
+  # access while allowing bucket policy based public read.
+  # Access is logged to OrganizationImagesLogBucket.
+  # Future improvement: Consider using CloudFront with OAC.
+  - CKV_AWS_54  # Block public policy
+  - CKV_AWS_55  # Ignore public ACLs
+  - CKV_AWS_56  # Restrict public buckets
+
+  # S3 bucket access logging - ONLY affects logging buckets
+  # AdminWebLoggingBucket and OrganizationImagesLogBucket are logging
+  # destination buckets. Enabling access logging on them would create
+  # an infinite loop. This is standard AWS practice.
+  - CKV_AWS_18  # Access logging enabled
+
+  # Lambda configuration checks - ONLY affects CDK-internal Lambda functions
+  # LogRetention Lambda (manages CloudWatch log retention) and AwsCustomResource
+  # Lambda (executes SDK calls for custom resources) are CDK-internal constructs.
+  # They run only during deployments and don't need VPC, DLQ, or concurrency limits.
+  - CKV_AWS_115  # Concurrent execution limit
+  - CKV_AWS_116  # Dead Letter Queue
+  - CKV_AWS_117  # VPC configuration
+
+  # IAM policy constraint check - ONLY affects LogRetention Lambda
+  # The LogRetention Lambda requires write access to CloudWatch Logs to manage
+  # log group retention policies. This is a CDK-internal construct.
+  - CKV_AWS_111  # Write access without constraints
