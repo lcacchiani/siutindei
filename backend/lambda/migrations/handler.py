@@ -19,6 +19,7 @@ from urllib.parse import urlparse
 
 import boto3
 import psycopg
+from psycopg import sql
 from alembic import command
 from alembic.config import Config
 from sqlalchemy.engine import make_url
@@ -154,10 +155,13 @@ def _sync_proxy_user_passwords(database_url: str) -> None:
                 )
                 if cursor.fetchone() is None:
                     raise RuntimeError(f"Database role {username} does not exist")
-                cursor.execute(
-                    f'ALTER ROLE "{username}" PASSWORD %s',
-                    (password,),
+                # ALTER ROLE PASSWORD doesn't support parameterized queries in PostgreSQL
+                # Use psycopg.sql module for safe query composition
+                alter_query = sql.SQL("ALTER ROLE {} PASSWORD {}").format(
+                    sql.Identifier(username),
+                    sql.Literal(password),
                 )
+                cursor.execute(alter_query)
                 logger.info(
                     "Updated database password for proxy user",
                     extra={"db_user": username},
