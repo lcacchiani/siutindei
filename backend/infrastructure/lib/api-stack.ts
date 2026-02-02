@@ -660,36 +660,52 @@ export class ApiStack extends cdk.Stack {
 
     const corsAllowedOrigins = resolveCorsAllowedOrigins(this);
 
-    const organizationImagesLogBucket = new s3.Bucket(
-      this,
-      "OrganizationImagesLogBucket",
-      {
-        blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
-        encryption: s3.BucketEncryption.S3_MANAGED,
-        enforceSSL: true,
-        versioned: true,
-        removalPolicy: cdk.RemovalPolicy.RETAIN,
-        lifecycleRules: [
+    const existingOrgImagesLogBucketName =
+      process.env.EXISTING_ORG_IMAGES_LOG_BUCKET_NAME?.trim();
+
+    const imagesLogBucketName = buildBucketName([
+      name("org-images-logs"),
+      cdk.Aws.ACCOUNT_ID,
+      cdk.Aws.REGION,
+    ]);
+
+    const organizationImagesLogBucket = existingOrgImagesLogBucketName
+      ? s3.Bucket.fromBucketName(
+          this,
+          "OrganizationImagesLogBucket",
+          existingOrgImagesLogBucketName
+        )
+      : new s3.Bucket(this, "OrganizationImagesLogBucket", {
+          bucketName: imagesLogBucketName,
+          blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+          encryption: s3.BucketEncryption.S3_MANAGED,
+          enforceSSL: true,
+          versioned: true,
+          removalPolicy: cdk.RemovalPolicy.RETAIN,
+          lifecycleRules: [
+            {
+              id: "ExpireOldLogs",
+              enabled: true,
+              expiration: cdk.Duration.days(90),
+              noncurrentVersionExpiration: cdk.Duration.days(30),
+            },
+          ],
+        });
+
+    if (!existingOrgImagesLogBucketName) {
+      // Checkov suppression: Logging bucket cannot have self-logging (infinite loop)
+      const imagesLogBucketCfn =
+        organizationImagesLogBucket.node.defaultChild as s3.CfnBucket;
+      imagesLogBucketCfn.addMetadata("checkov", {
+        skip: [
           {
-            id: "ExpireOldLogs",
-            enabled: true,
-            expiration: cdk.Duration.days(90),
-            noncurrentVersionExpiration: cdk.Duration.days(30),
+            id: "CKV_AWS_18",
+            comment:
+              "Logging bucket - enabling access logging would create infinite loop",
           },
         ],
-      }
-    );
-
-    // Checkov suppression: Logging bucket cannot have self-logging (infinite loop)
-    const imagesLogBucketCfn = organizationImagesLogBucket.node.defaultChild as s3.CfnBucket;
-    imagesLogBucketCfn.addMetadata("checkov", {
-      skip: [
-        {
-          id: "CKV_AWS_18",
-          comment: "Logging bucket - enabling access logging would create infinite loop",
-        },
-      ],
-    });
+      });
+    }
 
     const imagesBucketName = buildBucketName([
       name("org-images"),
