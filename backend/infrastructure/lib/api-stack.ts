@@ -1385,12 +1385,22 @@ export class ApiStack extends cdk.Stack {
       path.join(__dirname, "../../db/alembic/versions")
     );
     const seedHash = hashFile(path.join(__dirname, "../../db/seed/seed_data.sql"));
+    const proxyUserSecretHash = hashValue(
+      [
+        database.appUserSecret.secretArn,
+        database.adminUserSecret.secretArn,
+      ].join("|")
+    );
+    const migrationsForceRunId =
+      process.env.MIGRATIONS_FORCE_RUN_ID?.trim() ?? "";
 
     const migrateResource = new cdk.CustomResource(this, "RunMigrations", {
       serviceToken: migrationFunction.functionArn,
       properties: {
         MigrationsHash: migrationsHash,
         SeedHash: seedHash,
+        ProxyUserSecretHash: proxyUserSecretHash,
+        MigrationsForceRunId: migrationsForceRunId,
         RunSeed: true,
       },
     });
@@ -1510,6 +1520,10 @@ function hashFile(filePath: string): string {
   }
   const data = fs.readFileSync(filePath);
   return crypto.createHash("sha256").update(data).digest("hex");
+}
+
+function hashValue(value: string): string {
+  return crypto.createHash("sha256").update(value).digest("hex");
 }
 
 function hashDirectory(dirPath: string): string {
