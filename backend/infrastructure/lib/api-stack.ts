@@ -583,11 +583,11 @@ export class ApiStack extends cdk.Stack {
 
     const corsAllowedOrigins = resolveCorsAllowedOrigins(this);
 
-    const imagesLogBucketName = [
+    const imagesLogBucketName = buildBucketName([
       name("org-images-logs"),
       cdk.Aws.ACCOUNT_ID,
       cdk.Aws.REGION,
-    ].join("-");
+    ]);
 
     const organizationImagesLogBucket = new s3.Bucket(
       this,
@@ -610,11 +610,11 @@ export class ApiStack extends cdk.Stack {
       }
     );
 
-    const imagesBucketName = [
+    const imagesBucketName = buildBucketName([
       name("org-images"),
       cdk.Aws.ACCOUNT_ID,
       cdk.Aws.REGION,
-    ].join("-");
+    ]);
 
     const organizationImagesBucket = new s3.Bucket(
       this,
@@ -1411,4 +1411,35 @@ function hashDirectory(dirPath: string): string {
   }
 
   return crypto.createHash("sha256").update(files.sort().join("")).digest("hex");
+}
+
+function buildBucketName(parts: string[]): string {
+  const joined = parts.filter(Boolean).join("-");
+  let normalized = joined
+    .toLowerCase()
+    .replace(/[^a-z0-9-]/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+
+  if (!normalized) {
+    normalized = "bucket";
+  }
+  if (normalized.length < 3) {
+    normalized = normalized.padEnd(3, "0");
+  }
+  if (normalized.length <= 63) {
+    return normalized;
+  }
+
+  const hash = crypto
+    .createHash("sha256")
+    .update(normalized)
+    .digest("hex")
+    .slice(0, 8);
+  const maxBaseLength = 63 - hash.length - 1;
+  let trimmed = normalized.slice(0, maxBaseLength).replace(/-+$/g, "");
+  if (trimmed.length < 3) {
+    trimmed = trimmed.padEnd(3, "0");
+  }
+  return `${trimmed}-${hash}`;
 }
