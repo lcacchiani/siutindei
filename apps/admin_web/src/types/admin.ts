@@ -2,6 +2,7 @@ export interface Organization {
   id: string;
   name: string;
   description?: string | null;
+  picture_urls?: string[];
   created_at?: string;
   updated_at?: string;
 }
