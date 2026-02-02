@@ -8,6 +8,8 @@ SECURITY NOTES:
 
 from __future__ import annotations
 
+import base64
+import json
 import os
 import time
 from pathlib import Path
@@ -15,6 +17,7 @@ from typing import Any
 from typing import Mapping
 from urllib.parse import urlparse
 
+import boto3
 import psycopg
 from alembic import command
 from alembic.config import Config
@@ -26,6 +29,8 @@ from app.utils.logging import configure_logging, get_logger
 
 configure_logging()
 logger = get_logger(__name__)
+_SECRET_CACHE: dict[str, dict[str, Any]] = {}
+_ALLOWED_PROXY_USERS = {"siutindei_app", "siutindei_admin"}
 
 
 def lambda_handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
@@ -51,6 +56,7 @@ def lambda_handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
         )
 
         _run_with_retry(_run_migrations, database_url)
+        _run_with_retry(_sync_proxy_user_passwords, database_url)
 
         run_seed = _truthy(event.get("ResourceProperties", {}).get("RunSeed"))
         if run_seed:
@@ -104,6 +110,44 @@ def _run_seed(database_url: str, seed_path: str) -> None:
         connection.commit()
 
 
+def _sync_proxy_user_passwords(database_url: str) -> None:
+    """Ensure proxy user passwords match Secrets Manager values."""
+
+    secret_arns = [
+        os.getenv("DATABASE_APP_USER_SECRET_ARN"),
+        os.getenv("DATABASE_ADMIN_USER_SECRET_ARN"),
+    ]
+    user_secrets = []
+    for secret_arn in secret_arns:
+        if secret_arn:
+            user_secrets.append(_load_db_user_secret(secret_arn))
+
+    if not user_secrets:
+        return
+
+    with _psycopg_connect(database_url) as connection:
+        with connection.cursor() as cursor:
+            for username, password in user_secrets:
+                _validate_db_username(username)
+                cursor.execute(
+                    "SELECT 1 FROM pg_roles WHERE rolname = %s",
+                    (username,),
+                )
+                if cursor.fetchone() is None:
+                    raise RuntimeError(
+                        f"Database role {username} does not exist"
+                    )
+                cursor.execute(
+                    f'ALTER ROLE "{username}" PASSWORD %s',
+                    (password,),
+                )
+                logger.info(
+                    "Updated database password for proxy user",
+                    extra={"db_user": username},
+                )
+        connection.commit()
+
+
 def _run_with_retry(func: Any, *args: Any) -> None:
     """Retry migration operations to wait for DB readiness."""
 
@@ -128,6 +172,44 @@ def _run_with_retry(func: Any, *args: Any) -> None:
                 delay = min(delay * 1.5, 30.0)  # Cap at 30 seconds
     if last_error:
         raise last_error
+
+
+def _load_db_user_secret(secret_arn: str) -> tuple[str, str]:
+    """Load database user credentials from Secrets Manager."""
+
+    payload = _get_secret(secret_arn)
+    username = payload.get("username") or payload.get("user")
+    password = payload.get("password")
+    if not username or not password:
+        raise RuntimeError("Secret is missing database username or password")
+    return str(username), str(password)
+
+
+def _get_secret(secret_arn: str) -> dict[str, Any]:
+    """Fetch a secret from AWS Secrets Manager."""
+
+    if secret_arn in _SECRET_CACHE:
+        return _SECRET_CACHE[secret_arn]
+
+    client = boto3.client("secretsmanager")
+    response = client.get_secret_value(SecretId=secret_arn)
+    secret_str = response.get("SecretString")
+    if not secret_str and response.get("SecretBinary"):
+        secret_str = base64.b64decode(response["SecretBinary"]).decode("utf-8")
+
+    if not secret_str:
+        raise RuntimeError("Secret value is empty")
+
+    secret_payload = json.loads(secret_str)
+    _SECRET_CACHE[secret_arn] = secret_payload
+    return secret_payload
+
+
+def _validate_db_username(username: str) -> None:
+    """Ensure proxy users match expected roles."""
+
+    if username not in _ALLOWED_PROXY_USERS:
+        raise RuntimeError(f"Unexpected database user: {username}")
 
 
 def _escape_config(value: str) -> str:

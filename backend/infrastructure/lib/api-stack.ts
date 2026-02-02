@@ -87,6 +87,18 @@ export class ApiStack extends cdk.Stack {
       process.env.EXISTING_DB_CREDENTIALS_SECRET_ARN;
     const existingDbCredentialsSecretKmsKeyArn =
       process.env.EXISTING_DB_CREDENTIALS_SECRET_KMS_KEY_ARN;
+    const existingDbAppUserSecretName =
+      process.env.EXISTING_DB_APP_USER_SECRET_NAME;
+    const existingDbAppUserSecretArn =
+      process.env.EXISTING_DB_APP_USER_SECRET_ARN;
+    const existingDbAppUserSecretKmsKeyArn =
+      process.env.EXISTING_DB_APP_USER_SECRET_KMS_KEY_ARN;
+    const existingDbAdminUserSecretName =
+      process.env.EXISTING_DB_ADMIN_USER_SECRET_NAME;
+    const existingDbAdminUserSecretArn =
+      process.env.EXISTING_DB_ADMIN_USER_SECRET_ARN;
+    const existingDbAdminUserSecretKmsKeyArn =
+      process.env.EXISTING_DB_ADMIN_USER_SECRET_KMS_KEY_ARN;
     const existingDbSecurityGroupId = process.env.EXISTING_DB_SECURITY_GROUP_ID;
     const existingProxySecurityGroupId =
       process.env.EXISTING_PROXY_SECURITY_GROUP_ID;
@@ -176,6 +188,12 @@ export class ApiStack extends cdk.Stack {
       dbCredentialsSecretName: existingDbCredentialsSecretName,
       dbCredentialsSecretArn: existingDbCredentialsSecretArn,
       dbCredentialsSecretKmsKeyArn: existingDbCredentialsSecretKmsKeyArn,
+      dbAppUserSecretName: existingDbAppUserSecretName,
+      dbAppUserSecretArn: existingDbAppUserSecretArn,
+      dbAppUserSecretKmsKeyArn: existingDbAppUserSecretKmsKeyArn,
+      dbAdminUserSecretName: existingDbAdminUserSecretName,
+      dbAdminUserSecretArn: existingDbAdminUserSecretArn,
+      dbAdminUserSecretKmsKeyArn: existingDbAdminUserSecretKmsKeyArn,
       dbSecurityGroupId: existingDbSecurityGroupId,
       proxySecurityGroupId: existingProxySecurityGroupId,
       dbClusterIdentifier: existingDbClusterIdentifier,
@@ -742,21 +760,21 @@ export class ApiStack extends cdk.Stack {
     const searchFunction = createPythonFunction("SiutindeiSearchFunction", {
       handler: "lambda/activity_search/handler.lambda_handler",
       environment: {
-        DATABASE_SECRET_ARN: database.secret?.secretArn ?? "",
+        DATABASE_SECRET_ARN: database.appUserSecret.secretArn,
         DATABASE_NAME: "siutindei",
         DATABASE_USERNAME: "siutindei_app",
         DATABASE_PROXY_ENDPOINT: database.proxy.endpoint,
         DATABASE_IAM_AUTH: "true",
       },
     });
-    database.grantSecretRead(searchFunction);
+    database.grantAppUserSecretRead(searchFunction);
     database.grantConnect(searchFunction, "siutindei_app");
 
     // Admin function
     const adminFunction = createPythonFunction("SiutindeiAdminFunction", {
       handler: "lambda/admin/handler.lambda_handler",
       environment: {
-        DATABASE_SECRET_ARN: database.secret?.secretArn ?? "",
+        DATABASE_SECRET_ARN: database.adminUserSecret.secretArn,
         DATABASE_NAME: "siutindei",
         DATABASE_USERNAME: "siutindei_admin",
         DATABASE_PROXY_ENDPOINT: database.proxy.endpoint,
@@ -768,7 +786,7 @@ export class ApiStack extends cdk.Stack {
           `https://${organizationImagesBucket.bucketRegionalDomainName}`,
       },
     });
-    database.grantSecretRead(adminFunction);
+    database.grantAdminUserSecretRead(adminFunction);
     database.grantConnect(adminFunction, "siutindei_admin");
     organizationImagesBucket.grantReadWrite(adminFunction);
 
@@ -796,10 +814,14 @@ export class ApiStack extends cdk.Stack {
         DATABASE_IAM_AUTH: "false",
         DATABASE_HOST: database.cluster.clusterEndpoint.hostname,
         DATABASE_PORT: database.cluster.clusterEndpoint.port.toString(),
+        DATABASE_APP_USER_SECRET_ARN: database.appUserSecret.secretArn,
+        DATABASE_ADMIN_USER_SECRET_ARN: database.adminUserSecret.secretArn,
         SEED_FILE_PATH: "/var/task/db/seed/seed_data.sql",
       },
     });
     database.grantSecretRead(migrationFunction);
+    database.grantAppUserSecretRead(migrationFunction);
+    database.grantAdminUserSecretRead(migrationFunction);
     database.grantConnect(migrationFunction, "postgres");
     migrationFunction.node.addDependency(database.cluster);
     migrationFunction.addPermission("MigrationInvokePermission", {

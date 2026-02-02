@@ -16,6 +16,20 @@ function assertExistingResources(): void {
     resourceName: secretName,
     arnFormat: cdk.ArnFormat.COLON_RESOURCE_NAME,
   });
+  const appSecretName = "example-app-000000";
+  const appSecretArn = stack.formatArn({
+    service: "secretsmanager",
+    resource: "secret",
+    resourceName: appSecretName,
+    arnFormat: cdk.ArnFormat.COLON_RESOURCE_NAME,
+  });
+  const adminSecretName = "example-admin-000000";
+  const adminSecretArn = stack.formatArn({
+    service: "secretsmanager",
+    resource: "secret",
+    resourceName: adminSecretName,
+    arnFormat: cdk.ArnFormat.COLON_RESOURCE_NAME,
+  });
   const clusterEndpoint = "cluster.example.us-east-1.rds.amazonaws.com";
   const clusterReaderEndpoint =
     "cluster-ro.example.us-east-1.rds.amazonaws.com";
@@ -31,6 +45,8 @@ function assertExistingResources(): void {
     resourcePrefix: "test",
     vpc,
     dbCredentialsSecretArn: secretArn,
+    dbAppUserSecretArn: appSecretArn,
+    dbAdminUserSecretArn: adminSecretArn,
     dbSecurityGroupId: "sg-0123456789abcdef0",
     proxySecurityGroupId: "sg-abcdef0123456789",
     dbClusterIdentifier: "existing-cluster",
@@ -67,7 +83,7 @@ function assertNewResources(): void {
   const template = Template.fromStack(stack);
   template.resourceCountIs("AWS::RDS::DBCluster", 1);
   template.resourceCountIs("AWS::RDS::DBProxy", 1);
-  template.resourceCountIs("AWS::SecretsManager::Secret", 1);
+  template.resourceCountIs("AWS::SecretsManager::Secret", 3);
 }
 
 function main(): void {

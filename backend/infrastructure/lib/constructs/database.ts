@@ -28,6 +28,18 @@ export interface DatabaseConstructProps {
   dbCredentialsSecretArn?: string;
   /** Existing database secret KMS key ARN (optional). */
   dbCredentialsSecretKmsKeyArn?: string;
+  /** Existing app user secret name (optional). */
+  dbAppUserSecretName?: string;
+  /** Existing app user secret ARN (optional). */
+  dbAppUserSecretArn?: string;
+  /** Existing app user secret KMS key ARN (optional). */
+  dbAppUserSecretKmsKeyArn?: string;
+  /** Existing admin user secret name (optional). */
+  dbAdminUserSecretName?: string;
+  /** Existing admin user secret ARN (optional). */
+  dbAdminUserSecretArn?: string;
+  /** Existing admin user secret KMS key ARN (optional). */
+  dbAdminUserSecretKmsKeyArn?: string;
   /** Existing database security group id (optional). */
   dbSecurityGroupId?: string;
   /** Existing proxy security group id (optional). */
@@ -68,6 +80,10 @@ export class DatabaseConstruct extends Construct {
   public readonly proxy: rds.IDatabaseProxy;
   /** The database credentials secret. */
   public readonly secret: secretsmanager.ISecret;
+  /** App database user secret (siutindei_app). */
+  public readonly appUserSecret: secretsmanager.ISecret;
+  /** Admin database user secret (siutindei_admin). */
+  public readonly adminUserSecret: secretsmanager.ISecret;
   /** Security group for the database cluster. */
   public readonly dbSecurityGroup: ec2.ISecurityGroup;
   /** Security group for the RDS Proxy. */
@@ -76,6 +92,10 @@ export class DatabaseConstruct extends Construct {
   private readonly manageSecurityGroupRules: boolean;
   /** KMS key used to encrypt the database secret. */
   private readonly secretKmsKey?: kms.IKey;
+  /** KMS key used to encrypt the app user secret. */
+  private readonly appUserSecretKmsKey?: kms.IKey;
+  /** KMS key used to encrypt the admin user secret. */
+  private readonly adminUserSecretKmsKey?: kms.IKey;
 
   constructor(scope: Construct, id: string, props: DatabaseConstructProps) {
     super(scope, id);
@@ -88,6 +108,13 @@ export class DatabaseConstruct extends Construct {
     const dbCredentialsSecretArn = props.dbCredentialsSecretArn?.trim();
     const dbCredentialsSecretKmsKeyArn =
       props.dbCredentialsSecretKmsKeyArn?.trim();
+    const dbAppUserSecretName = props.dbAppUserSecretName?.trim();
+    const dbAppUserSecretArn = props.dbAppUserSecretArn?.trim();
+    const dbAppUserSecretKmsKeyArn = props.dbAppUserSecretKmsKeyArn?.trim();
+    const dbAdminUserSecretName = props.dbAdminUserSecretName?.trim();
+    const dbAdminUserSecretArn = props.dbAdminUserSecretArn?.trim();
+    const dbAdminUserSecretKmsKeyArn =
+      props.dbAdminUserSecretKmsKeyArn?.trim();
     const dbClusterIdentifier = props.dbClusterIdentifier?.trim();
     const dbClusterEndpoint = props.dbClusterEndpoint?.trim();
     const dbClusterReaderEndpoint = props.dbClusterReaderEndpoint?.trim();
@@ -103,6 +130,12 @@ export class DatabaseConstruct extends Construct {
     );
     const useExistingProxy = Boolean(
       dbProxyName || dbProxyArn || dbProxyEndpoint
+    );
+    const hasAppUserSecretRef = Boolean(
+      dbAppUserSecretArn || dbAppUserSecretName
+    );
+    const hasAdminUserSecretRef = Boolean(
+      dbAdminUserSecretArn || dbAdminUserSecretName
     );
 
     if (useExistingCluster) {
@@ -133,6 +166,11 @@ export class DatabaseConstruct extends Construct {
       if (!dbCredentialsSecretName && !dbCredentialsSecretArn) {
         throw new Error(
           "Existing DB proxy requires DB credentials secret reference."
+        );
+      }
+      if (!hasAppUserSecretRef || !hasAdminUserSecretRef) {
+        throw new Error(
+          "Existing DB proxy requires app and admin user secret references."
         );
       }
       if (!proxySecurityGroupId) {
@@ -200,6 +238,7 @@ export class DatabaseConstruct extends Construct {
           dbCredentialsSecretKmsKeyArn
         )
       : undefined;
+    const defaultSecretKmsKey = existingSecretKmsKey ?? secretEncryptionKey;
 
     // Database credentials secret
     const dbCredentialsSecret = dbCredentialsSecretArn
@@ -228,6 +267,84 @@ export class DatabaseConstruct extends Construct {
           });
     this.secret = dbCredentialsSecret;
     this.secretKmsKey = existingSecretKmsKey ?? secretEncryptionKey;
+
+    // App database user secret
+    const appUserSecretKmsKey =
+      dbAppUserSecretArn || dbAppUserSecretName
+        ? dbAppUserSecretKmsKeyArn
+          ? kms.Key.fromKeyArn(
+              this,
+              "DbAppUserSecretKmsKey",
+              dbAppUserSecretKmsKeyArn
+            )
+          : undefined
+        : defaultSecretKmsKey;
+    const appUserSecret = dbAppUserSecretArn
+      ? secretsmanager.Secret.fromSecretCompleteArn(
+          this,
+          "DbAppUserSecret",
+          dbAppUserSecretArn
+        )
+      : dbAppUserSecretName
+        ? secretsmanager.Secret.fromSecretNameV2(
+            this,
+            "DbAppUserSecret",
+            dbAppUserSecretName
+          )
+        : new secretsmanager.Secret(this, "DbAppUserSecret", {
+            secretName: name("db-app-user-credentials"),
+            generateSecretString: {
+              secretStringTemplate: JSON.stringify({
+                username: "siutindei_app",
+              }),
+              generateStringKey: "password",
+              excludePunctuation: true,
+              includeSpace: false,
+            },
+            ...(appUserSecretKmsKey ? { encryptionKey: appUserSecretKmsKey } : {}),
+          });
+    this.appUserSecret = appUserSecret;
+    this.appUserSecretKmsKey = appUserSecretKmsKey;
+
+    // Admin database user secret
+    const adminUserSecretKmsKey =
+      dbAdminUserSecretArn || dbAdminUserSecretName
+        ? dbAdminUserSecretKmsKeyArn
+          ? kms.Key.fromKeyArn(
+              this,
+              "DbAdminUserSecretKmsKey",
+              dbAdminUserSecretKmsKeyArn
+            )
+          : undefined
+        : defaultSecretKmsKey;
+    const adminUserSecret = dbAdminUserSecretArn
+      ? secretsmanager.Secret.fromSecretCompleteArn(
+          this,
+          "DbAdminUserSecret",
+          dbAdminUserSecretArn
+        )
+      : dbAdminUserSecretName
+        ? secretsmanager.Secret.fromSecretNameV2(
+            this,
+            "DbAdminUserSecret",
+            dbAdminUserSecretName
+          )
+        : new secretsmanager.Secret(this, "DbAdminUserSecret", {
+            secretName: name("db-admin-user-credentials"),
+            generateSecretString: {
+              secretStringTemplate: JSON.stringify({
+                username: "siutindei_admin",
+              }),
+              generateStringKey: "password",
+              excludePunctuation: true,
+              includeSpace: false,
+            },
+            ...(adminUserSecretKmsKey
+              ? { encryptionKey: adminUserSecretKmsKey }
+              : {}),
+          });
+    this.adminUserSecret = adminUserSecret;
+    this.adminUserSecretKmsKey = adminUserSecretKmsKey;
 
     // Aurora PostgreSQL Serverless v2 cluster
     if (useExistingCluster) {
@@ -294,7 +411,7 @@ export class DatabaseConstruct extends Construct {
     } else {
       this.proxy = new rds.DatabaseProxy(this, "Proxy", {
         proxyTarget: rds.ProxyTarget.fromCluster(this.cluster),
-        secrets: [dbCredentialsSecret],
+        secrets: [dbCredentialsSecret, appUserSecret, adminUserSecret],
         vpc: props.vpc,
         securityGroups: [this.proxySecurityGroup],
         requireTLS: true,
@@ -349,6 +466,26 @@ export class DatabaseConstruct extends Construct {
     this.secret.grantRead(fn);
     if (this.secretKmsKey) {
       this.secretKmsKey.grantDecrypt(fn);
+    }
+  }
+
+  /**
+   * Grant a Lambda function permission to read the app user secret.
+   */
+  public grantAppUserSecretRead(fn: cdk.aws_lambda.IFunction): void {
+    this.appUserSecret.grantRead(fn);
+    if (this.appUserSecretKmsKey) {
+      this.appUserSecretKmsKey.grantDecrypt(fn);
+    }
+  }
+
+  /**
+   * Grant a Lambda function permission to read the admin user secret.
+   */
+  public grantAdminUserSecretRead(fn: cdk.aws_lambda.IFunction): void {
+    this.adminUserSecret.grantRead(fn);
+    if (this.adminUserSecretKmsKey) {
+      this.adminUserSecretKmsKey.grantDecrypt(fn);
     }
   }
 }
