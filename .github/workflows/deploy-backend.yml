@@ -458,7 +458,8 @@ jobs:
               return 1
             }
             if [ "${CDK_STACKS:-}" = "all stacks" ]; then
-              unset CDK_STACKS
+              # Explicitly set stacks - excludes WAF which requires us-east-1
+              CDK_STACKS="lxsoftware-siutindei lxsoftware-siutindei-admin-web"
             elif [ "${CDK_STACKS:-}" = "lambda apis" ]; then
               CDK_STACKS="lxsoftware-siutindei"
             elif [ "${CDK_STACKS:-}" = "admin web" ]; then
