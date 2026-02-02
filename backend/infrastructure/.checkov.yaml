@@ -20,10 +20,16 @@ soft-fail: true
 # ACL-based public access while allowing bucket policy based public read.
 # This is a deliberate design choice for serving static assets.
 # Future improvement: Consider using CloudFront with OAC for better security and caching.
+#
+# AdminWebLoggingBucket skips:
+# This is a logging destination bucket that receives access logs from CloudFront
+# and S3. Enabling access logging on a logging bucket would create an infinite
+# loop of log entries. This is a standard AWS pattern.
 skip-check:
   - CKV_AWS_54:AWS::S3::Bucket.OrganizationImagesBucket347D331B  # Public access intentional - serves organization images
   - CKV_AWS_55:AWS::S3::Bucket.OrganizationImagesBucket347D331B  # Public access intentional - serves organization images
   - CKV_AWS_56:AWS::S3::Bucket.OrganizationImagesBucket347D331B  # Public access intentional - serves organization images
+  - CKV_AWS_18:AWS::S3::Bucket.AdminWebLoggingBucketF51DF562  # Logging bucket - enabling access logging would create infinite loop
 
 # Compact output - reduce noise in CI logs
 compact: true
