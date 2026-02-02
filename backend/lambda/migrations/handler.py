@@ -19,6 +19,7 @@ from urllib.parse import urlparse
 
 import boto3
 import psycopg
+from psycopg import sql
 from alembic import command
 from alembic.config import Config
 from sqlalchemy.engine import make_url
@@ -38,6 +39,7 @@ def lambda_handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
 
     request_type = event.get("RequestType")
     physical_id = str(event.get("PhysicalResourceId") or "migrations")
+    resource_props = event.get("ResourceProperties", {})
 
     if request_type == "Delete":
         logger.info("Delete request received, skipping migrations")
@@ -58,7 +60,7 @@ def lambda_handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
         _run_with_retry(_run_migrations, database_url)
         _run_with_retry(_sync_proxy_user_passwords, database_url)
 
-        run_seed = _truthy(event.get("ResourceProperties", {}).get("RunSeed"))
+        run_seed = _truthy(resource_props.get("RunSeed"))
         if run_seed:
             seed_path = os.getenv(
                 "SEED_FILE_PATH",
@@ -70,16 +72,26 @@ def lambda_handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
         data = {"status": "ok"}
         send_cfn_response(event, context, "SUCCESS", data, physical_id)
         return {"PhysicalResourceId": physical_id, "Data": data}
-    except Exception:
-        logger.error("Migrations failed", exc_info=True)
-        data = {"status": "failed"}
+    except Exception as exc:
+        # Extract meaningful error message for CloudFormation
+        error_type = type(exc).__name__
+        error_msg = str(exc)
+        # Truncate error message but include error type for debugging
+        truncated_msg = error_msg[:200] if len(error_msg) > 200 else error_msg
+        reason = f"{error_type}: {truncated_msg}"
+        logger.error(
+            "Migrations failed",
+            extra={"error_type": error_type, "error_message": error_msg},
+            exc_info=True,
+        )
+        data = {"status": "failed", "error_type": error_type}
         send_cfn_response(
             event,
             context,
             "FAILED",
             data,
             physical_id,
-            "Migrations failed",
+            reason,
         )
         return {"PhysicalResourceId": physical_id, "Data": data}
 
@@ -135,10 +147,13 @@ def _sync_proxy_user_passwords(database_url: str) -> None:
                 )
                 if cursor.fetchone() is None:
                     raise RuntimeError(f"Database role {username} does not exist")
-                cursor.execute(
-                    f'ALTER ROLE "{username}" PASSWORD %s',
-                    (password,),
+                # ALTER ROLE PASSWORD doesn't support parameterized queries in PostgreSQL
+                # Use psycopg.sql module for safe query composition
+                alter_query = sql.SQL("ALTER ROLE {} PASSWORD {}").format(
+                    sql.Identifier(username),
+                    sql.Literal(password),
                 )
+                cursor.execute(alter_query)
                 logger.info(
                     "Updated database password for proxy user",
                     extra={"db_user": username},
@@ -149,27 +164,51 @@ def _sync_proxy_user_passwords(database_url: str) -> None:
 def _run_with_retry(func: Any, *args: Any) -> None:
     """Retry migration operations to wait for DB readiness."""
 
+    func_name = getattr(func, "__name__", str(func))
     max_attempts = 10
     delay = 5.0
     last_error: Exception | None = None
     for attempt in range(max_attempts):
         try:
             func(*args)
+            logger.info(f"Operation {func_name} completed successfully")
             return
         except Exception as exc:  # pragma: no cover - best effort retry
             error_type = type(exc).__name__
-            # SECURITY: Log error type but be careful with error messages that may contain secrets
+            # SECURITY: Log error type and sanitized message
+            # Avoid logging full exception which may contain credentials
+            error_msg = str(exc)
+            # Sanitize potential secrets from error messages
+            safe_msg = _sanitize_error_message(error_msg)
             logger.warning(
-                f"Attempt {attempt + 1}/{max_attempts} failed ({error_type})",
-                extra={"attempt": attempt + 1, "max_attempts": max_attempts},
+                f"Attempt {attempt + 1}/{max_attempts} for {func_name} failed",
+                extra={
+                    "attempt": attempt + 1,
+                    "max_attempts": max_attempts,
+                    "error_type": error_type,
+                    "error_message": safe_msg,
+                    "function": func_name,
+                },
             )
             last_error = exc
             if attempt < max_attempts - 1:
-                logger.info(f"Retrying in {delay:.1f} seconds...")
+                logger.info(f"Retrying {func_name} in {delay:.1f} seconds...")
                 time.sleep(delay)
                 delay = min(delay * 1.5, 30.0)  # Cap at 30 seconds
     if last_error:
         raise last_error
+
+
+def _sanitize_error_message(msg: str) -> str:
+    """Remove potential secrets from error messages."""
+    # Common patterns that might contain secrets
+    import re
+
+    # Redact anything that looks like a password in a connection string
+    msg = re.sub(r"://[^:]+:[^@]+@", "://***:***@", msg)
+    # Redact IAM tokens (long base64-like strings)
+    msg = re.sub(r"password=[A-Za-z0-9+/=]{50,}", "password=***REDACTED***", msg)
+    return msg
 
 
 def _load_db_user_secret(secret_arn: str) -> tuple[str, str]:
