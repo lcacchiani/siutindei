@@ -821,7 +821,6 @@ export class ApiStack extends cdk.Stack {
       resourceName: apiAccessLogGroupName,
       arnFormat: cdk.ArnFormat.COLON_RESOURCE_NAME,
     });
-    // CloudWatch Logs policies require :* suffix to cover log group and log streams
     const apiAccessLogGroupArnWildcard = `${apiAccessLogGroupArn}:*`;
     const apiAccessLogGroupPolicy =
       customresources.AwsCustomResourcePolicy.fromStatements([
