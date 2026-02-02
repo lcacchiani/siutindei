@@ -120,9 +120,9 @@ export class ApiStack extends cdk.Stack {
     const existingMigrationSecurityGroupId =
       process.env.EXISTING_MIGRATION_SECURITY_GROUP_ID;
     const existingOrgImagesLogBucketName =
-      process.env.EXISTING_ORG_IMAGES_LOG_BUCKET_NAME;
+      process.env.EXISTING_ORG_IMAGES_LOG_BUCKET_NAME?.trim() || undefined;
     const existingOrgImagesBucketName =
-      process.env.EXISTING_ORG_IMAGES_BUCKET_NAME;
+      process.env.EXISTING_ORG_IMAGES_BUCKET_NAME?.trim() || undefined;
     const manageDbSecurityGroupRules =
       !existingDbSecurityGroupId && !existingProxySecurityGroupId;
     const skipImmutableDbUpdates =
