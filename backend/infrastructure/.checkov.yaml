@@ -38,6 +38,7 @@ skip-check:
   - CKV_AWS_18:AWS::S3::Bucket.AdminWebLoggingBucketF51DF562  # Logging bucket - no self-logging to avoid infinite loop
   - CKV_AWS_18:AWS::S3::Bucket.OrganizationImagesLogBucket6FCE8FC4  # Logging bucket - no self-logging to avoid infinite loop
   - CKV_AWS_115:AWS::Lambda::Function.LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aFD4BFC8A  # CDK internal - runs only during deployments
+  - CKV_AWS_116:AWS::Lambda::Function.LogRetentionaae0aa3c5b4d4f87b02d85b201efdd8aFD4BFC8A  # CDK internal - runs only during deployments
 
 # Compact output - reduce noise in CI logs
 compact: true
