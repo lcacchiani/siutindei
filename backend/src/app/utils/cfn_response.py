@@ -60,12 +60,12 @@ def send_cfn_response(
 
     try:
         # SECURITY: URL is validated by _validate_response_url() above:
-        # 1. Must use HTTPS scheme
+        # 1. Must use HTTPS scheme (not file://, ftp://, etc.)
         # 2. Must have valid hostname
         # 3. Hostname must end with .amazonaws.com or .amazonaws.com.cn
         # This is safe because CloudFormation ResponseURLs are always S3 pre-signed URLs
-        # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
-        with urllib.request.urlopen(request, context=ssl_context) as response:  # nosec B310
+        # and the validation prevents the file:// scheme attack vector.
+        with urllib.request.urlopen(request, context=ssl_context) as response:
             response.read()
             logger.info(
                 "Sent CloudFormation response",
