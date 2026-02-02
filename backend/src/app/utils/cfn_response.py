@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-import http.client
 import json
 import ssl
+import urllib.error
+import urllib.request
 from typing import Any
 from typing import Mapping
 from urllib.parse import urlparse
@@ -22,8 +23,11 @@ def send_cfn_response(
     physical_resource_id: str | None = None,
     reason: str | None = None,
 ) -> None:
-    """Send a response for a CloudFormation custom resource."""
+    """Send a response for a CloudFormation custom resource.
 
+    Uses urllib.request for HTTPS communication instead of low-level
+    http.client.HTTPSConnection to satisfy security linting requirements.
+    """
     response_url = str(event.get("ResponseURL", "")).strip()
     if not response_url:
         raise ValueError("Missing ResponseURL in CloudFormation event")
@@ -39,40 +43,35 @@ def send_cfn_response(
         "Data": dict(data or {}),
     }
     body_bytes = json.dumps(response_body).encode("utf-8")
-    parsed_url = urlparse(response_url)
-    target_path = parsed_url.path or "/"
-    if parsed_url.query:
-        target_path = f"{target_path}?{parsed_url.query}"
-    hostname = parsed_url.hostname or ""
-    port = parsed_url.port or 443
+
+    # Create SSL context with secure defaults
     ssl_context = ssl.create_default_context()
 
-    connection = http.client.HTTPSConnection(
-        hostname,
-        port=port,
-        context=ssl_context,
+    # Build request using urllib.request (preferred over http.client.HTTPSConnection)
+    request = urllib.request.Request(
+        response_url,
+        data=body_bytes,
+        method="PUT",
+        headers={
+            "Content-Type": "",
+            "Content-Length": str(len(body_bytes)),
+        },
     )
+
     try:
-        connection.request(
-            "PUT",
-            target_path,
-            body=body_bytes,
-            headers={
-                "Content-Type": "",
-                "Content-Length": str(len(body_bytes)),
-            },
-        )
-        response = connection.getresponse()
-        response.read()
-        logger.info(
-            "Sent CloudFormation response",
-            extra={
-                "status": status,
-                "http_status": response.status,
-                "logical_resource_id": response_body["LogicalResourceId"],
-            },
-        )
-    except (http.client.HTTPException, OSError):
+        # URL is validated by _validate_response_url() to be HTTPS
+        # and restricted to *.amazonaws.com domains only
+        with urllib.request.urlopen(request, context=ssl_context) as response:  # nosec B310
+            response.read()
+            logger.info(
+                "Sent CloudFormation response",
+                extra={
+                    "status": status,
+                    "http_status": response.status,
+                    "logical_resource_id": response_body["LogicalResourceId"],
+                },
+            )
+    except urllib.error.URLError:
         logger.error(
             "Failed to send CloudFormation response",
             extra={
@@ -82,8 +81,6 @@ def send_cfn_response(
             exc_info=True,
         )
         raise
-    finally:
-        connection.close()
 
 
 def _default_physical_id(context: Any) -> str:

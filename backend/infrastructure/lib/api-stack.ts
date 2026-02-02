@@ -9,7 +9,7 @@ import { Construct } from "constructs";
 import * as crypto from "crypto";
 import * as fs from "fs";
 import * as path from "path";
-import { DatabaseConstruct, PythonLambdaFactory } from "./constructs";
+import { DatabaseConstruct, PythonLambdaFactory, STANDARD_LOG_RETENTION } from "./constructs";
 
 export class ApiStack extends cdk.Stack {
   public constructor(scope: Construct, id: string, props?: cdk.StackProps) {
@@ -404,6 +404,14 @@ export class ApiStack extends cdk.Stack {
     );
     cognitoHostedDomain.cfnOptions.condition = useCognitoDomain;
 
+    // SECURITY: Use explicit policy with constrained resources instead of ANY_RESOURCE
+    const removeCognitoDomainPolicy = customresources.AwsCustomResourcePolicy.fromStatements([
+      new iam.PolicyStatement({
+        actions: ["cognito-idp:DeleteUserPoolDomain"],
+        resources: [userPool.userPoolArn],
+      }),
+    ]);
+
     const removeCognitoDomain = new customresources.AwsCustomResource(
       this,
       "RemoveCognitoAuthDomain",
@@ -432,9 +440,7 @@ export class ApiStack extends cdk.Stack {
           ),
           ignoreErrorCodesMatching: "ResourceNotFoundException|InvalidParameterException",
         },
-        policy: customresources.AwsCustomResourcePolicy.fromSdkCalls({
-          resources: customresources.AwsCustomResourcePolicy.ANY_RESOURCE,
-        }),
+        policy: removeCognitoDomainPolicy,
         installLatestAwsSdk: false,
       }
     );
@@ -772,12 +778,21 @@ export class ApiStack extends cdk.Stack {
       cloudWatchRoleArn: apiGatewayLogRole.roleArn,
     });
 
+    // API Gateway access logs
+    // Note: Log group may already exist from previous deployments
+    // Using fromLogGroupName to reference existing, with LogRetention to set retention
     const apiAccessLogGroupName = name("api-access-logs");
     const apiAccessLogGroup = logs.LogGroup.fromLogGroupName(
       this,
       "ApiAccessLogs",
       apiAccessLogGroupName
     );
+
+    // Set retention on the log group (works for both new and existing log groups)
+    new logs.LogRetention(this, "ApiAccessLogsRetention", {
+      logGroupName: apiAccessLogGroupName,
+      retention: STANDARD_LOG_RETENTION,
+    });
 
     // SECURITY: Restrict CORS to specific allowed origins
     // Never use Cors.ALL_ORIGINS in production - it allows any website to make requests

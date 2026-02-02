@@ -8,6 +8,7 @@ import { Construct } from "constructs";
 export class AdminWebStack extends cdk.Stack {
   public readonly bucket: s3.Bucket;
   public readonly distribution: cloudfront.Distribution;
+  public readonly loggingBucket: s3.Bucket;
 
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
@@ -32,6 +33,52 @@ export class AdminWebStack extends cdk.Stack {
       }
     );
 
+    // -------------------------------------------------------------------------
+    // WAF Web ACL ARN (created separately in us-east-1 via WafStack)
+    // SECURITY: WAF WebACLs for CloudFront must be in us-east-1
+    // Deploy WafStack first: cdk deploy WafStack --region us-east-1
+    // -------------------------------------------------------------------------
+    const wafWebAclArn = new cdk.CfnParameter(this, "WafWebAclArn", {
+      type: "String",
+      default: "",
+      description:
+        "WAF WebACL ARN for CloudFront protection (must be from us-east-1). " +
+        "Deploy WafStack to us-east-1 first and use its output. " +
+        "Leave empty to skip WAF (not recommended for production).",
+    });
+
+    // -------------------------------------------------------------------------
+    // Logging bucket for S3 and CloudFront access logs
+    // SECURITY: Access logging required for audit and compliance
+    // -------------------------------------------------------------------------
+    const loggingBucketName = [
+      name("admin-web-logs"),
+      cdk.Aws.ACCOUNT_ID,
+      cdk.Aws.REGION,
+    ].join("-");
+
+    this.loggingBucket = new s3.Bucket(this, "AdminWebLoggingBucket", {
+      bucketName: loggingBucketName,
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+      encryption: s3.BucketEncryption.S3_MANAGED,
+      enforceSSL: true,
+      versioned: false,
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+      // Lifecycle rule to clean up old logs
+      lifecycleRules: [
+        {
+          id: "ExpireOldLogs",
+          enabled: true,
+          expiration: cdk.Duration.days(90),
+        },
+      ],
+      // Enable object ownership for CloudFront log delivery
+      objectOwnership: s3.ObjectOwnership.BUCKET_OWNER_PREFERRED,
+    });
+
+    // -------------------------------------------------------------------------
+    // Main content bucket with access logging enabled
+    // -------------------------------------------------------------------------
     const bucketName = [
       name("admin-web"),
       cdk.Aws.ACCOUNT_ID,
@@ -45,6 +92,9 @@ export class AdminWebStack extends cdk.Stack {
       enforceSSL: true,
       versioned: true,
       removalPolicy: cdk.RemovalPolicy.RETAIN,
+      // SECURITY: Enable S3 access logging
+      serverAccessLogsBucket: this.loggingBucket,
+      serverAccessLogsPrefix: "s3-access-logs/",
     });
 
     const originAccessIdentity = new cloudfront.OriginAccessIdentity(
@@ -69,6 +119,14 @@ export class AdminWebStack extends cdk.Stack {
       }
     );
 
+    // -------------------------------------------------------------------------
+    // CloudFront distribution with WAF and access logging
+    // -------------------------------------------------------------------------
+
+    // Determine WAF ARN - use parameter if provided, otherwise undefined
+    // WAF is optional but strongly recommended for production
+    const resolvedWafArn = wafWebAclArn.valueAsString || undefined;
+
     this.distribution = new cloudfront.Distribution(
       this,
       "AdminWebDistribution",
@@ -76,6 +134,13 @@ export class AdminWebStack extends cdk.Stack {
         defaultRootObject: "index.html",
         domainNames: [domainName.valueAsString],
         certificate,
+        // SECURITY: Associate WAF Web ACL (if provided)
+        webAclId: resolvedWafArn,
+        // SECURITY: Enable CloudFront access logging
+        enableLogging: true,
+        logBucket: this.loggingBucket,
+        logFilePrefix: "cloudfront-access-logs/",
+        logIncludesCookies: false,
         defaultBehavior: {
           origin,
           viewerProtocolPolicy:
@@ -110,6 +175,11 @@ export class AdminWebStack extends cdk.Stack {
 
     new cdk.CfnOutput(this, "AdminWebDistributionDomain", {
       value: this.distribution.distributionDomainName,
+    });
+
+    new cdk.CfnOutput(this, "AdminWebLoggingBucketName", {
+      value: this.loggingBucket.bucketName,
+      description: "S3 bucket for CloudFront and S3 access logs",
     });
   }
 }

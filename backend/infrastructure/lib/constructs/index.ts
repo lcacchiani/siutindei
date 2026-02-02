@@ -18,4 +18,5 @@ export {
   PythonLambda,
   PythonLambdaProps,
   PythonLambdaFactory,
+  STANDARD_LOG_RETENTION,
 } from "./python-lambda";

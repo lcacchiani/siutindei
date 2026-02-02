@@ -17,6 +17,7 @@ on:
           - "all stacks"
           - "lambda apis"
           - "admin web"
+          - "waf (us-east-1)"
   push:
     branches:
       - main
@@ -56,11 +57,23 @@ jobs:
       - name: Upgrade pip
         run: python -m pip install --upgrade pip
 
+      - name: Determine deployment region
+        id: region
+        run: |
+          CDK_STACKS="${{ github.event.inputs.cdk_stacks || vars.CDK_STACKS || 'all stacks' }}"
+          if [ "$CDK_STACKS" = "waf (us-east-1)" ]; then
+            echo "region=us-east-1" >> "$GITHUB_OUTPUT"
+            echo "is_waf=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "region=${{ vars.AWS_REGION }}" >> "$GITHUB_OUTPUT"
+            echo "is_waf=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v5
         with:
           role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/GitHubActionsRole
-          aws-region: ${{ vars.AWS_REGION }}
+          aws-region: ${{ steps.region.outputs.region }}
           role-session-name: GitHubActions-${{ github.run_id }}
 
       - name: Install backend dependencies
@@ -87,10 +100,11 @@ jobs:
           fi
         env:
           AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
-          AWS_REGION: ${{ vars.AWS_REGION }}
+          AWS_REGION: ${{ steps.region.outputs.region }}
           CDK_BOOTSTRAP_QUALIFIER: ${{ vars.CDK_BOOTSTRAP_QUALIFIER }}
 
       - name: Build CDK secret parameters file
+        if: steps.region.outputs.is_waf != 'true'
         run: |
           python3 - <<'PY'
           import json
@@ -124,6 +138,7 @@ jobs:
           CDK_PARAM_ADMIN_BOOTSTRAP_TEMP_PASSWORD: ${{ secrets.CDK_PARAM_ADMIN_BOOTSTRAP_TEMP_PASSWORD }}
 
       - name: Build CDK non-secret parameters file
+        if: steps.region.outputs.is_waf != 'true'
         run: |
           python3 - <<'PY'
           import os
@@ -162,6 +177,7 @@ jobs:
           FIREBASE_IOS_APP_ID: ${{ vars.FIREBASE_IOS_APP_ID }}
 
       - name: Detect existing database resources
+        if: steps.region.outputs.is_waf != 'true'
         run: |
           set -e
           resource_prefix="lxsoftware-siutindei"
@@ -442,11 +458,14 @@ jobs:
               return 1
             }
             if [ "${CDK_STACKS:-}" = "all stacks" ]; then
-              unset CDK_STACKS
+              # Explicitly set stacks - excludes WAF which requires us-east-1
+              CDK_STACKS="lxsoftware-siutindei lxsoftware-siutindei-admin-web"
             elif [ "${CDK_STACKS:-}" = "lambda apis" ]; then
               CDK_STACKS="lxsoftware-siutindei"
             elif [ "${CDK_STACKS:-}" = "admin web" ]; then
               CDK_STACKS="lxsoftware-siutindei-admin-web"
+            elif [ "${CDK_STACKS:-}" = "waf (us-east-1)" ]; then
+              CDK_STACKS="lxsoftware-siutindei-waf"
             fi
             if [ -n "${CDK_PARAM_FILE:-}" ]; then
               RESOLVED_PARAM_FILE=$(resolve_param_file "$CDK_PARAM_FILE" || true)
@@ -479,18 +498,24 @@ jobs:
                   if token:
                       stacks.append(token)
           else:
+              # Note: WAF stack is not included in "all stacks" as it requires us-east-1
               stacks = ["lxsoftware-siutindei", "lxsoftware-siutindei-admin-web"]
           stack_set = set(stacks)
           admin_web_stack = "lxsoftware-siutindei-admin-web"
           api_stack = "lxsoftware-siutindei"
-          admin_web_params = {"AdminWebDomainName", "AdminWebCertificateArn"}
+          waf_stack = "lxsoftware-siutindei-waf"
+          admin_web_params = {"AdminWebDomainName", "AdminWebCertificateArn", "WafWebAclArn"}
+          # WAF stack has no parameters that need to be passed
+          waf_params = set()
           params = {}
           for path in paths:
               with open(path, "r", encoding="utf-8") as handle:
                   params.update(json.load(handle))
 
           for key, value in params.items():
-              if key in admin_web_params:
+              if key in waf_params:
+                  target_stack = waf_stack
+              elif key in admin_web_params:
                   target_stack = admin_web_stack
               else:
                   target_stack = api_stack
