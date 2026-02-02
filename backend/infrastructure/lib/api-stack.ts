@@ -778,11 +778,20 @@ export class ApiStack extends cdk.Stack {
       cloudWatchRoleArn: apiGatewayLogRole.roleArn,
     });
 
-    // API Gateway access logs with standard 90-day retention
-    const apiAccessLogGroup = new logs.LogGroup(this, "ApiAccessLogs", {
-      logGroupName: name("api-access-logs"),
+    // API Gateway access logs
+    // Note: Log group may already exist from previous deployments
+    // Using fromLogGroupName to reference existing, with LogRetention to set retention
+    const apiAccessLogGroupName = name("api-access-logs");
+    const apiAccessLogGroup = logs.LogGroup.fromLogGroupName(
+      this,
+      "ApiAccessLogs",
+      apiAccessLogGroupName
+    );
+
+    // Set retention on the log group (works for both new and existing log groups)
+    new logs.LogRetention(this, "ApiAccessLogsRetention", {
+      logGroupName: apiAccessLogGroupName,
       retention: STANDARD_LOG_RETENTION,
-      removalPolicy: cdk.RemovalPolicy.RETAIN,
     });
 
     // SECURITY: Restrict CORS to specific allowed origins
