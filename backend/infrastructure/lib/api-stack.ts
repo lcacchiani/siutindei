@@ -660,17 +660,10 @@ export class ApiStack extends cdk.Stack {
 
     const corsAllowedOrigins = resolveCorsAllowedOrigins(this);
 
-    const imagesLogBucketName = buildBucketName([
-      name("org-images-logs"),
-      cdk.Aws.ACCOUNT_ID,
-      cdk.Aws.REGION,
-    ]);
-
     const organizationImagesLogBucket = new s3.Bucket(
       this,
       "OrganizationImagesLogBucket",
       {
-        bucketName: imagesLogBucketName,
         blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
         encryption: s3.BucketEncryption.S3_MANAGED,
         enforceSSL: true,
