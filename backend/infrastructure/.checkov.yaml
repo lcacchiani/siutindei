@@ -23,6 +23,7 @@ soft-fail: true
 skip-check:
   - CKV_AWS_54:AWS::S3::Bucket.OrganizationImagesBucket347D331B  # Public access intentional - serves organization images
   - CKV_AWS_55:AWS::S3::Bucket.OrganizationImagesBucket347D331B  # Public access intentional - serves organization images
+  - CKV_AWS_56:AWS::S3::Bucket.OrganizationImagesBucket347D331B  # Public access intentional - serves organization images
 
 # Compact output - reduce noise in CI logs
 compact: true
