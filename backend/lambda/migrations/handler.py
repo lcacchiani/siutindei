@@ -41,14 +41,6 @@ def lambda_handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
     physical_id = str(event.get("PhysicalResourceId") or "migrations")
     resource_props = event.get("ResourceProperties", {})
 
-    # Allow skipping migrations via SkipMigrations property (for recovery scenarios)
-    skip_migrations = _truthy(resource_props.get("SkipMigrations"))
-    if skip_migrations:
-        logger.info("SkipMigrations=true, skipping all migration operations")
-        data = {"status": "skipped", "reason": "SkipMigrations enabled"}
-        send_cfn_response(event, context, "SUCCESS", data, physical_id)
-        return {"PhysicalResourceId": physical_id, "Data": data}
-
     if request_type == "Delete":
         logger.info("Delete request received, skipping migrations")
         data = {"status": "skipped"}

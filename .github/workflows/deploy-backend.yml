@@ -13,11 +13,6 @@ on:
         required: false
         default: false
         type: boolean
-      skip_migrations:
-        description: "Skip migrations (for recovery only)"
-        required: false
-        default: false
-        type: boolean
       cdk_stacks:
         description: "CDK stacks to deploy"
         required: false
@@ -681,4 +676,3 @@ jobs:
           MIGRATIONS_FORCE_RUN_ID: >-
             ${{ github.event.inputs.force_migration_run == 'true' &&
             github.run_id || '' }}
-          SKIP_MIGRATIONS: ${{ github.event.inputs.skip_migrations || 'false' }}

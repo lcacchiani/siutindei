@@ -1410,10 +1410,6 @@ export class ApiStack extends cdk.Stack {
     );
     const migrationsForceRunId =
       process.env.MIGRATIONS_FORCE_RUN_ID?.trim() ?? "";
-    // SKIP_MIGRATIONS env var allows recovering from failed migration deployments
-    // by skipping all migration operations. Use with caution - only for recovery.
-    const skipMigrations =
-      parseOptionalBoolean(process.env.SKIP_MIGRATIONS) ?? false;
 
     const migrateResource = new cdk.CustomResource(this, "RunMigrations", {
       serviceToken: migrationFunction.functionArn,
@@ -1423,7 +1419,6 @@ export class ApiStack extends cdk.Stack {
         ProxyUserSecretHash: proxyUserSecretHash,
         MigrationsForceRunId: migrationsForceRunId,
         RunSeed: true,
-        SkipMigrations: skipMigrations,
       },
     });
     migrateResource.node.addDependency(database.cluster);
