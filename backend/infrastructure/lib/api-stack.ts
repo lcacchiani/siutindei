@@ -690,7 +690,9 @@ export class ApiStack extends cdk.Stack {
       return pythonLambda.function;
     };
 
-    const corsAllowedOrigins = resolveCorsAllowedOrigins(this);
+    const corsAllowedOrigins = ensureNonEmptyCorsOrigins(
+      resolveCorsAllowedOrigins(this)
+    );
 
     // Import existing log bucket or create a new one.
     // Use EXISTING_ORG_IMAGES_LOG_BUCKET_NAME to reuse a bucket that persists
@@ -1565,6 +1567,8 @@ export class ApiStack extends cdk.Stack {
 }
 
 // CORS origins must be concrete at synth time for preflight generation.
+// IMPORTANT: This function must NEVER return an empty array, as S3 CORS
+// configuration fails with "Bucket cannot be empty" if allowedOrigins is empty.
 function resolveCorsAllowedOrigins(scope: Construct): string[] {
   const defaultOrigins = [
     "capacitor://localhost",
@@ -1584,7 +1588,23 @@ function resolveCorsAllowedOrigins(scope: Construct): string[] {
   if (envOrigins.length > 0) {
     return envOrigins;
   }
+  // Always return default origins - never return an empty array
   return defaultOrigins;
+}
+
+// Ensure CORS origins are never empty (defensive check)
+function ensureNonEmptyCorsOrigins(origins: string[]): string[] {
+  if (origins.length === 0) {
+    return [
+      "capacitor://localhost",
+      "ionic://localhost",
+      "http://localhost",
+      "http://localhost:3000",
+      "https://siutindei.lx-software.com",
+      "https://siutindei-api.lx-software.com",
+    ];
+  }
+  return origins;
 }
 
 function normalizeCorsOrigins(value: unknown): string[] {
