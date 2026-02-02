@@ -815,12 +815,128 @@ export class ApiStack extends cdk.Stack {
       })
     );
 
-    const apiAccessLogGroup = new logs.LogGroup(this, "ApiAccessLogs", {
-      logGroupName: apiAccessLogGroupName,
-      retention: STANDARD_LOG_RETENTION,
-      removalPolicy: cdk.RemovalPolicy.RETAIN,
-      encryptionKey: apiLogEncryptionKey,
+    const apiAccessLogGroupArn = cdk.Stack.of(this).formatArn({
+      service: "logs",
+      resource: "log-group",
+      resourceName: apiAccessLogGroupName,
     });
+    const apiAccessLogGroupPolicy =
+      customresources.AwsCustomResourcePolicy.fromStatements([
+        new iam.PolicyStatement({
+          actions: ["logs:CreateLogGroup"],
+          resources: [apiAccessLogGroupArn],
+        }),
+        new iam.PolicyStatement({
+          actions: [
+            "logs:AssociateKmsKey",
+            "logs:PutRetentionPolicy",
+          ],
+          resources: [apiAccessLogGroupArn],
+        }),
+      ]);
+
+    const apiAccessLogGroupCreator = new customresources.AwsCustomResource(
+      this,
+      "ApiAccessLogGroupCreator",
+      {
+        onCreate: {
+          service: "CloudWatchLogs",
+          action: "createLogGroup",
+          parameters: {
+            logGroupName: apiAccessLogGroupName,
+            kmsKeyId: apiLogEncryptionKey.keyArn,
+          },
+          physicalResourceId: customresources.PhysicalResourceId.of(
+            apiAccessLogGroupName
+          ),
+          ignoreErrorCodesMatching: "ResourceAlreadyExistsException",
+        },
+        onUpdate: {
+          service: "CloudWatchLogs",
+          action: "createLogGroup",
+          parameters: {
+            logGroupName: apiAccessLogGroupName,
+            kmsKeyId: apiLogEncryptionKey.keyArn,
+          },
+          physicalResourceId: customresources.PhysicalResourceId.of(
+            apiAccessLogGroupName
+          ),
+          ignoreErrorCodesMatching: "ResourceAlreadyExistsException",
+        },
+        policy: apiAccessLogGroupPolicy,
+        installLatestAwsSdk: false,
+      }
+    );
+
+    const apiAccessLogGroupRetention = new customresources.AwsCustomResource(
+      this,
+      "ApiAccessLogGroupRetention",
+      {
+        onCreate: {
+          service: "CloudWatchLogs",
+          action: "putRetentionPolicy",
+          parameters: {
+            logGroupName: apiAccessLogGroupName,
+            retentionInDays: STANDARD_LOG_RETENTION,
+          },
+          physicalResourceId: customresources.PhysicalResourceId.of(
+            `${apiAccessLogGroupName}-retention`
+          ),
+        },
+        onUpdate: {
+          service: "CloudWatchLogs",
+          action: "putRetentionPolicy",
+          parameters: {
+            logGroupName: apiAccessLogGroupName,
+            retentionInDays: STANDARD_LOG_RETENTION,
+          },
+          physicalResourceId: customresources.PhysicalResourceId.of(
+            `${apiAccessLogGroupName}-retention`
+          ),
+        },
+        policy: apiAccessLogGroupPolicy,
+        installLatestAwsSdk: false,
+      }
+    );
+    apiAccessLogGroupRetention.node.addDependency(apiAccessLogGroupCreator);
+
+    const apiAccessLogGroupKey = new customresources.AwsCustomResource(
+      this,
+      "ApiAccessLogGroupKey",
+      {
+        onCreate: {
+          service: "CloudWatchLogs",
+          action: "associateKmsKey",
+          parameters: {
+            logGroupName: apiAccessLogGroupName,
+            kmsKeyId: apiLogEncryptionKey.keyArn,
+          },
+          physicalResourceId: customresources.PhysicalResourceId.of(
+            `${apiAccessLogGroupName}-kms`
+          ),
+        },
+        onUpdate: {
+          service: "CloudWatchLogs",
+          action: "associateKmsKey",
+          parameters: {
+            logGroupName: apiAccessLogGroupName,
+            kmsKeyId: apiLogEncryptionKey.keyArn,
+          },
+          physicalResourceId: customresources.PhysicalResourceId.of(
+            `${apiAccessLogGroupName}-kms`
+          ),
+        },
+        policy: apiAccessLogGroupPolicy,
+        installLatestAwsSdk: false,
+      }
+    );
+    apiAccessLogGroupKey.node.addDependency(apiAccessLogGroupCreator);
+
+    const apiAccessLogGroup = logs.LogGroup.fromLogGroupName(
+      this,
+      "ApiAccessLogs",
+      apiAccessLogGroupName
+    );
 
     // SECURITY: Restrict CORS to specific allowed origins
     // Never use Cors.ALL_ORIGINS in production - it allows any website to make requests
@@ -862,6 +978,8 @@ export class ApiStack extends cdk.Stack {
         },
       },
     });
+    api.deploymentStage.node.addDependency(apiAccessLogGroupRetention);
+    api.deploymentStage.node.addDependency(apiAccessLogGroupKey);
     const authorizer = new apigateway.CognitoUserPoolsAuthorizer(
       this,
       "SiutindeiAuthorizer",
