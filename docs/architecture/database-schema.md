@@ -17,6 +17,7 @@ Columns:
 - `id` (UUID, PK, default `gen_random_uuid()`)
 - `name` (text, required)
 - `description` (text, optional)
+- `picture_urls` (text[], default empty array)
 - `created_at` (timestamptz, default `now()`)
 - `updated_at` (timestamptz, default `now()`)
 

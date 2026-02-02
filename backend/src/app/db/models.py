@@ -55,6 +55,11 @@ class Organization(Base):
     )
     name: Mapped[str] = mapped_column(Text(), nullable=False)
     description: Mapped[Optional[str]] = mapped_column(Text(), nullable=True)
+    picture_urls: Mapped[List[str]] = mapped_column(
+        ARRAY(Text()),
+        nullable=False,
+        server_default=text("'{}'::text[]"),
+    )
     created_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True),
         nullable=False,

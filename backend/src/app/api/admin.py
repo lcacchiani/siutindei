@@ -400,7 +400,12 @@ def _create_organization(
     name = body.get("name")
     if not name:
         raise ValidationError("name is required", field="name")
-    return Organization(name=name, description=body.get("description"))
+    picture_urls = _parse_picture_urls(body.get("picture_urls"))
+    return Organization(
+        name=name,
+        description=body.get("description"),
+        picture_urls=picture_urls,
+    )
 
 
 def _update_organization(
@@ -414,6 +419,8 @@ def _update_organization(
         entity.name = body["name"]
     if "description" in body:
         entity.description = body["description"]
+    if "picture_urls" in body:
+        entity.picture_urls = _parse_picture_urls(body["picture_urls"])
     return entity
 
 
@@ -424,6 +431,7 @@ def _serialize_organization(entity: Organization) -> dict[str, Any]:
         "id": str(entity.id),
         "name": entity.name,
         "description": entity.description,
+        "picture_urls": entity.picture_urls or [],
         "created_at": entity.created_at,
         "updated_at": entity.updated_at,
     }
@@ -691,6 +699,21 @@ def _parse_languages(value: Any) -> list[str]:
         return [item.strip() for item in value.split(",") if item.strip()]
     raise ValidationError(
         "languages must be a list or comma-separated string", field="languages"
+    )
+
+
+def _parse_picture_urls(value: Any) -> list[str]:
+    """Parse picture URLs from JSON."""
+
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return [str(item).strip() for item in value if str(item).strip()]
+    if isinstance(value, str):
+        return [item.strip() for item in value.split(",") if item.strip()]
+    raise ValidationError(
+        "picture_urls must be a list or comma-separated string",
+        field="picture_urls",
     )
 
 
