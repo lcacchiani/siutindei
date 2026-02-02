@@ -84,6 +84,17 @@ export class AdminWebStack extends cdk.Stack {
       objectOwnership: s3.ObjectOwnership.BUCKET_OWNER_PREFERRED,
     });
 
+    // Checkov suppression: Logging bucket cannot have self-logging (infinite loop)
+    const loggingBucketCfn = this.loggingBucket.node.defaultChild as s3.CfnBucket;
+    loggingBucketCfn.addMetadata("checkov", {
+      skip: [
+        {
+          id: "CKV_AWS_18",
+          comment: "Logging bucket - enabling access logging would create infinite loop",
+        },
+      ],
+    });
+
     // -------------------------------------------------------------------------
     // Main content bucket with access logging enabled
     // -------------------------------------------------------------------------
