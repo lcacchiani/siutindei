@@ -124,6 +124,7 @@ jobs:
         with:
           directory: backend/infrastructure/cdk.out
           config_file: backend/infrastructure/.checkov.yaml
+          output_format: cli,sarif
           output_file_path: console,backend/infrastructure/checkov-results.sarif
 
       - name: Upload SARIF results
