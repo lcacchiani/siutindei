@@ -8,6 +8,11 @@ on:
         required: false
         default: false
         type: boolean
+      force_migration_run:
+        description: "Force RunMigrations custom resource"
+        required: false
+        default: false
+        type: boolean
       cdk_stacks:
         description: "CDK stacks to deploy"
         required: false
@@ -606,3 +611,6 @@ jobs:
           EXISTING_DB_PROXY_ARN: ${{ env.EXISTING_DB_PROXY_ARN }}
           EXISTING_DB_PROXY_ENDPOINT: ${{ env.EXISTING_DB_PROXY_ENDPOINT }}
           EXISTING_VPC_ID: ${{ env.EXISTING_VPC_ID }}
+          MIGRATIONS_FORCE_RUN_ID: >-
+            ${{ github.event.inputs.force_migration_run == 'true' &&
+            github.run_id || '' }}
