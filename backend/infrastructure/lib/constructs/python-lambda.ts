@@ -1,8 +1,9 @@
 import * as cdk from "aws-cdk-lib";
 import * as ec2 from "aws-cdk-lib/aws-ec2";
+import * as iam from "aws-cdk-lib/aws-iam";
+import * as kms from "aws-cdk-lib/aws-kms";
 import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as logs from "aws-cdk-lib/aws-logs";
-import * as kms from "aws-cdk-lib/aws-kms";
 import * as sqs from "aws-cdk-lib/aws-sqs";
 import { Construct } from "constructs";
 import * as fs from "fs";
@@ -129,6 +130,7 @@ export class PythonLambda extends Construct {
       props.environmentEncryptionKey ??
       new kms.Key(this, "EnvironmentEncryptionKey", {
         enableKeyRotation: true,
+        description: "KMS key for Lambda environment variable encryption",
       });
 
     const deadLetterQueue =
@@ -138,10 +140,43 @@ export class PythonLambda extends Construct {
         retentionPeriod: cdk.Duration.days(14),
       });
 
+    // SECURITY: KMS key for CloudWatch log encryption
+    // Checkov requires CloudWatch Log Groups to be encrypted with KMS
+    const logEncryptionKey = new kms.Key(this, "LogEncryptionKey", {
+      enableKeyRotation: true,
+      description: "KMS key for Lambda CloudWatch log encryption",
+    });
+
+    // Grant CloudWatch Logs service permission to use the key
+    logEncryptionKey.addToResourcePolicy(
+      new iam.PolicyStatement({
+        actions: [
+          "kms:Encrypt*",
+          "kms:Decrypt*",
+          "kms:ReEncrypt*",
+          "kms:GenerateDataKey*",
+          "kms:Describe*",
+        ],
+        principals: [
+          new iam.ServicePrincipal(
+            `logs.${cdk.Stack.of(this).region}.amazonaws.com`
+          ),
+        ],
+        resources: ["*"],
+        conditions: {
+          ArnLike: {
+            "kms:EncryptionContext:aws:logs:arn": `arn:aws:logs:${cdk.Stack.of(this).region}:${cdk.Stack.of(this).account}:*`,
+          },
+        },
+      })
+    );
+
     // Standard 90-day log retention for all Lambda functions
+    // SECURITY: Encrypted with KMS key
     const logGroup = new logs.LogGroup(this, "LogGroup", {
       retention: STANDARD_LOG_RETENTION,
       removalPolicy: cdk.RemovalPolicy.RETAIN,
+      encryptionKey: logEncryptionKey,
     });
 
     this.function = new lambda.Function(this, "Function", {

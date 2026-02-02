@@ -37,14 +37,18 @@ export class AdminWebStack extends cdk.Stack {
     // WAF Web ACL ARN (created separately in us-east-1 via WafStack)
     // SECURITY: WAF WebACLs for CloudFront must be in us-east-1
     // Deploy WafStack first: cdk deploy WafStack --region us-east-1
+    // IMPORTANT: WAF is required for production deployments (Checkov CKV_AWS_68)
     // -------------------------------------------------------------------------
     const wafWebAclArn = new cdk.CfnParameter(this, "WafWebAclArn", {
       type: "String",
-      default: "",
       description:
         "WAF WebACL ARN for CloudFront protection (must be from us-east-1). " +
         "Deploy WafStack to us-east-1 first and use its output. " +
-        "Leave empty to skip WAF (not recommended for production).",
+        "SECURITY: This parameter is required for production deployments.",
+      allowedPattern: "^arn:aws:wafv2:us-east-1:[0-9]+:global/webacl/.+$",
+      constraintDescription:
+        "Must be a valid WAF WebACL ARN from us-east-1 " +
+        "(e.g., arn:aws:wafv2:us-east-1:123456789012:global/webacl/my-acl/abc123)",
     });
 
     // -------------------------------------------------------------------------
@@ -57,19 +61,23 @@ export class AdminWebStack extends cdk.Stack {
       cdk.Aws.REGION,
     ].join("-");
 
+    // SECURITY: Versioning enabled to meet Checkov requirements
+    // Lifecycle rules configured to manage storage costs for versioned objects
     this.loggingBucket = new s3.Bucket(this, "AdminWebLoggingBucket", {
       bucketName: loggingBucketName,
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
       encryption: s3.BucketEncryption.S3_MANAGED,
       enforceSSL: true,
-      versioned: false,
+      versioned: true,
       removalPolicy: cdk.RemovalPolicy.RETAIN,
-      // Lifecycle rule to clean up old logs
+      // Lifecycle rules to manage storage costs
       lifecycleRules: [
         {
           id: "ExpireOldLogs",
           enabled: true,
           expiration: cdk.Duration.days(90),
+          // Clean up non-current versions after 30 days
+          noncurrentVersionExpiration: cdk.Duration.days(30),
         },
       ],
       // Enable object ownership for CloudFront log delivery
@@ -121,11 +129,8 @@ export class AdminWebStack extends cdk.Stack {
 
     // -------------------------------------------------------------------------
     // CloudFront distribution with WAF and access logging
+    // SECURITY: WAF is required (Checkov CKV_AWS_68)
     // -------------------------------------------------------------------------
-
-    // Determine WAF ARN - use parameter if provided, otherwise undefined
-    // WAF is optional but strongly recommended for production
-    const resolvedWafArn = wafWebAclArn.valueAsString || undefined;
 
     this.distribution = new cloudfront.Distribution(
       this,
@@ -134,8 +139,8 @@ export class AdminWebStack extends cdk.Stack {
         defaultRootObject: "index.html",
         domainNames: [domainName.valueAsString],
         certificate,
-        // SECURITY: Associate WAF Web ACL (if provided)
-        webAclId: resolvedWafArn,
+        // SECURITY: WAF Web ACL is required for CloudFront protection (Checkov CKV_AWS_68)
+        webAclId: wafWebAclArn.valueAsString,
         // SECURITY: Enable CloudFront access logging
         enableLogging: true,
         logBucket: this.loggingBucket,

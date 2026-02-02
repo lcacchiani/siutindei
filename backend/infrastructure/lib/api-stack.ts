@@ -3,6 +3,7 @@ import * as apigateway from "aws-cdk-lib/aws-apigateway";
 import * as cognito from "aws-cdk-lib/aws-cognito";
 import * as ec2 from "aws-cdk-lib/aws-ec2";
 import * as iam from "aws-cdk-lib/aws-iam";
+import * as kms from "aws-cdk-lib/aws-kms";
 import * as customresources from "aws-cdk-lib/custom-resources";
 import * as logs from "aws-cdk-lib/aws-logs";
 import { Construct } from "constructs";
@@ -778,20 +779,47 @@ export class ApiStack extends cdk.Stack {
       cloudWatchRoleArn: apiGatewayLogRole.roleArn,
     });
 
+    // -------------------------------------------------------------------------
     // API Gateway access logs
-    // Note: Log group may already exist from previous deployments
-    // Using fromLogGroupName to reference existing, with LogRetention to set retention
+    // SECURITY: Encrypted with KMS key (Checkov requirement)
+    // -------------------------------------------------------------------------
     const apiAccessLogGroupName = name("api-access-logs");
-    const apiAccessLogGroup = logs.LogGroup.fromLogGroupName(
-      this,
-      "ApiAccessLogs",
-      apiAccessLogGroupName
+
+    // KMS key for API Gateway access log encryption
+    const apiLogEncryptionKey = new kms.Key(this, "ApiLogEncryptionKey", {
+      enableKeyRotation: true,
+      description: "KMS key for API Gateway CloudWatch log encryption",
+    });
+
+    // Grant CloudWatch Logs service permission to use the key
+    apiLogEncryptionKey.addToResourcePolicy(
+      new iam.PolicyStatement({
+        actions: [
+          "kms:Encrypt*",
+          "kms:Decrypt*",
+          "kms:ReEncrypt*",
+          "kms:GenerateDataKey*",
+          "kms:Describe*",
+        ],
+        principals: [
+          new iam.ServicePrincipal(
+            `logs.${cdk.Stack.of(this).region}.amazonaws.com`
+          ),
+        ],
+        resources: ["*"],
+        conditions: {
+          ArnLike: {
+            "kms:EncryptionContext:aws:logs:arn": `arn:aws:logs:${cdk.Stack.of(this).region}:${cdk.Stack.of(this).account}:*`,
+          },
+        },
+      })
     );
 
-    // Set retention on the log group (works for both new and existing log groups)
-    new logs.LogRetention(this, "ApiAccessLogsRetention", {
+    const apiAccessLogGroup = new logs.LogGroup(this, "ApiAccessLogs", {
       logGroupName: apiAccessLogGroupName,
       retention: STANDARD_LOG_RETENTION,
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+      encryptionKey: apiLogEncryptionKey,
     });
 
     // SECURITY: Restrict CORS to specific allowed origins
