@@ -132,6 +132,7 @@ Optional env vars used by CDK:
 - `EXISTING_PROXY_SECURITY_GROUP_ID`
 - `EXISTING_LAMBDA_SECURITY_GROUP_ID`
 - `EXISTING_MIGRATION_SECURITY_GROUP_ID`
+- `MIGRATIONS_FORCE_RUN_ID`
 
 If any existing DB secrets use a customer-managed KMS key, provide the
 matching `*_SECRET_KMS_KEY_ARN` value so Lambda roles can decrypt the

@@ -118,6 +118,10 @@ export class ApiStack extends cdk.Stack {
       process.env.EXISTING_LAMBDA_SECURITY_GROUP_ID;
     const existingMigrationSecurityGroupId =
       process.env.EXISTING_MIGRATION_SECURITY_GROUP_ID;
+    const existingOrgImagesLogBucketName =
+      process.env.EXISTING_ORG_IMAGES_LOG_BUCKET_NAME;
+    const existingOrgImagesBucketName =
+      process.env.EXISTING_ORG_IMAGES_BUCKET_NAME;
     const manageDbSecurityGroupRules =
       !existingDbSecurityGroupId && !existingProxySecurityGroupId;
     const skipImmutableDbUpdates =
@@ -660,101 +664,114 @@ export class ApiStack extends cdk.Stack {
 
     const corsAllowedOrigins = resolveCorsAllowedOrigins(this);
 
-    const imagesLogBucketName = buildBucketName([
-      name("org-images-logs"),
-      cdk.Aws.ACCOUNT_ID,
-      cdk.Aws.REGION,
-    ]);
-
-    const organizationImagesLogBucket = new s3.Bucket(
-      this,
-      "OrganizationImagesLogBucket",
-      {
-        bucketName: imagesLogBucketName,
-        blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
-        encryption: s3.BucketEncryption.S3_MANAGED,
-        enforceSSL: true,
-        versioned: true,
-        removalPolicy: cdk.RemovalPolicy.RETAIN,
-        lifecycleRules: [
-          {
-            id: "ExpireOldLogs",
-            enabled: true,
-            expiration: cdk.Duration.days(90),
-            noncurrentVersionExpiration: cdk.Duration.days(30),
-          },
-        ],
-      }
-    );
+    // Import existing log bucket or create a new one.
+    // Use EXISTING_ORG_IMAGES_LOG_BUCKET_NAME to reuse a bucket that persists
+    // after stack deletion (due to RETAIN removal policy).
+    const organizationImagesLogBucket = existingOrgImagesLogBucketName
+      ? s3.Bucket.fromBucketName(
+          this,
+          "OrganizationImagesLogBucket",
+          existingOrgImagesLogBucketName
+        )
+      : new s3.Bucket(this, "OrganizationImagesLogBucket", {
+          blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+          encryption: s3.BucketEncryption.S3_MANAGED,
+          enforceSSL: true,
+          versioned: true,
+          removalPolicy: cdk.RemovalPolicy.RETAIN,
+          lifecycleRules: [
+            {
+              id: "ExpireOldLogs",
+              enabled: true,
+              expiration: cdk.Duration.days(90),
+              noncurrentVersionExpiration: cdk.Duration.days(30),
+            },
+          ],
+        });
 
     // Checkov suppression: Logging bucket cannot have self-logging (infinite loop)
-    const imagesLogBucketCfn = organizationImagesLogBucket.node.defaultChild as s3.CfnBucket;
-    imagesLogBucketCfn.addMetadata("checkov", {
-      skip: [
-        {
-          id: "CKV_AWS_18",
-          comment: "Logging bucket - enabling access logging would create infinite loop",
-        },
-      ],
-    });
+    // Only applies when creating a new bucket (imported buckets don't have CfnBucket)
+    const imagesLogBucketCfn = organizationImagesLogBucket.node
+      .defaultChild as s3.CfnBucket | undefined;
+    if (imagesLogBucketCfn) {
+      imagesLogBucketCfn.addMetadata("checkov", {
+        skip: [
+          {
+            id: "CKV_AWS_18",
+            comment:
+              "Logging bucket - enabling access logging would create infinite loop",
+          },
+        ],
+      });
+    }
 
-    const imagesBucketName = buildBucketName([
-      name("org-images"),
-      cdk.Aws.ACCOUNT_ID,
-      cdk.Aws.REGION,
-    ]);
+    const imagesBucketName =
+      existingOrgImagesBucketName ??
+      buildBucketName([name("org-images"), cdk.Aws.ACCOUNT_ID, cdk.Aws.REGION]);
 
     // SECURITY NOTE: This bucket is intentionally public to serve organization images
     // (logos, photos). It uses BLOCK_ACLS to prevent ACL-based public access while
     // allowing bucket policy based public read. Access is logged to the logging bucket.
     // Future improvement: Consider using CloudFront with OAC for better security and caching.
-    const organizationImagesBucket = new s3.Bucket(
-      this,
-      "OrganizationImagesBucket",
-      {
-        bucketName: imagesBucketName,
-        blockPublicAccess: s3.BlockPublicAccess.BLOCK_ACLS,
-        publicReadAccess: true,
-        encryption: s3.BucketEncryption.S3_MANAGED,
-        enforceSSL: true,
-        versioned: true,
-        removalPolicy: cdk.RemovalPolicy.RETAIN,
-        serverAccessLogsBucket: organizationImagesLogBucket,
-        serverAccessLogsPrefix: "s3-access-logs/",
-        cors: [
-          {
-            allowedMethods: [
-              s3.HttpMethods.GET,
-              s3.HttpMethods.PUT,
-              s3.HttpMethods.HEAD,
-            ],
-            allowedOrigins: corsAllowedOrigins,
-            allowedHeaders: ["*"],
-            exposedHeaders: ["ETag"],
-            maxAge: 3000,
-          },
-        ],
-      }
-    );
+    // Import existing bucket or create a new one.
+    // Use EXISTING_ORG_IMAGES_BUCKET_NAME to reuse a bucket that persists
+    // after stack deletion (due to RETAIN removal policy).
+    const organizationImagesBucket = existingOrgImagesBucketName
+      ? s3.Bucket.fromBucketName(
+          this,
+          "OrganizationImagesBucket",
+          existingOrgImagesBucketName
+        )
+      : new s3.Bucket(this, "OrganizationImagesBucket", {
+          bucketName: imagesBucketName,
+          blockPublicAccess: s3.BlockPublicAccess.BLOCK_ACLS,
+          publicReadAccess: true,
+          encryption: s3.BucketEncryption.S3_MANAGED,
+          enforceSSL: true,
+          versioned: true,
+          removalPolicy: cdk.RemovalPolicy.RETAIN,
+          serverAccessLogsBucket: organizationImagesLogBucket,
+          serverAccessLogsPrefix: "s3-access-logs/",
+          cors: [
+            {
+              allowedMethods: [
+                s3.HttpMethods.GET,
+                s3.HttpMethods.PUT,
+                s3.HttpMethods.HEAD,
+              ],
+              allowedOrigins: corsAllowedOrigins,
+              allowedHeaders: ["*"],
+              exposedHeaders: ["ETag"],
+              maxAge: 3000,
+            },
+          ],
+        });
 
     // Checkov suppression: Public access is intentional for serving organization images
-    const imagesBucketCfn = organizationImagesBucket.node.defaultChild as s3.CfnBucket;
-    imagesBucketCfn.addMetadata("checkov", {
-      skip: [
-        {
-          id: "CKV_AWS_54",
-          comment: "Public access intentional - bucket serves organization images via public URL",
-        },
-        {
-          id: "CKV_AWS_55",
-          comment: "Public access intentional - bucket serves organization images via public URL",
-        },
-        {
-          id: "CKV_AWS_56",
-          comment: "Public access intentional - bucket serves organization images via public URL",
-        },
-      ],
-    });
+    // Only applies when creating a new bucket (imported buckets don't have CfnBucket)
+    const imagesBucketCfn = organizationImagesBucket.node
+      .defaultChild as s3.CfnBucket | undefined;
+    if (imagesBucketCfn) {
+      imagesBucketCfn.addMetadata("checkov", {
+        skip: [
+          {
+            id: "CKV_AWS_54",
+            comment:
+              "Public access intentional - bucket serves organization images via public URL",
+          },
+          {
+            id: "CKV_AWS_55",
+            comment:
+              "Public access intentional - bucket serves organization images via public URL",
+          },
+          {
+            id: "CKV_AWS_56",
+            comment:
+              "Public access intentional - bucket serves organization images via public URL",
+          },
+        ],
+      });
+    }
 
     // Search function
     const searchFunction = createPythonFunction("SiutindeiSearchFunction", {
@@ -1385,12 +1402,22 @@ export class ApiStack extends cdk.Stack {
       path.join(__dirname, "../../db/alembic/versions")
     );
     const seedHash = hashFile(path.join(__dirname, "../../db/seed/seed_data.sql"));
+    const proxyUserSecretHash = hashValue(
+      [
+        database.appUserSecret.secretArn,
+        database.adminUserSecret.secretArn,
+      ].join("|")
+    );
+    const migrationsForceRunId =
+      process.env.MIGRATIONS_FORCE_RUN_ID?.trim() ?? "";
 
     const migrateResource = new cdk.CustomResource(this, "RunMigrations", {
       serviceToken: migrationFunction.functionArn,
       properties: {
         MigrationsHash: migrationsHash,
         SeedHash: seedHash,
+        ProxyUserSecretHash: proxyUserSecretHash,
+        MigrationsForceRunId: migrationsForceRunId,
         RunSeed: true,
       },
     });
@@ -1510,6 +1537,10 @@ function hashFile(filePath: string): string {
   }
   const data = fs.readFileSync(filePath);
   return crypto.createHash("sha256").update(data).digest("hex");
+}
+
+function hashValue(value: string): string {
+  return crypto.createHash("sha256").update(value).digest("hex");
 }
 
 function hashDirectory(dirPath: string): string {

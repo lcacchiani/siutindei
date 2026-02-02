@@ -8,6 +8,11 @@ on:
         required: false
         default: false
         type: boolean
+      force_migration_run:
+        description: "Force RunMigrations custom resource"
+        required: false
+        default: false
+        type: boolean
       cdk_stacks:
         description: "CDK stacks to deploy"
         required: false
@@ -438,6 +443,64 @@ jobs:
             fi
           fi
 
+      - name: Detect existing S3 buckets
+        if: steps.region.outputs.is_waf != 'true'
+        run: |
+          set -e
+          resource_prefix="lxsoftware-siutindei"
+          stack_name="${resource_prefix}"
+
+          normalize_value() {
+            local value="$1"
+            if [ -z "$value" ] || [ "$value" = "None" ] || \
+              [ "$value" = "null" ] || [ "$value" = "N/A" ]; then
+              echo ""
+              return 0
+            fi
+            echo "$value"
+          }
+
+          # Check for existing organization images log bucket from stack resources
+          stack_log_bucket=""
+          stack_images_bucket=""
+          if aws cloudformation describe-stacks --stack-name "$stack_name" \
+            >/dev/null 2>&1; then
+            stack_log_bucket=$(aws cloudformation list-stack-resources \
+              --stack-name "$stack_name" \
+              --query "StackResourceSummaries[?LogicalResourceId=='OrganizationImagesLogBucket'].PhysicalResourceId | [0]" \
+              --output text 2>/dev/null || true)
+            stack_images_bucket=$(aws cloudformation list-stack-resources \
+              --stack-name "$stack_name" \
+              --query "StackResourceSummaries[?LogicalResourceId=='OrganizationImagesBucket'].PhysicalResourceId | [0]" \
+              --output text 2>/dev/null || true)
+          fi
+          stack_log_bucket=$(normalize_value "$stack_log_bucket")
+          stack_images_bucket=$(normalize_value "$stack_images_bucket")
+
+          # If log bucket not in stack, search for existing bucket by prefix
+          if [ -z "$stack_log_bucket" ]; then
+            log_bucket=$(aws s3api list-buckets \
+              --query "Buckets[?starts_with(Name, '${resource_prefix}') && contains(Name, 'org-images-log')].Name | [0]" \
+              --output text 2>/dev/null || true)
+            log_bucket=$(normalize_value "$log_bucket")
+            if [ -n "$log_bucket" ]; then
+              echo "EXISTING_ORG_IMAGES_LOG_BUCKET_NAME=$log_bucket" \
+                >> "$GITHUB_ENV"
+            fi
+          fi
+
+          # If images bucket not in stack, search for existing bucket by prefix
+          if [ -z "$stack_images_bucket" ]; then
+            images_bucket=$(aws s3api list-buckets \
+              --query "Buckets[?starts_with(Name, '${resource_prefix}') && contains(Name, 'org-images') && !contains(Name, 'log')].Name | [0]" \
+              --output text 2>/dev/null || true)
+            images_bucket=$(normalize_value "$images_bucket")
+            if [ -n "$images_bucket" ]; then
+              echo "EXISTING_ORG_IMAGES_BUCKET_NAME=$images_bucket" \
+                >> "$GITHUB_ENV"
+            fi
+          fi
+
       - name: Deploy backend with CDK
         run: |
           if [ -f "backend/infrastructure/package.json" ]; then
@@ -574,6 +637,8 @@ jobs:
               unset EXISTING_DB_PROXY_ARN
               unset EXISTING_DB_PROXY_ENDPOINT
               unset EXISTING_VPC_ID
+              unset EXISTING_ORG_IMAGES_LOG_BUCKET_NAME
+              unset EXISTING_ORG_IMAGES_BUCKET_NAME
             fi
             if [ ${#STACK_ARGS[@]} -gt 0 ]; then
               npx cdk deploy --no-notices --require-approval never "${QUALIFIER_ARGS[@]}" "${PARAM_ARGS[@]}" "${STACK_ARGS[@]}"
@@ -606,3 +671,8 @@ jobs:
           EXISTING_DB_PROXY_ARN: ${{ env.EXISTING_DB_PROXY_ARN }}
           EXISTING_DB_PROXY_ENDPOINT: ${{ env.EXISTING_DB_PROXY_ENDPOINT }}
           EXISTING_VPC_ID: ${{ env.EXISTING_VPC_ID }}
+          EXISTING_ORG_IMAGES_LOG_BUCKET_NAME: ${{ env.EXISTING_ORG_IMAGES_LOG_BUCKET_NAME }}
+          EXISTING_ORG_IMAGES_BUCKET_NAME: ${{ env.EXISTING_ORG_IMAGES_BUCKET_NAME }}
+          MIGRATIONS_FORCE_RUN_ID: >-
+            ${{ github.event.inputs.force_migration_run == 'true' &&
+            github.run_id || '' }}
