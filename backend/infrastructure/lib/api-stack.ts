@@ -1572,6 +1572,7 @@ function resolveCorsAllowedOrigins(scope: Construct): string[] {
     "http://localhost",
     "http://localhost:3000",
     "https://siutindei.lx-software.com",
+    "https://siutindei-api.lx-software.com",
   ];
   const contextOrigins = normalizeCorsOrigins(
     scope.node.tryGetContext("corsAllowedOrigins")
