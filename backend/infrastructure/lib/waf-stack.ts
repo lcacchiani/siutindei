@@ -1,4 +1,6 @@
 import * as cdk from "aws-cdk-lib";
+import * as iam from "aws-cdk-lib/aws-iam";
+import * as kms from "aws-cdk-lib/aws-kms";
 import * as logs from "aws-cdk-lib/aws-logs";
 import * as wafv2 from "aws-cdk-lib/aws-wafv2";
 import { Construct } from "constructs";
@@ -122,11 +124,44 @@ export class WafStack extends cdk.Stack {
     // -------------------------------------------------------------------------
     // WAF Logging to CloudWatch with 90-day retention
     // Log group name must start with "aws-waf-logs-" for WAF logging
+    // SECURITY: Encrypted with KMS key (Checkov requirement)
     // -------------------------------------------------------------------------
+
+    // KMS key for WAF log encryption
+    const wafLogEncryptionKey = new kms.Key(this, "WafLogEncryptionKey", {
+      enableKeyRotation: true,
+      description: "KMS key for WAF CloudWatch log encryption",
+    });
+
+    // Grant CloudWatch Logs service permission to use the key
+    wafLogEncryptionKey.addToResourcePolicy(
+      new iam.PolicyStatement({
+        actions: [
+          "kms:Encrypt*",
+          "kms:Decrypt*",
+          "kms:ReEncrypt*",
+          "kms:GenerateDataKey*",
+          "kms:Describe*",
+        ],
+        principals: [
+          new iam.ServicePrincipal(
+            `logs.${cdk.Stack.of(this).region}.amazonaws.com`
+          ),
+        ],
+        resources: ["*"],
+        conditions: {
+          ArnLike: {
+            "kms:EncryptionContext:aws:logs:arn": `arn:aws:logs:${cdk.Stack.of(this).region}:${cdk.Stack.of(this).account}:*`,
+          },
+        },
+      })
+    );
+
     this.logGroup = new logs.LogGroup(this, "WafLogGroup", {
       logGroupName: `aws-waf-logs-${name("cloudfront")}`,
       retention: STANDARD_LOG_RETENTION,
       removalPolicy: cdk.RemovalPolicy.RETAIN,
+      encryptionKey: wafLogEncryptionKey,
     });
 
     new wafv2.CfnLoggingConfiguration(this, "WafLoggingConfig", {

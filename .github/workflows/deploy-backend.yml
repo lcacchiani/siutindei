@@ -59,13 +59,17 @@ jobs:
 
       - name: Determine deployment region
         id: region
+        # SECURITY: Use environment variable to avoid shell injection from inputs
+        env:
+          INPUT_CDK_STACKS: ${{ github.event.inputs.cdk_stacks || vars.CDK_STACKS || 'all stacks' }}
+          INPUT_AWS_REGION: ${{ vars.AWS_REGION }}
         run: |
-          CDK_STACKS="${{ github.event.inputs.cdk_stacks || vars.CDK_STACKS || 'all stacks' }}"
+          CDK_STACKS="$INPUT_CDK_STACKS"
           if [ "$CDK_STACKS" = "waf (us-east-1)" ]; then
             echo "region=us-east-1" >> "$GITHUB_OUTPUT"
             echo "is_waf=true" >> "$GITHUB_OUTPUT"
           else
-            echo "region=${{ vars.AWS_REGION }}" >> "$GITHUB_OUTPUT"
+            echo "region=$INPUT_AWS_REGION" >> "$GITHUB_OUTPUT"
             echo "is_waf=false" >> "$GITHUB_OUTPUT"
           fi
 

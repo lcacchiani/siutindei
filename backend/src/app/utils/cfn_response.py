@@ -59,8 +59,12 @@ def send_cfn_response(
     )
 
     try:
-        # URL is validated by _validate_response_url() to be HTTPS
-        # and restricted to *.amazonaws.com domains only
+        # SECURITY: URL is validated by _validate_response_url() above:
+        # 1. Must use HTTPS scheme
+        # 2. Must have valid hostname
+        # 3. Hostname must end with .amazonaws.com or .amazonaws.com.cn
+        # This is safe because CloudFormation ResponseURLs are always S3 pre-signed URLs
+        # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
         with urllib.request.urlopen(request, context=ssl_context) as response:  # nosec B310
             response.read()
             logger.info(
