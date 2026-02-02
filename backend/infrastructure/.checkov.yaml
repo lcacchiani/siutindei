@@ -12,14 +12,17 @@ soft-fail: true
 # Skip checks - add justification for each skipped check
 # Format:
 #   skip-check:
-#     - CKV_AWS_XXX  # Justification for skipping this check
+#     - CKV_AWS_XXX:RESOURCE_ID  # Justification for skipping this check
 #
-# Example:
-#   skip-check:
-#     - CKV_AWS_18  # S3 access logging not needed for static assets bucket
-#
-# Currently no checks are skipped - all security requirements are implemented
-skip-check: []
+# OrganizationImagesBucket skips:
+# This S3 bucket is intentionally configured for public read access to serve
+# organization images (logos, photos). The bucket uses BLOCK_ACLS to prevent
+# ACL-based public access while allowing bucket policy based public read.
+# This is a deliberate design choice for serving static assets.
+# Future improvement: Consider using CloudFront with OAC for better security and caching.
+skip-check:
+  - CKV_AWS_54:AWS::S3::Bucket.OrganizationImagesBucket347D331B  # Public access intentional - serves organization images
+  - CKV_AWS_55:AWS::S3::Bucket.OrganizationImagesBucket347D331B  # Public access intentional - serves organization images
 
 # Compact output - reduce noise in CI logs
 compact: true

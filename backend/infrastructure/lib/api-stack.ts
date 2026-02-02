@@ -645,29 +645,6 @@ export class ApiStack extends cdk.Stack {
       }
     );
 
-    // SECURITY: This bucket is intentionally public to serve organization images (logos, photos).
-    // The bucket uses BLOCK_ACLS to prevent ACL-based public access while allowing bucket policy
-    // based public read access. This is a deliberate design choice for serving static assets.
-    // Future improvement: Consider using CloudFront with OAC for better security and caching.
-    const cfnOrganizationImagesBucket = organizationImagesBucket.node
-      .defaultChild as s3.CfnBucket;
-    cfnOrganizationImagesBucket.cfnOptions.metadata = {
-      checkov: {
-        skip: [
-          {
-            id: "CKV_AWS_54",
-            comment:
-              "Public access is intentional - bucket serves publicly accessible organization images",
-          },
-          {
-            id: "CKV_AWS_55",
-            comment:
-              "Public access is intentional - bucket serves publicly accessible organization images",
-          },
-        ],
-      },
-    };
-
     // Search function
     const searchFunction = createPythonFunction("SiutindeiSearchFunction", {
       handler: "lambda/activity_search/handler.lambda_handler",
