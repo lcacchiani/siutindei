@@ -920,6 +920,60 @@ def _validate_schedule(schedule: ActivitySchedule) -> None:
                 "start_at_utc and end_at_utc are required for date-specific"
             )
 
+    # Validate day_of_week_utc range (0-6, Sunday to Saturday)
+    if schedule.day_of_week_utc is not None:
+        if not 0 <= schedule.day_of_week_utc <= 6:
+            raise ValidationError(
+                "day_of_week_utc must be between 0 and 6",
+                field="day_of_week_utc",
+            )
+
+    # Validate day_of_month range (1-31)
+    if schedule.day_of_month is not None:
+        if not 1 <= schedule.day_of_month <= 31:
+            raise ValidationError(
+                "day_of_month must be between 1 and 31",
+                field="day_of_month",
+            )
+
+    # Validate start_minutes_utc range (0-1439, minutes in a day)
+    if schedule.start_minutes_utc is not None:
+        if not 0 <= schedule.start_minutes_utc <= 1439:
+            raise ValidationError(
+                "start_minutes_utc must be between 0 and 1439",
+                field="start_minutes_utc",
+            )
+
+    # Validate end_minutes_utc range (0-1439, minutes in a day)
+    if schedule.end_minutes_utc is not None:
+        if not 0 <= schedule.end_minutes_utc <= 1439:
+            raise ValidationError(
+                "end_minutes_utc must be between 0 and 1439",
+                field="end_minutes_utc",
+            )
+
+    # Validate start_minutes_utc < end_minutes_utc
+    if (
+        schedule.start_minutes_utc is not None
+        and schedule.end_minutes_utc is not None
+        and schedule.start_minutes_utc >= schedule.end_minutes_utc
+    ):
+        raise ValidationError(
+            "start_minutes_utc must be less than end_minutes_utc",
+            field="start_minutes_utc",
+        )
+
+    # Validate start_at_utc < end_at_utc
+    if (
+        schedule.start_at_utc is not None
+        and schedule.end_at_utc is not None
+        and schedule.start_at_utc >= schedule.end_at_utc
+    ):
+        raise ValidationError(
+            "start_at_utc must be less than end_at_utc",
+            field="start_at_utc",
+        )
+
 
 # --- Resource configuration ---
 
