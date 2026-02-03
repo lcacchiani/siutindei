@@ -207,7 +207,11 @@ class ActivityPricing(Base):
         nullable=False,
     )
     pricing_type: Mapped[PricingType] = mapped_column(
-        sa.Enum(PricingType, name="pricing_type"),
+        sa.Enum(
+            PricingType,
+            name="pricing_type",
+            values_callable=lambda x: [e.value for e in x],
+        ),
         nullable=False,
     )
     amount: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
@@ -247,7 +251,11 @@ class ActivitySchedule(Base):
         nullable=False,
     )
     schedule_type: Mapped[ScheduleType] = mapped_column(
-        sa.Enum(ScheduleType, name="schedule_type"),
+        sa.Enum(
+            ScheduleType,
+            name="schedule_type",
+            values_callable=lambda x: [e.value for e in x],
+        ),
         nullable=False,
     )
     day_of_week_utc: Mapped[Optional[int]] = mapped_column(
