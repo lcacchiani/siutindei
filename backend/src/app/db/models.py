@@ -55,6 +55,11 @@ class Organization(Base):
     )
     name: Mapped[str] = mapped_column(Text(), nullable=False)
     description: Mapped[Optional[str]] = mapped_column(Text(), nullable=True)
+    owner_id: Mapped[Optional[str]] = mapped_column(
+        Text(),
+        nullable=True,
+        comment="Cognito user sub (subject) identifier of the organization owner",
+    )
     picture_urls: Mapped[List[str]] = mapped_column(
         ARRAY(Text()),
         nullable=False,

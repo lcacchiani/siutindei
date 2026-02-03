@@ -571,6 +571,7 @@ def _create_organization(
     description = _validate_string_length(
         body.get("description"), "description", MAX_DESCRIPTION_LENGTH
     )
+    owner_id = _validate_owner_id(body.get("owner_id"))
     picture_urls = _parse_picture_urls(body.get("picture_urls"))
     if picture_urls:
         picture_urls = _validate_picture_urls(picture_urls)
@@ -578,6 +579,7 @@ def _create_organization(
     return Organization(
         name=name,
         description=description,
+        owner_id=owner_id,
         picture_urls=picture_urls,
     )
 
@@ -599,6 +601,8 @@ def _update_organization(
         entity.description = _validate_string_length(
             body["description"], "description", MAX_DESCRIPTION_LENGTH
         )
+    if "owner_id" in body:
+        entity.owner_id = _validate_owner_id(body["owner_id"])
     if "picture_urls" in body:
         picture_urls = _parse_picture_urls(body["picture_urls"])
         if picture_urls:
@@ -614,6 +618,7 @@ def _serialize_organization(entity: Organization) -> dict[str, Any]:
         "id": str(entity.id),
         "name": entity.name,
         "description": entity.description,
+        "owner_id": entity.owner_id,
         "picture_urls": entity.picture_urls or [],
         "created_at": entity.created_at,
         "updated_at": entity.updated_at,
@@ -1113,6 +1118,43 @@ def _validate_currency(currency: str) -> str:
         )
 
     return currency
+
+
+def _validate_owner_id(owner_id: Any) -> Optional[str]:
+    """Validate and sanitize a Cognito user sub (owner_id).
+
+    The owner_id should be a valid Cognito user sub, which is a UUID string.
+
+    Args:
+        owner_id: The owner_id value to validate.
+
+    Returns:
+        The validated owner_id string, or None if empty/None.
+
+    Raises:
+        ValidationError: If the owner_id format is invalid.
+    """
+    if owner_id is None:
+        return None
+
+    if not isinstance(owner_id, str):
+        owner_id = str(owner_id)
+
+    owner_id = owner_id.strip()
+
+    if not owner_id:
+        return None
+
+    # Cognito user sub is a UUID, validate format
+    try:
+        # Parse and re-format to ensure consistent UUID format
+        parsed = UUID(owner_id)
+        return str(parsed)
+    except (ValueError, TypeError) as e:
+        raise ValidationError(
+            "owner_id must be a valid UUID (Cognito user sub)",
+            field="owner_id",
+        ) from e
 
 
 def _validate_language_code(code: str, field_name: str = "language") -> str:

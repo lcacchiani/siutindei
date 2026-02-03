@@ -19,6 +19,7 @@ class OrganizationSchema(BaseModel):
     id: str
     name: str
     description: Optional[str]
+    owner_id: Optional[str]
     picture_urls: List[str]
 
 
