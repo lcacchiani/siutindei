@@ -403,9 +403,7 @@ def _serialize_cognito_user(user: dict[str, Any]) -> Optional[dict[str, Any]]:
     Returns:
         Serialized user data with sub, email, and status, or None if sub is missing.
     """
-    attributes = {
-        attr["Name"]: attr["Value"] for attr in user.get("Attributes", [])
-    }
+    attributes = {attr["Name"]: attr["Value"] for attr in user.get("Attributes", [])}
 
     # The sub attribute is required - it's the owner_id
     sub = attributes.get("sub")
@@ -689,7 +687,8 @@ def _update_organization(
             body["description"], "description", MAX_DESCRIPTION_LENGTH
         )
     if "owner_id" in body:
-        entity.owner_id = _validate_owner_id(body["owner_id"])
+        # owner_id is required, so if provided it must be a valid UUID
+        entity.owner_id = _validate_owner_id(body["owner_id"], required=True)  # type: ignore[assignment]
     if "picture_urls" in body:
         picture_urls = _parse_picture_urls(body["picture_urls"])
         if picture_urls:
