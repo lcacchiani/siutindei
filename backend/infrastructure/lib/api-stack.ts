@@ -858,6 +858,7 @@ export class ApiStack extends cdk.Stack {
           "cognito-idp:AdminAddUserToGroup",
           "cognito-idp:AdminRemoveUserFromGroup",
           "cognito-idp:AdminListGroupsForUser",
+          "cognito-idp:ListUsers",
         ],
         resources: [userPool.userPoolArn],
       })
