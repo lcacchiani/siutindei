@@ -4,12 +4,12 @@ info:
   version: 0.1.0
   description: |
     CRUD endpoints for managing activities data.
-    
+
     ## Validation Rules
-    
+
     All endpoints enforce the following validation rules to ensure data integrity
     and protect against security vulnerabilities.
-    
+
     ### String Length Limits
     | Field | Max Length |
     |-------|-----------|
@@ -18,13 +18,13 @@ info:
     | district | 100 characters |
     | address | 500 characters |
     | picture_urls (each) | 2,048 characters |
-    
+
     ### Array Limits
     | Field | Max Items |
     |-------|----------|
     | picture_urls | 20 |
     | languages | 20 |
-    
+
     ### Numeric Ranges
     | Field | Range |
     |-------|-------|
@@ -38,7 +38,7 @@ info:
     | day_of_month | 1-31 |
     | start_minutes_utc | 0-1439 |
     | end_minutes_utc | 0-1439 |
-    
+
     ### Allowed Values
     | Field | Allowed Values |
     |-------|---------------|
