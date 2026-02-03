@@ -634,7 +634,11 @@ def _send_access_request_email(request: OrganizationAccessRequest) -> None:
 
     The support email address is configured via SUPPORT_EMAIL environment variable.
     The sender email is configured via SES_SENDER_EMAIL environment variable.
+
+    Email template is defined in app/templates/email_templates.py
     """
+    from app.templates import render_new_request_email
+
     support_email = os.getenv("SUPPORT_EMAIL")
     sender_email = os.getenv("SES_SENDER_EMAIL")
 
@@ -647,61 +651,24 @@ def _send_access_request_email(request: OrganizationAccessRequest) -> None:
     try:
         ses_client = boto3.client("ses")
 
-        subject = f"[Siu Tin Dei] [{request.ticket_id}] New Access Request: {request.organization_name}"
-        body_text = f"""
-[Siu Tin Dei] Access Request [{request.ticket_id}]
-
-A new organization access request has been submitted.
-
-Ticket ID: {request.ticket_id}
-Requester Email: {request.requester_email}
-Organization Name: {request.organization_name}
-Request Message: {request.request_message or 'No message provided'}
-Submitted At: {request.created_at.isoformat() if request.created_at else 'Unknown'}
-
-Please review this request in the admin dashboard.
-"""
-        body_html = f"""
-<html>
-<head></head>
-<body>
-    <h2>[Siu Tin Dei] Access Request</h2>
-    <p style="font-size: 14px; color: #666;">Ticket ID: <strong>{request.ticket_id}</strong></p>
-    <table style="border-collapse: collapse; width: 100%; max-width: 600px;">
-        <tr>
-            <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Ticket ID</td>
-            <td style="padding: 8px; border: 1px solid #ddd;"><strong>{request.ticket_id}</strong></td>
-        </tr>
-        <tr>
-            <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Requester Email</td>
-            <td style="padding: 8px; border: 1px solid #ddd;">{request.requester_email}</td>
-        </tr>
-        <tr>
-            <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Organization Name</td>
-            <td style="padding: 8px; border: 1px solid #ddd;">{request.organization_name}</td>
-        </tr>
-        <tr>
-            <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Request Message</td>
-            <td style="padding: 8px; border: 1px solid #ddd;">{request.request_message or 'No message provided'}</td>
-        </tr>
-        <tr>
-            <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Submitted At</td>
-            <td style="padding: 8px; border: 1px solid #ddd;">{request.created_at.isoformat() if request.created_at else 'Unknown'}</td>
-        </tr>
-    </table>
-    <p style="margin-top: 20px;">Please review this request in the admin dashboard.</p>
-</body>
-</html>
-"""
+        email_content = render_new_request_email(
+            ticket_id=request.ticket_id,
+            requester_email=request.requester_email,
+            organization_name=request.organization_name,
+            request_message=request.request_message,
+            submitted_at=request.created_at.isoformat()
+            if request.created_at
+            else "Unknown",
+        )
 
         ses_client.send_email(
             Source=sender_email,
             Destination={"ToAddresses": [support_email]},
             Message={
-                "Subject": {"Data": subject, "Charset": "UTF-8"},
+                "Subject": {"Data": email_content.subject, "Charset": "UTF-8"},
                 "Body": {
-                    "Text": {"Data": body_text, "Charset": "UTF-8"},
-                    "Html": {"Data": body_html, "Charset": "UTF-8"},
+                    "Text": {"Data": email_content.body_text, "Charset": "UTF-8"},
+                    "Html": {"Data": email_content.body_html, "Charset": "UTF-8"},
                 },
             },
         )
@@ -851,11 +818,15 @@ def _send_request_decision_email(
 ) -> None:
     """Send email notification to requester about their request decision.
 
+    Email template is defined in app/templates/email_templates.py
+
     Args:
         request: The access request that was reviewed.
         action: Either 'approve' or 'reject'.
         admin_message: Optional message from the admin.
     """
+    from app.templates import render_request_decision_email
+
     sender_email = os.getenv("SES_SENDER_EMAIL")
 
     if not sender_email:
@@ -871,92 +842,24 @@ def _send_request_decision_email(
     try:
         ses_client = boto3.client("ses")
 
-        if action == "approve":
-            subject = f"[Siu Tin Dei] [{request.ticket_id}] Your Access Request Has Been Approved"
-            status_text = "APPROVED"
-            status_color = "#28a745"
-            status_message = (
-                "Congratulations! Your organization access request has been approved. "
-                "You can now log in to the admin system and manage your organization."
-            )
-        else:
-            subject = f"[Siu Tin Dei] [{request.ticket_id}] Your Access Request Has Been Declined"
-            status_text = "DECLINED"
-            status_color = "#dc3545"
-            status_message = (
-                "We regret to inform you that your organization access request has been declined. "
-                "If you believe this was a mistake, please contact support for more information."
-            )
-
-        admin_message_section = ""
-        if admin_message:
-            admin_message_section = f"""
-        <tr>
-            <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Admin Message</td>
-            <td style="padding: 8px; border: 1px solid #ddd;">{admin_message}</td>
-        </tr>"""
-            admin_message_text = f"\nAdmin Message: {admin_message}"
-        else:
-            admin_message_text = ""
-
-        body_text = f"""
-[Siu Tin Dei] Access Request Update [{request.ticket_id}]
-
-Your organization access request has been reviewed.
-
-Status: {status_text}
-
-Ticket ID: {request.ticket_id}
-Organization Name: {request.organization_name}
-Reviewed At: {request.reviewed_at.isoformat() if request.reviewed_at else 'Unknown'}{admin_message_text}
-
-{status_message}
-
-If you have any questions, please contact support.
-"""
-        body_html = f"""
-<html>
-<head></head>
-<body>
-    <h2>[Siu Tin Dei] Access Request Update</h2>
-    <p style="font-size: 14px; color: #666;">Ticket ID: <strong>{request.ticket_id}</strong></p>
-
-    <div style="padding: 15px; background-color: {status_color}; color: white; text-align: center; margin: 20px 0; border-radius: 5px;">
-        <h3 style="margin: 0;">Request {status_text}</h3>
-    </div>
-
-    <table style="border-collapse: collapse; width: 100%; max-width: 600px;">
-        <tr>
-            <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Ticket ID</td>
-            <td style="padding: 8px; border: 1px solid #ddd;"><strong>{request.ticket_id}</strong></td>
-        </tr>
-        <tr>
-            <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Organization Name</td>
-            <td style="padding: 8px; border: 1px solid #ddd;">{request.organization_name}</td>
-        </tr>
-        <tr>
-            <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Reviewed At</td>
-            <td style="padding: 8px; border: 1px solid #ddd;">{request.reviewed_at.isoformat() if request.reviewed_at else 'Unknown'}</td>
-        </tr>{admin_message_section}
-    </table>
-
-    <p style="margin-top: 20px;">{status_message}</p>
-
-    <p style="margin-top: 20px; font-size: 12px; color: #666;">
-        If you have any questions, please contact support.
-    </p>
-</body>
-</html>
-"""
+        email_content = render_request_decision_email(
+            ticket_id=request.ticket_id,
+            organization_name=request.organization_name,
+            reviewed_at=request.reviewed_at.isoformat()
+            if request.reviewed_at
+            else "Unknown",
+            action=action,
+            admin_message=admin_message if admin_message else None,
+        )
 
         ses_client.send_email(
             Source=sender_email,
             Destination={"ToAddresses": [request.requester_email]},
             Message={
-                "Subject": {"Data": subject, "Charset": "UTF-8"},
+                "Subject": {"Data": email_content.subject, "Charset": "UTF-8"},
                 "Body": {
-                    "Text": {"Data": body_text, "Charset": "UTF-8"},
-                    "Html": {"Data": body_html, "Charset": "UTF-8"},
+                    "Text": {"Data": email_content.body_text, "Charset": "UTF-8"},
+                    "Html": {"Data": email_content.body_html, "Charset": "UTF-8"},
                 },
             },
         )
