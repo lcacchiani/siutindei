@@ -1038,6 +1038,52 @@ export class ApiStack extends cdk.Stack {
       }
     );
 
+    // Cognito group-based authorizer for admin-only endpoints
+    const adminGroupAuthorizerFunction = createPythonFunction(
+      "AdminGroupAuthorizerFunction",
+      {
+        handler: "lambda/authorizers/cognito_group/handler.lambda_handler",
+        memorySize: 256,
+        timeout: cdk.Duration.seconds(5),
+        environment: {
+          ALLOWED_GROUPS: adminGroupName,
+        },
+      }
+    );
+
+    const adminAuthorizer = new apigateway.RequestAuthorizer(
+      this,
+      "AdminGroupAuthorizer",
+      {
+        handler: adminGroupAuthorizerFunction,
+        identitySources: [apigateway.IdentitySource.header("Authorization")],
+        resultsCacheTtl: cdk.Duration.minutes(5),
+      }
+    );
+
+    // Cognito group-based authorizer for owner endpoints (admin OR owner)
+    const ownerGroupAuthorizerFunction = createPythonFunction(
+      "OwnerGroupAuthorizerFunction",
+      {
+        handler: "lambda/authorizers/cognito_group/handler.lambda_handler",
+        memorySize: 256,
+        timeout: cdk.Duration.seconds(5),
+        environment: {
+          ALLOWED_GROUPS: `${adminGroupName},${ownerGroupName}`,
+        },
+      }
+    );
+
+    const ownerAuthorizer = new apigateway.RequestAuthorizer(
+      this,
+      "OwnerGroupAuthorizer",
+      {
+        handler: ownerGroupAuthorizerFunction,
+        identitySources: [apigateway.IdentitySource.header("Authorization")],
+        resultsCacheTtl: cdk.Duration.minutes(5),
+      }
+    );
+
     // Health check function
     const healthFunction = createPythonFunction("HealthCheckFunction", {
       handler: "lambda/health/handler.lambda_handler",
@@ -1272,14 +1318,6 @@ export class ApiStack extends cdk.Stack {
     });
     api.deploymentStage.node.addDependency(apiAccessLogGroupRetention);
     api.deploymentStage.node.addDependency(apiAccessLogGroupKey);
-    const authorizer = new apigateway.CognitoUserPoolsAuthorizer(
-      this,
-      "SiutindeiAuthorizer",
-      {
-        cognitoUserPools: [userPool],
-      }
-    );
-
     const mobileApiKey = new apigateway.ApiKey(this, "MobileSearchApiKey", {
       apiKeyName: name("mobile-search-key"),
       value: publicApiKeyValue.valueAsString,
@@ -1356,37 +1394,37 @@ export class ApiStack extends cdk.Stack {
     for (const resourceName of adminResources) {
       const resource = admin.addResource(resourceName);
       resource.addMethod("GET", adminIntegration, {
-        authorizationType: apigateway.AuthorizationType.COGNITO,
-        authorizer,
+        authorizationType: apigateway.AuthorizationType.CUSTOM,
+        authorizer: adminAuthorizer,
       });
       resource.addMethod("POST", adminIntegration, {
-        authorizationType: apigateway.AuthorizationType.COGNITO,
-        authorizer,
+        authorizationType: apigateway.AuthorizationType.CUSTOM,
+        authorizer: adminAuthorizer,
       });
 
       const resourceById = resource.addResource("{id}");
       resourceById.addMethod("GET", adminIntegration, {
-        authorizationType: apigateway.AuthorizationType.COGNITO,
-        authorizer,
+        authorizationType: apigateway.AuthorizationType.CUSTOM,
+        authorizer: adminAuthorizer,
       });
       resourceById.addMethod("PUT", adminIntegration, {
-        authorizationType: apigateway.AuthorizationType.COGNITO,
-        authorizer,
+        authorizationType: apigateway.AuthorizationType.CUSTOM,
+        authorizer: adminAuthorizer,
       });
       resourceById.addMethod("DELETE", adminIntegration, {
-        authorizationType: apigateway.AuthorizationType.COGNITO,
-        authorizer,
+        authorizationType: apigateway.AuthorizationType.CUSTOM,
+        authorizer: adminAuthorizer,
       });
 
       if (resourceName === "organizations") {
         const media = resourceById.addResource("media");
         media.addMethod("POST", adminIntegration, {
-          authorizationType: apigateway.AuthorizationType.COGNITO,
-          authorizer,
+          authorizationType: apigateway.AuthorizationType.CUSTOM,
+          authorizer: adminAuthorizer,
         });
         media.addMethod("DELETE", adminIntegration, {
-          authorizationType: apigateway.AuthorizationType.COGNITO,
-          authorizer,
+          authorizationType: apigateway.AuthorizationType.CUSTOM,
+          authorizer: adminAuthorizer,
         });
       }
     }
@@ -1395,67 +1433,67 @@ export class ApiStack extends cdk.Stack {
     const userByName = users.addResource("{username}");
     const userGroups = userByName.addResource("groups");
     userGroups.addMethod("POST", adminIntegration, {
-      authorizationType: apigateway.AuthorizationType.COGNITO,
-      authorizer,
+      authorizationType: apigateway.AuthorizationType.CUSTOM,
+      authorizer: adminAuthorizer,
     });
     userGroups.addMethod("DELETE", adminIntegration, {
-      authorizationType: apigateway.AuthorizationType.COGNITO,
-      authorizer,
+      authorizationType: apigateway.AuthorizationType.CUSTOM,
+      authorizer: adminAuthorizer,
     });
 
-    // Cognito users listing endpoint (for owner selection)
+    // Cognito users listing endpoint (for owner selection) - admin only
     const cognitoUsers = admin.addResource("cognito-users");
     cognitoUsers.addMethod("GET", adminIntegration, {
-      authorizationType: apigateway.AuthorizationType.COGNITO,
-      authorizer,
+      authorizationType: apigateway.AuthorizationType.CUSTOM,
+      authorizer: adminAuthorizer,
     });
 
-    // Admin access requests management (for reviewing owner requests)
+    // Admin access requests management (for reviewing owner requests) - admin only
     const accessRequests = admin.addResource("access-requests");
     accessRequests.addMethod("GET", adminIntegration, {
-      authorizationType: apigateway.AuthorizationType.COGNITO,
-      authorizer,
+      authorizationType: apigateway.AuthorizationType.CUSTOM,
+      authorizer: adminAuthorizer,
     });
 
     const accessRequestById = accessRequests.addResource("{id}");
     accessRequestById.addMethod("PUT", adminIntegration, {
-      authorizationType: apigateway.AuthorizationType.COGNITO,
-      authorizer,
+      authorizationType: apigateway.AuthorizationType.CUSTOM,
+      authorizer: adminAuthorizer,
     });
 
-    // Owner-specific routes (accessible by users in 'owner' group)
+    // Owner-specific routes (accessible by users in 'admin' OR 'owner' group)
     const owner = admin.addResource("owner");
 
     // Owner organizations (list/update/delete their own organizations)
     const ownerOrganizations = owner.addResource("organizations");
     ownerOrganizations.addMethod("GET", adminIntegration, {
-      authorizationType: apigateway.AuthorizationType.COGNITO,
-      authorizer,
+      authorizationType: apigateway.AuthorizationType.CUSTOM,
+      authorizer: ownerAuthorizer,
     });
 
     const ownerOrganizationById = ownerOrganizations.addResource("{id}");
     ownerOrganizationById.addMethod("GET", adminIntegration, {
-      authorizationType: apigateway.AuthorizationType.COGNITO,
-      authorizer,
+      authorizationType: apigateway.AuthorizationType.CUSTOM,
+      authorizer: ownerAuthorizer,
     });
     ownerOrganizationById.addMethod("PUT", adminIntegration, {
-      authorizationType: apigateway.AuthorizationType.COGNITO,
-      authorizer,
+      authorizationType: apigateway.AuthorizationType.CUSTOM,
+      authorizer: ownerAuthorizer,
     });
     ownerOrganizationById.addMethod("DELETE", adminIntegration, {
-      authorizationType: apigateway.AuthorizationType.COGNITO,
-      authorizer,
+      authorizationType: apigateway.AuthorizationType.CUSTOM,
+      authorizer: ownerAuthorizer,
     });
 
     // Owner access request (submit request to be added to an organization)
     const ownerAccessRequest = owner.addResource("access-request");
     ownerAccessRequest.addMethod("GET", adminIntegration, {
-      authorizationType: apigateway.AuthorizationType.COGNITO,
-      authorizer,
+      authorizationType: apigateway.AuthorizationType.CUSTOM,
+      authorizer: ownerAuthorizer,
     });
     ownerAccessRequest.addMethod("POST", adminIntegration, {
-      authorizationType: apigateway.AuthorizationType.COGNITO,
-      authorizer,
+      authorizationType: apigateway.AuthorizationType.CUSTOM,
+      authorizer: ownerAuthorizer,
     });
 
     // ---------------------------------------------------------------------
