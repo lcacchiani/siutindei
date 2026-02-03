@@ -1182,11 +1182,26 @@ def _handle_list_cognito_users(event: Mapping[str, Any]) -> dict[str, Any]:
             "Invalid pagination token", field="pagination_token"
         ) from e
 
-    # Extract user data
+    # Extract user data and fetch groups for each user
     users = []
     for user in response.get("Users", []):
         user_data = _serialize_cognito_user(user)
         if user_data:
+            # Fetch groups for this user
+            username = user.get("Username")
+            if username:
+                try:
+                    groups_response = client.admin_list_groups_for_user(
+                        UserPoolId=user_pool_id,
+                        Username=username,
+                    )
+                    user_data["groups"] = [
+                        g["GroupName"] for g in groups_response.get("Groups", [])
+                    ]
+                except Exception:
+                    user_data["groups"] = []
+            else:
+                user_data["groups"] = []
             users.append(user_data)
 
     result: dict[str, Any] = {"items": users}

@@ -14,6 +14,7 @@ import {
   SchedulesPanel,
 } from '../shared';
 import { AccessRequestsPanel } from './access-requests-panel';
+import { CognitoUsersPanel } from './cognito-users-panel';
 import { MediaPanel } from './media-panel';
 import { OwnerDashboard } from './owner-dashboard';
 
@@ -24,7 +25,8 @@ const sectionLabels = [
   { key: 'activities', label: 'Activities' },
   { key: 'pricing', label: 'Pricing' },
   { key: 'schedules', label: 'Schedules' },
-  { key: 'access-requests', label: 'Access Requests' },
+  { key: 'access-requests', label: 'Access Requests', dividerBefore: true },
+  { key: 'cognito-users', label: 'Cognito Users' },
 ];
 
 export function AdminDashboard() {
@@ -45,6 +47,8 @@ export function AdminDashboard() {
         return <SchedulesPanel mode='admin' />;
       case 'access-requests':
         return <AccessRequestsPanel />;
+      case 'cognito-users':
+        return <CognitoUsersPanel />;
       case 'organizations':
       default:
         return <OrganizationsPanel mode='admin' />;

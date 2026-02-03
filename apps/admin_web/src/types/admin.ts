@@ -20,6 +20,7 @@ export interface CognitoUser {
   enabled?: boolean;
   created_at?: string | null;
   updated_at?: string | null;
+  groups?: string[];
 }
 
 export interface Location {
