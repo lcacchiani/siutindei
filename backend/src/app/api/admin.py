@@ -565,13 +565,19 @@ def _create_organization(
 ) -> Organization:
     """Create an organization."""
 
-    name = body.get("name")
-    if not name:
-        raise ValidationError("name is required", field="name")
+    name = _validate_string_length(
+        body.get("name"), "name", MAX_NAME_LENGTH, required=True
+    )
+    description = _validate_string_length(
+        body.get("description"), "description", MAX_DESCRIPTION_LENGTH
+    )
     picture_urls = _parse_picture_urls(body.get("picture_urls"))
+    if picture_urls:
+        picture_urls = _validate_picture_urls(picture_urls)
+
     return Organization(
         name=name,
-        description=body.get("description"),
+        description=description,
         picture_urls=picture_urls,
     )
 
@@ -584,11 +590,19 @@ def _update_organization(
     """Update an organization."""
 
     if "name" in body:
-        entity.name = body["name"]
+        name = _validate_string_length(
+            body["name"], "name", MAX_NAME_LENGTH, required=True
+        )
+        entity.name = name
     if "description" in body:
-        entity.description = body["description"]
+        entity.description = _validate_string_length(
+            body["description"], "description", MAX_DESCRIPTION_LENGTH
+        )
     if "picture_urls" in body:
-        entity.picture_urls = _parse_picture_urls(body["picture_urls"])
+        picture_urls = _parse_picture_urls(body["picture_urls"])
+        if picture_urls:
+            picture_urls = _validate_picture_urls(picture_urls)
+        entity.picture_urls = picture_urls
     return entity
 
 
@@ -609,9 +623,15 @@ def _create_location(repo: LocationRepository, body: dict[str, Any]) -> Location
     """Create a location."""
 
     org_id = body.get("org_id")
-    district = body.get("district")
-    if not org_id or not district:
-        raise ValidationError("org_id and district are required")
+    if not org_id:
+        raise ValidationError("org_id is required", field="org_id")
+
+    district = _validate_string_length(
+        body.get("district"), "district", MAX_DISTRICT_LENGTH, required=True
+    )
+    address = _validate_string_length(
+        body.get("address"), "address", MAX_ADDRESS_LENGTH
+    )
 
     lat = body.get("lat")
     lng = body.get("lng")
@@ -620,7 +640,7 @@ def _create_location(repo: LocationRepository, body: dict[str, Any]) -> Location
     return Location(
         org_id=_parse_uuid(org_id),
         district=district,
-        address=body.get("address"),
+        address=address,
         lat=lat,
         lng=lng,
     )
@@ -634,9 +654,13 @@ def _update_location(
     """Update a location."""
 
     if "district" in body:
-        entity.district = body["district"]
+        entity.district = _validate_string_length(
+            body["district"], "district", MAX_DISTRICT_LENGTH, required=True
+        )
     if "address" in body:
-        entity.address = body["address"]
+        entity.address = _validate_string_length(
+            body["address"], "address", MAX_ADDRESS_LENGTH
+        )
 
     lat = body.get("lat", entity.lat) if "lat" in body else entity.lat
     lng = body.get("lng", entity.lng) if "lng" in body else entity.lng
@@ -696,11 +720,20 @@ def _create_activity(repo: ActivityRepository, body: dict[str, Any]) -> Activity
     """Create an activity."""
 
     org_id = body.get("org_id")
-    name = body.get("name")
+    if not org_id:
+        raise ValidationError("org_id is required", field="org_id")
+
+    name = _validate_string_length(
+        body.get("name"), "name", MAX_NAME_LENGTH, required=True
+    )
+    description = _validate_string_length(
+        body.get("description"), "description", MAX_DESCRIPTION_LENGTH
+    )
+
     age_min = body.get("age_min")
     age_max = body.get("age_max")
-    if not org_id or not name or age_min is None or age_max is None:
-        raise ValidationError("org_id, name, age_min, and age_max are required")
+    if age_min is None or age_max is None:
+        raise ValidationError("age_min and age_max are required")
 
     _validate_age_range(age_min, age_max)
     age_range = Range(int(age_min), int(age_max), bounds="[]")
@@ -708,7 +741,7 @@ def _create_activity(repo: ActivityRepository, body: dict[str, Any]) -> Activity
     return Activity(
         org_id=_parse_uuid(org_id),
         name=name,
-        description=body.get("description"),
+        description=description,
         age_range=age_range,
     )
 
@@ -721,9 +754,13 @@ def _update_activity(
     """Update an activity."""
 
     if "name" in body:
-        entity.name = body["name"]
+        entity.name = _validate_string_length(
+            body["name"], "name", MAX_NAME_LENGTH, required=True
+        )
     if "description" in body:
-        entity.description = body["description"]
+        entity.description = _validate_string_length(
+            body["description"], "description", MAX_DESCRIPTION_LENGTH
+        )
     if "age_min" in body or "age_max" in body:
         age_min = body.get("age_min")
         age_max = body.get("age_max")
@@ -792,6 +829,7 @@ def _create_pricing(
         )
 
     _validate_pricing_amount(amount)
+    currency = _validate_currency(body.get("currency") or "HKD")
 
     pricing_enum = PricingType(pricing_type)
     sessions_count = body.get("sessions_count")
@@ -807,7 +845,7 @@ def _create_pricing(
         location_id=_parse_uuid(location_id),
         pricing_type=pricing_enum,
         amount=Decimal(str(amount)),
-        currency=body.get("currency") or "HKD",
+        currency=currency,
         sessions_count=sessions_count,
     )
 
@@ -825,7 +863,7 @@ def _update_pricing(
         _validate_pricing_amount(body["amount"])
         entity.amount = Decimal(str(body["amount"]))
     if "currency" in body:
-        entity.currency = body["currency"]
+        entity.currency = _validate_currency(body["currency"])
     if "sessions_count" in body:
         if body["sessions_count"] is not None:
             _validate_sessions_count(body["sessions_count"])
@@ -869,6 +907,232 @@ def _validate_sessions_count(sessions_count: Any) -> None:
             "sessions_count must be greater than 0",
             field="sessions_count",
         )
+
+
+# --- Security validation functions ---
+
+# Maximum string lengths to prevent DoS attacks
+MAX_NAME_LENGTH = 200
+MAX_DESCRIPTION_LENGTH = 5000
+MAX_ADDRESS_LENGTH = 500
+MAX_DISTRICT_LENGTH = 100
+MAX_URL_LENGTH = 2048
+MAX_LANGUAGE_CODE_LENGTH = 10
+MAX_LANGUAGES_COUNT = 20
+MAX_PICTURE_URLS_COUNT = 20
+
+# Valid ISO 4217 currency codes (common ones)
+VALID_CURRENCIES = frozenset([
+    "HKD", "USD", "EUR", "GBP", "CNY", "JPY", "SGD", "AUD", "CAD", "CHF",
+    "NZD", "TWD", "KRW", "THB", "MYR", "PHP", "IDR", "INR", "VND",
+])
+
+# Valid ISO 639-1 language codes (common ones)
+VALID_LANGUAGE_CODES = frozenset([
+    "en", "zh", "ja", "ko", "fr", "de", "es", "pt", "it", "ru",
+    "ar", "hi", "th", "vi", "id", "ms", "tl", "nl", "pl", "tr",
+    "yue",  # Cantonese
+])
+
+
+def _validate_string_length(
+    value: Any,
+    field_name: str,
+    max_length: int,
+    required: bool = False,
+) -> Optional[str]:
+    """Validate and sanitize a string input.
+
+    Args:
+        value: The string value to validate.
+        field_name: Name of the field for error messages.
+        max_length: Maximum allowed length.
+        required: Whether the field is required.
+
+    Returns:
+        The sanitized string, or None if empty/None.
+
+    Raises:
+        ValidationError: If validation fails.
+    """
+    if value is None:
+        if required:
+            raise ValidationError(f"{field_name} is required", field=field_name)
+        return None
+
+    if not isinstance(value, str):
+        value = str(value)
+
+    # Strip whitespace
+    value = value.strip()
+
+    if not value:
+        if required:
+            raise ValidationError(f"{field_name} is required", field=field_name)
+        return None
+
+    if len(value) > max_length:
+        raise ValidationError(
+            f"{field_name} must be at most {max_length} characters",
+            field=field_name,
+        )
+
+    return value
+
+
+def _validate_url(url: str, field_name: str = "url") -> str:
+    """Validate a URL string.
+
+    Args:
+        url: The URL to validate.
+        field_name: Name of the field for error messages.
+
+    Returns:
+        The validated URL.
+
+    Raises:
+        ValidationError: If the URL is invalid.
+    """
+    if len(url) > MAX_URL_LENGTH:
+        raise ValidationError(
+            f"{field_name} must be at most {MAX_URL_LENGTH} characters",
+            field=field_name,
+        )
+
+    try:
+        parsed = urlparse(url)
+        if parsed.scheme not in ("http", "https"):
+            raise ValidationError(
+                f"{field_name} must use http or https scheme",
+                field=field_name,
+            )
+        if not parsed.netloc:
+            raise ValidationError(
+                f"{field_name} must have a valid domain",
+                field=field_name,
+            )
+    except Exception as e:
+        if isinstance(e, ValidationError):
+            raise
+        raise ValidationError(
+            f"{field_name} is not a valid URL",
+            field=field_name,
+        ) from e
+
+    return url
+
+
+def _validate_picture_urls(urls: list[str]) -> list[str]:
+    """Validate a list of picture URLs.
+
+    Args:
+        urls: List of URLs to validate.
+
+    Returns:
+        The validated list of URLs.
+
+    Raises:
+        ValidationError: If validation fails.
+    """
+    if len(urls) > MAX_PICTURE_URLS_COUNT:
+        raise ValidationError(
+            f"picture_urls cannot have more than {MAX_PICTURE_URLS_COUNT} items",
+            field="picture_urls",
+        )
+
+    validated = []
+    for i, url in enumerate(urls):
+        if url and url.strip():  # Skip empty or whitespace-only strings
+            validated.append(_validate_url(url.strip(), f"picture_urls[{i}]"))
+    return validated
+
+
+def _validate_currency(currency: str) -> str:
+    """Validate a currency code.
+
+    Args:
+        currency: The currency code to validate.
+
+    Returns:
+        The validated currency code (uppercase).
+
+    Raises:
+        ValidationError: If the currency is invalid.
+    """
+    if not currency:
+        return "HKD"  # Default
+
+    currency = currency.strip().upper()
+
+    if currency not in VALID_CURRENCIES:
+        raise ValidationError(
+            f"currency must be a valid ISO 4217 code (e.g., HKD, USD, EUR)",
+            field="currency",
+        )
+
+    return currency
+
+
+def _validate_language_code(code: str, field_name: str = "language") -> str:
+    """Validate a language code.
+
+    Args:
+        code: The language code to validate.
+        field_name: Name of the field for error messages.
+
+    Returns:
+        The validated language code (lowercase).
+
+    Raises:
+        ValidationError: If the language code is invalid.
+    """
+    if not code:
+        raise ValidationError(f"{field_name} cannot be empty", field=field_name)
+
+    code = code.strip().lower()
+
+    if len(code) > MAX_LANGUAGE_CODE_LENGTH:
+        raise ValidationError(
+            f"{field_name} must be at most {MAX_LANGUAGE_CODE_LENGTH} characters",
+            field=field_name,
+        )
+
+    if code not in VALID_LANGUAGE_CODES:
+        raise ValidationError(
+            f"{field_name} must be a valid ISO 639-1 language code (e.g., en, zh)",
+            field=field_name,
+        )
+
+    return code
+
+
+def _validate_languages(languages: list[str]) -> list[str]:
+    """Validate a list of language codes.
+
+    Args:
+        languages: List of language codes to validate.
+
+    Returns:
+        The validated list of language codes.
+
+    Raises:
+        ValidationError: If validation fails.
+    """
+    if len(languages) > MAX_LANGUAGES_COUNT:
+        raise ValidationError(
+            f"languages cannot have more than {MAX_LANGUAGES_COUNT} items",
+            field="languages",
+        )
+
+    validated = []
+    seen = set()
+    for i, lang in enumerate(languages):
+        if lang and lang.strip():  # Skip empty or whitespace-only strings
+            code = _validate_language_code(lang.strip(), f"languages[{i}]")
+            if code not in seen:
+                validated.append(code)
+                seen.add(code)
+    return validated
 
 
 def _serialize_pricing(entity: ActivityPricing) -> dict[str, Any]:
@@ -963,17 +1227,21 @@ def _serialize_schedule(entity: ActivitySchedule) -> dict[str, Any]:
 
 
 def _parse_languages(value: Any) -> list[str]:
-    """Parse languages from JSON."""
+    """Parse and validate languages from JSON."""
 
     if value is None:
         return []
     if isinstance(value, list):
-        return [str(item) for item in value]
-    if isinstance(value, str):
-        return [item.strip() for item in value.split(",") if item.strip()]
-    raise ValidationError(
-        "languages must be a list or comma-separated string", field="languages"
-    )
+        languages = [str(item) for item in value if item]
+    elif isinstance(value, str):
+        languages = [item.strip() for item in value.split(",") if item.strip()]
+    else:
+        raise ValidationError(
+            "languages must be a list or comma-separated string", field="languages"
+        )
+
+    # Validate the language codes
+    return _validate_languages(languages)
 
 
 def _parse_picture_urls(value: Any) -> list[str]:
