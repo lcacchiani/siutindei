@@ -456,36 +456,58 @@ def _parse_uuid(value: str) -> UUID:
 # --- Authorization ---
 
 
+def _get_authorizer_context(event: Mapping[str, Any]) -> dict[str, Any]:
+    """Extract authorizer context from the event.
+
+    Supports both:
+    - Lambda authorizers (context fields directly in authorizer)
+    - Cognito User Pool authorizers (claims nested under authorizer.claims)
+    """
+    authorizer = event.get("requestContext", {}).get("authorizer", {})
+
+    # Lambda authorizer puts context fields directly
+    if "groups" in authorizer or "userSub" in authorizer:
+        return {
+            "groups": authorizer.get("groups", ""),
+            "sub": authorizer.get("userSub", ""),
+            "email": authorizer.get("email", ""),
+        }
+
+    # Cognito User Pool authorizer nests under "claims"
+    claims = authorizer.get("claims", {})
+    return {
+        "groups": claims.get("cognito:groups", ""),
+        "sub": claims.get("sub", ""),
+        "email": claims.get("email", ""),
+    }
+
+
 def _is_admin(event: Mapping[str, Any]) -> bool:
     """Return True when request belongs to an admin user."""
-
-    claims = event.get("requestContext", {}).get("authorizer", {}).get("claims", {})
-    groups = claims.get("cognito:groups", "")
+    ctx = _get_authorizer_context(event)
+    groups = ctx.get("groups", "")
     admin_group = os.getenv("ADMIN_GROUP", "admin")
     return admin_group in groups.split(",") if groups else False
 
 
 def _is_owner(event: Mapping[str, Any]) -> bool:
     """Return True when request belongs to an owner user."""
-
-    claims = event.get("requestContext", {}).get("authorizer", {}).get("claims", {})
-    groups = claims.get("cognito:groups", "")
+    ctx = _get_authorizer_context(event)
+    groups = ctx.get("groups", "")
     owner_group = os.getenv("OWNER_GROUP", "owner")
     return owner_group in groups.split(",") if groups else False
 
 
 def _get_user_sub(event: Mapping[str, Any]) -> Optional[str]:
-    """Extract the user's Cognito sub (subject) from JWT claims."""
-
-    claims = event.get("requestContext", {}).get("authorizer", {}).get("claims", {})
-    return claims.get("sub")
+    """Extract the user's Cognito sub (subject) from authorizer context."""
+    ctx = _get_authorizer_context(event)
+    return ctx.get("sub") or None
 
 
 def _get_user_email(event: Mapping[str, Any]) -> Optional[str]:
-    """Extract the user's email from JWT claims."""
-
-    claims = event.get("requestContext", {}).get("authorizer", {}).get("claims", {})
-    return claims.get("email")
+    """Extract the user's email from authorizer context."""
+    ctx = _get_authorizer_context(event)
+    return ctx.get("email") or None
 
 
 def _get_owned_organization_ids(event: Mapping[str, Any]) -> set[str]:
