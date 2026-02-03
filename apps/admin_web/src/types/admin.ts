@@ -2,9 +2,24 @@ export interface Organization {
   id: string;
   name: string;
   description?: string | null;
+  owner_id: string;
   picture_urls?: string[];
   created_at?: string;
   updated_at?: string;
+}
+
+export interface CognitoUser {
+  sub: string;
+  email?: string | null;
+  email_verified?: boolean;
+  name?: string | null;
+  given_name?: string | null;
+  family_name?: string | null;
+  username?: string | null;
+  status?: string | null;
+  enabled?: boolean;
+  created_at?: string | null;
+  updated_at?: string | null;
 }
 
 export interface Location {

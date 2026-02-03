@@ -10,20 +10,23 @@ import {
   createResource,
   deleteOrganizationPicture,
   deleteResource,
+  listCognitoUsers,
   listResource,
   updateResource,
 } from '../../lib/api-client';
-import type { Organization } from '../../types/admin';
+import type { CognitoUser, Organization } from '../../types/admin';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
+import { Select } from '../ui/select';
 import { Textarea } from '../ui/textarea';
 import { StatusBanner } from '../status-banner';
 
 interface OrganizationFormState {
   name: string;
   description: string;
+  owner_id: string;
   picture_urls: string[];
 }
 
@@ -40,6 +43,17 @@ function imageLoader({ src }: ImageLoaderProps) {
 
 function isManagedPictureUrl(url: string) {
   return url.startsWith('http') && url.includes('amazonaws.com/');
+}
+
+function getOwnerDisplayName(
+  ownerId: string,
+  users: CognitoUser[]
+): string {
+  const user = users.find((u) => u.sub === ownerId);
+  if (!user) {
+    return ownerId.slice(0, 8) + '...';
+  }
+  return user.email || user.username || user.sub.slice(0, 8) + '...';
 }
 
 async function uploadPictureFile(
@@ -77,6 +91,7 @@ async function uploadPictureFile(
 const emptyForm: OrganizationFormState = {
   name: '',
   description: '',
+  owner_id: '',
   picture_urls: [],
 };
 
@@ -97,6 +112,8 @@ export function OrganizationsPanel() {
   const [uploadedPictureUrls, setUploadedPictureUrls] = useState<
     string[]
   >([]);
+  const [cognitoUsers, setCognitoUsers] = useState<CognitoUser[]>([]);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(true);
 
   const isPictureBusy = isSaving || isProcessingPictures;
 
@@ -123,8 +140,34 @@ export function OrganizationsPanel() {
     }
   };
 
+  const loadCognitoUsers = async () => {
+    setIsLoadingUsers(true);
+    try {
+      const allUsers: CognitoUser[] = [];
+      let paginationToken: string | undefined;
+
+      // Load all users (paginated)
+      do {
+        const response = await listCognitoUsers(paginationToken, 60);
+        allUsers.push(...response.items);
+        paginationToken = response.pagination_token ?? undefined;
+      } while (paginationToken);
+
+      setCognitoUsers(allUsers);
+    } catch (err) {
+      const message =
+        err instanceof ApiError
+          ? err.message
+          : 'Failed to load users for owner selection.';
+      setError(message);
+    } finally {
+      setIsLoadingUsers(false);
+    }
+  };
+
   useEffect(() => {
     loadItems();
+    loadCognitoUsers();
   }, []);
 
   const resetForm = () => {
@@ -200,6 +243,10 @@ export function OrganizationsPanel() {
       setError('Name is required.');
       return;
     }
+    if (!formState.owner_id) {
+      setError('Owner is required.');
+      return;
+    }
     if (isProcessingPictures) {
       setError('Please wait for picture processing to finish.');
       return;
@@ -211,6 +258,7 @@ export function OrganizationsPanel() {
       const payload = {
         name: formState.name.trim(),
         description: formState.description.trim() || null,
+        owner_id: formState.owner_id,
         picture_urls: pictureUrls,
       };
       if (editingId) {
@@ -248,6 +296,7 @@ export function OrganizationsPanel() {
     setFormState({
       name: item.name ?? '',
       description: item.description ?? '',
+      owner_id: item.owner_id ?? '',
       picture_urls: item.picture_urls ?? [],
     });
     setNewPictureUrl('');
@@ -400,6 +449,30 @@ export function OrganizationsPanel() {
               }
             />
           </div>
+          <div>
+            <Label htmlFor='org-owner'>Owner</Label>
+            <Select
+              id='org-owner'
+              value={formState.owner_id}
+              onChange={(event) =>
+                setFormState((prev) => ({
+                  ...prev,
+                  owner_id: event.target.value,
+                }))
+              }
+              disabled={isLoadingUsers}
+            >
+              <option value=''>
+                {isLoadingUsers ? 'Loading users...' : 'Select an owner'}
+              </option>
+              {cognitoUsers.map((user) => (
+                <option key={user.sub} value={user.sub}>
+                  {user.email || user.username || user.sub}
+                  {user.name ? ` (${user.name})` : ''}
+                </option>
+              ))}
+            </Select>
+          </div>
           <div className='md:col-span-2'>
             <Label htmlFor='org-description'>Description</Label>
             <Textarea
@@ -539,6 +612,7 @@ export function OrganizationsPanel() {
               <thead className='border-b border-slate-200 text-slate-500'>
                 <tr>
                   <th className='py-2'>Name</th>
+                  <th className='py-2'>Owner</th>
                   <th className='py-2'>Description</th>
                   <th className='py-2'>Pictures</th>
                   <th className='py-2 text-right'>Actions</th>
@@ -551,6 +625,9 @@ export function OrganizationsPanel() {
                     className='border-b border-slate-100'
                   >
                     <td className='py-2 font-medium'>{item.name}</td>
+                    <td className='py-2 text-slate-600'>
+                      {getOwnerDisplayName(item.owner_id, cognitoUsers)}
+                    </td>
                     <td className='py-2 text-slate-600'>
                       {item.description || '—'}
                     </td>

@@ -30,6 +30,11 @@ export interface OrganizationPictureDeleteRequest {
   object_key?: string;
 }
 
+export interface CognitoUsersResponse {
+  items: import('../types/admin').CognitoUser[];
+  pagination_token?: string | null;
+}
+
 export class ApiError extends Error {
   status: number;
   detail?: string;
@@ -172,4 +177,22 @@ export async function deleteOrganizationPicture(
     },
     body: JSON.stringify(payload),
   });
+}
+
+function buildCognitoUsersUrl() {
+  const base = getApiBaseUrl();
+  const normalized = base.endsWith('/') ? base : `${base}/`;
+  return new URL('v1/admin/cognito-users', normalized).toString();
+}
+
+export async function listCognitoUsers(
+  paginationToken?: string,
+  limit = 50
+): Promise<CognitoUsersResponse> {
+  const url = new URL(buildCognitoUsersUrl());
+  url.searchParams.set('limit', `${limit}`);
+  if (paginationToken) {
+    url.searchParams.set('pagination_token', paginationToken);
+  }
+  return request<CognitoUsersResponse>(url.toString());
 }
