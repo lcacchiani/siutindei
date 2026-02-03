@@ -43,6 +43,7 @@ from app.utils import (
 )
 from app.utils.logging import configure_logging, get_logger, set_request_context
 from app.utils.parsers import collect_query_params, first_param, parse_languages
+from app.utils.responses import get_cors_headers
 
 # Configure logging on module load
 configure_logging()
@@ -67,17 +68,17 @@ def lambda_handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
                 "has_more": response.next_cursor is not None,
             },
         )
-        return _create_response(200, response)
+        return _create_response(200, response, event)
     except (ValidationError, CursorError) as exc:
         logger.warning(f"Validation error: {exc.message}")
-        return json_response(exc.status_code, exc.to_dict())
+        return json_response(exc.status_code, exc.to_dict(), event=event)
     except ValueError as exc:
         logger.warning(f"Value error: {exc}")
-        return json_response(400, {"error": str(exc)})
+        return json_response(400, {"error": str(exc)}, event=event)
     except Exception as exc:  # pragma: no cover - safety net
         logger.exception("Unexpected error in activity search")
         return json_response(
-            500, {"error": "Internal server error", "detail": str(exc)}
+            500, {"error": "Internal server error", "detail": str(exc)}, event=event
         )
 
 
@@ -200,15 +201,23 @@ def _extract_age_bounds(age_range: Any) -> tuple[int | None, int | None]:
 
 
 def _create_response(
-    status_code: int, body: ActivitySearchResponseSchema
+    status_code: int,
+    body: ActivitySearchResponseSchema,
+    event: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Create a JSON API Gateway response for Pydantic models."""
 
     payload = body.model_dump() if hasattr(body, "model_dump") else body.dict()
 
+    headers = {
+        "Content-Type": "application/json",
+        "X-Content-Type-Options": "nosniff",
+    }
+    headers.update(get_cors_headers(event))
+
     return {
         "statusCode": status_code,
-        "headers": {"Content-Type": "application/json"},
+        "headers": headers,
         "body": json.dumps(payload, default=str),
     }
 

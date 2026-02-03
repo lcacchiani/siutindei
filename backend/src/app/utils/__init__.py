@@ -6,7 +6,7 @@ from app.utils.parsers import (
     parse_enum,
     parse_int,
 )
-from app.utils.responses import json_response
+from app.utils.responses import get_cors_headers, json_response
 from app.utils.validators import (
     sanitize_string,
     validate_email,
@@ -26,6 +26,7 @@ from app.utils.logging import (
 __all__ = [
     "clear_request_context",
     "configure_logging",
+    "get_cors_headers",
     "get_logger",
     "hash_for_correlation",
     "json_response",

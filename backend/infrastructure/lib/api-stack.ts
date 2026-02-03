@@ -1,4 +1,5 @@
 import * as cdk from "aws-cdk-lib";
+import * as acm from "aws-cdk-lib/aws-certificatemanager";
 import * as apigateway from "aws-cdk-lib/aws-apigateway";
 import * as cognito from "aws-cdk-lib/aws-cognito";
 import * as ec2 from "aws-cdk-lib/aws-ec2";
@@ -119,9 +120,9 @@ export class ApiStack extends cdk.Stack {
     const existingMigrationSecurityGroupId =
       process.env.EXISTING_MIGRATION_SECURITY_GROUP_ID;
     const existingOrgImagesLogBucketName =
-      process.env.EXISTING_ORG_IMAGES_LOG_BUCKET_NAME;
+      process.env.EXISTING_ORG_IMAGES_LOG_BUCKET_NAME?.trim() || undefined;
     const existingOrgImagesBucketName =
-      process.env.EXISTING_ORG_IMAGES_BUCKET_NAME;
+      process.env.EXISTING_ORG_IMAGES_BUCKET_NAME?.trim() || undefined;
     const manageDbSecurityGroupRules =
       !existingDbSecurityGroupId && !existingProxySecurityGroupId;
     const skipImmutableDbUpdates =
@@ -370,6 +371,33 @@ export class ApiStack extends cdk.Stack {
           "If true, deny requests when attestation is not configured (production mode). " +
           "If false, allow requests without attestation (development mode). " +
           "SECURITY: Must be 'true' in production.",
+      }
+    );
+
+    // ---------------------------------------------------------------------
+    // API Custom Domain Parameters (Optional)
+    // ---------------------------------------------------------------------
+    const apiCustomDomainName = new cdk.CfnParameter(
+      this,
+      "ApiCustomDomainName",
+      {
+        type: "String",
+        default: "",
+        description:
+          "Optional custom domain for the API (e.g., siutindei-api.lx-software.com). " +
+          "Leave empty to use the default API Gateway URL.",
+      }
+    );
+    const apiCustomDomainCertificateArn = new cdk.CfnParameter(
+      this,
+      "ApiCustomDomainCertificateArn",
+      {
+        type: "String",
+        default: "",
+        description:
+          "ACM certificate ARN for the API custom domain. " +
+          "For regional endpoints, must be in the same region as the API. " +
+          "For edge-optimized endpoints, must be in us-east-1.",
       }
     );
 
@@ -782,6 +810,7 @@ export class ApiStack extends cdk.Stack {
         DATABASE_USERNAME: "siutindei_app",
         DATABASE_PROXY_ENDPOINT: database.proxy.endpoint,
         DATABASE_IAM_AUTH: "true",
+        CORS_ALLOWED_ORIGINS: corsAllowedOrigins.join(","),
       },
     });
     database.grantAppUserSecretRead(searchFunction);
@@ -801,6 +830,7 @@ export class ApiStack extends cdk.Stack {
         ORGANIZATION_PICTURES_BUCKET: organizationImagesBucket.bucketName,
         ORGANIZATION_PICTURES_BASE_URL:
           `https://${organizationImagesBucket.bucketRegionalDomainName}`,
+        CORS_ALLOWED_ORIGINS: corsAllowedOrigins.join(","),
       },
     });
     database.grantAdminUserSecretRead(adminFunction);
@@ -1424,6 +1454,47 @@ export class ApiStack extends cdk.Stack {
     migrateResource.node.addDependency(database.cluster);
 
     // ---------------------------------------------------------------------
+    // API Custom Domain (Conditional)
+    // ---------------------------------------------------------------------
+    const useApiCustomDomain = new cdk.CfnCondition(this, "UseApiCustomDomain", {
+      expression: cdk.Fn.conditionAnd(
+        cdk.Fn.conditionNot(
+          cdk.Fn.conditionEquals(apiCustomDomainName.valueAsString, "")
+        ),
+        cdk.Fn.conditionNot(
+          cdk.Fn.conditionEquals(apiCustomDomainCertificateArn.valueAsString, "")
+        )
+      ),
+    });
+
+    // Import certificate for custom domain
+    const apiCertificate = acm.Certificate.fromCertificateArn(
+      this,
+      "ApiCertificate",
+      apiCustomDomainCertificateArn.valueAsString
+    );
+
+    // Create custom domain for API Gateway (Regional endpoint)
+    // Regional is preferred for APIs not requiring global edge caching
+    const apiDomain = new apigateway.DomainName(this, "ApiCustomDomain", {
+      domainName: apiCustomDomainName.valueAsString,
+      certificate: apiCertificate,
+      endpointType: apigateway.EndpointType.REGIONAL,
+      securityPolicy: apigateway.SecurityPolicy.TLS_1_2,
+    });
+    const apiDomainCfn = apiDomain.node.defaultChild as apigateway.CfnDomainName;
+    apiDomainCfn.cfnOptions.condition = useApiCustomDomain;
+
+    // Map the custom domain to the API stage
+    const apiMapping = new apigateway.BasePathMapping(this, "ApiBasePathMapping", {
+      domainName: apiDomain,
+      restApi: api,
+      stage: api.deploymentStage,
+    });
+    const apiMappingCfn = apiMapping.node.defaultChild as apigateway.CfnBasePathMapping;
+    apiMappingCfn.cfnOptions.condition = useApiCustomDomain;
+
+    // ---------------------------------------------------------------------
     // Outputs
     // ---------------------------------------------------------------------
     new cdk.CfnOutput(this, "ApiUrl", {
@@ -1464,6 +1535,30 @@ export class ApiStack extends cdk.Stack {
     );
     customAuthDomainOutput.condition = useCustomDomain;
 
+    // Output the API custom domain target for DNS configuration
+    const apiCustomDomainTarget = new cdk.CfnOutput(
+      this,
+      "ApiCustomDomainTarget",
+      {
+        value: apiDomain.domainNameAliasDomainName,
+        description:
+          "CNAME target for API custom domain. " +
+          "Create a CNAME record in Cloudflare pointing to this value " +
+          "(with Proxy disabled / grey cloud).",
+      }
+    );
+    apiCustomDomainTarget.condition = useApiCustomDomain;
+
+    const apiCustomDomainUrlOutput = new cdk.CfnOutput(
+      this,
+      "ApiCustomDomainUrl",
+      {
+        value: `https://${apiCustomDomainName.valueAsString}`,
+        description: "The custom domain URL for the API.",
+      }
+    );
+    apiCustomDomainUrlOutput.condition = useApiCustomDomain;
+
     // Apply Checkov suppressions to CDK-internal Lambda functions
     cdk.Aspects.of(this).add(new CdkInternalLambdaCheckovSuppression());
   }
@@ -1477,6 +1572,7 @@ function resolveCorsAllowedOrigins(scope: Construct): string[] {
     "http://localhost",
     "http://localhost:3000",
     "https://siutindei.lx-software.com",
+    "https://siutindei-api.lx-software.com",
   ];
   const contextOrigins = normalizeCorsOrigins(
     scope.node.tryGetContext("corsAllowedOrigins")

@@ -91,7 +91,7 @@ def lambda_handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
 
     if not _is_admin(event):
         logger.warning("Unauthorized admin access attempt")
-        return json_response(403, {"error": "Forbidden"})
+        return json_response(403, {"error": "Forbidden"}, event=event)
 
     method = event.get("httpMethod", "")
     path = event.get("path", "")
@@ -109,7 +109,7 @@ def lambda_handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
 
     config = _RESOURCE_CONFIG.get(resource)
     if not config:
-        return json_response(404, {"error": "Not found"})
+        return json_response(404, {"error": "Not found"}, event=event)
 
     try:
         if method == "GET":
@@ -120,19 +120,19 @@ def lambda_handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
             return _handle_put(event, config, resource_id)
         if method == "DELETE":
             return _handle_delete(event, config, resource_id)
-        return json_response(405, {"error": "Method not allowed"})
+        return json_response(405, {"error": "Method not allowed"}, event=event)
     except ValidationError as exc:
         logger.warning(f"Validation error: {exc.message}")
-        return json_response(exc.status_code, exc.to_dict())
+        return json_response(exc.status_code, exc.to_dict(), event=event)
     except NotFoundError as exc:
-        return json_response(exc.status_code, exc.to_dict())
+        return json_response(exc.status_code, exc.to_dict(), event=event)
     except ValueError as exc:
         logger.warning(f"Value error: {exc}")
-        return json_response(400, {"error": str(exc)})
+        return json_response(400, {"error": str(exc)}, event=event)
     except Exception as exc:  # pragma: no cover
         logger.exception("Unexpected error in admin handler")
         return json_response(
-            500, {"error": "Internal server error", "detail": str(exc)}
+            500, {"error": "Internal server error", "detail": str(exc)}, event=event
         )
 
 
@@ -154,7 +154,7 @@ def _handle_get(
             entity = repo.get_by_id(_parse_uuid(resource_id))
             if entity is None:
                 raise NotFoundError(config.name, resource_id)
-            return json_response(200, config.serializer(entity))
+            return json_response(200, config.serializer(entity), event=event)
 
         cursor = _parse_cursor(_query_param(event, "cursor"))
         rows = repo.get_all(limit=limit + 1, cursor=cursor)
@@ -168,6 +168,7 @@ def _handle_get(
                 "items": [config.serializer(row) for row in trimmed],
                 "next_cursor": next_cursor,
             },
+            event=event,
         )
 
 
@@ -182,7 +183,7 @@ def _handle_post(event: Mapping[str, Any], config: ResourceConfig) -> dict[str, 
         session.commit()
         session.refresh(entity)
         logger.info(f"Created {config.name}: {entity.id}")
-        return json_response(201, config.serializer(entity))
+        return json_response(201, config.serializer(entity), event=event)
 
 
 def _handle_put(
@@ -206,7 +207,7 @@ def _handle_put(
         session.commit()
         session.refresh(updated)
         logger.info(f"Updated {config.name}: {resource_id}")
-        return json_response(200, config.serializer(updated))
+        return json_response(200, config.serializer(updated), event=event)
 
 
 def _handle_delete(
@@ -227,7 +228,7 @@ def _handle_delete(
         repo.delete(entity)
         session.commit()
         logger.info(f"Deleted {config.name}: {resource_id}")
-        return json_response(204, {})
+        return json_response(204, {}, event=event)
 
 
 # --- Request parsing helpers ---
@@ -323,7 +324,7 @@ def _handle_user_group(
             GroupName=group_name,
         )
         logger.info(f"Added user {username} to group {group_name}")
-        return json_response(200, {"status": "added", "group": group_name})
+        return json_response(200, {"status": "added", "group": group_name}, event=event)
 
     if method == "DELETE":
         client.admin_remove_user_from_group(
@@ -332,9 +333,11 @@ def _handle_user_group(
             GroupName=group_name,
         )
         logger.info(f"Removed user {username} from group {group_name}")
-        return json_response(200, {"status": "removed", "group": group_name})
+        return json_response(
+            200, {"status": "removed", "group": group_name}, event=event
+        )
 
-    return json_response(405, {"error": "Method not allowed"})
+    return json_response(405, {"error": "Method not allowed"}, event=event)
 
 
 def _handle_organization_pictures(
@@ -353,7 +356,7 @@ def _handle_organization_pictures(
         return _handle_picture_upload(event, org_uuid)
     if method == "DELETE":
         return _handle_picture_delete(event, org_uuid)
-    return json_response(405, {"error": "Method not allowed"})
+    return json_response(405, {"error": "Method not allowed"}, event=event)
 
 
 def _handle_picture_upload(
@@ -403,6 +406,7 @@ def _handle_picture_upload(
             "object_key": object_key,
             "expires_in": 900,
         },
+        event=event,
     )
 
 
@@ -436,7 +440,7 @@ def _handle_picture_delete(
     client = boto3.client("s3")
     client.delete_object(Bucket=bucket, Key=key)
 
-    return json_response(204, {})
+    return json_response(204, {}, event=event)
 
 
 def _build_picture_key(organization_id: str, file_name: str) -> str:
