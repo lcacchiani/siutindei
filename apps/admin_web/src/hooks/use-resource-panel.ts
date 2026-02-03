@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import {
   ApiError,
@@ -48,7 +48,7 @@ export function useResourcePanel<T extends { id: string }, TForm>(
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formState, setFormState] = useState<TForm>(emptyForm);
 
-  const api = getResourceApi<T>(resource, mode);
+  const api = useMemo(() => getResourceApi<T>(resource, mode), [resource, mode]);
 
   const loadItems = useCallback(
     async (cursor?: string) => {
