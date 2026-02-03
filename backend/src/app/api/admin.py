@@ -592,7 +592,7 @@ def _handle_owner_access_request(
 
 
 def _generate_ticket_id(session: Session) -> str:
-    """Generate a unique progressive ticket ID in format R + 10 digits.
+    """Generate a unique progressive ticket ID in format R + 5 digits.
 
     Queries the database for the highest existing ticket number and
     increments it by 1. Thread-safe due to database unique constraint.
@@ -601,7 +601,7 @@ def _generate_ticket_id(session: Session) -> str:
         session: SQLAlchemy database session for querying existing tickets.
 
     Returns:
-        A new ticket ID like R0000000001, R0000000002, etc.
+        A new ticket ID like R00001, R00002, etc.
     """
     from sqlalchemy import text
 
@@ -617,7 +617,7 @@ def _generate_ticket_id(session: Session) -> str:
     # Start from 1 if no existing tickets, otherwise increment
     next_number = (result or 0) + 1
 
-    return f"R{next_number:010d}"
+    return f"R{next_number:05d}"
 
 
 def _serialize_access_request(

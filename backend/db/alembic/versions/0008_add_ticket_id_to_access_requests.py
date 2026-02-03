@@ -1,7 +1,7 @@
 """Add ticket_id to organization_access_requests.
 
-Each access request gets a unique progressive ticket ID in format R + 10 digits
-for tracking and reference in email communications (e.g., R0000000001).
+Each access request gets a unique progressive ticket ID in format R + 5 digits
+for tracking and reference in email communications (e.g., R00001).
 """
 
 from __future__ import annotations
@@ -27,7 +27,7 @@ def upgrade() -> None:
             "ticket_id",
             sa.Text(),
             nullable=True,
-            comment="Unique progressive ticket ID for tracking (format: R + 10 digits)",
+            comment="Unique progressive ticket ID for tracking (format: R + 5 digits)",
         ),
     )
 
@@ -50,8 +50,8 @@ def upgrade() -> None:
     rows = result.fetchall()
 
     for idx, row in enumerate(rows, start=1):
-        # Generate progressive ticket ID (R0000000001, R0000000002, etc.)
-        ticket_id = f"R{idx:010d}"
+        # Generate progressive ticket ID (R00001, R00002, etc.)
+        ticket_id = f"R{idx:05d}"
         connection.execute(
             sa.text(
                 "UPDATE organization_access_requests SET ticket_id = :ticket_id WHERE id = :id"
