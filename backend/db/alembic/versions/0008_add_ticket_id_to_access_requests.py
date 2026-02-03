@@ -13,7 +13,7 @@ from alembic import op
 import sqlalchemy as sa
 
 revision: str = "0008_add_ticket_id_to_access_requests"
-down_revision: Union[str, None] = "0007_add_organization_access_requests"
+down_revision: Union[str, None] = "0007_org_access_requests"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

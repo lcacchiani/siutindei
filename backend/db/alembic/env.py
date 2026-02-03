@@ -6,10 +6,31 @@ from logging.config import fileConfig
 from pathlib import Path
 
 from alembic import context
+from alembic.script import ScriptDirectory
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
 
 config = context.config
+
+# Alembic's version_num column is varchar(32) by default
+MAX_REVISION_LENGTH = 32
+
+
+def validate_revision_lengths() -> None:
+    """Ensure all revision IDs fit in alembic_version.version_num (varchar(32))."""
+    script_dir = ScriptDirectory.from_config(config)
+    violations = []
+    for script in script_dir.walk_revisions():
+        if len(script.revision) > MAX_REVISION_LENGTH:
+            violations.append(f"  {script.revision} ({len(script.revision)} chars)")
+    if violations:
+        raise RuntimeError(
+            f"Revision IDs must be ≤{MAX_REVISION_LENGTH} characters:\n"
+            + "\n".join(violations)
+        )
+
+
+validate_revision_lengths()
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)

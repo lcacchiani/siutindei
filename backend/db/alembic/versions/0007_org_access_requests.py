@@ -14,7 +14,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.dialects.postgresql import UUID
 
-revision: str = "0007_add_organization_access_requests"
+revision: str = "0007_org_access_requests"
 down_revision: Union[str, None] = "0006_rename_to_media_urls"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
