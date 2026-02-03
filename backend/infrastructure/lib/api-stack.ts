@@ -1410,6 +1410,19 @@ export class ApiStack extends cdk.Stack {
       authorizer,
     });
 
+    // Admin access requests management (for reviewing owner requests)
+    const accessRequests = admin.addResource("access-requests");
+    accessRequests.addMethod("GET", adminIntegration, {
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+      authorizer,
+    });
+
+    const accessRequestById = accessRequests.addResource("{id}");
+    accessRequestById.addMethod("PUT", adminIntegration, {
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+      authorizer,
+    });
+
     // Owner-specific routes (accessible by users in 'owner' group)
     const owner = admin.addResource("owner");
 

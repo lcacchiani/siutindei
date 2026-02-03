@@ -32,6 +32,13 @@ export function PendingRequestNotice({ request }: PendingRequestNoticeProps) {
         >
           <div className='space-y-4'>
             <div>
+              <dt className='text-sm font-medium text-slate-500'>Ticket ID</dt>
+              <dd className='mt-1 font-mono text-sm text-slate-900'>
+                {request.ticket_id}
+              </dd>
+            </div>
+
+            <div>
               <dt className='text-sm font-medium text-slate-500'>
                 Organization Name
               </dt>

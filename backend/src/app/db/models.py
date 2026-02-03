@@ -357,6 +357,12 @@ class OrganizationAccessRequest(Base):
         primary_key=True,
         server_default=text("gen_random_uuid()"),
     )
+    ticket_id: Mapped[str] = mapped_column(
+        Text(),
+        nullable=False,
+        unique=True,
+        comment="Unique ticket ID for tracking (format: HK + 10 digits)",
+    )
     requester_id: Mapped[str] = mapped_column(
         Text(),
         nullable=False,

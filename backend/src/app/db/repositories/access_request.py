@@ -98,3 +98,29 @@ class OrganizationAccessRequestRepository(BaseRepository[OrganizationAccessReque
             True if the user has a pending request, False otherwise.
         """
         return self.find_pending_by_requester(requester_id) is not None
+
+    def find_all(
+        self,
+        status: Optional[AccessRequestStatus] = None,
+        limit: int = 50,
+        cursor: Optional[UUID] = None,
+    ) -> Sequence[OrganizationAccessRequest]:
+        """Find all requests with optional status filter.
+
+        Args:
+            status: Optional status filter.
+            limit: Maximum results to return.
+            cursor: Optional cursor for pagination.
+
+        Returns:
+            Requests ordered by creation date (newest first).
+        """
+        query = select(OrganizationAccessRequest).order_by(
+            OrganizationAccessRequest.created_at.desc()
+        )
+        if status:
+            query = query.where(OrganizationAccessRequest.status == status)
+        if cursor:
+            query = query.where(OrganizationAccessRequest.id < cursor)
+        query = query.limit(limit)
+        return self._session.execute(query).scalars().all()

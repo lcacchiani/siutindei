@@ -115,6 +115,8 @@ def lambda_handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
         return _handle_organization_media(event, method, resource_id)
     if resource == "cognito-users" and method == "GET":
         return _handle_list_cognito_users(event)
+    if resource == "access-requests":
+        return _handle_admin_access_requests(event, method, resource_id)
 
     config = _RESOURCE_CONFIG.get(resource)
     if not config:
@@ -557,8 +559,12 @@ def _handle_owner_access_request(
                 required=False,
             )
 
+            # Generate a unique ticket ID
+            ticket_id = _generate_ticket_id()
+
             # Create the access request
             access_request = OrganizationAccessRequest(
+                ticket_id=ticket_id,
                 requester_id=user_sub,
                 requester_email=user_email or "unknown",
                 organization_name=organization_name,
@@ -585,6 +591,24 @@ def _handle_owner_access_request(
     return json_response(405, {"error": "Method not allowed"}, event=event)
 
 
+def _generate_ticket_id() -> str:
+    """Generate a unique ticket ID in format HK + 10 digits.
+
+    Uses timestamp in milliseconds combined with a random component
+    to ensure uniqueness.
+    """
+    import time
+    import random
+
+    # Get current timestamp in milliseconds
+    timestamp_ms = int(time.time() * 1000)
+    # Add random component to ensure uniqueness even for rapid requests
+    random_part = random.randint(0, 9999)
+    # Combine and format as 10-digit number
+    ticket_number = (timestamp_ms % 10000000000) + random_part
+    return f"HK{ticket_number:010d}"
+
+
 def _serialize_access_request(
     request: Optional[OrganizationAccessRequest],
 ) -> Optional[dict[str, Any]]:
@@ -593,10 +617,15 @@ def _serialize_access_request(
         return None
     return {
         "id": str(request.id),
+        "ticket_id": request.ticket_id,
         "organization_name": request.organization_name,
         "request_message": request.request_message,
         "status": request.status.value,
+        "requester_email": request.requester_email,
+        "requester_id": request.requester_id,
         "created_at": request.created_at.isoformat() if request.created_at else None,
+        "reviewed_at": request.reviewed_at.isoformat() if request.reviewed_at else None,
+        "reviewed_by": request.reviewed_by,
     }
 
 
@@ -618,12 +647,14 @@ def _send_access_request_email(request: OrganizationAccessRequest) -> None:
     try:
         ses_client = boto3.client("ses")
 
-        subject = f"New Organization Access Request: {request.organization_name}"
+        subject = f"[Siu Tin Dei] [{request.ticket_id}] New Access Request: {request.organization_name}"
         body_text = f"""
-New Organization Access Request
+[Siu Tin Dei] Access Request [{request.ticket_id}]
 
+A new organization access request has been submitted.
+
+Ticket ID: {request.ticket_id}
 Requester Email: {request.requester_email}
-Requester ID: {request.requester_id}
 Organization Name: {request.organization_name}
 Request Message: {request.request_message or 'No message provided'}
 Submitted At: {request.created_at.isoformat() if request.created_at else 'Unknown'}
@@ -634,15 +665,16 @@ Please review this request in the admin dashboard.
 <html>
 <head></head>
 <body>
-    <h2>New Organization Access Request</h2>
+    <h2>[Siu Tin Dei] Access Request</h2>
+    <p style="font-size: 14px; color: #666;">Ticket ID: <strong>{request.ticket_id}</strong></p>
     <table style="border-collapse: collapse; width: 100%; max-width: 600px;">
+        <tr>
+            <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Ticket ID</td>
+            <td style="padding: 8px; border: 1px solid #ddd;"><strong>{request.ticket_id}</strong></td>
+        </tr>
         <tr>
             <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Requester Email</td>
             <td style="padding: 8px; border: 1px solid #ddd;">{request.requester_email}</td>
-        </tr>
-        <tr>
-            <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Requester ID</td>
-            <td style="padding: 8px; border: 1px solid #ddd;">{request.requester_id}</td>
         </tr>
         <tr>
             <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Organization Name</td>
@@ -677,6 +709,263 @@ Please review this request in the admin dashboard.
     except Exception as exc:
         # Don't fail the request if email fails
         logger.error(f"Failed to send access request email: {exc}")
+
+
+# --- Admin access request management ---
+
+
+def _handle_admin_access_requests(
+    event: Mapping[str, Any],
+    method: str,
+    request_id: Optional[str],
+) -> dict[str, Any]:
+    """Handle admin access request management.
+
+    GET: List all access requests (optionally filtered by status)
+    PUT /{id}: Approve or reject an access request
+    """
+    try:
+        if method == "GET":
+            return _handle_list_access_requests(event)
+        if method == "PUT" and request_id:
+            return _handle_review_access_request(event, request_id)
+        return json_response(405, {"error": "Method not allowed"}, event=event)
+    except ValidationError as exc:
+        logger.warning(f"Validation error: {exc.message}")
+        return json_response(exc.status_code, exc.to_dict(), event=event)
+    except NotFoundError as exc:
+        return json_response(exc.status_code, exc.to_dict(), event=event)
+    except Exception as exc:
+        logger.exception("Unexpected error in admin access requests handler")
+        return json_response(
+            500, {"error": "Internal server error", "detail": str(exc)}, event=event
+        )
+
+
+def _handle_list_access_requests(event: Mapping[str, Any]) -> dict[str, Any]:
+    """List all access requests for admin review."""
+    from app.db.models import AccessRequestStatus
+
+    limit = parse_int(_query_param(event, "limit")) or 50
+    if limit < 1 or limit > 200:
+        raise ValidationError("limit must be between 1 and 200", field="limit")
+
+    status_filter = _query_param(event, "status")
+    status = None
+    if status_filter:
+        try:
+            status = AccessRequestStatus(status_filter)
+        except ValueError:
+            raise ValidationError(
+                f"Invalid status: {status_filter}. Must be pending, approved, or rejected",
+                field="status",
+            )
+
+    with Session(get_engine()) as session:
+        repo = OrganizationAccessRequestRepository(session)
+        cursor = _parse_cursor(_query_param(event, "cursor"))
+        rows = repo.find_all(status=status, limit=limit + 1, cursor=cursor)
+        has_more = len(rows) > limit
+        trimmed = list(rows)[:limit]
+        next_cursor = _encode_cursor(trimmed[-1].id) if has_more and trimmed else None
+
+        return json_response(
+            200,
+            {
+                "items": [_serialize_access_request(row) for row in trimmed],
+                "next_cursor": next_cursor,
+            },
+            event=event,
+        )
+
+
+def _handle_review_access_request(
+    event: Mapping[str, Any],
+    request_id: str,
+) -> dict[str, Any]:
+    """Approve or reject an access request."""
+    from datetime import datetime, timezone
+    from app.db.models import AccessRequestStatus
+
+    body = _parse_body(event)
+    action = body.get("action")
+    admin_message = body.get("message", "")
+
+    if action not in ("approve", "reject"):
+        raise ValidationError(
+            "action must be 'approve' or 'reject'",
+            field="action",
+        )
+
+    reviewer_sub = _get_user_sub(event)
+    if not reviewer_sub:
+        return json_response(401, {"error": "User identity not found"}, event=event)
+
+    with Session(get_engine()) as session:
+        repo = OrganizationAccessRequestRepository(session)
+        request = repo.get_by_id(_parse_uuid(request_id))
+
+        if request is None:
+            raise NotFoundError("access_request", request_id)
+
+        if request.status != AccessRequestStatus.PENDING:
+            return json_response(
+                409,
+                {"error": f"Request has already been {request.status.value}"},
+                event=event,
+            )
+
+        # Update the request status
+        new_status = (
+            AccessRequestStatus.APPROVED
+            if action == "approve"
+            else AccessRequestStatus.REJECTED
+        )
+        request.status = new_status
+        request.reviewed_at = datetime.now(timezone.utc)
+        request.reviewed_by = reviewer_sub
+
+        repo.update(request)
+        session.commit()
+        session.refresh(request)
+
+        logger.info(f"Access request {request_id} {action}d by {reviewer_sub}")
+
+        # Send notification email to the requester
+        _send_request_decision_email(request, action, admin_message)
+
+        return json_response(
+            200,
+            {
+                "message": f"Request has been {action}d",
+                "request": _serialize_access_request(request),
+            },
+            event=event,
+        )
+
+
+def _send_request_decision_email(
+    request: OrganizationAccessRequest,
+    action: str,
+    admin_message: str,
+) -> None:
+    """Send email notification to requester about their request decision.
+
+    Args:
+        request: The access request that was reviewed.
+        action: Either 'approve' or 'reject'.
+        admin_message: Optional message from the admin.
+    """
+    sender_email = os.getenv("SES_SENDER_EMAIL")
+
+    if not sender_email:
+        logger.warning("Email notification skipped: SES_SENDER_EMAIL not configured")
+        return
+
+    if not request.requester_email or request.requester_email == "unknown":
+        logger.warning(
+            f"Email notification skipped: No valid email for request {request.ticket_id}"
+        )
+        return
+
+    try:
+        ses_client = boto3.client("ses")
+
+        if action == "approve":
+            subject = f"[Siu Tin Dei] [{request.ticket_id}] Your Access Request Has Been Approved"
+            status_text = "APPROVED"
+            status_color = "#28a745"
+            status_message = (
+                "Congratulations! Your organization access request has been approved. "
+                "You can now log in to the admin system and manage your organization."
+            )
+        else:
+            subject = f"[Siu Tin Dei] [{request.ticket_id}] Your Access Request Has Been Declined"
+            status_text = "DECLINED"
+            status_color = "#dc3545"
+            status_message = (
+                "We regret to inform you that your organization access request has been declined. "
+                "If you believe this was a mistake, please contact support for more information."
+            )
+
+        admin_message_section = ""
+        if admin_message:
+            admin_message_section = f"""
+        <tr>
+            <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Admin Message</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">{admin_message}</td>
+        </tr>"""
+            admin_message_text = f"\nAdmin Message: {admin_message}"
+        else:
+            admin_message_text = ""
+
+        body_text = f"""
+[Siu Tin Dei] Access Request Update [{request.ticket_id}]
+
+Your organization access request has been reviewed.
+
+Status: {status_text}
+
+Ticket ID: {request.ticket_id}
+Organization Name: {request.organization_name}
+Reviewed At: {request.reviewed_at.isoformat() if request.reviewed_at else 'Unknown'}{admin_message_text}
+
+{status_message}
+
+If you have any questions, please contact support.
+"""
+        body_html = f"""
+<html>
+<head></head>
+<body>
+    <h2>[Siu Tin Dei] Access Request Update</h2>
+    <p style="font-size: 14px; color: #666;">Ticket ID: <strong>{request.ticket_id}</strong></p>
+
+    <div style="padding: 15px; background-color: {status_color}; color: white; text-align: center; margin: 20px 0; border-radius: 5px;">
+        <h3 style="margin: 0;">Request {status_text}</h3>
+    </div>
+
+    <table style="border-collapse: collapse; width: 100%; max-width: 600px;">
+        <tr>
+            <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Ticket ID</td>
+            <td style="padding: 8px; border: 1px solid #ddd;"><strong>{request.ticket_id}</strong></td>
+        </tr>
+        <tr>
+            <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Organization Name</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">{request.organization_name}</td>
+        </tr>
+        <tr>
+            <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Reviewed At</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">{request.reviewed_at.isoformat() if request.reviewed_at else 'Unknown'}</td>
+        </tr>{admin_message_section}
+    </table>
+
+    <p style="margin-top: 20px;">{status_message}</p>
+
+    <p style="margin-top: 20px; font-size: 12px; color: #666;">
+        If you have any questions, please contact support.
+    </p>
+</body>
+</html>
+"""
+
+        ses_client.send_email(
+            Source=sender_email,
+            Destination={"ToAddresses": [request.requester_email]},
+            Message={
+                "Subject": {"Data": subject, "Charset": "UTF-8"},
+                "Body": {
+                    "Text": {"Data": body_text, "Charset": "UTF-8"},
+                    "Html": {"Data": body_html, "Charset": "UTF-8"},
+                },
+            },
+        )
+        logger.info(
+            f"Request decision email sent to {request.requester_email} for {request.ticket_id}"
+        )
+    except Exception as exc:
+        # Don't fail the request if email fails
+        logger.error(f"Failed to send request decision email: {exc}")
 
 
 # --- User group management ---

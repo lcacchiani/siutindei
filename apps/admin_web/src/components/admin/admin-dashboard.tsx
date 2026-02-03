@@ -6,6 +6,7 @@ import { AppShell } from '../app-shell';
 import { useAuth } from '../auth-provider';
 import { LoginScreen } from '../login-screen';
 import { StatusBanner } from '../status-banner';
+import { AccessRequestsPanel } from './access-requests-panel';
 import { ActivitiesPanel } from './activities-panel';
 import { LocationsPanel } from './locations-panel';
 import { OrganizationsPanel } from './organizations-panel';
@@ -21,6 +22,7 @@ const sectionLabels = [
   { key: 'activities', label: 'Activities' },
   { key: 'pricing', label: 'Pricing' },
   { key: 'schedules', label: 'Schedules' },
+  { key: 'access-requests', label: 'Access Requests' },
 ];
 
 export function AdminDashboard() {
@@ -39,6 +41,8 @@ export function AdminDashboard() {
         return <PricingPanel />;
       case 'schedules':
         return <SchedulesPanel />;
+      case 'access-requests':
+        return <AccessRequestsPanel />;
       case 'organizations':
       default:
         return <OrganizationsPanel />;
