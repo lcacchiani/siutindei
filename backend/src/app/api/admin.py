@@ -93,18 +93,25 @@ def lambda_handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
 
     method = event.get("httpMethod", "")
     path = event.get("path", "")
-    resource, resource_id, sub_resource = _parse_path(path)
+    base_path, resource, resource_id, sub_resource = _parse_path(path)
 
     logger.info(
         f"Admin request: {method} {path}",
-        extra={"resource": resource, "resource_id": resource_id},
+        extra={
+            "base_path": base_path,
+            "resource": resource,
+            "resource_id": resource_id,
+        },
     )
 
-    # Handle owner-specific routes (for users in 'owner' group but not 'admin')
-    if resource == "owner":
-        return _handle_owner_routes(event, method, resource_id, sub_resource)
+    # Handle /v1/owner/... routes (for users in 'owner' or 'admin' group)
+    if base_path == "owner":
+        return _handle_owner_routes(event, method, resource, resource_id)
 
-    # All other routes require admin access
+    # All /v1/admin/... routes require admin access
+    if base_path != "admin":
+        return json_response(404, {"error": "Not found"}, event=event)
+
     if not _is_admin(event):
         logger.warning("Unauthorized admin access attempt")
         return json_response(403, {"error": "Forbidden"}, event=event)
@@ -256,17 +263,40 @@ def _parse_body(event: Mapping[str, Any]) -> dict[str, Any]:
     return json.loads(raw)
 
 
-def _parse_path(path: str) -> Tuple[str, Optional[str], Optional[str]]:
-    """Parse resource name and id from the request path."""
+def _parse_path(
+    path: str,
+) -> Tuple[str, str, Optional[str], Optional[str]]:
+    """Parse base path, resource name, and id from the request path.
 
+    Returns:
+        Tuple of (base_path, resource, resource_id, sub_resource)
+        base_path is either "admin" or "owner"
+    """
     parts = [segment for segment in path.split("/") if segment]
     parts = _strip_version_prefix(parts)
-    if len(parts) < 2 or parts[0] != "admin":
-        return "", None, None
-    resource = parts[1]
-    resource_id = parts[2] if len(parts) > 2 else None
-    sub_resource = parts[3] if len(parts) > 3 else None
-    return resource, resource_id, sub_resource
+
+    if not parts:
+        return "", "", None, None
+
+    base_path = parts[0]
+
+    # Handle /v1/admin/... paths
+    if base_path == "admin":
+        if len(parts) < 2:
+            return base_path, "", None, None
+        resource = parts[1]
+        resource_id = parts[2] if len(parts) > 2 else None
+        sub_resource = parts[3] if len(parts) > 3 else None
+        return base_path, resource, resource_id, sub_resource
+
+    # Handle /v1/owner/... paths
+    if base_path == "owner":
+        resource = parts[1] if len(parts) > 1 else ""
+        resource_id = parts[2] if len(parts) > 2 else None
+        sub_resource = parts[3] if len(parts) > 3 else None
+        return base_path, resource, resource_id, sub_resource
+
+    return "", "", None, None
 
 
 def _strip_version_prefix(parts: list[str]) -> list[str]:
@@ -340,18 +370,18 @@ def _get_user_email(event: Mapping[str, Any]) -> Optional[str]:
 def _handle_owner_routes(
     event: Mapping[str, Any],
     method: str,
+    resource: str,
     resource_id: Optional[str],
-    sub_resource: Optional[str],
 ) -> dict[str, Any]:
     """Handle routes accessible to users in the 'owner' group.
 
     Owner routes:
-        GET /admin/owner/organizations - List organizations owned by the user
-        GET /admin/owner/organizations/{id} - Get specific organization (if owned)
-        PUT /admin/owner/organizations/{id} - Update organization (if owned)
-        DELETE /admin/owner/organizations/{id} - Delete organization (if owned)
-        GET /admin/owner/access-request - Check if user has a pending request
-        POST /admin/owner/access-request - Submit a new access request
+        GET /v1/owner/organizations - List organizations owned by the user
+        GET /v1/owner/organizations/{id} - Get specific organization (if owned)
+        PUT /v1/owner/organizations/{id} - Update organization (if owned)
+        DELETE /v1/owner/organizations/{id} - Delete organization (if owned)
+        GET /v1/owner/access-request - Check if user has a pending request
+        POST /v1/owner/access-request - Submit a new access request
     """
     # Check if user is in owner group (or admin group - admins can do everything)
     if not _is_owner(event) and not _is_admin(event):
@@ -359,9 +389,9 @@ def _handle_owner_routes(
         return json_response(403, {"error": "Forbidden"}, event=event)
 
     try:
-        if resource_id == "organizations":
-            return _handle_owner_organizations(event, method, sub_resource)
-        if resource_id == "access-request":
+        if resource == "organizations":
+            return _handle_owner_organizations(event, method, resource_id)
+        if resource == "access-request":
             return _handle_owner_access_request(event, method)
         return json_response(404, {"error": "Not found"}, event=event)
     except ValidationError as exc:

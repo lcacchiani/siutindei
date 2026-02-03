@@ -231,9 +231,7 @@ export interface SubmitAccessRequestResponse {
 function buildOwnerUrl(resource: string, id?: string) {
   const base = getApiBaseUrl();
   const normalized = base.endsWith('/') ? base : `${base}/`;
-  const suffix = id
-    ? `v1/admin/owner/${resource}/${id}`
-    : `v1/admin/owner/${resource}`;
+  const suffix = id ? `v1/owner/${resource}/${id}` : `v1/owner/${resource}`;
   return new URL(suffix, normalized).toString();
 }
 

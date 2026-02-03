@@ -1461,8 +1461,8 @@ export class ApiStack extends cdk.Stack {
       authorizer: adminAuthorizer,
     });
 
-    // Owner-specific routes (accessible by users in 'admin' OR 'owner' group)
-    const owner = admin.addResource("owner");
+    // Owner-specific routes at /v1/owner (accessible by users in 'admin' OR 'owner' group)
+    const owner = v1.addResource("owner");
 
     // Owner organizations (list/update/delete their own organizations)
     const ownerOrganizations = owner.addResource("organizations");
