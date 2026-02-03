@@ -303,7 +303,6 @@ export function OrganizationsPanel() {
                   <th className='py-2'>Name</th>
                   <th className='py-2'>Owner</th>
                   <th className='py-2'>Description</th>
-                  <th className='py-2'>Pictures</th>
                   <th className='py-2 text-right'>Actions</th>
                 </tr>
               </thead>
@@ -319,11 +318,6 @@ export function OrganizationsPanel() {
                     </td>
                     <td className='py-2 text-slate-600'>
                       {item.description || '—'}
-                    </td>
-                    <td className='py-2 text-slate-600'>
-                      {item.picture_urls?.length
-                        ? `${item.picture_urls.length} total`
-                        : '—'}
                     </td>
                     <td className='py-2 text-right'>
                       <div className='flex justify-end gap-2'>
