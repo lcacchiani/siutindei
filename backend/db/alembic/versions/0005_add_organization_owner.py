@@ -112,7 +112,9 @@ def upgrade() -> None:
 
         # Update existing organizations to use the fallback owner
         connection.execute(
-            sa.text("UPDATE organizations SET owner_id = :owner_id WHERE owner_id IS NULL"),
+            sa.text(
+                "UPDATE organizations SET owner_id = :owner_id WHERE owner_id IS NULL"
+            ),
             {"owner_id": fallback_owner_sub},
         )
 
