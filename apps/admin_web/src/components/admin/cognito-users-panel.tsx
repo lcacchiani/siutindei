@@ -13,6 +13,7 @@ import type { CognitoUser } from '../../types/admin';
 import { useAuth } from '../auth-provider';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
+import { SearchInput } from '../ui/search-input';
 import { StatusBanner } from '../status-banner';
 
 function RoleBadge({
@@ -64,6 +65,9 @@ export function CognitoUsersPanel() {
   const [error, setError] = useState('');
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [actionError, setActionError] = useState('');
+
+  // Search state
+  const [searchQuery, setSearchQuery] = useState('');
 
   const loadUsers = async (token?: string, reset = false) => {
     setIsLoading(true);
@@ -147,6 +151,20 @@ export function CognitoUsersPanel() {
     });
   };
 
+  // Filter users based on search query
+  const filteredUsers = users.filter((cognitoUser) => {
+    if (!searchQuery.trim()) return true;
+    const query = searchQuery.toLowerCase();
+    const groupsStr = cognitoUser.groups?.join(', ')?.toLowerCase() || '';
+    return (
+      cognitoUser.email?.toLowerCase().includes(query) ||
+      cognitoUser.username?.toLowerCase().includes(query) ||
+      cognitoUser.name?.toLowerCase().includes(query) ||
+      cognitoUser.status?.toLowerCase().includes(query) ||
+      groupsStr.includes(query)
+    );
+  });
+
   return (
     <div className='space-y-6'>
       <Card
@@ -174,7 +192,18 @@ export function CognitoUsersPanel() {
         ) : users.length === 0 ? (
           <p className='text-sm text-slate-600'>No users found.</p>
         ) : (
-          <div className='overflow-x-auto'>
+          <div className='space-y-4'>
+            <div className='max-w-sm'>
+              <SearchInput
+                placeholder='Search users...'
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+            {filteredUsers.length === 0 ? (
+              <p className='text-sm text-slate-600'>No users match your search.</p>
+            ) : (
+            <div className='overflow-x-auto'>
             <table className='w-full text-left text-sm'>
               <thead className='border-b border-slate-200 text-slate-500'>
                 <tr>
@@ -186,7 +215,7 @@ export function CognitoUsersPanel() {
                 </tr>
               </thead>
               <tbody>
-                {users.map((cognitoUser) => {
+                {filteredUsers.map((cognitoUser) => {
                   const hasAdminRole = cognitoUser.groups?.includes('admin') || false;
                   const hasOwnerRole = cognitoUser.groups?.includes('owner') || false;
                   const isCurrent = isCurrentUser(cognitoUser);
@@ -278,6 +307,8 @@ export function CognitoUsersPanel() {
                   {isLoading ? 'Loading...' : 'Load more'}
                 </Button>
               </div>
+            )}
+            </div>
             )}
           </div>
         )}

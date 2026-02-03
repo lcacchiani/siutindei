@@ -10,6 +10,7 @@ import {
 } from '../../lib/api-client';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
+import { SearchInput } from '../ui/search-input';
 import { Select } from '../ui/select';
 import { Textarea } from '../ui/textarea';
 import { Label } from '../ui/label';
@@ -155,6 +156,9 @@ export function AccessRequestsPanel() {
     null
   );
 
+  // Search state
+  const [searchQuery, setSearchQuery] = useState('');
+
   const loadItems = async (cursor?: string, reset = false) => {
     setIsLoading(true);
     setError('');
@@ -202,6 +206,18 @@ export function AccessRequestsPanel() {
     });
   };
 
+  // Filter items based on search query
+  const filteredItems = items.filter((item) => {
+    if (!searchQuery.trim()) return true;
+    const query = searchQuery.toLowerCase();
+    return (
+      item.ticket_id?.toLowerCase().includes(query) ||
+      item.organization_name?.toLowerCase().includes(query) ||
+      item.requester_email?.toLowerCase().includes(query) ||
+      item.status?.toLowerCase().includes(query)
+    );
+  });
+
   return (
     <div className='space-y-6'>
       <Card
@@ -238,7 +254,18 @@ export function AccessRequestsPanel() {
             found.
           </p>
         ) : (
-          <div className='overflow-x-auto'>
+          <div className='space-y-4'>
+            <div className='max-w-sm'>
+              <SearchInput
+                placeholder='Search requests...'
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+            {filteredItems.length === 0 ? (
+              <p className='text-sm text-slate-600'>No requests match your search.</p>
+            ) : (
+            <div className='overflow-x-auto'>
             <table className='w-full text-left text-sm'>
               <thead className='border-b border-slate-200 text-slate-500'>
                 <tr>
@@ -251,7 +278,7 @@ export function AccessRequestsPanel() {
                 </tr>
               </thead>
               <tbody>
-                {items.map((item) => (
+                {filteredItems.map((item) => (
                   <tr key={item.id} className='border-b border-slate-100'>
                     <td className='py-2 font-mono text-xs'>{item.ticket_id}</td>
                     <td className='py-2 font-medium'>
@@ -298,6 +325,8 @@ export function AccessRequestsPanel() {
                   {isLoading ? 'Loading...' : 'Load more'}
                 </Button>
               </div>
+            )}
+            </div>
             )}
           </div>
         )}
