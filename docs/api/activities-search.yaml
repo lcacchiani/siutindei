@@ -2,11 +2,43 @@ openapi: 3.0.3
 info:
   title: Activities Search API
   version: 0.1.0
-  description: Search activities with filters for age, district, price, time, and language.
+  description: |
+    Search activities with filters for age, district, price, time, and language.
+    
+    ## Filter Validation Rules
+    
+    ### Numeric Ranges
+    | Parameter | Range | Description |
+    |-----------|-------|-------------|
+    | age | >= 0 | Child's age to filter activities |
+    | price_min | >= 0 | Minimum price filter |
+    | price_max | >= 0 | Maximum price filter |
+    | day_of_week_utc | 0-6 | Day of week (0=Sunday, 6=Saturday) |
+    | day_of_month | 1-31 | Day of month |
+    | start_minutes_utc | 0-1439 | Start time in minutes from midnight UTC |
+    | end_minutes_utc | 0-1439 | End time in minutes from midnight UTC |
+    | limit | 1-200 | Results per page (default 50) |
+    
+    ### Time Values
+    Minutes are expressed as offset from midnight UTC:
+    - 0 = 00:00 (midnight)
+    - 60 = 01:00
+    - 720 = 12:00 (noon)
+    - 1439 = 23:59
+    
+    ### Filter Combinations
+    - `day_of_week_utc` and `day_of_month` cannot be used together
+    - Date-specific filters (`start_at_utc`, `end_at_utc`) cannot be combined with weekly/monthly filters
+    - `start_minutes_utc` must be less than `end_minutes_utc` when both provided
+    - `start_at_utc` must be before `end_at_utc` when both provided
+
 paths:
   /v1/activities/search:
     get:
       summary: Search activities
+      description: |
+        Search for activities matching the specified filters.
+        Results are paginated and ordered by schedule time.
       security:
         - ApiKeyAuth: []
           DeviceAttestation: []
@@ -14,49 +46,69 @@ paths:
         - name: age
           in: query
           required: false
+          description: Filter activities suitable for this age (>= 0)
           schema:
             type: integer
             minimum: 0
         - name: district
           in: query
           required: false
+          description: Filter by district name (exact match)
           schema:
             type: string
         - name: pricing_type
           in: query
           required: false
+          description: |
+            Filter by pricing type:
+            - per_class: Individual class pricing
+            - per_month: Monthly subscription
+            - per_sessions: Package pricing
           schema:
             type: string
             enum: [per_class, per_month, per_sessions]
         - name: price_min
           in: query
           required: false
+          description: Minimum price filter (>= 0)
           schema:
             type: number
             format: decimal
+            minimum: 0
         - name: price_max
           in: query
           required: false
+          description: Maximum price filter (>= 0)
           schema:
             type: number
             format: decimal
+            minimum: 0
         - name: schedule_type
           in: query
           required: false
+          description: |
+            Filter by schedule type:
+            - weekly: Recurring weekly schedules
+            - monthly: Recurring monthly schedules
+            - date_specific: One-time events
           schema:
             type: string
             enum: [weekly, monthly, date_specific]
         - name: day_of_week_utc
           in: query
           required: false
+          description: |
+            Filter by day of week (0-6):
+            0=Sunday, 1=Monday, 2=Tuesday, 3=Wednesday, 4=Thursday, 5=Friday, 6=Saturday.
+            Cannot be used with day_of_month.
           schema:
             type: integer
             minimum: 0
             maximum: 6
-          description: 0=Sunday ... 6=Saturday
         - name: day_of_month
           in: query
           required: false
+          description: Filter by day of month (1-31). Cannot be used with day_of_week_utc.
           schema:
             type: integer
             minimum: 1
@@ -64,6 +116,10 @@ paths:
         - name: start_minutes_utc
           in: query
           required: false
+          description: |
+            Filter by start time (0-1439 minutes from midnight UTC).
+            Example: 600 = 10:00 AM UTC.
+            Must be less than end_minutes_utc when both provided.
           schema:
             type: integer
             minimum: 0
@@ -71,6 +127,10 @@ paths:
         - name: end_minutes_utc
           in: query
           required: false
+          description: |
+            Filter by end time (0-1439 minutes from midnight UTC).
+            Example: 1080 = 6:00 PM UTC.
+            Must be greater than start_minutes_utc when both provided.
           schema:
             type: integer
             minimum: 0
@@ -78,27 +138,38 @@ paths:
         - name: start_at_utc
           in: query
           required: false
+          description: |
+            Filter date-specific schedules starting at or after this time (ISO 8601).
+            Cannot be combined with day_of_week_utc or day_of_month.
           schema:
             type: string
             format: date-time
         - name: end_at_utc
           in: query
           required: false
+          description: |
+            Filter date-specific schedules ending at or before this time (ISO 8601).
+            Cannot be combined with day_of_week_utc or day_of_month.
           schema:
             type: string
             format: date-time
         - name: language
           in: query
           required: false
+          description: |
+            Filter by language (ISO 639-1 codes). Multiple values allowed.
+            Supported: en, zh, ja, ko, fr, de, es, pt, it, ru, ar, hi, th, vi, id, ms, tl, nl, pl, tr, yue
           style: form
           explode: true
           schema:
             type: array
             items:
               type: string
+              enum: [en, zh, ja, ko, fr, de, es, pt, it, ru, ar, hi, th, vi, id, ms, tl, nl, pl, tr, yue]
         - name: limit
           in: query
           required: false
+          description: Maximum results per page (1-200, default 50)
           schema:
             type: integer
             minimum: 1
@@ -107,9 +178,9 @@ paths:
         - name: cursor
           in: query
           required: false
+          description: Pagination cursor from previous response's next_cursor field
           schema:
             type: string
-          description: Opaque cursor returned from the previous page (ordered by schedule time).
       responses:
         "200":
           description: Search results

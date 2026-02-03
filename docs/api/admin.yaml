@@ -2,39 +2,186 @@ openapi: 3.0.3
 info:
   title: Admin CRUD API
   version: 0.1.0
-  description: CRUD endpoints for managing activities data.
+  description: |
+    CRUD endpoints for managing activities data.
+    
+    ## Validation Rules
+    
+    All endpoints enforce the following validation rules to ensure data integrity
+    and protect against security vulnerabilities.
+    
+    ### String Length Limits
+    | Field | Max Length |
+    |-------|-----------|
+    | name | 200 characters |
+    | description | 5,000 characters |
+    | district | 100 characters |
+    | address | 500 characters |
+    | picture_urls (each) | 2,048 characters |
+    
+    ### Array Limits
+    | Field | Max Items |
+    |-------|----------|
+    | picture_urls | 20 |
+    | languages | 20 |
+    
+    ### Numeric Ranges
+    | Field | Range |
+    |-------|-------|
+    | lat | -90 to 90 |
+    | lng | -180 to 180 |
+    | age_min | 0 to 119 |
+    | age_max | 1 to 120 |
+    | amount | >= 0 |
+    | sessions_count | > 0 |
+    | day_of_week_utc | 0-6 (Sunday-Saturday) |
+    | day_of_month | 1-31 |
+    | start_minutes_utc | 0-1439 |
+    | end_minutes_utc | 0-1439 |
+    
+    ### Allowed Values
+    | Field | Allowed Values |
+    |-------|---------------|
+    | currency | HKD, USD, EUR, GBP, CNY, JPY, SGD, AUD, CAD, CHF, NZD, TWD, KRW, THB, MYR, PHP, IDR, INR, VND |
+    | languages | en, zh, ja, ko, fr, de, es, pt, it, ru, ar, hi, th, vi, id, ms, tl, nl, pl, tr, yue |
+    | pricing_type | per_class, per_month, per_sessions |
+    | schedule_type | weekly, monthly, date_specific |
+
 paths:
   /v1/admin/organizations:
     get:
       summary: List organizations
+      description: Retrieve a paginated list of organizations.
       parameters:
         - name: limit
           in: query
           required: false
+          description: Maximum number of items to return (1-200, default 50)
           schema:
             type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
         - name: cursor
           in: query
           required: false
+          description: Pagination cursor from previous response
           schema:
             type: string
       responses:
         "200":
           description: List of organizations
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrganizationListResponse'
     post:
       summary: Create organization
+      description: Create a new organization.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrganizationCreate'
+      responses:
+        "201":
+          description: Organization created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Organization'
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+
   /v1/admin/organizations/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
     get:
       summary: Get organization
+      responses:
+        "200":
+          description: Organization details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Organization'
+        "404":
+          description: Organization not found
     put:
       summary: Update organization
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrganizationUpdate'
+      responses:
+        "200":
+          description: Organization updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Organization'
+        "400":
+          description: Validation error
+        "404":
+          description: Organization not found
     delete:
       summary: Delete organization
+      responses:
+        "204":
+          description: Organization deleted
+        "404":
+          description: Organization not found
+
   /v1/admin/organizations/{id}/pictures:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
     post:
-      summary: Create organization picture upload
+      summary: Create organization picture upload URL
+      description: Generate a presigned URL for uploading an organization picture.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PictureUploadRequest'
+      responses:
+        "200":
+          description: Upload URL generated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PictureUploadResponse'
+        "400":
+          description: Validation error
     delete:
       summary: Delete organization picture
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PictureDeleteRequest'
+      responses:
+        "204":
+          description: Picture deleted
+
   /v1/admin/locations:
     get:
       summary: List locations
@@ -44,6 +191,9 @@ paths:
           required: false
           schema:
             type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
         - name: cursor
           in: query
           required: false
@@ -52,15 +202,70 @@ paths:
       responses:
         "200":
           description: List of locations
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LocationListResponse'
     post:
       summary: Create location
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LocationCreate'
+      responses:
+        "201":
+          description: Location created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Location'
+        "400":
+          description: Validation error
+
   /v1/admin/locations/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
     get:
       summary: Get location
+      responses:
+        "200":
+          description: Location details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Location'
+        "404":
+          description: Location not found
     put:
       summary: Update location
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LocationUpdate'
+      responses:
+        "200":
+          description: Location updated
+        "400":
+          description: Validation error
+        "404":
+          description: Location not found
     delete:
       summary: Delete location
+      responses:
+        "204":
+          description: Location deleted
+        "404":
+          description: Location not found
+
   /v1/admin/activities:
     get:
       summary: List activities
@@ -70,6 +275,9 @@ paths:
           required: false
           schema:
             type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
         - name: cursor
           in: query
           required: false
@@ -78,15 +286,70 @@ paths:
       responses:
         "200":
           description: List of activities
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityListResponse'
     post:
       summary: Create activity
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ActivityCreate'
+      responses:
+        "201":
+          description: Activity created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Activity'
+        "400":
+          description: Validation error
+
   /v1/admin/activities/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
     get:
       summary: Get activity
+      responses:
+        "200":
+          description: Activity details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Activity'
+        "404":
+          description: Activity not found
     put:
       summary: Update activity
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ActivityUpdate'
+      responses:
+        "200":
+          description: Activity updated
+        "400":
+          description: Validation error
+        "404":
+          description: Activity not found
     delete:
       summary: Delete activity
+      responses:
+        "204":
+          description: Activity deleted
+        "404":
+          description: Activity not found
+
   /v1/admin/pricing:
     get:
       summary: List pricing entries
@@ -96,6 +359,9 @@ paths:
           required: false
           schema:
             type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
         - name: cursor
           in: query
           required: false
@@ -104,15 +370,70 @@ paths:
       responses:
         "200":
           description: List of pricing entries
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PricingListResponse'
     post:
       summary: Create pricing entry
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PricingCreate'
+      responses:
+        "201":
+          description: Pricing entry created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pricing'
+        "400":
+          description: Validation error
+
   /v1/admin/pricing/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
     get:
       summary: Get pricing entry
+      responses:
+        "200":
+          description: Pricing details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pricing'
+        "404":
+          description: Pricing not found
     put:
       summary: Update pricing entry
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PricingUpdate'
+      responses:
+        "200":
+          description: Pricing updated
+        "400":
+          description: Validation error
+        "404":
+          description: Pricing not found
     delete:
       summary: Delete pricing entry
+      responses:
+        "204":
+          description: Pricing deleted
+        "404":
+          description: Pricing not found
+
   /v1/admin/schedules:
     get:
       summary: List schedules
@@ -122,6 +443,9 @@ paths:
           required: false
           schema:
             type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
         - name: cursor
           in: query
           required: false
@@ -130,17 +454,652 @@ paths:
       responses:
         "200":
           description: List of schedules
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduleListResponse'
     post:
       summary: Create schedule
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ScheduleCreate'
+      responses:
+        "201":
+          description: Schedule created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Schedule'
+        "400":
+          description: Validation error
+
   /v1/admin/schedules/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
     get:
       summary: Get schedule
+      responses:
+        "200":
+          description: Schedule details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Schedule'
+        "404":
+          description: Schedule not found
     put:
       summary: Update schedule
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ScheduleUpdate'
+      responses:
+        "200":
+          description: Schedule updated
+        "400":
+          description: Validation error
+        "404":
+          description: Schedule not found
     delete:
       summary: Delete schedule
+      responses:
+        "204":
+          description: Schedule deleted
+        "404":
+          description: Schedule not found
+
   /v1/admin/users/{username}/groups:
+    parameters:
+      - name: username
+        in: path
+        required: true
+        schema:
+          type: string
     post:
       summary: Add user to group
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                group:
+                  type: string
+                  description: Group name (defaults to 'admin')
+      responses:
+        "200":
+          description: User added to group
     delete:
       summary: Remove user from group
+      responses:
+        "200":
+          description: User removed from group
+
+components:
+  schemas:
+    ValidationError:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message
+        detail:
+          type: string
+          description: Additional details (e.g., field name)
+
+    # Organization schemas
+    OrganizationCreate:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          maxLength: 200
+          description: Organization name (required, max 200 characters)
+        description:
+          type: string
+          maxLength: 5000
+          description: Organization description (optional, max 5,000 characters)
+        picture_urls:
+          type: array
+          maxItems: 20
+          items:
+            type: string
+            format: uri
+            maxLength: 2048
+          description: |
+            List of picture URLs (optional, max 20 URLs).
+            Each URL must use http or https scheme and be max 2,048 characters.
+
+    OrganizationUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 200
+          description: Organization name (max 200 characters)
+        description:
+          type: string
+          maxLength: 5000
+          description: Organization description (max 5,000 characters)
+        picture_urls:
+          type: array
+          maxItems: 20
+          items:
+            type: string
+            format: uri
+            maxLength: 2048
+
+    Organization:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        picture_urls:
+          type: array
+          items:
+            type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    OrganizationListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Organization'
+        next_cursor:
+          type: string
+          nullable: true
+
+    # Location schemas
+    LocationCreate:
+      type: object
+      required:
+        - org_id
+        - district
+      properties:
+        org_id:
+          type: string
+          format: uuid
+          description: Organization UUID (required)
+        district:
+          type: string
+          maxLength: 100
+          description: District name (required, max 100 characters)
+        address:
+          type: string
+          maxLength: 500
+          description: Full address (optional, max 500 characters)
+        lat:
+          type: number
+          minimum: -90
+          maximum: 90
+          description: Latitude (-90 to 90)
+        lng:
+          type: number
+          minimum: -180
+          maximum: 180
+          description: Longitude (-180 to 180)
+
+    LocationUpdate:
+      type: object
+      properties:
+        district:
+          type: string
+          maxLength: 100
+          description: District name (max 100 characters)
+        address:
+          type: string
+          maxLength: 500
+          description: Full address (max 500 characters)
+        lat:
+          type: number
+          minimum: -90
+          maximum: 90
+          description: Latitude (-90 to 90)
+        lng:
+          type: number
+          minimum: -180
+          maximum: 180
+          description: Longitude (-180 to 180)
+
+    Location:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        org_id:
+          type: string
+          format: uuid
+        district:
+          type: string
+        address:
+          type: string
+          nullable: true
+        lat:
+          type: number
+          nullable: true
+        lng:
+          type: number
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    LocationListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Location'
+        next_cursor:
+          type: string
+          nullable: true
+
+    # Activity schemas
+    ActivityCreate:
+      type: object
+      required:
+        - org_id
+        - name
+        - age_min
+        - age_max
+      properties:
+        org_id:
+          type: string
+          format: uuid
+          description: Organization UUID (required)
+        name:
+          type: string
+          maxLength: 200
+          description: Activity name (required, max 200 characters)
+        description:
+          type: string
+          maxLength: 5000
+          description: Activity description (optional, max 5,000 characters)
+        age_min:
+          type: integer
+          minimum: 0
+          maximum: 119
+          description: Minimum age (required, 0-119, must be less than age_max)
+        age_max:
+          type: integer
+          minimum: 1
+          maximum: 120
+          description: Maximum age (required, 1-120, must be greater than age_min)
+
+    ActivityUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 200
+          description: Activity name (max 200 characters)
+        description:
+          type: string
+          maxLength: 5000
+          description: Activity description (max 5,000 characters)
+        age_min:
+          type: integer
+          minimum: 0
+          maximum: 119
+          description: Minimum age (must provide both age_min and age_max together)
+        age_max:
+          type: integer
+          minimum: 1
+          maximum: 120
+          description: Maximum age (must provide both age_min and age_max together)
+
+    Activity:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        org_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        age_min:
+          type: integer
+        age_max:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    ActivityListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Activity'
+        next_cursor:
+          type: string
+          nullable: true
+
+    # Pricing schemas
+    PricingCreate:
+      type: object
+      required:
+        - activity_id
+        - location_id
+        - pricing_type
+        - amount
+      properties:
+        activity_id:
+          type: string
+          format: uuid
+          description: Activity UUID (required)
+        location_id:
+          type: string
+          format: uuid
+          description: Location UUID (required)
+        pricing_type:
+          type: string
+          enum: [per_class, per_month, per_sessions]
+          description: |
+            Pricing type (required):
+            - per_class: Price per individual class
+            - per_month: Monthly subscription price
+            - per_sessions: Price for a package of sessions (requires sessions_count)
+        amount:
+          type: number
+          minimum: 0
+          description: Price amount (required, must be >= 0)
+        currency:
+          type: string
+          enum: [HKD, USD, EUR, GBP, CNY, JPY, SGD, AUD, CAD, CHF, NZD, TWD, KRW, THB, MYR, PHP, IDR, INR, VND]
+          default: HKD
+          description: ISO 4217 currency code (default HKD)
+        sessions_count:
+          type: integer
+          minimum: 1
+          description: Number of sessions (required when pricing_type is per_sessions, must be > 0)
+
+    PricingUpdate:
+      type: object
+      properties:
+        pricing_type:
+          type: string
+          enum: [per_class, per_month, per_sessions]
+        amount:
+          type: number
+          minimum: 0
+          description: Price amount (must be >= 0)
+        currency:
+          type: string
+          enum: [HKD, USD, EUR, GBP, CNY, JPY, SGD, AUD, CAD, CHF, NZD, TWD, KRW, THB, MYR, PHP, IDR, INR, VND]
+        sessions_count:
+          type: integer
+          minimum: 1
+          description: Number of sessions (must be > 0)
+
+    Pricing:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        activity_id:
+          type: string
+          format: uuid
+        location_id:
+          type: string
+          format: uuid
+        pricing_type:
+          type: string
+        amount:
+          type: number
+        currency:
+          type: string
+        sessions_count:
+          type: integer
+          nullable: true
+
+    PricingListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Pricing'
+        next_cursor:
+          type: string
+          nullable: true
+
+    # Schedule schemas
+    ScheduleCreate:
+      type: object
+      required:
+        - activity_id
+        - location_id
+        - schedule_type
+      properties:
+        activity_id:
+          type: string
+          format: uuid
+          description: Activity UUID (required)
+        location_id:
+          type: string
+          format: uuid
+          description: Location UUID (required)
+        schedule_type:
+          type: string
+          enum: [weekly, monthly, date_specific]
+          description: |
+            Schedule type (required):
+            - weekly: Recurring weekly (requires day_of_week_utc, start_minutes_utc, end_minutes_utc)
+            - monthly: Recurring monthly (requires day_of_month, start_minutes_utc, end_minutes_utc)
+            - date_specific: One-time event (requires start_at_utc, end_at_utc)
+        day_of_week_utc:
+          type: integer
+          minimum: 0
+          maximum: 6
+          description: |
+            Day of week in UTC (required for weekly):
+            0=Sunday, 1=Monday, 2=Tuesday, 3=Wednesday, 4=Thursday, 5=Friday, 6=Saturday
+        day_of_month:
+          type: integer
+          minimum: 1
+          maximum: 31
+          description: Day of month (required for monthly, 1-31)
+        start_minutes_utc:
+          type: integer
+          minimum: 0
+          maximum: 1439
+          description: |
+            Start time in minutes from midnight UTC (required for weekly/monthly).
+            Range: 0-1439 (0 = 00:00, 1439 = 23:59).
+            Must be less than end_minutes_utc.
+        end_minutes_utc:
+          type: integer
+          minimum: 0
+          maximum: 1439
+          description: |
+            End time in minutes from midnight UTC (required for weekly/monthly).
+            Range: 0-1439 (0 = 00:00, 1439 = 23:59).
+            Must be greater than start_minutes_utc.
+        start_at_utc:
+          type: string
+          format: date-time
+          description: Start datetime in UTC (required for date_specific, must be before end_at_utc)
+        end_at_utc:
+          type: string
+          format: date-time
+          description: End datetime in UTC (required for date_specific, must be after start_at_utc)
+        languages:
+          type: array
+          maxItems: 20
+          items:
+            type: string
+            enum: [en, zh, ja, ko, fr, de, es, pt, it, ru, ar, hi, th, vi, id, ms, tl, nl, pl, tr, yue]
+          description: |
+            ISO 639-1 language codes (optional, max 20).
+            Supported: en (English), zh (Chinese), ja (Japanese), ko (Korean),
+            fr (French), de (German), es (Spanish), pt (Portuguese), it (Italian),
+            ru (Russian), ar (Arabic), hi (Hindi), th (Thai), vi (Vietnamese),
+            id (Indonesian), ms (Malay), tl (Tagalog), nl (Dutch), pl (Polish),
+            tr (Turkish), yue (Cantonese)
+
+    ScheduleUpdate:
+      type: object
+      properties:
+        schedule_type:
+          type: string
+          enum: [weekly, monthly, date_specific]
+        day_of_week_utc:
+          type: integer
+          minimum: 0
+          maximum: 6
+        day_of_month:
+          type: integer
+          minimum: 1
+          maximum: 31
+        start_minutes_utc:
+          type: integer
+          minimum: 0
+          maximum: 1439
+        end_minutes_utc:
+          type: integer
+          minimum: 0
+          maximum: 1439
+        start_at_utc:
+          type: string
+          format: date-time
+        end_at_utc:
+          type: string
+          format: date-time
+        languages:
+          type: array
+          maxItems: 20
+          items:
+            type: string
+            enum: [en, zh, ja, ko, fr, de, es, pt, it, ru, ar, hi, th, vi, id, ms, tl, nl, pl, tr, yue]
+
+    Schedule:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        activity_id:
+          type: string
+          format: uuid
+        location_id:
+          type: string
+          format: uuid
+        schedule_type:
+          type: string
+        day_of_week_utc:
+          type: integer
+          nullable: true
+        day_of_month:
+          type: integer
+          nullable: true
+        start_minutes_utc:
+          type: integer
+          nullable: true
+        end_minutes_utc:
+          type: integer
+          nullable: true
+        start_at_utc:
+          type: string
+          format: date-time
+          nullable: true
+        end_at_utc:
+          type: string
+          format: date-time
+          nullable: true
+        languages:
+          type: array
+          items:
+            type: string
+
+    ScheduleListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Schedule'
+        next_cursor:
+          type: string
+          nullable: true
+
+    # Picture upload schemas
+    PictureUploadRequest:
+      type: object
+      required:
+        - file_name
+        - content_type
+      properties:
+        file_name:
+          type: string
+          description: Original file name
+        content_type:
+          type: string
+          pattern: '^image/'
+          description: MIME type (must start with 'image/')
+
+    PictureUploadResponse:
+      type: object
+      properties:
+        upload_url:
+          type: string
+          description: Presigned S3 upload URL (expires in 15 minutes)
+        picture_url:
+          type: string
+          description: Final public URL of the picture
+        object_key:
+          type: string
+          description: S3 object key
+        expires_in:
+          type: integer
+          description: URL expiration time in seconds
+
+    PictureDeleteRequest:
+      type: object
+      properties:
+        object_key:
+          type: string
+          description: S3 object key to delete
+        picture_url:
+          type: string
+          description: Picture URL to delete (alternative to object_key)
