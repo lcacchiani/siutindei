@@ -11,6 +11,7 @@ from typing import Union
 
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql
 from sqlalchemy.dialects.postgresql import UUID
 
 revision: str = "0007_add_organization_access_requests"
@@ -83,7 +84,7 @@ def upgrade() -> None:
         ),
         sa.Column(
             "status",
-            sa.Enum(
+            postgresql.ENUM(
                 "pending",
                 "approved",
                 "rejected",
