@@ -195,6 +195,9 @@ node_modules/
 apps/admin_web/.next/
 apps/admin_web/out/
 
+# TypeScript build info
+*.tsbuildinfo
+
 # CDK
 **/cdk.out/
 
