@@ -13,14 +13,14 @@ from app.api.admin import (  # noqa: E402
     _validate_currency,
     _validate_language_code,
     _validate_languages,
-    _validate_picture_urls,
+    _validate_media_urls,
     _validate_string_length,
     _validate_url,
     MAX_NAME_LENGTH,
     MAX_DESCRIPTION_LENGTH,
     MAX_URL_LENGTH,
     MAX_LANGUAGES_COUNT,
-    MAX_PICTURE_URLS_COUNT,
+    MAX_MEDIA_URLS_COUNT,
 )
 from app.exceptions import ValidationError  # noqa: E402
 
@@ -127,8 +127,8 @@ class TestValidateUrl:
         assert f"must be at most {MAX_URL_LENGTH}" in str(exc_info.value)
 
 
-class TestValidatePictureUrls:
-    """Tests for picture URLs validation."""
+class TestValidateMediaUrls:
+    """Tests for media URLs validation."""
 
     def test_valid_urls(self) -> None:
         """Valid URLs should pass."""
@@ -136,20 +136,20 @@ class TestValidatePictureUrls:
             "https://example.com/image1.png",
             "https://example.com/image2.jpg",
         ]
-        result = _validate_picture_urls(urls)
+        result = _validate_media_urls(urls)
         assert len(result) == 2
 
     def test_empty_list(self) -> None:
         """Empty list should pass."""
-        result = _validate_picture_urls([])
+        result = _validate_media_urls([])
         assert result == []
 
     def test_too_many_urls(self) -> None:
         """Too many URLs should raise error."""
         urls = [f"https://example.com/img{i}.png" for i in range(25)]
         with pytest.raises(ValidationError) as exc_info:
-            _validate_picture_urls(urls)
-        assert f"cannot have more than {MAX_PICTURE_URLS_COUNT}" in str(exc_info.value)
+            _validate_media_urls(urls)
+        assert f"cannot have more than {MAX_MEDIA_URLS_COUNT}" in str(exc_info.value)
 
     def test_invalid_url_in_list(self) -> None:
         """Invalid URL in list should raise error."""
@@ -158,13 +158,13 @@ class TestValidatePictureUrls:
             "javascript:alert(1)",
         ]
         with pytest.raises(ValidationError) as exc_info:
-            _validate_picture_urls(urls)
+            _validate_media_urls(urls)
         assert "must use http or https scheme" in str(exc_info.value)
 
     def test_empty_strings_filtered(self) -> None:
         """Empty strings should be filtered out."""
         urls = ["https://example.com/image.png", "", "  "]
-        result = _validate_picture_urls(urls)
+        result = _validate_media_urls(urls)
         assert len(result) == 1
 
 

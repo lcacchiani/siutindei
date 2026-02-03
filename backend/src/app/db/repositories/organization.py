@@ -100,14 +100,14 @@ def _escape_like_pattern(pattern: str) -> str:
         self,
         name: str,
         description: Optional[str] = None,
-        picture_urls: Optional[Sequence[str]] = None,
+        media_urls: Optional[Sequence[str]] = None,
     ) -> Organization:
         """Create a new organization.
 
         Args:
             name: Organization name.
             description: Optional description.
-            picture_urls: Optional list of picture URLs.
+            media_urls: Optional list of media URLs.
 
         Returns:
             The created organization.
@@ -115,7 +115,7 @@ def _escape_like_pattern(pattern: str) -> str:
         org = Organization(
             name=name,
             description=description,
-            picture_urls=list(picture_urls or []),
+            media_urls=list(media_urls or []),
         )
         return self.create(org)
 
@@ -124,7 +124,7 @@ def _escape_like_pattern(pattern: str) -> str:
         organization: Organization,
         name: Optional[str] = None,
         description: Optional[str] = None,
-        picture_urls: Optional[Sequence[str]] = None,
+        media_urls: Optional[Sequence[str]] = None,
     ) -> Organization:
         """Update an organization.
 
@@ -132,7 +132,7 @@ def _escape_like_pattern(pattern: str) -> str:
             organization: The organization to update.
             name: New name (if provided).
             description: New description (if provided).
-            picture_urls: New picture URLs (if provided).
+            media_urls: New media URLs (if provided).
 
         Returns:
             The updated organization.
@@ -141,6 +141,6 @@ def _escape_like_pattern(pattern: str) -> str:
             organization.name = name
         if description is not None:
             organization.description = description
-        if picture_urls is not None:
-            organization.picture_urls = list(picture_urls)
+        if media_urls is not None:
+            organization.media_urls = list(media_urls)
         return self.update(organization)

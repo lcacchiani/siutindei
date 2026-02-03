@@ -6,8 +6,8 @@ import Image, { type ImageLoaderProps } from 'next/image';
 
 import {
   ApiError,
-  createOrganizationPictureUpload,
-  deleteOrganizationPicture,
+  createOrganizationMediaUpload,
+  deleteOrganizationMedia,
   listResource,
   updateResource,
 } from '../../lib/api-client';
@@ -19,7 +19,7 @@ import { Label } from '../ui/label';
 import { Select } from '../ui/select';
 import { StatusBanner } from '../status-banner';
 
-function normalizePictureUrls(urls: string[]) {
+function normalizeMediaUrls(urls: string[]) {
   const cleaned = urls
     .map((url) => url.trim())
     .filter((url) => url.length > 0);
@@ -30,11 +30,11 @@ function imageLoader({ src }: ImageLoaderProps) {
   return src;
 }
 
-function isManagedPictureUrl(url: string) {
+function isManagedMediaUrl(url: string) {
   return url.startsWith('http') && url.includes('amazonaws.com/');
 }
 
-async function uploadPictureFile(
+async function uploadMediaFile(
   organizationId: string,
   file: File
 ): Promise<string> {
@@ -46,7 +46,7 @@ async function uploadPictureFile(
     file_name: file.name,
     content_type: file.type,
   };
-  const upload = await createOrganizationPictureUpload(
+  const upload = await createOrganizationMediaUpload(
     organizationId,
     payload
   );
@@ -60,31 +60,31 @@ async function uploadPictureFile(
   });
 
   if (!response.ok) {
-    throw new Error('Failed to upload picture.');
+    throw new Error('Failed to upload media.');
   }
 
-  return upload.picture_url;
+  return upload.media_url;
 }
 
-export function PicturesPanel() {
+export function MediaPanel() {
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [selectedOrgId, setSelectedOrgId] = useState<string>('');
   const [isLoadingOrgs, setIsLoadingOrgs] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [isProcessingPictures, setIsProcessingPictures] = useState(false);
+  const [isProcessingMedia, setIsProcessingMedia] = useState(false);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
-  const [pictureUrls, setPictureUrls] = useState<string[]>([]);
-  const [newPictureUrl, setNewPictureUrl] = useState('');
-  const [pendingPictureDeletes, setPendingPictureDeletes] = useState<
+  const [mediaUrls, setMediaUrls] = useState<string[]>([]);
+  const [newMediaUrl, setNewMediaUrl] = useState('');
+  const [pendingMediaDeletes, setPendingMediaDeletes] = useState<
     string[]
   >([]);
-  const [uploadedPictureUrls, setUploadedPictureUrls] = useState<string[]>(
+  const [uploadedMediaUrls, setUploadedMediaUrls] = useState<string[]>(
     []
   );
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
-  const isPictureBusy = isSaving || isProcessingPictures;
+  const isMediaBusy = isSaving || isProcessingMedia;
 
   const selectedOrganization = organizations.find(
     (org) => org.id === selectedOrgId
@@ -134,30 +134,30 @@ export function PicturesPanel() {
 
     setSelectedOrgId(orgId);
     setHasUnsavedChanges(false);
-    setPendingPictureDeletes([]);
-    setUploadedPictureUrls([]);
-    setNewPictureUrl('');
+    setPendingMediaDeletes([]);
+    setUploadedMediaUrls([]);
+    setNewMediaUrl('');
     setError('');
     setSuccessMessage('');
 
     const org = organizations.find((o) => o.id === orgId);
-    setPictureUrls(org?.picture_urls ?? []);
+    setMediaUrls(org?.media_urls ?? []);
   };
 
-  const handleAddPictureUrl = () => {
-    const trimmed = newPictureUrl.trim();
+  const handleAddMediaUrl = () => {
+    const trimmed = newMediaUrl.trim();
     if (!trimmed) {
       return;
     }
-    setPictureUrls((prev) => normalizePictureUrls([...prev, trimmed]));
-    setPendingPictureDeletes((prev) =>
+    setMediaUrls((prev) => normalizeMediaUrls([...prev, trimmed]));
+    setPendingMediaDeletes((prev) =>
       prev.filter((url) => url !== trimmed)
     );
-    setNewPictureUrl('');
+    setNewMediaUrl('');
     setHasUnsavedChanges(true);
   };
 
-  const handlePictureFiles = async (
+  const handleMediaFiles = async (
     event: ChangeEvent<HTMLInputElement>
   ) => {
     const target = event.target;
@@ -170,7 +170,7 @@ export function PicturesPanel() {
       target.value = '';
       return;
     }
-    setIsProcessingPictures(true);
+    setIsProcessingMedia(true);
     setError('');
     setSuccessMessage('');
     try {
@@ -184,7 +184,7 @@ export function PicturesPanel() {
       }
 
       const results = await Promise.allSettled(
-        validFiles.map((file) => uploadPictureFile(selectedOrgId, file))
+        validFiles.map((file) => uploadMediaFile(selectedOrgId, file))
       );
       const uploadedUrls = results
         .filter(
@@ -194,11 +194,11 @@ export function PicturesPanel() {
         .map((result) => result.value);
 
       if (uploadedUrls.length > 0) {
-        setPictureUrls((prev) =>
-          normalizePictureUrls([...prev, ...uploadedUrls])
+        setMediaUrls((prev) =>
+          normalizeMediaUrls([...prev, ...uploadedUrls])
         );
-        setUploadedPictureUrls((prev) =>
-          normalizePictureUrls([...prev, ...uploadedUrls])
+        setUploadedMediaUrls((prev) =>
+          normalizeMediaUrls([...prev, ...uploadedUrls])
         );
         setHasUnsavedChanges(true);
       }
@@ -210,61 +210,61 @@ export function PicturesPanel() {
       const message =
         err instanceof ApiError
           ? err.message
-          : 'Unable to upload selected picture files.';
+          : 'Unable to upload selected media files.';
       setError(message);
     } finally {
-      setIsProcessingPictures(false);
+      setIsProcessingMedia(false);
       target.value = '';
     }
   };
 
-  const removePictureAt = (index: number) => {
-    const removedUrl = pictureUrls[index];
-    setPictureUrls((prev) => {
-      const nextPictures = [...prev];
-      nextPictures.splice(index, 1);
-      return nextPictures;
+  const removeMediaAt = (index: number) => {
+    const removedUrl = mediaUrls[index];
+    setMediaUrls((prev) => {
+      const nextMedia = [...prev];
+      nextMedia.splice(index, 1);
+      return nextMedia;
     });
-    if (removedUrl && selectedOrgId && isManagedPictureUrl(removedUrl)) {
-      setPendingPictureDeletes((prev) =>
-        normalizePictureUrls([...prev, removedUrl])
+    if (removedUrl && selectedOrgId && isManagedMediaUrl(removedUrl)) {
+      setPendingMediaDeletes((prev) =>
+        normalizeMediaUrls([...prev, removedUrl])
       );
     }
     setHasUnsavedChanges(true);
   };
 
-  const flushPictureDeletes = async (
+  const flushMediaDeletes = async (
     organizationId: string,
-    currentPictureUrls: string[]
+    currentMediaUrls: string[]
   ) => {
-    if (pendingPictureDeletes.length === 0) {
+    if (pendingMediaDeletes.length === 0) {
       return;
     }
 
-    const remaining = new Set(currentPictureUrls);
-    const deletions = pendingPictureDeletes.filter(
+    const remaining = new Set(currentMediaUrls);
+    const deletions = pendingMediaDeletes.filter(
       (url) => !remaining.has(url)
     );
-    const managedDeletes = deletions.filter(isManagedPictureUrl);
+    const managedDeletes = deletions.filter(isManagedMediaUrl);
     if (managedDeletes.length === 0) {
-      setPendingPictureDeletes([]);
+      setPendingMediaDeletes([]);
       return;
     }
 
     try {
       await Promise.all(
         managedDeletes.map((url) =>
-          deleteOrganizationPicture(organizationId, { picture_url: url })
+          deleteOrganizationMedia(organizationId, { media_url: url })
         )
       );
     } catch (err) {
       const message =
         err instanceof ApiError
           ? err.message
-          : 'Saved pictures, but failed to delete some old pictures.';
+          : 'Saved media, but failed to delete some old files.';
       setError(message);
     } finally {
-      setPendingPictureDeletes([]);
+      setPendingMediaDeletes([]);
     }
   };
 
@@ -273,20 +273,20 @@ export function PicturesPanel() {
       setError('Please select an organization first.');
       return;
     }
-    if (isProcessingPictures) {
-      setError('Please wait for picture processing to finish.');
+    if (isProcessingMedia) {
+      setError('Please wait for media processing to finish.');
       return;
     }
     setIsSaving(true);
     setError('');
     setSuccessMessage('');
     try {
-      const normalizedUrls = normalizePictureUrls(pictureUrls);
+      const normalizedUrls = normalizeMediaUrls(mediaUrls);
       const payload = {
         name: selectedOrganization.name,
         description: selectedOrganization.description ?? null,
         owner_id: selectedOrganization.owner_id,
-        picture_urls: normalizedUrls,
+        media_urls: normalizedUrls,
       };
 
       const updated = await updateResource<typeof payload, Organization>(
@@ -295,19 +295,19 @@ export function PicturesPanel() {
         payload
       );
 
-      // Update the organizations list with updated picture_urls
+      // Update the organizations list with updated media_urls
       setOrganizations((prev) =>
         prev.map((org) => (org.id === selectedOrgId ? updated : org))
       );
 
-      await flushPictureDeletes(selectedOrgId, normalizedUrls);
+      await flushMediaDeletes(selectedOrgId, normalizedUrls);
 
-      setUploadedPictureUrls([]);
+      setUploadedMediaUrls([]);
       setHasUnsavedChanges(false);
-      setSuccessMessage('Pictures saved successfully.');
+      setSuccessMessage('Media saved successfully.');
     } catch (err) {
       const message =
-        err instanceof ApiError ? err.message : 'Unable to save pictures.';
+        err instanceof ApiError ? err.message : 'Unable to save media.';
       setError(message);
     } finally {
       setIsSaving(false);
@@ -319,31 +319,31 @@ export function PicturesPanel() {
       return;
     }
 
-    // Clean up uploaded pictures that haven't been saved
-    if (uploadedPictureUrls.length > 0) {
-      setIsProcessingPictures(true);
+    // Clean up uploaded media that haven't been saved
+    if (uploadedMediaUrls.length > 0) {
+      setIsProcessingMedia(true);
       try {
         await Promise.all(
-          uploadedPictureUrls.map((url) =>
-            deleteOrganizationPicture(selectedOrgId, { picture_url: url })
+          uploadedMediaUrls.map((url) =>
+            deleteOrganizationMedia(selectedOrgId, { media_url: url })
           )
         );
       } catch (err) {
         const message =
           err instanceof ApiError
             ? err.message
-            : 'Unable to clean up uploaded pictures.';
+            : 'Unable to clean up uploaded media.';
         setError(message);
       } finally {
-        setIsProcessingPictures(false);
+        setIsProcessingMedia(false);
       }
     }
 
     // Reset to original state
     const org = organizations.find((o) => o.id === selectedOrgId);
-    setPictureUrls(org?.picture_urls ?? []);
-    setPendingPictureDeletes([]);
-    setUploadedPictureUrls([]);
+    setMediaUrls(org?.media_urls ?? []);
+    setPendingMediaDeletes([]);
+    setUploadedMediaUrls([]);
     setHasUnsavedChanges(false);
     setSuccessMessage('');
   };
@@ -351,8 +351,8 @@ export function PicturesPanel() {
   return (
     <div className='space-y-6'>
       <Card
-        title='Organization Pictures'
-        description='Select an organization to manage its pictures.'
+        title='Organization Media'
+        description='Select an organization to manage its media.'
       >
         {error && (
           <div className='mb-4'>
@@ -377,7 +377,7 @@ export function PicturesPanel() {
               onChange={(event) =>
                 handleSelectOrganization(event.target.value)
               }
-              disabled={isLoadingOrgs || isPictureBusy}
+              disabled={isLoadingOrgs || isMediaBusy}
             >
               <option value=''>
                 {isLoadingOrgs
@@ -396,52 +396,52 @@ export function PicturesPanel() {
 
       {selectedOrgId && (
         <Card
-          title={`Pictures for ${selectedOrganization?.name ?? 'Organization'}`}
-          description='Add or remove pictures for this organization.'
+          title={`Media for ${selectedOrganization?.name ?? 'Organization'}`}
+          description='Add or remove media for this organization.'
         >
           <div className='space-y-4'>
             <div className='flex flex-col gap-2 sm:flex-row'>
               <Input
-                id='picture-url'
+                id='media-url'
                 type='url'
                 placeholder='https://example.com/photo.jpg'
-                value={newPictureUrl}
-                onChange={(event) => setNewPictureUrl(event.target.value)}
-                disabled={isPictureBusy}
+                value={newMediaUrl}
+                onChange={(event) => setNewMediaUrl(event.target.value)}
+                disabled={isMediaBusy}
               />
               <Button
                 type='button'
                 variant='secondary'
-                onClick={handleAddPictureUrl}
-                disabled={isPictureBusy || !newPictureUrl.trim()}
+                onClick={handleAddMediaUrl}
+                disabled={isMediaBusy || !newMediaUrl.trim()}
               >
                 Add URL
               </Button>
             </div>
             <div className='flex flex-col gap-2 sm:flex-row'>
               <Input
-                id='picture-upload'
+                id='media-upload'
                 type='file'
                 accept='image/*'
                 multiple
-                onChange={handlePictureFiles}
-                disabled={isPictureBusy}
+                onChange={handleMediaFiles}
+                disabled={isMediaBusy}
               />
               <p className='text-xs text-slate-500 sm:self-center'>
                 Upload files or add URLs. Save to apply changes.
               </p>
             </div>
 
-            {pictureUrls.length > 0 ? (
+            {mediaUrls.length > 0 ? (
               <div className='grid gap-3 sm:grid-cols-2 lg:grid-cols-3'>
-                {pictureUrls.map((url, index) => (
+                {mediaUrls.map((url, index) => (
                   <div
                     key={`${url}-${index}`}
                     className='overflow-hidden rounded-lg border border-slate-200'
                   >
                     <Image
                       src={url}
-                      alt={`Organization picture ${index + 1}`}
+                      alt={`Organization media ${index + 1}`}
                       width={320}
                       height={112}
                       sizes={
@@ -470,8 +470,8 @@ export function PicturesPanel() {
                         type='button'
                         size='sm'
                         variant='danger'
-                        onClick={() => removePictureAt(index)}
-                        disabled={isPictureBusy}
+                        onClick={() => removeMediaAt(index)}
+                        disabled={isMediaBusy}
                       >
                         Remove
                       </Button>
@@ -481,7 +481,7 @@ export function PicturesPanel() {
               </div>
             ) : (
               <p className='text-sm text-slate-500'>
-                No pictures added yet. Upload files or add URLs above.
+                No media added yet. Upload files or add URLs above.
               </p>
             )}
 
@@ -489,16 +489,16 @@ export function PicturesPanel() {
               <Button
                 type='button'
                 onClick={handleSave}
-                disabled={isPictureBusy || !hasUnsavedChanges}
+                disabled={isMediaBusy || !hasUnsavedChanges}
               >
-                {isSaving ? 'Saving...' : 'Save pictures'}
+                {isSaving ? 'Saving...' : 'Save media'}
               </Button>
               {hasUnsavedChanges && (
                 <Button
                   type='button'
                   variant='secondary'
                   onClick={() => void handleCancelChanges()}
-                  disabled={isPictureBusy}
+                  disabled={isMediaBusy}
                 >
                   Cancel changes
                 </Button>
@@ -511,11 +511,11 @@ export function PicturesPanel() {
       {!selectedOrgId && !isLoadingOrgs && organizations.length > 0 && (
         <Card
           title='Select an organization'
-          description='Choose an organization from the dropdown above to manage its pictures.'
+          description='Choose an organization from the dropdown above to manage its media.'
         >
           <p className='text-sm text-slate-600'>
-            You can upload images or add picture URLs to any organization.
-            Pictures are saved when you click the &ldquo;Save pictures&rdquo;
+            You can upload images or add media URLs to any organization.
+            Media is saved when you click the &ldquo;Save media&rdquo;
             button.
           </p>
         </Card>
@@ -524,11 +524,11 @@ export function PicturesPanel() {
       {!selectedOrgId && !isLoadingOrgs && organizations.length === 0 && (
         <Card
           title='No organizations found'
-          description='Create an organization first to manage its pictures.'
+          description='Create an organization first to manage its media.'
         >
           <p className='text-sm text-slate-600'>
             Go to the Organizations section to create a new organization, then
-            return here to add pictures.
+            return here to add media.
           </p>
         </Card>
       )}

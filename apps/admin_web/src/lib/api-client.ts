@@ -13,20 +13,20 @@ export interface ListResponse<T> {
   next_cursor?: string | null;
 }
 
-export interface OrganizationPictureUploadRequest {
+export interface OrganizationMediaUploadRequest {
   file_name: string;
   content_type: string;
 }
 
-export interface OrganizationPictureUploadResponse {
+export interface OrganizationMediaUploadResponse {
   upload_url: string;
-  picture_url: string;
+  media_url: string;
   object_key: string;
   expires_in: number;
 }
 
-export interface OrganizationPictureDeleteRequest {
-  picture_url?: string;
+export interface OrganizationMediaDeleteRequest {
+  media_url?: string;
   object_key?: string;
 }
 
@@ -53,10 +53,10 @@ function buildResourceUrl(resource: ResourceName, id?: string) {
   return new URL(suffix, normalized).toString();
 }
 
-function buildOrganizationPictureUrl(organizationId: string) {
+function buildOrganizationMediaUrl(organizationId: string) {
   const base = getApiBaseUrl();
   const normalized = base.endsWith('/') ? base : `${base}/`;
-  const suffix = `v1/admin/organizations/${organizationId}/pictures`;
+  const suffix = `v1/admin/organizations/${organizationId}/media`;
   return new URL(suffix, normalized).toString();
 }
 
@@ -150,12 +150,12 @@ export async function deleteResource(resource: ResourceName, id: string) {
   });
 }
 
-export async function createOrganizationPictureUpload(
+export async function createOrganizationMediaUpload(
   organizationId: string,
-  payload: OrganizationPictureUploadRequest
+  payload: OrganizationMediaUploadRequest
 ) {
-  return request<OrganizationPictureUploadResponse>(
-    buildOrganizationPictureUrl(organizationId),
+  return request<OrganizationMediaUploadResponse>(
+    buildOrganizationMediaUrl(organizationId),
     {
       method: 'POST',
       headers: {
@@ -166,11 +166,11 @@ export async function createOrganizationPictureUpload(
   );
 }
 
-export async function deleteOrganizationPicture(
+export async function deleteOrganizationMedia(
   organizationId: string,
-  payload: OrganizationPictureDeleteRequest
+  payload: OrganizationMediaDeleteRequest
 ) {
-  return request<void>(buildOrganizationPictureUrl(organizationId), {
+  return request<void>(buildOrganizationMediaUrl(organizationId), {
     method: 'DELETE',
     headers: {
       'Content-Type': 'application/json',

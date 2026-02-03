@@ -60,7 +60,7 @@ class Organization(Base):
         nullable=False,
         comment="Cognito user sub (subject) identifier of the organization owner",
     )
-    picture_urls: Mapped[List[str]] = mapped_column(
+    media_urls: Mapped[List[str]] = mapped_column(
         ARRAY(Text()),
         nullable=False,
         server_default=text("'{}'::text[]"),

@@ -64,20 +64,20 @@ class TestOrganizationRepository:
         assert org.name == 'Test Org'
         assert org.description == 'Test Description'
 
-    def test_create_organization_with_picture_urls(self, db_session) -> None:
-        """Should store organization picture URLs."""
+    def test_create_organization_with_media_urls(self, db_session) -> None:
+        """Should store organization media URLs."""
         from app.db.repositories.organization import OrganizationRepository
 
         repo = OrganizationRepository(db_session)
         org = repo.create_organization(
             name='Test Org',
-            picture_urls=[
+            media_urls=[
                 'https://example.com/pic-1.jpg',
                 'https://example.com/pic-2.jpg',
             ],
         )
 
-        assert org.picture_urls == [
+        assert org.media_urls == [
             'https://example.com/pic-1.jpg',
             'https://example.com/pic-2.jpg',
         ]

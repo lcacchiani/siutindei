@@ -20,7 +20,7 @@ class OrganizationSchema(BaseModel):
     name: str
     description: Optional[str]
     owner_id: str
-    picture_urls: List[str]
+    media_urls: List[str]
 
 
 class LocationSchema(BaseModel):
