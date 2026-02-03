@@ -1384,18 +1384,16 @@ export class ApiStack extends cdk.Stack {
       sourceArn: api.arnForExecuteApi(),
     });
 
-    // Resources accessible only by admins
-    const adminOnlyResources = ["organizations"];
-    // Resources accessible by both admins and owners (with ownership checks in Lambda)
-    const ownerAccessibleResources = [
+    // All admin resources - admin only, full access
+    const adminResources = [
+      "organizations",
       "locations",
       "activities",
       "pricing",
       "schedules",
     ];
 
-    // Admin-only resources (organizations)
-    for (const resourceName of adminOnlyResources) {
+    for (const resourceName of adminResources) {
       const resource = admin.addResource(resourceName);
       resource.addMethod("GET", adminIntegration, {
         authorizationType: apigateway.AuthorizationType.CUSTOM,
@@ -1433,34 +1431,6 @@ export class ApiStack extends cdk.Stack {
       }
     }
 
-    // Owner-accessible resources (locations, activities, pricing, schedules)
-    // Ownership checks are enforced in the Lambda function
-    for (const resourceName of ownerAccessibleResources) {
-      const resource = admin.addResource(resourceName);
-      resource.addMethod("GET", adminIntegration, {
-        authorizationType: apigateway.AuthorizationType.CUSTOM,
-        authorizer: ownerAuthorizer,
-      });
-      resource.addMethod("POST", adminIntegration, {
-        authorizationType: apigateway.AuthorizationType.CUSTOM,
-        authorizer: ownerAuthorizer,
-      });
-
-      const resourceById = resource.addResource("{id}");
-      resourceById.addMethod("GET", adminIntegration, {
-        authorizationType: apigateway.AuthorizationType.CUSTOM,
-        authorizer: ownerAuthorizer,
-      });
-      resourceById.addMethod("PUT", adminIntegration, {
-        authorizationType: apigateway.AuthorizationType.CUSTOM,
-        authorizer: ownerAuthorizer,
-      });
-      resourceById.addMethod("DELETE", adminIntegration, {
-        authorizationType: apigateway.AuthorizationType.CUSTOM,
-        authorizer: ownerAuthorizer,
-      });
-    }
-
     const users = admin.addResource("users");
     const userByName = users.addResource("{username}");
     const userGroups = userByName.addResource("groups");
@@ -1494,28 +1464,43 @@ export class ApiStack extends cdk.Stack {
     });
 
     // Owner-specific routes at /v1/owner (accessible by users in 'admin' OR 'owner' group)
+    // All owner routes are filtered by organization ownership in the Lambda
     const owner = v1.addResource("owner");
 
-    // Owner organizations (list/update/delete their own organizations)
-    const ownerOrganizations = owner.addResource("organizations");
-    ownerOrganizations.addMethod("GET", adminIntegration, {
-      authorizationType: apigateway.AuthorizationType.CUSTOM,
-      authorizer: ownerAuthorizer,
-    });
+    // Owner resources - CRUD filtered by owned organizations
+    const ownerResources = [
+      "organizations",
+      "locations",
+      "activities",
+      "pricing",
+      "schedules",
+    ];
 
-    const ownerOrganizationById = ownerOrganizations.addResource("{id}");
-    ownerOrganizationById.addMethod("GET", adminIntegration, {
-      authorizationType: apigateway.AuthorizationType.CUSTOM,
-      authorizer: ownerAuthorizer,
-    });
-    ownerOrganizationById.addMethod("PUT", adminIntegration, {
-      authorizationType: apigateway.AuthorizationType.CUSTOM,
-      authorizer: ownerAuthorizer,
-    });
-    ownerOrganizationById.addMethod("DELETE", adminIntegration, {
-      authorizationType: apigateway.AuthorizationType.CUSTOM,
-      authorizer: ownerAuthorizer,
-    });
+    for (const resourceName of ownerResources) {
+      const resource = owner.addResource(resourceName);
+      resource.addMethod("GET", adminIntegration, {
+        authorizationType: apigateway.AuthorizationType.CUSTOM,
+        authorizer: ownerAuthorizer,
+      });
+      resource.addMethod("POST", adminIntegration, {
+        authorizationType: apigateway.AuthorizationType.CUSTOM,
+        authorizer: ownerAuthorizer,
+      });
+
+      const resourceById = resource.addResource("{id}");
+      resourceById.addMethod("GET", adminIntegration, {
+        authorizationType: apigateway.AuthorizationType.CUSTOM,
+        authorizer: ownerAuthorizer,
+      });
+      resourceById.addMethod("PUT", adminIntegration, {
+        authorizationType: apigateway.AuthorizationType.CUSTOM,
+        authorizer: ownerAuthorizer,
+      });
+      resourceById.addMethod("DELETE", adminIntegration, {
+        authorizationType: apigateway.AuthorizationType.CUSTOM,
+        authorizer: ownerAuthorizer,
+      });
+    }
 
     // Owner access request (submit request to be added to an organization)
     const ownerAccessRequest = owner.addResource("access-request");

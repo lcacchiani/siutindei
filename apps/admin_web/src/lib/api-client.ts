@@ -307,6 +307,259 @@ export async function deleteOwnerOrganization(id: string): Promise<void> {
   });
 }
 
+// --- Owner Locations ---
+
+/**
+ * List locations in organizations owned by the current user.
+ */
+export async function listOwnerLocations(): Promise<
+  ListResponse<import('../types/admin').Location>
+> {
+  return request<ListResponse<import('../types/admin').Location>>(
+    buildOwnerUrl('locations')
+  );
+}
+
+/**
+ * Get a specific location in an owned organization.
+ */
+export async function getOwnerLocation(
+  id: string
+): Promise<import('../types/admin').Location> {
+  return request<import('../types/admin').Location>(
+    buildOwnerUrl('locations', id)
+  );
+}
+
+/**
+ * Create a location in an owned organization.
+ */
+export async function createOwnerLocation<TInput>(
+  payload: TInput
+): Promise<import('../types/admin').Location> {
+  return request<import('../types/admin').Location>(buildOwnerUrl('locations'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+}
+
+/**
+ * Update a location in an owned organization.
+ */
+export async function updateOwnerLocation<TInput>(
+  id: string,
+  payload: TInput
+): Promise<import('../types/admin').Location> {
+  return request<import('../types/admin').Location>(
+    buildOwnerUrl('locations', id),
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }
+  );
+}
+
+/**
+ * Delete a location in an owned organization.
+ */
+export async function deleteOwnerLocation(id: string): Promise<void> {
+  return request<void>(buildOwnerUrl('locations', id), {
+    method: 'DELETE',
+  });
+}
+
+// --- Owner Activities ---
+
+/**
+ * List activities in organizations owned by the current user.
+ */
+export async function listOwnerActivities(): Promise<
+  ListResponse<import('../types/admin').Activity>
+> {
+  return request<ListResponse<import('../types/admin').Activity>>(
+    buildOwnerUrl('activities')
+  );
+}
+
+/**
+ * Get a specific activity in an owned organization.
+ */
+export async function getOwnerActivity(
+  id: string
+): Promise<import('../types/admin').Activity> {
+  return request<import('../types/admin').Activity>(
+    buildOwnerUrl('activities', id)
+  );
+}
+
+/**
+ * Create an activity in an owned organization.
+ */
+export async function createOwnerActivity<TInput>(
+  payload: TInput
+): Promise<import('../types/admin').Activity> {
+  return request<import('../types/admin').Activity>(
+    buildOwnerUrl('activities'),
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }
+  );
+}
+
+/**
+ * Update an activity in an owned organization.
+ */
+export async function updateOwnerActivity<TInput>(
+  id: string,
+  payload: TInput
+): Promise<import('../types/admin').Activity> {
+  return request<import('../types/admin').Activity>(
+    buildOwnerUrl('activities', id),
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }
+  );
+}
+
+/**
+ * Delete an activity in an owned organization.
+ */
+export async function deleteOwnerActivity(id: string): Promise<void> {
+  return request<void>(buildOwnerUrl('activities', id), {
+    method: 'DELETE',
+  });
+}
+
+// --- Owner Pricing ---
+
+/**
+ * List pricing in organizations owned by the current user.
+ */
+export async function listOwnerPricing(): Promise<
+  ListResponse<import('../types/admin').Pricing>
+> {
+  return request<ListResponse<import('../types/admin').Pricing>>(
+    buildOwnerUrl('pricing')
+  );
+}
+
+/**
+ * Get specific pricing in an owned organization.
+ */
+export async function getOwnerPricing(
+  id: string
+): Promise<import('../types/admin').Pricing> {
+  return request<import('../types/admin').Pricing>(buildOwnerUrl('pricing', id));
+}
+
+/**
+ * Create pricing in an owned organization.
+ */
+export async function createOwnerPricing<TInput>(
+  payload: TInput
+): Promise<import('../types/admin').Pricing> {
+  return request<import('../types/admin').Pricing>(buildOwnerUrl('pricing'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+}
+
+/**
+ * Update pricing in an owned organization.
+ */
+export async function updateOwnerPricing<TInput>(
+  id: string,
+  payload: TInput
+): Promise<import('../types/admin').Pricing> {
+  return request<import('../types/admin').Pricing>(
+    buildOwnerUrl('pricing', id),
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }
+  );
+}
+
+/**
+ * Delete pricing in an owned organization.
+ */
+export async function deleteOwnerPricing(id: string): Promise<void> {
+  return request<void>(buildOwnerUrl('pricing', id), {
+    method: 'DELETE',
+  });
+}
+
+// --- Owner Schedules ---
+
+/**
+ * List schedules in organizations owned by the current user.
+ */
+export async function listOwnerSchedules(): Promise<
+  ListResponse<import('../types/admin').Schedule>
+> {
+  return request<ListResponse<import('../types/admin').Schedule>>(
+    buildOwnerUrl('schedules')
+  );
+}
+
+/**
+ * Get a specific schedule in an owned organization.
+ */
+export async function getOwnerSchedule(
+  id: string
+): Promise<import('../types/admin').Schedule> {
+  return request<import('../types/admin').Schedule>(
+    buildOwnerUrl('schedules', id)
+  );
+}
+
+/**
+ * Create a schedule in an owned organization.
+ */
+export async function createOwnerSchedule<TInput>(
+  payload: TInput
+): Promise<import('../types/admin').Schedule> {
+  return request<import('../types/admin').Schedule>(buildOwnerUrl('schedules'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+}
+
+/**
+ * Update a schedule in an owned organization.
+ */
+export async function updateOwnerSchedule<TInput>(
+  id: string,
+  payload: TInput
+): Promise<import('../types/admin').Schedule> {
+  return request<import('../types/admin').Schedule>(
+    buildOwnerUrl('schedules', id),
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }
+  );
+}
+
+/**
+ * Delete a schedule in an owned organization.
+ */
+export async function deleteOwnerSchedule(id: string): Promise<void> {
+  return request<void>(buildOwnerUrl('schedules', id), {
+    method: 'DELETE',
+  });
+}
+
 // --- Admin access request management ---
 
 export interface ListAccessRequestsResponse {
