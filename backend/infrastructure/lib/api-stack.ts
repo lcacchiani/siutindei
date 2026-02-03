@@ -1366,6 +1366,13 @@ export class ApiStack extends cdk.Stack {
       authorizer,
     });
 
+    // Cognito users listing endpoint (for owner selection)
+    const cognitoUsers = admin.addResource("cognito-users");
+    cognitoUsers.addMethod("GET", adminIntegration, {
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+      authorizer,
+    });
+
     // ---------------------------------------------------------------------
     // Admin Bootstrap (Conditional)
     // ---------------------------------------------------------------------
