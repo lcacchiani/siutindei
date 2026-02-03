@@ -14,6 +14,7 @@ import { Button } from '../ui/button';
 import { Card } from '../ui/card';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
+import { SearchInput } from '../ui/search-input';
 import { Select } from '../ui/select';
 import { StatusBanner } from '../status-banner';
 
@@ -123,6 +124,9 @@ export function SchedulesPanel({ mode }: SchedulesPanelProps) {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
 
+  // Search state
+  const [searchQuery, setSearchQuery] = useState('');
+
   useEffect(() => {
     const loadReferences = async () => {
       try {
@@ -205,6 +209,21 @@ export function SchedulesPanel({ mode }: SchedulesPanelProps) {
   const handleSubmit = () => panel.handleSubmit(formToPayload, validate);
 
   const scheduleType = panel.formState.schedule_type;
+
+  // Filter items based on search query
+  const filteredItems = panel.items.filter((item) => {
+    if (!searchQuery.trim()) return true;
+    const query = searchQuery.toLowerCase();
+    const activityName = activities.find((a) => a.id === item.activity_id)?.name?.toLowerCase() || '';
+    const locationName = locations.find((l) => l.id === item.location_id)?.district?.toLowerCase() || '';
+    const languagesStr = item.languages?.join(', ')?.toLowerCase() || '';
+    return (
+      activityName.includes(query) ||
+      locationName.includes(query) ||
+      item.schedule_type?.toLowerCase().includes(query) ||
+      languagesStr.includes(query)
+    );
+  });
 
   return (
     <div className='space-y-6'>
@@ -462,7 +481,18 @@ export function SchedulesPanel({ mode }: SchedulesPanelProps) {
         ) : panel.items.length === 0 ? (
           <p className='text-sm text-slate-600'>No schedules yet.</p>
         ) : (
-          <div className='overflow-x-auto'>
+          <div className='space-y-4'>
+            <div className='max-w-sm'>
+              <SearchInput
+                placeholder='Search schedules...'
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+            {filteredItems.length === 0 ? (
+              <p className='text-sm text-slate-600'>No schedules match your search.</p>
+            ) : (
+            <div className='overflow-x-auto'>
             <table className='w-full text-left text-sm'>
               <thead className='border-b border-slate-200 text-slate-500'>
                 <tr>
@@ -474,7 +504,7 @@ export function SchedulesPanel({ mode }: SchedulesPanelProps) {
                 </tr>
               </thead>
               <tbody>
-                {panel.items.map((item) => {
+                {filteredItems.map((item) => {
                   const activityName =
                     activities.find((a) => a.id === item.activity_id)?.name ||
                     item.activity_id;
@@ -528,6 +558,8 @@ export function SchedulesPanel({ mode }: SchedulesPanelProps) {
                   Load more
                 </Button>
               </div>
+            )}
+            </div>
             )}
           </div>
         )}

@@ -14,6 +14,7 @@ import { Button } from '../ui/button';
 import { Card } from '../ui/card';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
+import { SearchInput } from '../ui/search-input';
 import { Select } from '../ui/select';
 import { StatusBanner } from '../status-banner';
 
@@ -74,6 +75,9 @@ export function PricingPanel({ mode }: PricingPanelProps) {
 
   const [activities, setActivities] = useState<Activity[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
+
+  // Search state
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     const loadReferences = async () => {
@@ -136,6 +140,21 @@ export function PricingPanel({ mode }: PricingPanelProps) {
   const handleSubmit = () => panel.handleSubmit(formToPayload, validate);
 
   const showSessionsField = panel.formState.pricing_type === 'per_sessions';
+
+  // Filter items based on search query
+  const filteredItems = panel.items.filter((item) => {
+    if (!searchQuery.trim()) return true;
+    const query = searchQuery.toLowerCase();
+    const activityName = activities.find((a) => a.id === item.activity_id)?.name?.toLowerCase() || '';
+    const locationName = locations.find((l) => l.id === item.location_id)?.district?.toLowerCase() || '';
+    return (
+      activityName.includes(query) ||
+      locationName.includes(query) ||
+      item.pricing_type?.toLowerCase().includes(query) ||
+      item.amount?.toLowerCase().includes(query) ||
+      item.currency?.toLowerCase().includes(query)
+    );
+  });
 
   return (
     <div className='space-y-6'>
@@ -287,7 +306,18 @@ export function PricingPanel({ mode }: PricingPanelProps) {
         ) : panel.items.length === 0 ? (
           <p className='text-sm text-slate-600'>No pricing entries yet.</p>
         ) : (
-          <div className='overflow-x-auto'>
+          <div className='space-y-4'>
+            <div className='max-w-sm'>
+              <SearchInput
+                placeholder='Search pricing...'
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+            {filteredItems.length === 0 ? (
+              <p className='text-sm text-slate-600'>No pricing entries match your search.</p>
+            ) : (
+            <div className='overflow-x-auto'>
             <table className='w-full text-left text-sm'>
               <thead className='border-b border-slate-200 text-slate-500'>
                 <tr>
@@ -299,7 +329,7 @@ export function PricingPanel({ mode }: PricingPanelProps) {
                 </tr>
               </thead>
               <tbody>
-                {panel.items.map((item) => {
+                {filteredItems.map((item) => {
                   const activityName =
                     activities.find((a) => a.id === item.activity_id)?.name ||
                     item.activity_id;
@@ -351,6 +381,8 @@ export function PricingPanel({ mode }: PricingPanelProps) {
                   Load more
                 </Button>
               </div>
+            )}
+            </div>
             )}
           </div>
         )}

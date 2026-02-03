@@ -10,6 +10,7 @@ import { Button } from '../ui/button';
 import { Card } from '../ui/card';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
+import { SearchInput } from '../ui/search-input';
 import { Select } from '../ui/select';
 import { Textarea } from '../ui/textarea';
 import { StatusBanner } from '../status-banner';
@@ -58,6 +59,9 @@ export function OrganizationsPanel({ mode }: OrganizationsPanelProps) {
   // Admin-only: Load Cognito users for owner selection
   const [cognitoUsers, setCognitoUsers] = useState<CognitoUser[]>([]);
   const [isLoadingUsers, setIsLoadingUsers] = useState(isAdmin);
+
+  // Search state
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Extract setError for stable reference in useEffect
   const { setError } = panel;
@@ -120,6 +124,18 @@ export function OrganizationsPanel({ mode }: OrganizationsPanelProps) {
   // Owner mode: Don't show create form, only edit
   const showCreateForm = isAdmin || panel.editingId;
   const canCreate = isAdmin;
+
+  // Filter items based on search query
+  const filteredItems = panel.items.filter((item) => {
+    if (!searchQuery.trim()) return true;
+    const query = searchQuery.toLowerCase();
+    const ownerDisplay = getOwnerDisplayName(item.owner_id, cognitoUsers).toLowerCase();
+    return (
+      item.name?.toLowerCase().includes(query) ||
+      item.description?.toLowerCase().includes(query) ||
+      ownerDisplay.includes(query)
+    );
+  });
 
   return (
     <div className='space-y-6'>
@@ -240,7 +256,18 @@ export function OrganizationsPanel({ mode }: OrganizationsPanelProps) {
               : 'You do not own any organizations yet.'}
           </p>
         ) : (
-          <div className='overflow-x-auto'>
+          <div className='space-y-4'>
+            <div className='max-w-sm'>
+              <SearchInput
+                placeholder='Search organizations...'
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+            {filteredItems.length === 0 ? (
+              <p className='text-sm text-slate-600'>No organizations match your search.</p>
+            ) : (
+            <div className='overflow-x-auto'>
             <table className='w-full text-left text-sm'>
               <thead className='border-b border-slate-200 text-slate-500'>
                 <tr>
@@ -251,7 +278,7 @@ export function OrganizationsPanel({ mode }: OrganizationsPanelProps) {
                 </tr>
               </thead>
               <tbody>
-                {panel.items.map((item) => (
+                {filteredItems.map((item) => (
                   <tr key={item.id} className='border-b border-slate-100'>
                     <td className='py-2 font-medium'>{item.name}</td>
                     {isAdmin && (
@@ -296,6 +323,8 @@ export function OrganizationsPanel({ mode }: OrganizationsPanelProps) {
                   Load more
                 </Button>
               </div>
+            )}
+            </div>
             )}
           </div>
         )}

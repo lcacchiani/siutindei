@@ -10,6 +10,7 @@ import { Button } from '../ui/button';
 import { Card } from '../ui/card';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
+import { SearchInput } from '../ui/search-input';
 import { Select } from '../ui/select';
 import { StatusBanner } from '../status-banner';
 
@@ -62,6 +63,9 @@ export function LocationsPanel({ mode }: LocationsPanelProps) {
   // Load organizations for the dropdown
   const [organizations, setOrganizations] = useState<Organization[]>([]);
 
+  // Search state
+  const [searchQuery, setSearchQuery] = useState('');
+
   useEffect(() => {
     const loadOrganizations = async () => {
       try {
@@ -99,6 +103,18 @@ export function LocationsPanel({ mode }: LocationsPanelProps) {
   });
 
   const handleSubmit = () => panel.handleSubmit(formToPayload, validate);
+
+  // Filter items based on search query
+  const filteredItems = panel.items.filter((item) => {
+    if (!searchQuery.trim()) return true;
+    const query = searchQuery.toLowerCase();
+    const orgName = organizations.find((org) => org.id === item.org_id)?.name?.toLowerCase() || '';
+    return (
+      item.district?.toLowerCase().includes(query) ||
+      item.address?.toLowerCase().includes(query) ||
+      orgName.includes(query)
+    );
+  });
 
   return (
     <div className='space-y-6'>
@@ -218,7 +234,18 @@ export function LocationsPanel({ mode }: LocationsPanelProps) {
         ) : panel.items.length === 0 ? (
           <p className='text-sm text-slate-600'>No locations yet.</p>
         ) : (
-          <div className='overflow-x-auto'>
+          <div className='space-y-4'>
+            <div className='max-w-sm'>
+              <SearchInput
+                placeholder='Search locations...'
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+            {filteredItems.length === 0 ? (
+              <p className='text-sm text-slate-600'>No locations match your search.</p>
+            ) : (
+            <div className='overflow-x-auto'>
             <table className='w-full text-left text-sm'>
               <thead className='border-b border-slate-200 text-slate-500'>
                 <tr>
@@ -229,7 +256,7 @@ export function LocationsPanel({ mode }: LocationsPanelProps) {
                 </tr>
               </thead>
               <tbody>
-                {panel.items.map((item) => (
+                {filteredItems.map((item) => (
                   <tr key={item.id} className='border-b border-slate-100'>
                     <td className='py-2 font-medium'>{item.district}</td>
                     <td className='py-2 text-slate-600'>
@@ -278,6 +305,8 @@ export function LocationsPanel({ mode }: LocationsPanelProps) {
                   Load more
                 </Button>
               </div>
+            )}
+            </div>
             )}
           </div>
         )}
