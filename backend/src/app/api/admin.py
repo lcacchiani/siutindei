@@ -559,8 +559,8 @@ def _handle_owner_access_request(
                 required=False,
             )
 
-            # Generate a unique ticket ID
-            ticket_id = _generate_ticket_id()
+            # Generate a unique progressive ticket ID
+            ticket_id = _generate_ticket_id(session)
 
             # Create the access request
             access_request = OrganizationAccessRequest(
@@ -591,22 +591,33 @@ def _handle_owner_access_request(
     return json_response(405, {"error": "Method not allowed"}, event=event)
 
 
-def _generate_ticket_id() -> str:
-    """Generate a unique ticket ID in format HK + 10 digits.
+def _generate_ticket_id(session: Session) -> str:
+    """Generate a unique progressive ticket ID in format R + 10 digits.
 
-    Uses timestamp in milliseconds combined with a cryptographically secure
-    random component to ensure uniqueness.
+    Queries the database for the highest existing ticket number and
+    increments it by 1. Thread-safe due to database unique constraint.
+
+    Args:
+        session: SQLAlchemy database session for querying existing tickets.
+
+    Returns:
+        A new ticket ID like R0000000001, R0000000002, etc.
     """
-    import secrets
-    import time
+    from sqlalchemy import text
 
-    # Get current timestamp in milliseconds
-    timestamp_ms = int(time.time() * 1000)
-    # Add cryptographically secure random component for uniqueness
-    random_part = secrets.randbelow(10000)
-    # Combine and format as 10-digit number
-    ticket_number = (timestamp_ms % 10000000000) + random_part
-    return f"HK{ticket_number:010d}"
+    # Query the highest ticket number from existing requests
+    result = session.execute(
+        text(
+            "SELECT MAX(CAST(SUBSTRING(ticket_id FROM 2) AS BIGINT)) "
+            "FROM organization_access_requests "
+            "WHERE ticket_id LIKE 'R%'"
+        )
+    ).scalar()
+
+    # Start from 1 if no existing tickets, otherwise increment
+    next_number = (result or 0) + 1
+
+    return f"R{next_number:010d}"
 
 
 def _serialize_access_request(

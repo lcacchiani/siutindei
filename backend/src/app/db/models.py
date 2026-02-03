@@ -361,7 +361,7 @@ class OrganizationAccessRequest(Base):
         Text(),
         nullable=False,
         unique=True,
-        comment="Unique ticket ID for tracking (format: HK + 10 digits)",
+        comment="Unique progressive ticket ID for tracking (format: R + 10 digits)",
     )
     requester_id: Mapped[str] = mapped_column(
         Text(),

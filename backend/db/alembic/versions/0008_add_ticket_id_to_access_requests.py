@@ -1,7 +1,7 @@
 """Add ticket_id to organization_access_requests.
 
-Each access request gets a unique ticket ID in format HK + 10 digits
-for tracking and reference in email communications.
+Each access request gets a unique progressive ticket ID in format R + 10 digits
+for tracking and reference in email communications (e.g., R0000000001).
 """
 
 from __future__ import annotations
@@ -27,7 +27,7 @@ def upgrade() -> None:
             "ticket_id",
             sa.Text(),
             nullable=True,
-            comment="Unique ticket ID for tracking (format: HK + 10 digits)",
+            comment="Unique progressive ticket ID for tracking (format: R + 10 digits)",
         ),
     )
 
@@ -39,20 +39,19 @@ def upgrade() -> None:
         unique=True,
     )
 
-    # Generate ticket IDs for existing rows
+    # Generate progressive ticket IDs for existing rows
     connection = op.get_bind()
     result = connection.execute(
-        sa.text("SELECT id FROM organization_access_requests WHERE ticket_id IS NULL")
+        sa.text(
+            "SELECT id FROM organization_access_requests "
+            "WHERE ticket_id IS NULL ORDER BY created_at"
+        )
     )
     rows = result.fetchall()
 
-    for row in rows:
-        # Generate a ticket ID based on timestamp and random component
-        ticket_id = connection.execute(
-            sa.text(
-                "SELECT 'HK' || LPAD(FLOOR(EXTRACT(EPOCH FROM NOW()) * 1000)::TEXT, 10, '0')"
-            )
-        ).scalar()
+    for idx, row in enumerate(rows, start=1):
+        # Generate progressive ticket ID (R0000000001, R0000000002, etc.)
+        ticket_id = f"R{idx:010d}"
         connection.execute(
             sa.text(
                 "UPDATE organization_access_requests SET ticket_id = :ticket_id WHERE id = :id"
