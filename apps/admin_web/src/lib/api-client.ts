@@ -442,9 +442,9 @@ export async function deleteOwnerActivity(id: string): Promise<void> {
  * List pricing in organizations owned by the current user.
  */
 export async function listOwnerPricing(): Promise<
-  ListResponse<import('../types/admin').Pricing>
+  ListResponse<import('../types/admin').ActivityPricing>
 > {
-  return request<ListResponse<import('../types/admin').Pricing>>(
+  return request<ListResponse<import('../types/admin').ActivityPricing>>(
     buildOwnerUrl('pricing')
   );
 }
@@ -454,8 +454,8 @@ export async function listOwnerPricing(): Promise<
  */
 export async function getOwnerPricing(
   id: string
-): Promise<import('../types/admin').Pricing> {
-  return request<import('../types/admin').Pricing>(buildOwnerUrl('pricing', id));
+): Promise<import('../types/admin').ActivityPricing> {
+  return request<import('../types/admin').ActivityPricing>(buildOwnerUrl('pricing', id));
 }
 
 /**
@@ -463,8 +463,8 @@ export async function getOwnerPricing(
  */
 export async function createOwnerPricing<TInput>(
   payload: TInput
-): Promise<import('../types/admin').Pricing> {
-  return request<import('../types/admin').Pricing>(buildOwnerUrl('pricing'), {
+): Promise<import('../types/admin').ActivityPricing> {
+  return request<import('../types/admin').ActivityPricing>(buildOwnerUrl('pricing'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
@@ -477,8 +477,8 @@ export async function createOwnerPricing<TInput>(
 export async function updateOwnerPricing<TInput>(
   id: string,
   payload: TInput
-): Promise<import('../types/admin').Pricing> {
-  return request<import('../types/admin').Pricing>(
+): Promise<import('../types/admin').ActivityPricing> {
+  return request<import('../types/admin').ActivityPricing>(
     buildOwnerUrl('pricing', id),
     {
       method: 'PUT',
@@ -503,9 +503,9 @@ export async function deleteOwnerPricing(id: string): Promise<void> {
  * List schedules in organizations owned by the current user.
  */
 export async function listOwnerSchedules(): Promise<
-  ListResponse<import('../types/admin').Schedule>
+  ListResponse<import('../types/admin').ActivitySchedule>
 > {
-  return request<ListResponse<import('../types/admin').Schedule>>(
+  return request<ListResponse<import('../types/admin').ActivitySchedule>>(
     buildOwnerUrl('schedules')
   );
 }
@@ -515,8 +515,8 @@ export async function listOwnerSchedules(): Promise<
  */
 export async function getOwnerSchedule(
   id: string
-): Promise<import('../types/admin').Schedule> {
-  return request<import('../types/admin').Schedule>(
+): Promise<import('../types/admin').ActivitySchedule> {
+  return request<import('../types/admin').ActivitySchedule>(
     buildOwnerUrl('schedules', id)
   );
 }
@@ -526,8 +526,8 @@ export async function getOwnerSchedule(
  */
 export async function createOwnerSchedule<TInput>(
   payload: TInput
-): Promise<import('../types/admin').Schedule> {
-  return request<import('../types/admin').Schedule>(buildOwnerUrl('schedules'), {
+): Promise<import('../types/admin').ActivitySchedule> {
+  return request<import('../types/admin').ActivitySchedule>(buildOwnerUrl('schedules'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
@@ -540,8 +540,8 @@ export async function createOwnerSchedule<TInput>(
 export async function updateOwnerSchedule<TInput>(
   id: string,
   payload: TInput
-): Promise<import('../types/admin').Schedule> {
-  return request<import('../types/admin').Schedule>(
+): Promise<import('../types/admin').ActivitySchedule> {
+  return request<import('../types/admin').ActivitySchedule>(
     buildOwnerUrl('schedules', id),
     {
       method: 'PUT',

@@ -6,13 +6,15 @@ import { AppShell } from '../app-shell';
 import { useAuth } from '../auth-provider';
 import { LoginScreen } from '../login-screen';
 import { StatusBanner } from '../status-banner';
+import {
+  OrganizationsPanel,
+  LocationsPanel,
+  ActivitiesPanel,
+  PricingPanel,
+  SchedulesPanel,
+} from '../shared';
 import { AccessRequestsPanel } from './access-requests-panel';
-import { ActivitiesPanel } from './activities-panel';
-import { LocationsPanel } from './locations-panel';
-import { OrganizationsPanel } from './organizations-panel';
 import { MediaPanel } from './media-panel';
-import { PricingPanel } from './pricing-panel';
-import { SchedulesPanel } from './schedules-panel';
 import { OwnerDashboard } from './owner-dashboard';
 
 const sectionLabels = [
@@ -34,18 +36,18 @@ export function AdminDashboard() {
       case 'media':
         return <MediaPanel />;
       case 'locations':
-        return <LocationsPanel />;
+        return <LocationsPanel mode='admin' />;
       case 'activities':
-        return <ActivitiesPanel />;
+        return <ActivitiesPanel mode='admin' />;
       case 'pricing':
-        return <PricingPanel />;
+        return <PricingPanel mode='admin' />;
       case 'schedules':
-        return <SchedulesPanel />;
+        return <SchedulesPanel mode='admin' />;
       case 'access-requests':
         return <AccessRequestsPanel />;
       case 'organizations':
       default:
-        return <OrganizationsPanel />;
+        return <OrganizationsPanel mode='admin' />;
     }
   }, [activeSection]);
 

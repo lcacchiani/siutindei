@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import {
   ApiError,
@@ -11,15 +11,16 @@ import {
 import { useAuth } from '../auth-provider';
 import { AppShell } from '../app-shell';
 import { StatusBanner } from '../status-banner';
+import {
+  OrganizationsPanel,
+  LocationsPanel,
+  ActivitiesPanel,
+  PricingPanel,
+  SchedulesPanel,
+} from '../shared';
 import { AccessRequestForm } from './access-request-form';
 import { PendingRequestNotice } from './pending-request-notice';
-import { OwnerOrganizationsPanel } from './owner-organizations-panel';
 import { MediaPanel } from './media-panel';
-import { LocationsPanel } from './locations-panel';
-import { ActivitiesPanel } from './activities-panel';
-import { PricingPanel } from './pricing-panel';
-import { SchedulesPanel } from './schedules-panel';
-import { useMemo } from 'react';
 
 type OwnerView = 'loading' | 'request-form' | 'pending' | 'dashboard';
 
@@ -75,7 +76,7 @@ export function OwnerDashboard() {
     setView('pending');
   };
 
-  // Sections available to owners (no "Add Organization" functionality)
+  // Sections available to owners
   const sectionLabels = [
     { key: 'organizations', label: 'Organizations' },
     { key: 'media', label: 'Media' },
@@ -85,21 +86,22 @@ export function OwnerDashboard() {
     { key: 'schedules', label: 'Schedules' },
   ];
 
+  // Use shared components with mode='owner'
   const activeContent = useMemo(() => {
     switch (activeSection) {
       case 'media':
         return <MediaPanel />;
       case 'locations':
-        return <LocationsPanel />;
+        return <LocationsPanel mode='owner' />;
       case 'activities':
-        return <ActivitiesPanel />;
+        return <ActivitiesPanel mode='owner' />;
       case 'pricing':
-        return <PricingPanel />;
+        return <PricingPanel mode='owner' />;
       case 'schedules':
-        return <SchedulesPanel />;
+        return <SchedulesPanel mode='owner' />;
       case 'organizations':
       default:
-        return <OwnerOrganizationsPanel />;
+        return <OrganizationsPanel mode='owner' />;
     }
   }, [activeSection]);
 
