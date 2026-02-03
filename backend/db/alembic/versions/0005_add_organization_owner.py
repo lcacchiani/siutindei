@@ -14,20 +14,18 @@ down_revision: Union[str, None] = "0004_add_organization_pictures"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
-# Fallback owner email for existing organizations without an owner
-FALLBACK_OWNER_EMAIL = "luca.cacchiani@gmail.com"
-
 
 def _get_fallback_owner_sub() -> str:
     """Get the Cognito user sub for the fallback owner.
 
     Queries Cognito to find the user by email and returns their sub.
+    The fallback owner email is read from the FALLBACK_OWNER_EMAIL environment variable.
 
     Returns:
         The Cognito user sub (UUID string).
 
     Raises:
-        RuntimeError: If the user cannot be found or Cognito is not configured.
+        RuntimeError: If the user cannot be found or required env vars are not set.
     """
     import boto3
 
@@ -37,19 +35,26 @@ def _get_fallback_owner_sub() -> str:
             "COGNITO_USER_POOL_ID environment variable is required for migration"
         )
 
+    fallback_owner_email = os.environ.get("FALLBACK_OWNER_EMAIL")
+    if not fallback_owner_email:
+        raise RuntimeError(
+            "FALLBACK_OWNER_EMAIL environment variable is required for migration. "
+            "Set it in the FallbackOwnerEmail parameter in production.json."
+        )
+
     client = boto3.client("cognito-idp")
 
     # Find user by email
     response = client.list_users(
         UserPoolId=user_pool_id,
-        Filter=f'email = "{FALLBACK_OWNER_EMAIL}"',
+        Filter=f'email = "{fallback_owner_email}"',
         Limit=1,
     )
 
     users = response.get("Users", [])
     if not users:
         raise RuntimeError(
-            f"Fallback owner user with email '{FALLBACK_OWNER_EMAIL}' not found in Cognito. "
+            f"Fallback owner user with email '{fallback_owner_email}' not found in Cognito. "
             "Please create this user before running the migration."
         )
 
@@ -60,7 +65,7 @@ def _get_fallback_owner_sub() -> str:
 
     if not sub:
         raise RuntimeError(
-            f"Fallback owner user '{FALLBACK_OWNER_EMAIL}' does not have a sub attribute"
+            f"Fallback owner user '{fallback_owner_email}' does not have a sub attribute"
         )
 
     return sub

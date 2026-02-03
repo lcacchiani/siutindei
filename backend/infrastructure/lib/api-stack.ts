@@ -375,6 +375,21 @@ export class ApiStack extends cdk.Stack {
     );
 
     // ---------------------------------------------------------------------
+    // Migration Parameters
+    // ---------------------------------------------------------------------
+    const fallbackOwnerEmail = new cdk.CfnParameter(
+      this,
+      "FallbackOwnerEmail",
+      {
+        type: "String",
+        default: "",
+        description:
+          "Email of the Cognito user to use as fallback owner for existing " +
+          "organizations without an owner during migration.",
+      }
+    );
+
+    // ---------------------------------------------------------------------
     // API Custom Domain Parameters (Optional)
     // ---------------------------------------------------------------------
     const apiCustomDomainName = new cdk.CfnParameter(
@@ -865,6 +880,7 @@ export class ApiStack extends cdk.Stack {
         DATABASE_ADMIN_USER_SECRET_ARN: database.adminUserSecret.secretArn,
         SEED_FILE_PATH: "/var/task/db/seed/seed_data.sql",
         COGNITO_USER_POOL_ID: userPool.userPoolId,
+        FALLBACK_OWNER_EMAIL: fallbackOwnerEmail.valueAsString,
       },
     });
     database.grantSecretRead(migrationFunction);
