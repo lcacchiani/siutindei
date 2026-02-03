@@ -197,6 +197,49 @@ export async function listCognitoUsers(
   return request<CognitoUsersResponse>(url.toString());
 }
 
+function buildUserGroupsUrl(username: string) {
+  const base = getApiBaseUrl();
+  const normalized = base.endsWith('/') ? base : `${base}/`;
+  return new URL(`v1/admin/users/${encodeURIComponent(username)}/groups`, normalized).toString();
+}
+
+export interface UserGroupResponse {
+  status: 'added' | 'removed';
+  group: string;
+}
+
+/**
+ * Add a user to a Cognito group (promote).
+ */
+export async function addUserToGroup(
+  username: string,
+  group: string
+): Promise<UserGroupResponse> {
+  return request<UserGroupResponse>(buildUserGroupsUrl(username), {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ group }),
+  });
+}
+
+/**
+ * Remove a user from a Cognito group (demote).
+ */
+export async function removeUserFromGroup(
+  username: string,
+  group: string
+): Promise<UserGroupResponse> {
+  return request<UserGroupResponse>(buildUserGroupsUrl(username), {
+    method: 'DELETE',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ group }),
+  });
+}
+
 // --- Owner-specific API methods ---
 
 export interface AccessRequest {

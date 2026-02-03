@@ -7,6 +7,7 @@ import { Button } from './ui/button';
 export interface NavSection {
   key: string;
   label: string;
+  dividerBefore?: boolean;
 }
 
 export interface AppShellProps {
@@ -56,18 +57,22 @@ export function AppShell({
             {sections.map((section) => {
               const isActive = section.key === activeKey;
               return (
-                <button
-                  key={section.key}
-                  type='button'
-                  onClick={() => onSelect(section.key)}
-                  className={`w-full rounded-md px-3 py-2 text-left text-sm ${
-                    isActive
-                      ? 'bg-slate-900 text-white'
-                      : 'text-slate-700 hover:bg-slate-100'
-                  }`}
-                >
-                  {section.label}
-                </button>
+                <div key={section.key}>
+                  {section.dividerBefore && (
+                    <hr className='my-3 border-slate-200' />
+                  )}
+                  <button
+                    type='button'
+                    onClick={() => onSelect(section.key)}
+                    className={`w-full rounded-md px-3 py-2 text-left text-sm ${
+                      isActive
+                        ? 'bg-slate-900 text-white'
+                        : 'text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    {section.label}
+                  </button>
+                </div>
               );
             })}
           </nav>
