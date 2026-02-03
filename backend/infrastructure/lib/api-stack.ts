@@ -1374,13 +1374,6 @@ export class ApiStack extends cdk.Stack {
 
     // Admin routes
     const admin = v1.addResource("admin");
-    const adminResources = [
-      "organizations",
-      "locations",
-      "activities",
-      "pricing",
-      "schedules",
-    ];
     const adminIntegration = new apigateway.Integration({
       type: apigateway.IntegrationType.AWS_PROXY,
       integrationHttpMethod: "POST",
@@ -1391,7 +1384,18 @@ export class ApiStack extends cdk.Stack {
       sourceArn: api.arnForExecuteApi(),
     });
 
-    for (const resourceName of adminResources) {
+    // Resources accessible only by admins
+    const adminOnlyResources = ["organizations"];
+    // Resources accessible by both admins and owners (with ownership checks in Lambda)
+    const ownerAccessibleResources = [
+      "locations",
+      "activities",
+      "pricing",
+      "schedules",
+    ];
+
+    // Admin-only resources (organizations)
+    for (const resourceName of adminOnlyResources) {
       const resource = admin.addResource(resourceName);
       resource.addMethod("GET", adminIntegration, {
         authorizationType: apigateway.AuthorizationType.CUSTOM,
@@ -1427,6 +1431,34 @@ export class ApiStack extends cdk.Stack {
           authorizer: adminAuthorizer,
         });
       }
+    }
+
+    // Owner-accessible resources (locations, activities, pricing, schedules)
+    // Ownership checks are enforced in the Lambda function
+    for (const resourceName of ownerAccessibleResources) {
+      const resource = admin.addResource(resourceName);
+      resource.addMethod("GET", adminIntegration, {
+        authorizationType: apigateway.AuthorizationType.CUSTOM,
+        authorizer: ownerAuthorizer,
+      });
+      resource.addMethod("POST", adminIntegration, {
+        authorizationType: apigateway.AuthorizationType.CUSTOM,
+        authorizer: ownerAuthorizer,
+      });
+
+      const resourceById = resource.addResource("{id}");
+      resourceById.addMethod("GET", adminIntegration, {
+        authorizationType: apigateway.AuthorizationType.CUSTOM,
+        authorizer: ownerAuthorizer,
+      });
+      resourceById.addMethod("PUT", adminIntegration, {
+        authorizationType: apigateway.AuthorizationType.CUSTOM,
+        authorizer: ownerAuthorizer,
+      });
+      resourceById.addMethod("DELETE", adminIntegration, {
+        authorizationType: apigateway.AuthorizationType.CUSTOM,
+        authorizer: ownerAuthorizer,
+      });
     }
 
     const users = admin.addResource("users");
