@@ -106,6 +106,8 @@ def lambda_handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
         return _handle_user_group(event, method, resource_id)
     if resource == "organizations" and sub_resource == "pictures":
         return _handle_organization_pictures(event, method, resource_id)
+    if resource == "cognito-users" and method == "GET":
+        return _handle_list_cognito_users(event)
 
     config = _RESOURCE_CONFIG.get(resource)
     if not config:
@@ -340,6 +342,89 @@ def _handle_user_group(
     return json_response(405, {"error": "Method not allowed"}, event=event)
 
 
+def _handle_list_cognito_users(event: Mapping[str, Any]) -> dict[str, Any]:
+    """List Cognito users for owner selection.
+
+    Returns a paginated list of users from the Cognito user pool with their
+    sub (to use as owner_id), email, and other relevant attributes.
+
+    Query parameters:
+        - limit: Maximum number of users to return (default 50, max 60)
+        - pagination_token: Token for fetching the next page of results
+    """
+    limit = parse_int(_query_param(event, "limit")) or 50
+    if limit < 1 or limit > 60:
+        raise ValidationError("limit must be between 1 and 60", field="limit")
+
+    pagination_token = _query_param(event, "pagination_token")
+
+    client = boto3.client("cognito-idp")
+    user_pool_id = _require_env("COGNITO_USER_POOL_ID")
+
+    # Build request parameters
+    list_params: dict[str, Any] = {
+        "UserPoolId": user_pool_id,
+        "Limit": limit,
+    }
+    if pagination_token:
+        list_params["PaginationToken"] = pagination_token
+
+    try:
+        response = client.list_users(**list_params)
+    except client.exceptions.InvalidParameterException as e:
+        raise ValidationError(
+            "Invalid pagination token", field="pagination_token"
+        ) from e
+
+    # Extract user data
+    users = []
+    for user in response.get("Users", []):
+        user_data = _serialize_cognito_user(user)
+        if user_data:
+            users.append(user_data)
+
+    result: dict[str, Any] = {"items": users}
+
+    # Include pagination token if there are more results
+    next_token = response.get("PaginationToken")
+    if next_token:
+        result["pagination_token"] = next_token
+
+    logger.info(f"Listed {len(users)} Cognito users")
+    return json_response(200, result, event=event)
+
+
+def _serialize_cognito_user(user: dict[str, Any]) -> Optional[dict[str, Any]]:
+    """Serialize a Cognito user for the API response.
+
+    Args:
+        user: The user object from Cognito ListUsers response.
+
+    Returns:
+        Serialized user data with sub, email, and status, or None if sub is missing.
+    """
+    attributes = {attr["Name"]: attr["Value"] for attr in user.get("Attributes", [])}
+
+    # The sub attribute is required - it's the owner_id
+    sub = attributes.get("sub")
+    if not sub:
+        return None
+
+    return {
+        "sub": sub,
+        "email": attributes.get("email"),
+        "email_verified": attributes.get("email_verified") == "true",
+        "name": attributes.get("name"),
+        "given_name": attributes.get("given_name"),
+        "family_name": attributes.get("family_name"),
+        "username": user.get("Username"),
+        "status": user.get("UserStatus"),
+        "enabled": user.get("Enabled", True),
+        "created_at": user.get("UserCreateDate"),
+        "updated_at": user.get("UserLastModifiedDate"),
+    }
+
+
 def _handle_organization_pictures(
     event: Mapping[str, Any],
     method: str,
@@ -571,6 +656,7 @@ def _create_organization(
     description = _validate_string_length(
         body.get("description"), "description", MAX_DESCRIPTION_LENGTH
     )
+    owner_id = _validate_owner_id(body.get("owner_id"), required=True)
     picture_urls = _parse_picture_urls(body.get("picture_urls"))
     if picture_urls:
         picture_urls = _validate_picture_urls(picture_urls)
@@ -578,6 +664,7 @@ def _create_organization(
     return Organization(
         name=name,
         description=description,
+        owner_id=owner_id,
         picture_urls=picture_urls,
     )
 
@@ -599,6 +686,9 @@ def _update_organization(
         entity.description = _validate_string_length(
             body["description"], "description", MAX_DESCRIPTION_LENGTH
         )
+    if "owner_id" in body:
+        # owner_id is required, so if provided it must be a valid UUID
+        entity.owner_id = _validate_owner_id(body["owner_id"], required=True)  # type: ignore[assignment]
     if "picture_urls" in body:
         picture_urls = _parse_picture_urls(body["picture_urls"])
         if picture_urls:
@@ -614,6 +704,7 @@ def _serialize_organization(entity: Organization) -> dict[str, Any]:
         "id": str(entity.id),
         "name": entity.name,
         "description": entity.description,
+        "owner_id": entity.owner_id,
         "picture_urls": entity.picture_urls or [],
         "created_at": entity.created_at,
         "updated_at": entity.updated_at,
@@ -1113,6 +1204,48 @@ def _validate_currency(currency: str) -> str:
         )
 
     return currency
+
+
+def _validate_owner_id(owner_id: Any, required: bool = False) -> Optional[str]:
+    """Validate and sanitize a Cognito user sub (owner_id).
+
+    The owner_id should be a valid Cognito user sub, which is a UUID string.
+
+    Args:
+        owner_id: The owner_id value to validate.
+        required: Whether the owner_id is required.
+
+    Returns:
+        The validated owner_id string, or None if empty/None and not required.
+
+    Raises:
+        ValidationError: If the owner_id format is invalid or missing when required.
+    """
+    if owner_id is None:
+        if required:
+            raise ValidationError("owner_id is required", field="owner_id")
+        return None
+
+    if not isinstance(owner_id, str):
+        owner_id = str(owner_id)
+
+    owner_id = owner_id.strip()
+
+    if not owner_id:
+        if required:
+            raise ValidationError("owner_id is required", field="owner_id")
+        return None
+
+    # Cognito user sub is a UUID, validate format
+    try:
+        # Parse and re-format to ensure consistent UUID format
+        parsed = UUID(owner_id)
+        return str(parsed)
+    except (ValueError, TypeError) as e:
+        raise ValidationError(
+            "owner_id must be a valid UUID (Cognito user sub)",
+            field="owner_id",
+        ) from e
 
 
 def _validate_language_code(code: str, field_name: str = "language") -> str:
