@@ -612,12 +612,17 @@ def _create_location(repo: LocationRepository, body: dict[str, Any]) -> Location
     district = body.get("district")
     if not org_id or not district:
         raise ValidationError("org_id and district are required")
+
+    lat = body.get("lat")
+    lng = body.get("lng")
+    _validate_coordinates(lat, lng)
+
     return Location(
         org_id=_parse_uuid(org_id),
         district=district,
         address=body.get("address"),
-        lat=body.get("lat"),
-        lng=body.get("lng"),
+        lat=lat,
+        lng=lng,
     )
 
 
@@ -632,11 +637,44 @@ def _update_location(
         entity.district = body["district"]
     if "address" in body:
         entity.address = body["address"]
+
+    lat = body.get("lat", entity.lat) if "lat" in body else entity.lat
+    lng = body.get("lng", entity.lng) if "lng" in body else entity.lng
+
+    if "lat" in body or "lng" in body:
+        _validate_coordinates(lat, lng)
+
     if "lat" in body:
         entity.lat = body["lat"]
     if "lng" in body:
         entity.lng = body["lng"]
     return entity
+
+
+def _validate_coordinates(lat: Any, lng: Any) -> None:
+    """Validate latitude and longitude values."""
+
+    if lat is not None:
+        try:
+            lat_val = float(lat)
+            if not -90 <= lat_val <= 90:
+                raise ValidationError(
+                    "lat must be between -90 and 90",
+                    field="lat",
+                )
+        except (ValueError, TypeError) as e:
+            raise ValidationError("lat must be a valid number", field="lat") from e
+
+    if lng is not None:
+        try:
+            lng_val = float(lng)
+            if not -180 <= lng_val <= 180:
+                raise ValidationError(
+                    "lng must be between -180 and 180",
+                    field="lng",
+                )
+        except (ValueError, TypeError) as e:
+            raise ValidationError("lng must be a valid number", field="lng") from e
 
 
 def _serialize_location(entity: Location) -> dict[str, Any]:
@@ -663,9 +701,10 @@ def _create_activity(repo: ActivityRepository, body: dict[str, Any]) -> Activity
     age_max = body.get("age_max")
     if not org_id or not name or age_min is None or age_max is None:
         raise ValidationError("org_id, name, age_min, and age_max are required")
-    if int(age_min) >= int(age_max):
-        raise ValidationError("age_min must be less than age_max")
+
+    _validate_age_range(age_min, age_max)
     age_range = Range(int(age_min), int(age_max), bounds="[]")
+
     return Activity(
         org_id=_parse_uuid(org_id),
         name=name,
@@ -690,10 +729,34 @@ def _update_activity(
         age_max = body.get("age_max")
         if age_min is None or age_max is None:
             raise ValidationError("age_min and age_max are required together")
-        if int(age_min) >= int(age_max):
-            raise ValidationError("age_min must be less than age_max")
+        _validate_age_range(age_min, age_max)
         entity.age_range = Range(int(age_min), int(age_max), bounds="[]")
     return entity
+
+
+def _validate_age_range(age_min: Any, age_max: Any) -> None:
+    """Validate age range values."""
+
+    try:
+        age_min_val = int(age_min)
+        age_max_val = int(age_max)
+    except (ValueError, TypeError) as e:
+        raise ValidationError(
+            "age_min and age_max must be valid integers"
+        ) from e
+
+    if age_min_val < 0:
+        raise ValidationError(
+            "age_min must be at least 0",
+            field="age_min",
+        )
+    if age_max_val > 120:
+        raise ValidationError(
+            "age_max must be at most 120",
+            field="age_max",
+        )
+    if age_min_val >= age_max_val:
+        raise ValidationError("age_min must be less than age_max")
 
 
 def _serialize_activity(entity: Activity) -> dict[str, Any]:
@@ -728,11 +791,15 @@ def _create_pricing(
             "activity_id, location_id, pricing_type, and amount are required"
         )
 
+    _validate_pricing_amount(amount)
+
     pricing_enum = PricingType(pricing_type)
     sessions_count = body.get("sessions_count")
-    if pricing_enum == PricingType.PER_SESSIONS and not sessions_count:
-        raise ValidationError("sessions_count is required for per_sessions pricing")
-    if pricing_enum != PricingType.PER_SESSIONS:
+    if pricing_enum == PricingType.PER_SESSIONS:
+        if sessions_count is None:
+            raise ValidationError("sessions_count is required for per_sessions pricing")
+        _validate_sessions_count(sessions_count)
+    else:
         sessions_count = None
 
     return ActivityPricing(
@@ -755,14 +822,53 @@ def _update_pricing(
     if "pricing_type" in body:
         entity.pricing_type = PricingType(body["pricing_type"])
     if "amount" in body:
+        _validate_pricing_amount(body["amount"])
         entity.amount = Decimal(str(body["amount"]))
     if "currency" in body:
         entity.currency = body["currency"]
     if "sessions_count" in body:
+        if body["sessions_count"] is not None:
+            _validate_sessions_count(body["sessions_count"])
         entity.sessions_count = body["sessions_count"]
     if entity.pricing_type != PricingType.PER_SESSIONS:
         entity.sessions_count = None
     return entity
+
+
+def _validate_pricing_amount(amount: Any) -> None:
+    """Validate pricing amount."""
+
+    try:
+        amount_val = Decimal(str(amount))
+    except Exception as e:
+        raise ValidationError(
+            "amount must be a valid number",
+            field="amount",
+        ) from e
+
+    if amount_val < 0:
+        raise ValidationError(
+            "amount must be at least 0",
+            field="amount",
+        )
+
+
+def _validate_sessions_count(sessions_count: Any) -> None:
+    """Validate sessions count."""
+
+    try:
+        count = int(sessions_count)
+    except (ValueError, TypeError) as e:
+        raise ValidationError(
+            "sessions_count must be a valid integer",
+            field="sessions_count",
+        ) from e
+
+    if count <= 0:
+        raise ValidationError(
+            "sessions_count must be greater than 0",
+            field="sessions_count",
+        )
 
 
 def _serialize_pricing(entity: ActivityPricing) -> dict[str, Any]:
