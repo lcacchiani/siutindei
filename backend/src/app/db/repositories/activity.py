@@ -82,13 +82,30 @@ class ActivityRepository(BaseRepository[Activity]):
         Returns:
             Matching activities.
         """
+        # Escape LIKE special characters to prevent pattern injection
+        escaped = _escape_like_pattern(name_pattern)
         query = (
             select(Activity)
-            .where(Activity.name.ilike(f"%{name_pattern}%"))
+            .where(Activity.name.ilike(f"%{escaped}%"))
             .order_by(Activity.name)
             .limit(limit)
         )
         return self._session.execute(query).scalars().all()
+
+
+def _escape_like_pattern(pattern: str) -> str:
+    """Escape LIKE pattern special characters.
+
+    Prevents users from injecting wildcards into search patterns.
+
+    Args:
+        pattern: The search pattern to escape.
+
+    Returns:
+        The escaped pattern safe for use in LIKE queries.
+    """
+    # Escape backslash first, then percent and underscore
+    return pattern.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
     def create_activity(
         self,

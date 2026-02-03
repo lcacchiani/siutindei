@@ -49,13 +49,30 @@ class OrganizationRepository(BaseRepository[Organization]):
         Returns:
             Matching organizations.
         """
+        # Escape LIKE special characters to prevent pattern injection
+        escaped = _escape_like_pattern(name_pattern)
         query = (
             select(Organization)
-            .where(Organization.name.ilike(f"%{name_pattern}%"))
+            .where(Organization.name.ilike(f"%{escaped}%"))
             .order_by(Organization.name)
             .limit(limit)
         )
         return self._session.execute(query).scalars().all()
+
+
+def _escape_like_pattern(pattern: str) -> str:
+    """Escape LIKE pattern special characters.
+
+    Prevents users from injecting wildcards into search patterns.
+
+    Args:
+        pattern: The search pattern to escape.
+
+    Returns:
+        The escaped pattern safe for use in LIKE queries.
+    """
+    # Escape backslash first, then percent and underscore
+    return pattern.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
     def create_organization(
         self,
