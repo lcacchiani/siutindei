@@ -594,16 +594,16 @@ def _handle_owner_access_request(
 def _generate_ticket_id() -> str:
     """Generate a unique ticket ID in format HK + 10 digits.
 
-    Uses timestamp in milliseconds combined with a random component
-    to ensure uniqueness.
+    Uses timestamp in milliseconds combined with a cryptographically secure
+    random component to ensure uniqueness.
     """
+    import secrets
     import time
-    import random
 
     # Get current timestamp in milliseconds
     timestamp_ms = int(time.time() * 1000)
-    # Add random component to ensure uniqueness even for rapid requests
-    random_part = random.randint(0, 9999)
+    # Add cryptographically secure random component for uniqueness
+    random_part = secrets.randbelow(10000)
     # Combine and format as 10-digit number
     ticket_number = (timestamp_ms % 10000000000) + random_part
     return f"HK{ticket_number:010d}"
