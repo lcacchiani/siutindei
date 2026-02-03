@@ -34,7 +34,6 @@ from app.db.models import ActivitySchedule
 from app.db.models import Location
 from app.db.models import Organization
 from app.db.models import OrganizationAccessRequest
-from app.db.models import AccessRequestStatus
 from app.db.models import PricingType
 from app.db.models import ScheduleType
 from app.db.repositories import (
@@ -404,9 +403,7 @@ def _handle_owner_organizations(
                     return json_response(
                         403, {"error": "You don't own this organization"}, event=event
                     )
-                return json_response(
-                    200, _serialize_organization(entity), event=event
-                )
+                return json_response(200, _serialize_organization(entity), event=event)
         else:
             # List organizations owned by the user
             with Session(get_engine()) as session:

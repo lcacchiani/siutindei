@@ -21,11 +21,11 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     """Create organization_access_requests table.
-    
+
     This table stores requests from users in the 'owner' group who want to
     be assigned to an organization. Each user can have at most one pending
     request at a time.
-    
+
     Columns:
         - id: Primary key UUID
         - requester_id: Cognito user sub (subject) of the requesting user
@@ -42,7 +42,7 @@ def upgrade() -> None:
     op.execute(
         "CREATE TYPE access_request_status AS ENUM ('pending', 'approved', 'rejected')"
     )
-    
+
     op.create_table(
         "organization_access_requests",
         sa.Column(
@@ -112,21 +112,21 @@ def upgrade() -> None:
             comment="Cognito user sub of the admin who reviewed the request",
         ),
     )
-    
+
     # Create index for efficient lookups by requester
     op.create_index(
         "organization_access_requests_requester_id_idx",
         "organization_access_requests",
         ["requester_id"],
     )
-    
+
     # Create index for finding pending requests
     op.create_index(
         "organization_access_requests_status_idx",
         "organization_access_requests",
         ["status"],
     )
-    
+
     # Create unique constraint to allow only one pending request per user
     op.create_index(
         "organization_access_requests_pending_unique",
