@@ -83,6 +83,8 @@ class ResourceConfig:
     serializer: Callable[[Any], dict[str, Any]]
     create_handler: Callable[..., Any]
     update_handler: Callable[..., Any]
+    # Optional: different update handler for owner routes (e.g., to restrict fields)
+    owner_update_handler: Optional[Callable[..., Any]] = None
 
 
 def lambda_handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
@@ -127,21 +129,35 @@ def lambda_handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
     if resource == "access-requests":
         return _handle_admin_access_requests(event, method, resource_id)
 
-    # Standard admin CRUD routes
+    # Standard admin CRUD routes (no ownership filtering)
     config = _RESOURCE_CONFIG.get(resource)
     if not config:
         return json_response(404, {"error": "Not found"}, event=event)
 
+    return _safe_handler(
+        lambda: _handle_crud(event, method, config, resource_id),
+        event,
+    )
+
+
+# --- Common Error Handling ---
+
+
+def _safe_handler(
+    handler: Callable[[], dict[str, Any]],
+    event: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Execute a handler with common error handling.
+
+    Args:
+        handler: The handler function to execute.
+        event: The Lambda event for response formatting.
+
+    Returns:
+        API Gateway response.
+    """
     try:
-        if method == "GET":
-            return _handle_get(event, config, resource_id)
-        if method == "POST":
-            return _handle_post(event, config)
-        if method == "PUT":
-            return _handle_put(event, config, resource_id)
-        if method == "DELETE":
-            return _handle_delete(event, config, resource_id)
-        return json_response(405, {"error": "Method not allowed"}, event=event)
+        return handler()
     except ValidationError as exc:
         logger.warning(f"Validation error: {exc.message}")
         return json_response(exc.status_code, exc.to_dict(), event=event)
@@ -151,108 +167,210 @@ def lambda_handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
         logger.warning(f"Value error: {exc}")
         return json_response(400, {"error": str(exc)}, event=event)
     except Exception as exc:  # pragma: no cover
-        logger.exception("Unexpected error in admin handler")
+        logger.exception("Unexpected error in handler")
         return json_response(
             500, {"error": "Internal server error", "detail": str(exc)}, event=event
         )
 
 
-def _handle_get(
+# --- Unified CRUD Handlers ---
+# These handlers work for both admin (full access) and owner (filtered) routes.
+# When owned_org_ids is None, no filtering is applied (admin mode).
+# When owned_org_ids is set, resources are filtered by ownership (owner mode).
+
+
+def _handle_crud(
     event: Mapping[str, Any],
+    method: str,
     config: ResourceConfig,
     resource_id: Optional[str],
+    owned_org_ids: Optional[set[str]] = None,
 ) -> dict[str, Any]:
-    """Handle GET requests for admin resources using repository."""
+    """Unified CRUD handler for both admin and owner routes.
+
+    Args:
+        event: The Lambda event.
+        method: HTTP method (GET, POST, PUT, DELETE).
+        config: Resource configuration.
+        resource_id: Optional specific resource ID.
+        owned_org_ids: If set, filter/validate by organization ownership.
+
+    Returns:
+        API Gateway response.
+    """
+    with Session(get_engine()) as session:
+        if method == "GET":
+            return _crud_get(event, session, config, resource_id, owned_org_ids)
+        if method == "POST":
+            return _crud_post(event, session, config, owned_org_ids)
+        if method == "PUT":
+            return _crud_put(event, session, config, resource_id, owned_org_ids)
+        if method == "DELETE":
+            return _crud_delete(event, session, config, resource_id, owned_org_ids)
+
+    return json_response(405, {"error": "Method not allowed"}, event=event)
+
+
+def _crud_get(
+    event: Mapping[str, Any],
+    session: Session,
+    config: ResourceConfig,
+    resource_id: Optional[str],
+    owned_org_ids: Optional[set[str]] = None,
+) -> dict[str, Any]:
+    """Handle GET requests with optional ownership filtering."""
     limit = parse_int(_query_param(event, "limit")) or 50
     if limit < 1 or limit > 200:
         raise ValidationError("limit must be between 1 and 200", field="limit")
 
-    with Session(get_engine()) as session:
-        repo = config.repository_class(session)
+    repo = config.repository_class(session)
 
-        if resource_id:
-            entity = repo.get_by_id(_parse_uuid(resource_id))
-            if entity is None:
-                raise NotFoundError(config.name, resource_id)
-            return json_response(200, config.serializer(entity), event=event)
+    if resource_id:
+        entity = repo.get_by_id(_parse_uuid(resource_id))
+        if entity is None:
+            raise NotFoundError(config.name, resource_id)
+        # Check ownership if filtering is enabled
+        if owned_org_ids is not None:
+            entity_org_id = _get_entity_org_id(entity, session)
+            if entity_org_id not in owned_org_ids:
+                return json_response(
+                    403,
+                    {"error": "You don't have access to this resource"},
+                    event=event,
+                )
+        return json_response(200, config.serializer(entity), event=event)
 
-        cursor = _parse_cursor(_query_param(event, "cursor"))
+    # List resources
+    cursor = _parse_cursor(_query_param(event, "cursor"))
+    if owned_org_ids is not None:
+        rows = _get_all_filtered_by_org(
+            session, config, owned_org_ids, limit + 1, cursor
+        )
+    else:
         rows = repo.get_all(limit=limit + 1, cursor=cursor)
 
-        has_more = len(rows) > limit
-        trimmed = list(rows)[:limit]
-        next_cursor = _encode_cursor(trimmed[-1].id) if has_more and trimmed else None
+    has_more = len(rows) > limit
+    trimmed = list(rows)[:limit]
+    next_cursor = _encode_cursor(trimmed[-1].id) if has_more and trimmed else None
 
-        return json_response(
-            200,
-            {
-                "items": [config.serializer(row) for row in trimmed],
-                "next_cursor": next_cursor,
-            },
-            event=event,
-        )
+    return json_response(
+        200,
+        {
+            "items": [config.serializer(row) for row in trimmed],
+            "next_cursor": next_cursor,
+        },
+        event=event,
+    )
 
 
-def _handle_post(
+def _crud_post(
     event: Mapping[str, Any],
+    session: Session,
     config: ResourceConfig,
+    owned_org_ids: Optional[set[str]] = None,
 ) -> dict[str, Any]:
-    """Handle POST requests for admin resources using repository."""
+    """Handle POST requests with optional ownership validation."""
     body = _parse_body(event)
 
-    with Session(get_engine()) as session:
-        repo = config.repository_class(session)
-        entity = config.create_handler(repo, body)
-        repo.create(entity)
-        session.commit()
-        session.refresh(entity)
-        logger.info(f"Created {config.name}: {entity.id}")
-        return json_response(201, config.serializer(entity), event=event)
+    # Validate ownership if filtering is enabled
+    if owned_org_ids is not None:
+        org_id = _get_org_id_from_body(body, config.name)
+        if org_id and org_id not in owned_org_ids:
+            return json_response(
+                403,
+                {"error": "You don't have access to this organization"},
+                event=event,
+            )
+        # For pricing/schedules, verify ownership through activity
+        if config.name in ("pricing", "schedules"):
+            activity_id = body.get("activity_id")
+            if activity_id:
+                activity_repo = ActivityRepository(session)
+                activity = activity_repo.get_by_id(_parse_uuid(activity_id))
+                if activity and str(activity.org_id) not in owned_org_ids:
+                    return json_response(
+                        403,
+                        {"error": "You don't have access to this activity"},
+                        event=event,
+                    )
+
+    repo = config.repository_class(session)
+    entity = config.create_handler(repo, body)
+    repo.create(entity)
+    session.commit()
+    session.refresh(entity)
+    logger.info(f"Created {config.name}: {entity.id}")
+    return json_response(201, config.serializer(entity), event=event)
 
 
-def _handle_put(
+def _crud_put(
     event: Mapping[str, Any],
+    session: Session,
     config: ResourceConfig,
     resource_id: Optional[str],
+    owned_org_ids: Optional[set[str]] = None,
 ) -> dict[str, Any]:
-    """Handle PUT requests for admin resources using repository."""
+    """Handle PUT requests with optional ownership validation."""
     if not resource_id:
         raise ValidationError("Resource id is required", field="id")
 
+    repo = config.repository_class(session)
+    entity = repo.get_by_id(_parse_uuid(resource_id))
+    if entity is None:
+        raise NotFoundError(config.name, resource_id)
+
+    # Check ownership if filtering is enabled
+    if owned_org_ids is not None:
+        entity_org_id = _get_entity_org_id(entity, session)
+        if entity_org_id not in owned_org_ids:
+            return json_response(
+                403, {"error": "You don't have access to this resource"}, event=event
+            )
+
     body = _parse_body(event)
-    with Session(get_engine()) as session:
-        repo = config.repository_class(session)
-        entity = repo.get_by_id(_parse_uuid(resource_id))
-        if entity is None:
-            raise NotFoundError(config.name, resource_id)
 
-        updated = config.update_handler(repo, entity, body)
-        repo.update(updated)
-        session.commit()
-        session.refresh(updated)
-        logger.info(f"Updated {config.name}: {resource_id}")
-        return json_response(200, config.serializer(updated), event=event)
+    # Use owner-specific update handler if available and in owner mode
+    if owned_org_ids is not None and config.owner_update_handler is not None:
+        update_handler = config.owner_update_handler
+    else:
+        update_handler = config.update_handler
+
+    updated = update_handler(repo, entity, body)
+    repo.update(updated)
+    session.commit()
+    session.refresh(updated)
+    logger.info(f"Updated {config.name}: {resource_id}")
+    return json_response(200, config.serializer(updated), event=event)
 
 
-def _handle_delete(
+def _crud_delete(
     event: Mapping[str, Any],
+    session: Session,
     config: ResourceConfig,
     resource_id: Optional[str],
+    owned_org_ids: Optional[set[str]] = None,
 ) -> dict[str, Any]:
-    """Handle DELETE requests for admin resources using repository."""
+    """Handle DELETE requests with optional ownership validation."""
     if not resource_id:
         raise ValidationError("Resource id is required", field="id")
 
-    with Session(get_engine()) as session:
-        repo = config.repository_class(session)
-        entity = repo.get_by_id(_parse_uuid(resource_id))
-        if entity is None:
-            raise NotFoundError(config.name, resource_id)
+    repo = config.repository_class(session)
+    entity = repo.get_by_id(_parse_uuid(resource_id))
+    if entity is None:
+        raise NotFoundError(config.name, resource_id)
 
-        repo.delete(entity)
-        session.commit()
-        logger.info(f"Deleted {config.name}: {resource_id}")
-        return json_response(204, {}, event=event)
+    # Check ownership if filtering is enabled
+    if owned_org_ids is not None:
+        entity_org_id = _get_entity_org_id(entity, session)
+        if entity_org_id not in owned_org_ids:
+            return json_response(
+                403, {"error": "You don't have access to this resource"}, event=event
+            )
+
+    repo.delete(entity)
+    session.commit()
+    logger.info(f"Deleted {config.name}: {resource_id}")
+    return json_response(204, {}, event=event)
 
 
 # --- Request parsing helpers ---
@@ -504,335 +622,58 @@ def _handle_owner_routes(
         logger.warning("Unauthorized owner access attempt")
         return json_response(403, {"error": "Forbidden"}, event=event)
 
-    try:
-        # Access request (doesn't require ownership)
-        if resource == "access-request":
-            return _handle_owner_access_request(event, method)
-
-        # All other owner resources require ownership checks
-        owned_org_ids = _get_owned_organization_ids(event)
-
-        # Resources that can be managed by owners
-        owner_resources = {
-            "organizations",
-            "locations",
-            "activities",
-            "pricing",
-            "schedules",
-        }
-
-        if resource not in owner_resources:
-            return json_response(404, {"error": "Not found"}, event=event)
-
-        # Handle no organizations case
-        if not owned_org_ids:
-            if method == "GET" and not resource_id:
-                return json_response(
-                    200, {"items": [], "next_cursor": None}, event=event
-                )
-            return json_response(
-                403, {"error": "You don't own any organizations"}, event=event
-            )
-
-        # Route to the appropriate handler
-        # Organizations have special handling (owners can't change owner_id)
-        if resource == "organizations":
-            return _handle_owner_organizations(event, method, resource_id)
-
-        # Other resources use the generic owner CRUD handler
-        return _handle_owner_resource_crud(
-            event, method, resource_id, owned_org_ids, resource
+    # Access request (doesn't require ownership)
+    if resource == "access-request":
+        return _safe_handler(
+            lambda: _handle_owner_access_request(event, method),
+            event,
         )
 
+    # Resources that can be managed by owners
+    owner_resources = {
+        "organizations",
+        "locations",
+        "activities",
+        "pricing",
+        "schedules",
+    }
+    if resource not in owner_resources:
         return json_response(404, {"error": "Not found"}, event=event)
-    except ValidationError as exc:
-        logger.warning(f"Validation error: {exc.message}")
-        return json_response(exc.status_code, exc.to_dict(), event=event)
-    except NotFoundError as exc:
-        return json_response(exc.status_code, exc.to_dict(), event=event)
-    except ValueError as exc:
-        logger.warning(f"Value error: {exc}")
-        return json_response(400, {"error": str(exc)}, event=event)
-    except Exception as exc:  # pragma: no cover
-        logger.exception("Unexpected error in owner handler")
+
+    # Get owned organization IDs for filtering
+    owned_org_ids = _get_owned_organization_ids(event)
+
+    # Handle no organizations case
+    if not owned_org_ids:
+        if method == "GET" and not resource_id:
+            return json_response(200, {"items": [], "next_cursor": None}, event=event)
         return json_response(
-            500, {"error": "Internal server error", "detail": str(exc)}, event=event
+            403, {"error": "You don't own any organizations"}, event=event
         )
 
-
-def _handle_owner_resource_crud(
-    event: Mapping[str, Any],
-    method: str,
-    resource_id: Optional[str],
-    owned_org_ids: set[str],
-    resource_name: str,
-) -> dict[str, Any]:
-    """Handle CRUD operations for owner resources with ownership filtering.
-
-    Args:
-        event: The Lambda event.
-        method: HTTP method.
-        resource_id: Optional specific resource ID.
-        owned_org_ids: Set of organization IDs owned by the user.
-        resource_name: The resource type (organizations, locations, etc.).
-
-    Returns:
-        API Gateway response.
-    """
-    config = _RESOURCE_CONFIG.get(resource_name)
+    # Get resource configuration
+    config = _RESOURCE_CONFIG.get(resource)
     if not config:
         return json_response(404, {"error": "Not found"}, event=event)
 
-    with Session(get_engine()) as session:
-        if method == "GET":
-            return _handle_owner_get(event, session, config, resource_id, owned_org_ids)
-        if method == "POST":
-            return _handle_owner_post(event, session, config, owned_org_ids)
-        if method == "PUT":
-            return _handle_owner_put(event, session, config, resource_id, owned_org_ids)
-        if method == "DELETE":
-            return _handle_owner_delete(
-                event, session, config, resource_id, owned_org_ids
-            )
-
-    return json_response(405, {"error": "Method not allowed"}, event=event)
-
-
-def _handle_owner_get(
-    event: Mapping[str, Any],
-    session: Session,
-    config: ResourceConfig,
-    resource_id: Optional[str],
-    owned_org_ids: set[str],
-) -> dict[str, Any]:
-    """Handle GET for owner resources with ownership filtering."""
-    limit = parse_int(_query_param(event, "limit")) or 50
-    if limit < 1 or limit > 200:
-        raise ValidationError("limit must be between 1 and 200", field="limit")
-
-    repo = config.repository_class(session)
-
-    if resource_id:
-        entity = repo.get_by_id(_parse_uuid(resource_id))
-        if entity is None:
-            raise NotFoundError(config.name, resource_id)
-        # Check ownership
-        entity_org_id = _get_entity_org_id(entity, session)
-        if entity_org_id not in owned_org_ids:
-            return json_response(
-                403, {"error": "You don't have access to this resource"}, event=event
-            )
-        return json_response(200, config.serializer(entity), event=event)
-
-    # List with ownership filter
-    cursor = _parse_cursor(_query_param(event, "cursor"))
-    rows = _get_all_filtered_by_org(session, config, owned_org_ids, limit + 1, cursor)
-
-    has_more = len(rows) > limit
-    trimmed = list(rows)[:limit]
-    next_cursor = _encode_cursor(trimmed[-1].id) if has_more and trimmed else None
-
-    return json_response(
-        200,
-        {
-            "items": [config.serializer(row) for row in trimmed],
-            "next_cursor": next_cursor,
-        },
-        event=event,
+    # Use unified CRUD handler with ownership filtering
+    return _safe_handler(
+        lambda: _handle_crud(event, method, config, resource_id, owned_org_ids),
+        event,
     )
 
 
-def _handle_owner_post(
-    event: Mapping[str, Any],
-    session: Session,
-    config: ResourceConfig,
-    owned_org_ids: set[str],
-) -> dict[str, Any]:
-    """Handle POST for owner resources with ownership validation."""
-    body = _parse_body(event)
-
-    # Check ownership of the target organization
-    org_id = _get_org_id_from_body(body, config.name)
-    if org_id and org_id not in owned_org_ids:
-        return json_response(
-            403, {"error": "You don't have access to this organization"}, event=event
-        )
-
-    # For pricing/schedules, verify ownership through activity
-    if config.name in ("pricing", "schedules"):
-        activity_id = body.get("activity_id")
-        if activity_id:
-            activity_repo = ActivityRepository(session)
-            activity = activity_repo.get_by_id(_parse_uuid(activity_id))
-            if activity and str(activity.org_id) not in owned_org_ids:
-                return json_response(
-                    403,
-                    {"error": "You don't have access to this activity"},
-                    event=event,
-                )
-
-    repo = config.repository_class(session)
-    entity = config.create_handler(repo, body)
-    repo.create(entity)
-    session.commit()
-    session.refresh(entity)
-    logger.info(f"Owner created {config.name}: {entity.id}")
-    return json_response(201, config.serializer(entity), event=event)
-
-
-def _handle_owner_put(
-    event: Mapping[str, Any],
-    session: Session,
-    config: ResourceConfig,
-    resource_id: Optional[str],
-    owned_org_ids: set[str],
-) -> dict[str, Any]:
-    """Handle PUT for owner resources with ownership validation."""
-    if not resource_id:
-        raise ValidationError("Resource id is required", field="id")
-
-    repo = config.repository_class(session)
-    entity = repo.get_by_id(_parse_uuid(resource_id))
-    if entity is None:
-        raise NotFoundError(config.name, resource_id)
-
-    # Check ownership
-    entity_org_id = _get_entity_org_id(entity, session)
-    if entity_org_id not in owned_org_ids:
-        return json_response(
-            403, {"error": "You don't have access to this resource"}, event=event
-        )
-
-    body = _parse_body(event)
-    updated = config.update_handler(repo, entity, body)
-    repo.update(updated)
-    session.commit()
-    session.refresh(updated)
-    logger.info(f"Owner updated {config.name}: {resource_id}")
-    return json_response(200, config.serializer(updated), event=event)
-
-
-def _handle_owner_delete(
-    event: Mapping[str, Any],
-    session: Session,
-    config: ResourceConfig,
-    resource_id: Optional[str],
-    owned_org_ids: set[str],
-) -> dict[str, Any]:
-    """Handle DELETE for owner resources with ownership validation."""
-    if not resource_id:
-        raise ValidationError("Resource id is required", field="id")
-
-    repo = config.repository_class(session)
-    entity = repo.get_by_id(_parse_uuid(resource_id))
-    if entity is None:
-        raise NotFoundError(config.name, resource_id)
-
-    # Check ownership
-    entity_org_id = _get_entity_org_id(entity, session)
-    if entity_org_id not in owned_org_ids:
-        return json_response(
-            403, {"error": "You don't have access to this resource"}, event=event
-        )
-
-    repo.delete(entity)
-    session.commit()
-    logger.info(f"Owner deleted {config.name}: {resource_id}")
-    return json_response(204, {}, event=event)
-
-
-def _handle_owner_organizations(
-    event: Mapping[str, Any],
-    method: str,
-    organization_id: Optional[str],
-) -> dict[str, Any]:
-    """Handle owner organization CRUD operations.
-
-    Owners can only view, edit, and delete organizations they own.
-    This function has special handling: owners cannot change the owner_id field.
-    """
-    user_sub = _get_user_sub(event)
-    if not user_sub:
-        return json_response(401, {"error": "User identity not found"}, event=event)
-
-    if method == "GET":
-        if organization_id:
-            # Get specific organization
-            with Session(get_engine()) as session:
-                repo = OrganizationRepository(session)
-                entity = repo.get_by_id(_parse_uuid(organization_id))
-                if entity is None:
-                    raise NotFoundError("organization", organization_id)
-                # Check ownership
-                if entity.owner_id != user_sub:
-                    return json_response(
-                        403, {"error": "You don't own this organization"}, event=event
-                    )
-                return json_response(200, _serialize_organization(entity), event=event)
-        else:
-            # List organizations owned by the user
-            with Session(get_engine()) as session:
-                repo = OrganizationRepository(session)
-                orgs = repo.find_by_owner(user_sub)
-                return json_response(
-                    200,
-                    {"items": [_serialize_organization(org) for org in orgs]},
-                    event=event,
-                )
-
-    if method == "PUT":
-        if not organization_id:
-            raise ValidationError("Organization ID is required", field="id")
-
-        body = _parse_body(event)
-        with Session(get_engine()) as session:
-            repo = OrganizationRepository(session)
-            entity = repo.get_by_id(_parse_uuid(organization_id))
-            if entity is None:
-                raise NotFoundError("organization", organization_id)
-            # Check ownership
-            if entity.owner_id != user_sub:
-                return json_response(
-                    403, {"error": "You don't own this organization"}, event=event
-                )
-            # Update organization (owners can't change owner_id)
-            updated = _update_organization_for_owner(entity, body)
-            repo.update(updated)
-            session.commit()
-            session.refresh(updated)
-            logger.info(f"Owner updated organization: {organization_id}")
-            return json_response(200, _serialize_organization(updated), event=event)
-
-    if method == "DELETE":
-        if not organization_id:
-            raise ValidationError("Organization ID is required", field="id")
-
-        with Session(get_engine()) as session:
-            repo = OrganizationRepository(session)
-            entity = repo.get_by_id(_parse_uuid(organization_id))
-            if entity is None:
-                raise NotFoundError("organization", organization_id)
-            # Check ownership
-            if entity.owner_id != user_sub:
-                return json_response(
-                    403, {"error": "You don't own this organization"}, event=event
-                )
-            repo.delete(entity)
-            session.commit()
-            logger.info(f"Owner deleted organization: {organization_id}")
-            return json_response(204, {}, event=event)
-
-    return json_response(405, {"error": "Method not allowed"}, event=event)
-
-
 def _update_organization_for_owner(
+    repo: OrganizationRepository,
     entity: Organization,
     body: dict[str, Any],
 ) -> Organization:
     """Update an organization for an owner (limited fields).
 
     Owners cannot change the owner_id field.
+    The repo parameter is unused but included for signature compatibility.
     """
+    del repo  # Unused, for signature compatibility
     if "name" in body:
         name = _validate_string_length(
             body["name"], "name", MAX_NAME_LENGTH, required=True
@@ -2477,6 +2318,7 @@ _RESOURCE_CONFIG = {
         serializer=_serialize_organization,
         create_handler=_create_organization,
         update_handler=_update_organization,
+        owner_update_handler=_update_organization_for_owner,
     ),
     "locations": ResourceConfig(
         name="locations",
