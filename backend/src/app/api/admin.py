@@ -593,6 +593,7 @@ def _update_organization(
         name = _validate_string_length(
             body["name"], "name", MAX_NAME_LENGTH, required=True
         )
+        assert name is not None  # required=True ensures non-None
         entity.name = name
     if "description" in body:
         entity.description = _validate_string_length(
@@ -654,9 +655,11 @@ def _update_location(
     """Update a location."""
 
     if "district" in body:
-        entity.district = _validate_string_length(
+        district = _validate_string_length(
             body["district"], "district", MAX_DISTRICT_LENGTH, required=True
         )
+        assert district is not None  # required=True ensures non-None
+        entity.district = district
     if "address" in body:
         entity.address = _validate_string_length(
             body["address"], "address", MAX_ADDRESS_LENGTH
@@ -754,9 +757,11 @@ def _update_activity(
     """Update an activity."""
 
     if "name" in body:
-        entity.name = _validate_string_length(
+        name = _validate_string_length(
             body["name"], "name", MAX_NAME_LENGTH, required=True
         )
+        assert name is not None  # required=True ensures non-None
+        entity.name = name
     if "description" in body:
         entity.description = _validate_string_length(
             body["description"], "description", MAX_DESCRIPTION_LENGTH
@@ -778,9 +783,7 @@ def _validate_age_range(age_min: Any, age_max: Any) -> None:
         age_min_val = int(age_min)
         age_max_val = int(age_max)
     except (ValueError, TypeError) as e:
-        raise ValidationError(
-            "age_min and age_max must be valid integers"
-        ) from e
+        raise ValidationError("age_min and age_max must be valid integers") from e
 
     if age_min_val < 0:
         raise ValidationError(
@@ -922,17 +925,56 @@ MAX_LANGUAGES_COUNT = 20
 MAX_PICTURE_URLS_COUNT = 20
 
 # Valid ISO 4217 currency codes (common ones)
-VALID_CURRENCIES = frozenset([
-    "HKD", "USD", "EUR", "GBP", "CNY", "JPY", "SGD", "AUD", "CAD", "CHF",
-    "NZD", "TWD", "KRW", "THB", "MYR", "PHP", "IDR", "INR", "VND",
-])
+VALID_CURRENCIES = frozenset(
+    [
+        "HKD",
+        "USD",
+        "EUR",
+        "GBP",
+        "CNY",
+        "JPY",
+        "SGD",
+        "AUD",
+        "CAD",
+        "CHF",
+        "NZD",
+        "TWD",
+        "KRW",
+        "THB",
+        "MYR",
+        "PHP",
+        "IDR",
+        "INR",
+        "VND",
+    ]
+)
 
 # Valid ISO 639-1 language codes (common ones)
-VALID_LANGUAGE_CODES = frozenset([
-    "en", "zh", "ja", "ko", "fr", "de", "es", "pt", "it", "ru",
-    "ar", "hi", "th", "vi", "id", "ms", "tl", "nl", "pl", "tr",
-    "yue",  # Cantonese
-])
+VALID_LANGUAGE_CODES = frozenset(
+    [
+        "en",
+        "zh",
+        "ja",
+        "ko",
+        "fr",
+        "de",
+        "es",
+        "pt",
+        "it",
+        "ru",
+        "ar",
+        "hi",
+        "th",
+        "vi",
+        "id",
+        "ms",
+        "tl",
+        "nl",
+        "pl",
+        "tr",
+        "yue",  # Cantonese
+    ]
+)
 
 
 def _validate_string_length(
@@ -1066,7 +1108,7 @@ def _validate_currency(currency: str) -> str:
 
     if currency not in VALID_CURRENCIES:
         raise ValidationError(
-            f"currency must be a valid ISO 4217 code (e.g., HKD, USD, EUR)",
+            "currency must be a valid ISO 4217 code (e.g., HKD, USD, EUR)",
             field="currency",
         )
 
