@@ -6,12 +6,16 @@ import { AppShell } from '../app-shell';
 import { useAuth } from '../auth-provider';
 import { LoginScreen } from '../login-screen';
 import { StatusBanner } from '../status-banner';
-import { ActivitiesPanel } from './activities-panel';
-import { LocationsPanel } from './locations-panel';
-import { OrganizationsPanel } from './organizations-panel';
+import {
+  OrganizationsPanel,
+  LocationsPanel,
+  ActivitiesPanel,
+  PricingPanel,
+  SchedulesPanel,
+} from '../shared';
+import { AccessRequestsPanel } from './access-requests-panel';
 import { MediaPanel } from './media-panel';
-import { PricingPanel } from './pricing-panel';
-import { SchedulesPanel } from './schedules-panel';
+import { OwnerDashboard } from './owner-dashboard';
 
 const sectionLabels = [
   { key: 'organizations', label: 'Organizations' },
@@ -20,10 +24,11 @@ const sectionLabels = [
   { key: 'activities', label: 'Activities' },
   { key: 'pricing', label: 'Pricing' },
   { key: 'schedules', label: 'Schedules' },
+  { key: 'access-requests', label: 'Access Requests' },
 ];
 
 export function AdminDashboard() {
-  const { status, user, isAdmin, logout, error } = useAuth();
+  const { status, user, isAdmin, isOwner, logout, error } = useAuth();
   const [activeSection, setActiveSection] = useState('organizations');
 
   const activeContent = useMemo(() => {
@@ -31,16 +36,18 @@ export function AdminDashboard() {
       case 'media':
         return <MediaPanel />;
       case 'locations':
-        return <LocationsPanel />;
+        return <LocationsPanel mode='admin' />;
       case 'activities':
-        return <ActivitiesPanel />;
+        return <ActivitiesPanel mode='admin' />;
       case 'pricing':
-        return <PricingPanel />;
+        return <PricingPanel mode='admin' />;
       case 'schedules':
-        return <SchedulesPanel />;
+        return <SchedulesPanel mode='admin' />;
+      case 'access-requests':
+        return <AccessRequestsPanel />;
       case 'organizations':
       default:
-        return <OrganizationsPanel />;
+        return <OrganizationsPanel mode='admin' />;
     }
   }, [activeSection]);
 
@@ -58,6 +65,31 @@ export function AdminDashboard() {
     return <LoginScreen />;
   }
 
+  // If user is in the owner group but NOT in the admin group,
+  // show the owner-specific experience
+  if (isOwner && !isAdmin) {
+    return <OwnerDashboard />;
+  }
+
+  // If user is neither admin nor owner, show access denied
+  if (!isAdmin && !isOwner) {
+    return (
+      <AppShell
+        sections={[]}
+        activeKey=''
+        onSelect={() => {}}
+        onLogout={logout}
+        userEmail={user?.email}
+      >
+        <StatusBanner variant='error' title='Access denied'>
+          Your account is not authorized to access this system. Please contact
+          an administrator to request access.
+        </StatusBanner>
+      </AppShell>
+    );
+  }
+
+  // Admin experience (full access)
   return (
     <AppShell
       sections={sectionLabels}
@@ -71,12 +103,7 @@ export function AdminDashboard() {
           {error}
         </StatusBanner>
       )}
-      {!isAdmin && (
-        <StatusBanner variant='error' title='Access denied'>
-          Your account is not in the admin group.
-        </StatusBanner>
-      )}
-      {isAdmin && activeContent}
+      {activeContent}
     </AppShell>
   );
 }

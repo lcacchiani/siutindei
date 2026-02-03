@@ -390,6 +390,24 @@ export class ApiStack extends cdk.Stack {
     );
 
     // ---------------------------------------------------------------------
+    // Owner Access Request Email Parameters
+    // ---------------------------------------------------------------------
+    const supportEmail = new cdk.CfnParameter(this, "SupportEmail", {
+      type: "String",
+      default: "",
+      description:
+        "Email address to receive owner access request notifications. " +
+        "Must be verified in SES.",
+    });
+    const sesSenderEmail = new cdk.CfnParameter(this, "SesSenderEmail", {
+      type: "String",
+      default: "",
+      description:
+        "SES-verified sender email address for access request notifications. " +
+        "Can be the same as SupportEmail.",
+    });
+
+    // ---------------------------------------------------------------------
     // API Custom Domain Parameters (Optional)
     // ---------------------------------------------------------------------
     const apiCustomDomainName = new cdk.CfnParameter(
@@ -832,6 +850,7 @@ export class ApiStack extends cdk.Stack {
     database.grantConnect(searchFunction, "siutindei_app");
 
     // Admin function
+    const ownerGroupName = "owner";
     const adminFunction = createPythonFunction("SiutindeiAdminFunction", {
       handler: "lambda/admin/handler.lambda_handler",
       environment: {
@@ -841,11 +860,14 @@ export class ApiStack extends cdk.Stack {
         DATABASE_PROXY_ENDPOINT: database.proxy.endpoint,
         DATABASE_IAM_AUTH: "true",
         ADMIN_GROUP: adminGroupName,
+        OWNER_GROUP: ownerGroupName,
         COGNITO_USER_POOL_ID: userPool.userPoolId,
         ORGANIZATION_MEDIA_BUCKET: organizationImagesBucket.bucketName,
         ORGANIZATION_MEDIA_BASE_URL:
           `https://${organizationImagesBucket.bucketRegionalDomainName}`,
         CORS_ALLOWED_ORIGINS: corsAllowedOrigins.join(","),
+        SUPPORT_EMAIL: supportEmail.valueAsString,
+        SES_SENDER_EMAIL: sesSenderEmail.valueAsString,
       },
     });
     database.grantAdminUserSecretRead(adminFunction);
@@ -861,6 +883,20 @@ export class ApiStack extends cdk.Stack {
           "cognito-idp:ListUsers",
         ],
         resources: [userPool.userPoolArn],
+      })
+    );
+
+    // Grant SES permissions for sending access request notification emails
+    // Uses condition to only grant if SES sender email is configured
+    const sesSenderIdentityArn = cdk.Stack.of(this).formatArn({
+      service: "ses",
+      resource: "identity",
+      resourceName: sesSenderEmail.valueAsString,
+    });
+    adminFunction.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["ses:SendEmail", "ses:SendRawEmail"],
+        resources: [sesSenderIdentityArn],
       })
     );
 
@@ -999,6 +1035,52 @@ export class ApiStack extends cdk.Stack {
           apigateway.IdentitySource.header("x-device-attestation"),
         ],
         resultsCacheTtl: cdk.Duration.seconds(0),
+      }
+    );
+
+    // Cognito group-based authorizer for admin-only endpoints
+    const adminGroupAuthorizerFunction = createPythonFunction(
+      "AdminGroupAuthorizerFunction",
+      {
+        handler: "lambda/authorizers/cognito_group/handler.lambda_handler",
+        memorySize: 256,
+        timeout: cdk.Duration.seconds(5),
+        environment: {
+          ALLOWED_GROUPS: adminGroupName,
+        },
+      }
+    );
+
+    const adminAuthorizer = new apigateway.RequestAuthorizer(
+      this,
+      "AdminGroupAuthorizer",
+      {
+        handler: adminGroupAuthorizerFunction,
+        identitySources: [apigateway.IdentitySource.header("Authorization")],
+        resultsCacheTtl: cdk.Duration.minutes(5),
+      }
+    );
+
+    // Cognito group-based authorizer for owner endpoints (admin OR owner)
+    const ownerGroupAuthorizerFunction = createPythonFunction(
+      "OwnerGroupAuthorizerFunction",
+      {
+        handler: "lambda/authorizers/cognito_group/handler.lambda_handler",
+        memorySize: 256,
+        timeout: cdk.Duration.seconds(5),
+        environment: {
+          ALLOWED_GROUPS: `${adminGroupName},${ownerGroupName}`,
+        },
+      }
+    );
+
+    const ownerAuthorizer = new apigateway.RequestAuthorizer(
+      this,
+      "OwnerGroupAuthorizer",
+      {
+        handler: ownerGroupAuthorizerFunction,
+        identitySources: [apigateway.IdentitySource.header("Authorization")],
+        resultsCacheTtl: cdk.Duration.minutes(5),
       }
     );
 
@@ -1236,14 +1318,6 @@ export class ApiStack extends cdk.Stack {
     });
     api.deploymentStage.node.addDependency(apiAccessLogGroupRetention);
     api.deploymentStage.node.addDependency(apiAccessLogGroupKey);
-    const authorizer = new apigateway.CognitoUserPoolsAuthorizer(
-      this,
-      "SiutindeiAuthorizer",
-      {
-        cognitoUserPools: [userPool],
-      }
-    );
-
     const mobileApiKey = new apigateway.ApiKey(this, "MobileSearchApiKey", {
       apiKeyName: name("mobile-search-key"),
       value: publicApiKeyValue.valueAsString,
@@ -1300,13 +1374,6 @@ export class ApiStack extends cdk.Stack {
 
     // Admin routes
     const admin = v1.addResource("admin");
-    const adminResources = [
-      "organizations",
-      "locations",
-      "activities",
-      "pricing",
-      "schedules",
-    ];
     const adminIntegration = new apigateway.Integration({
       type: apigateway.IntegrationType.AWS_PROXY,
       integrationHttpMethod: "POST",
@@ -1317,40 +1384,49 @@ export class ApiStack extends cdk.Stack {
       sourceArn: api.arnForExecuteApi(),
     });
 
+    // All admin resources - admin only, full access
+    const adminResources = [
+      "organizations",
+      "locations",
+      "activities",
+      "pricing",
+      "schedules",
+    ];
+
     for (const resourceName of adminResources) {
       const resource = admin.addResource(resourceName);
       resource.addMethod("GET", adminIntegration, {
-        authorizationType: apigateway.AuthorizationType.COGNITO,
-        authorizer,
+        authorizationType: apigateway.AuthorizationType.CUSTOM,
+        authorizer: adminAuthorizer,
       });
       resource.addMethod("POST", adminIntegration, {
-        authorizationType: apigateway.AuthorizationType.COGNITO,
-        authorizer,
+        authorizationType: apigateway.AuthorizationType.CUSTOM,
+        authorizer: adminAuthorizer,
       });
 
       const resourceById = resource.addResource("{id}");
       resourceById.addMethod("GET", adminIntegration, {
-        authorizationType: apigateway.AuthorizationType.COGNITO,
-        authorizer,
+        authorizationType: apigateway.AuthorizationType.CUSTOM,
+        authorizer: adminAuthorizer,
       });
       resourceById.addMethod("PUT", adminIntegration, {
-        authorizationType: apigateway.AuthorizationType.COGNITO,
-        authorizer,
+        authorizationType: apigateway.AuthorizationType.CUSTOM,
+        authorizer: adminAuthorizer,
       });
       resourceById.addMethod("DELETE", adminIntegration, {
-        authorizationType: apigateway.AuthorizationType.COGNITO,
-        authorizer,
+        authorizationType: apigateway.AuthorizationType.CUSTOM,
+        authorizer: adminAuthorizer,
       });
 
       if (resourceName === "organizations") {
         const media = resourceById.addResource("media");
         media.addMethod("POST", adminIntegration, {
-          authorizationType: apigateway.AuthorizationType.COGNITO,
-          authorizer,
+          authorizationType: apigateway.AuthorizationType.CUSTOM,
+          authorizer: adminAuthorizer,
         });
         media.addMethod("DELETE", adminIntegration, {
-          authorizationType: apigateway.AuthorizationType.COGNITO,
-          authorizer,
+          authorizationType: apigateway.AuthorizationType.CUSTOM,
+          authorizer: adminAuthorizer,
         });
       }
     }
@@ -1359,19 +1435,82 @@ export class ApiStack extends cdk.Stack {
     const userByName = users.addResource("{username}");
     const userGroups = userByName.addResource("groups");
     userGroups.addMethod("POST", adminIntegration, {
-      authorizationType: apigateway.AuthorizationType.COGNITO,
-      authorizer,
+      authorizationType: apigateway.AuthorizationType.CUSTOM,
+      authorizer: adminAuthorizer,
     });
     userGroups.addMethod("DELETE", adminIntegration, {
-      authorizationType: apigateway.AuthorizationType.COGNITO,
-      authorizer,
+      authorizationType: apigateway.AuthorizationType.CUSTOM,
+      authorizer: adminAuthorizer,
     });
 
-    // Cognito users listing endpoint (for owner selection)
+    // Cognito users listing endpoint (for owner selection) - admin only
     const cognitoUsers = admin.addResource("cognito-users");
     cognitoUsers.addMethod("GET", adminIntegration, {
-      authorizationType: apigateway.AuthorizationType.COGNITO,
-      authorizer,
+      authorizationType: apigateway.AuthorizationType.CUSTOM,
+      authorizer: adminAuthorizer,
+    });
+
+    // Admin access requests management (for reviewing owner requests) - admin only
+    const accessRequests = admin.addResource("access-requests");
+    accessRequests.addMethod("GET", adminIntegration, {
+      authorizationType: apigateway.AuthorizationType.CUSTOM,
+      authorizer: adminAuthorizer,
+    });
+
+    const accessRequestById = accessRequests.addResource("{id}");
+    accessRequestById.addMethod("PUT", adminIntegration, {
+      authorizationType: apigateway.AuthorizationType.CUSTOM,
+      authorizer: adminAuthorizer,
+    });
+
+    // Owner-specific routes at /v1/owner (accessible by users in 'admin' OR 'owner' group)
+    // All owner routes are filtered by organization ownership in the Lambda
+    const owner = v1.addResource("owner");
+
+    // Owner resources - CRUD filtered by owned organizations
+    const ownerResources = [
+      "organizations",
+      "locations",
+      "activities",
+      "pricing",
+      "schedules",
+    ];
+
+    for (const resourceName of ownerResources) {
+      const resource = owner.addResource(resourceName);
+      resource.addMethod("GET", adminIntegration, {
+        authorizationType: apigateway.AuthorizationType.CUSTOM,
+        authorizer: ownerAuthorizer,
+      });
+      resource.addMethod("POST", adminIntegration, {
+        authorizationType: apigateway.AuthorizationType.CUSTOM,
+        authorizer: ownerAuthorizer,
+      });
+
+      const resourceById = resource.addResource("{id}");
+      resourceById.addMethod("GET", adminIntegration, {
+        authorizationType: apigateway.AuthorizationType.CUSTOM,
+        authorizer: ownerAuthorizer,
+      });
+      resourceById.addMethod("PUT", adminIntegration, {
+        authorizationType: apigateway.AuthorizationType.CUSTOM,
+        authorizer: ownerAuthorizer,
+      });
+      resourceById.addMethod("DELETE", adminIntegration, {
+        authorizationType: apigateway.AuthorizationType.CUSTOM,
+        authorizer: ownerAuthorizer,
+      });
+    }
+
+    // Owner access request (submit request to be added to an organization)
+    const ownerAccessRequest = owner.addResource("access-request");
+    ownerAccessRequest.addMethod("GET", adminIntegration, {
+      authorizationType: apigateway.AuthorizationType.CUSTOM,
+      authorizer: ownerAuthorizer,
+    });
+    ownerAccessRequest.addMethod("POST", adminIntegration, {
+      authorizationType: apigateway.AuthorizationType.CUSTOM,
+      authorizer: ownerAuthorizer,
     });
 
     // ---------------------------------------------------------------------

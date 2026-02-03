@@ -25,6 +25,7 @@ from uuid import UUID, uuid4
 
 import boto3
 from psycopg.types.range import Range
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db.engine import get_engine
@@ -33,6 +34,7 @@ from app.db.models import ActivityPricing
 from app.db.models import ActivitySchedule
 from app.db.models import Location
 from app.db.models import Organization
+from app.db.models import OrganizationAccessRequest
 from app.db.models import PricingType
 from app.db.models import ScheduleType
 from app.db.repositories import (
@@ -41,6 +43,7 @@ from app.db.repositories import (
     ActivityScheduleRepository,
     LocationRepository,
     OrganizationRepository,
+    OrganizationAccessRequestRepository,
 )
 from app.exceptions import NotFoundError, ValidationError
 from app.utils import json_response, parse_datetime, parse_int
@@ -80,6 +83,8 @@ class ResourceConfig:
     serializer: Callable[[Any], dict[str, Any]]
     create_handler: Callable[..., Any]
     update_handler: Callable[..., Any]
+    # Optional: different update handler for owner routes (e.g., to restrict fields)
+    owner_update_handler: Optional[Callable[..., Any]] = None
 
 
 def lambda_handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
@@ -89,40 +94,70 @@ def lambda_handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
     request_id = event.get("requestContext", {}).get("requestId", "")
     set_request_context(req_id=request_id)
 
+    method = event.get("httpMethod", "")
+    path = event.get("path", "")
+    base_path, resource, resource_id, sub_resource = _parse_path(path)
+
+    logger.info(
+        f"Admin request: {method} {path}",
+        extra={
+            "base_path": base_path,
+            "resource": resource,
+            "resource_id": resource_id,
+        },
+    )
+
+    # Handle /v1/owner/... routes (for users in 'owner' or 'admin' group)
+    if base_path == "owner":
+        return _handle_owner_routes(event, method, resource, resource_id)
+
+    # All /v1/admin/... routes require admin access
+    if base_path != "admin":
+        return json_response(404, {"error": "Not found"}, event=event)
+
     if not _is_admin(event):
         logger.warning("Unauthorized admin access attempt")
         return json_response(403, {"error": "Forbidden"}, event=event)
 
-    method = event.get("httpMethod", "")
-    path = event.get("path", "")
-    resource, resource_id, sub_resource = _parse_path(path)
-
-    logger.info(
-        f"Admin request: {method} {path}",
-        extra={"resource": resource, "resource_id": resource_id},
-    )
-
+    # Special admin routes
     if resource == "users" and sub_resource == "groups":
         return _handle_user_group(event, method, resource_id)
     if resource == "organizations" and sub_resource == "media":
         return _handle_organization_media(event, method, resource_id)
     if resource == "cognito-users" and method == "GET":
         return _handle_list_cognito_users(event)
+    if resource == "access-requests":
+        return _handle_admin_access_requests(event, method, resource_id)
 
+    # Standard admin CRUD routes (no ownership filtering)
     config = _RESOURCE_CONFIG.get(resource)
     if not config:
         return json_response(404, {"error": "Not found"}, event=event)
 
+    return _safe_handler(
+        lambda: _handle_crud(event, method, config, resource_id),
+        event,
+    )
+
+
+# --- Common Error Handling ---
+
+
+def _safe_handler(
+    handler: Callable[[], dict[str, Any]],
+    event: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Execute a handler with common error handling.
+
+    Args:
+        handler: The handler function to execute.
+        event: The Lambda event for response formatting.
+
+    Returns:
+        API Gateway response.
+    """
     try:
-        if method == "GET":
-            return _handle_get(event, config, resource_id)
-        if method == "POST":
-            return _handle_post(event, config)
-        if method == "PUT":
-            return _handle_put(event, config, resource_id)
-        if method == "DELETE":
-            return _handle_delete(event, config, resource_id)
-        return json_response(405, {"error": "Method not allowed"}, event=event)
+        return handler()
     except ValidationError as exc:
         logger.warning(f"Validation error: {exc.message}")
         return json_response(exc.status_code, exc.to_dict(), event=event)
@@ -132,105 +167,210 @@ def lambda_handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
         logger.warning(f"Value error: {exc}")
         return json_response(400, {"error": str(exc)}, event=event)
     except Exception as exc:  # pragma: no cover
-        logger.exception("Unexpected error in admin handler")
+        logger.exception("Unexpected error in handler")
         return json_response(
             500, {"error": "Internal server error", "detail": str(exc)}, event=event
         )
 
 
-def _handle_get(
+# --- Unified CRUD Handlers ---
+# These handlers work for both admin (full access) and owner (filtered) routes.
+# When owned_org_ids is None, no filtering is applied (admin mode).
+# When owned_org_ids is set, resources are filtered by ownership (owner mode).
+
+
+def _handle_crud(
     event: Mapping[str, Any],
+    method: str,
     config: ResourceConfig,
     resource_id: Optional[str],
+    owned_org_ids: Optional[set[str]] = None,
 ) -> dict[str, Any]:
-    """Handle GET requests for admin resources using repository."""
+    """Unified CRUD handler for both admin and owner routes.
 
+    Args:
+        event: The Lambda event.
+        method: HTTP method (GET, POST, PUT, DELETE).
+        config: Resource configuration.
+        resource_id: Optional specific resource ID.
+        owned_org_ids: If set, filter/validate by organization ownership.
+
+    Returns:
+        API Gateway response.
+    """
+    with Session(get_engine()) as session:
+        if method == "GET":
+            return _crud_get(event, session, config, resource_id, owned_org_ids)
+        if method == "POST":
+            return _crud_post(event, session, config, owned_org_ids)
+        if method == "PUT":
+            return _crud_put(event, session, config, resource_id, owned_org_ids)
+        if method == "DELETE":
+            return _crud_delete(event, session, config, resource_id, owned_org_ids)
+
+    return json_response(405, {"error": "Method not allowed"}, event=event)
+
+
+def _crud_get(
+    event: Mapping[str, Any],
+    session: Session,
+    config: ResourceConfig,
+    resource_id: Optional[str],
+    owned_org_ids: Optional[set[str]] = None,
+) -> dict[str, Any]:
+    """Handle GET requests with optional ownership filtering."""
     limit = parse_int(_query_param(event, "limit")) or 50
     if limit < 1 or limit > 200:
         raise ValidationError("limit must be between 1 and 200", field="limit")
 
-    with Session(get_engine()) as session:
-        repo = config.repository_class(session)
+    repo = config.repository_class(session)
 
-        if resource_id:
-            entity = repo.get_by_id(_parse_uuid(resource_id))
-            if entity is None:
-                raise NotFoundError(config.name, resource_id)
-            return json_response(200, config.serializer(entity), event=event)
+    if resource_id:
+        entity = repo.get_by_id(_parse_uuid(resource_id))
+        if entity is None:
+            raise NotFoundError(config.name, resource_id)
+        # Check ownership if filtering is enabled
+        if owned_org_ids is not None:
+            entity_org_id = _get_entity_org_id(entity, session)
+            if entity_org_id not in owned_org_ids:
+                return json_response(
+                    403,
+                    {"error": "You don't have access to this resource"},
+                    event=event,
+                )
+        return json_response(200, config.serializer(entity), event=event)
 
-        cursor = _parse_cursor(_query_param(event, "cursor"))
-        rows = repo.get_all(limit=limit + 1, cursor=cursor)
-        has_more = len(rows) > limit
-        trimmed = list(rows)[:limit]
-        next_cursor = _encode_cursor(trimmed[-1].id) if has_more and trimmed else None
-
-        return json_response(
-            200,
-            {
-                "items": [config.serializer(row) for row in trimmed],
-                "next_cursor": next_cursor,
-            },
-            event=event,
+    # List resources
+    cursor = _parse_cursor(_query_param(event, "cursor"))
+    if owned_org_ids is not None:
+        rows = _get_all_filtered_by_org(
+            session, config, owned_org_ids, limit + 1, cursor
         )
+    else:
+        rows = repo.get_all(limit=limit + 1, cursor=cursor)
+
+    has_more = len(rows) > limit
+    trimmed = list(rows)[:limit]
+    next_cursor = _encode_cursor(trimmed[-1].id) if has_more and trimmed else None
+
+    return json_response(
+        200,
+        {
+            "items": [config.serializer(row) for row in trimmed],
+            "next_cursor": next_cursor,
+        },
+        event=event,
+    )
 
 
-def _handle_post(event: Mapping[str, Any], config: ResourceConfig) -> dict[str, Any]:
-    """Handle POST requests for admin resources using repository."""
-
-    body = _parse_body(event)
-    with Session(get_engine()) as session:
-        repo = config.repository_class(session)
-        entity = config.create_handler(repo, body)
-        repo.create(entity)
-        session.commit()
-        session.refresh(entity)
-        logger.info(f"Created {config.name}: {entity.id}")
-        return json_response(201, config.serializer(entity), event=event)
-
-
-def _handle_put(
+def _crud_post(
     event: Mapping[str, Any],
+    session: Session,
+    config: ResourceConfig,
+    owned_org_ids: Optional[set[str]] = None,
+) -> dict[str, Any]:
+    """Handle POST requests with optional ownership validation."""
+    body = _parse_body(event)
+
+    # Validate ownership if filtering is enabled
+    if owned_org_ids is not None:
+        org_id = _get_org_id_from_body(body, config.name)
+        if org_id and org_id not in owned_org_ids:
+            return json_response(
+                403,
+                {"error": "You don't have access to this organization"},
+                event=event,
+            )
+        # For pricing/schedules, verify ownership through activity
+        if config.name in ("pricing", "schedules"):
+            activity_id = body.get("activity_id")
+            if activity_id:
+                activity_repo = ActivityRepository(session)
+                activity = activity_repo.get_by_id(_parse_uuid(activity_id))
+                if activity and str(activity.org_id) not in owned_org_ids:
+                    return json_response(
+                        403,
+                        {"error": "You don't have access to this activity"},
+                        event=event,
+                    )
+
+    repo = config.repository_class(session)
+    entity = config.create_handler(repo, body)
+    repo.create(entity)
+    session.commit()
+    session.refresh(entity)
+    logger.info(f"Created {config.name}: {entity.id}")
+    return json_response(201, config.serializer(entity), event=event)
+
+
+def _crud_put(
+    event: Mapping[str, Any],
+    session: Session,
     config: ResourceConfig,
     resource_id: Optional[str],
+    owned_org_ids: Optional[set[str]] = None,
 ) -> dict[str, Any]:
-    """Handle PUT requests for admin resources using repository."""
-
+    """Handle PUT requests with optional ownership validation."""
     if not resource_id:
         raise ValidationError("Resource id is required", field="id")
 
+    repo = config.repository_class(session)
+    entity = repo.get_by_id(_parse_uuid(resource_id))
+    if entity is None:
+        raise NotFoundError(config.name, resource_id)
+
+    # Check ownership if filtering is enabled
+    if owned_org_ids is not None:
+        entity_org_id = _get_entity_org_id(entity, session)
+        if entity_org_id not in owned_org_ids:
+            return json_response(
+                403, {"error": "You don't have access to this resource"}, event=event
+            )
+
     body = _parse_body(event)
-    with Session(get_engine()) as session:
-        repo = config.repository_class(session)
-        entity = repo.get_by_id(_parse_uuid(resource_id))
-        if entity is None:
-            raise NotFoundError(config.name, resource_id)
-        updated = config.update_handler(repo, entity, body)
-        repo.update(updated)
-        session.commit()
-        session.refresh(updated)
-        logger.info(f"Updated {config.name}: {resource_id}")
-        return json_response(200, config.serializer(updated), event=event)
+
+    # Use owner-specific update handler if available and in owner mode
+    if owned_org_ids is not None and config.owner_update_handler is not None:
+        update_handler = config.owner_update_handler
+    else:
+        update_handler = config.update_handler
+
+    updated = update_handler(repo, entity, body)
+    repo.update(updated)
+    session.commit()
+    session.refresh(updated)
+    logger.info(f"Updated {config.name}: {resource_id}")
+    return json_response(200, config.serializer(updated), event=event)
 
 
-def _handle_delete(
+def _crud_delete(
     event: Mapping[str, Any],
+    session: Session,
     config: ResourceConfig,
     resource_id: Optional[str],
+    owned_org_ids: Optional[set[str]] = None,
 ) -> dict[str, Any]:
-    """Handle DELETE requests for admin resources using repository."""
-
+    """Handle DELETE requests with optional ownership validation."""
     if not resource_id:
         raise ValidationError("Resource id is required", field="id")
 
-    with Session(get_engine()) as session:
-        repo = config.repository_class(session)
-        entity = repo.get_by_id(_parse_uuid(resource_id))
-        if entity is None:
-            raise NotFoundError(config.name, resource_id)
-        repo.delete(entity)
-        session.commit()
-        logger.info(f"Deleted {config.name}: {resource_id}")
-        return json_response(204, {}, event=event)
+    repo = config.repository_class(session)
+    entity = repo.get_by_id(_parse_uuid(resource_id))
+    if entity is None:
+        raise NotFoundError(config.name, resource_id)
+
+    # Check ownership if filtering is enabled
+    if owned_org_ids is not None:
+        entity_org_id = _get_entity_org_id(entity, session)
+        if entity_org_id not in owned_org_ids:
+            return json_response(
+                403, {"error": "You don't have access to this resource"}, event=event
+            )
+
+    repo.delete(entity)
+    session.commit()
+    logger.info(f"Deleted {config.name}: {resource_id}")
+    return json_response(204, {}, event=event)
 
 
 # --- Request parsing helpers ---
@@ -247,17 +387,40 @@ def _parse_body(event: Mapping[str, Any]) -> dict[str, Any]:
     return json.loads(raw)
 
 
-def _parse_path(path: str) -> Tuple[str, Optional[str], Optional[str]]:
-    """Parse resource name and id from the request path."""
+def _parse_path(
+    path: str,
+) -> Tuple[str, str, Optional[str], Optional[str]]:
+    """Parse base path, resource name, and id from the request path.
 
+    Returns:
+        Tuple of (base_path, resource, resource_id, sub_resource)
+        base_path is either "admin" or "owner"
+    """
     parts = [segment for segment in path.split("/") if segment]
     parts = _strip_version_prefix(parts)
-    if len(parts) < 2 or parts[0] != "admin":
-        return "", None, None
-    resource = parts[1]
-    resource_id = parts[2] if len(parts) > 2 else None
-    sub_resource = parts[3] if len(parts) > 3 else None
-    return resource, resource_id, sub_resource
+
+    if not parts:
+        return "", "", None, None
+
+    base_path = parts[0]
+
+    # Handle /v1/admin/... paths
+    if base_path == "admin":
+        if len(parts) < 2:
+            return base_path, "", None, None
+        resource = parts[1]
+        resource_id = parts[2] if len(parts) > 2 else None
+        sub_resource = parts[3] if len(parts) > 3 else None
+        return base_path, resource, resource_id, sub_resource
+
+    # Handle /v1/owner/... paths
+    if base_path == "owner":
+        resource = parts[1] if len(parts) > 1 else ""
+        resource_id = parts[2] if len(parts) > 2 else None
+        sub_resource = parts[3] if len(parts) > 3 else None
+        return base_path, resource, resource_id, sub_resource
+
+    return "", "", None, None
 
 
 def _strip_version_prefix(parts: list[str]) -> list[str]:
@@ -300,6 +463,627 @@ def _is_admin(event: Mapping[str, Any]) -> bool:
     groups = claims.get("cognito:groups", "")
     admin_group = os.getenv("ADMIN_GROUP", "admin")
     return admin_group in groups.split(",") if groups else False
+
+
+def _is_owner(event: Mapping[str, Any]) -> bool:
+    """Return True when request belongs to an owner user."""
+
+    claims = event.get("requestContext", {}).get("authorizer", {}).get("claims", {})
+    groups = claims.get("cognito:groups", "")
+    owner_group = os.getenv("OWNER_GROUP", "owner")
+    return owner_group in groups.split(",") if groups else False
+
+
+def _get_user_sub(event: Mapping[str, Any]) -> Optional[str]:
+    """Extract the user's Cognito sub (subject) from JWT claims."""
+
+    claims = event.get("requestContext", {}).get("authorizer", {}).get("claims", {})
+    return claims.get("sub")
+
+
+def _get_user_email(event: Mapping[str, Any]) -> Optional[str]:
+    """Extract the user's email from JWT claims."""
+
+    claims = event.get("requestContext", {}).get("authorizer", {}).get("claims", {})
+    return claims.get("email")
+
+
+def _get_owned_organization_ids(event: Mapping[str, Any]) -> set[str]:
+    """Get the IDs of organizations owned by the current user.
+
+    Returns:
+        Set of organization IDs (as strings) owned by the user.
+    """
+    user_sub = _get_user_sub(event)
+    if not user_sub:
+        return set()
+
+    with Session(get_engine()) as session:
+        repo = OrganizationRepository(session)
+        orgs = repo.find_by_owner(user_sub)
+        return {str(org.id) for org in orgs}
+
+
+def _get_entity_org_id(entity: Any, session: Session) -> Optional[str]:
+    """Get the organization ID for an entity.
+
+    Works for:
+    - Organization: the entity's own ID
+    - Location, Activity: direct org_id field
+    - Pricing, Schedule: through activity relationship
+
+    Returns:
+        The organization ID as a string, or None if not determinable.
+    """
+    # Organization entity - the org_id is the entity itself
+    if isinstance(entity, Organization):
+        return str(entity.id)
+
+    # Direct org_id (Location, Activity)
+    if hasattr(entity, "org_id"):
+        return str(entity.org_id)
+
+    # Through activity (Pricing, Schedule)
+    if hasattr(entity, "activity_id"):
+        activity_repo = ActivityRepository(session)
+        activity = activity_repo.get_by_id(entity.activity_id)
+        if activity:
+            return str(activity.org_id)
+
+    return None
+
+
+def _get_org_id_from_body(body: dict[str, Any], resource_name: str) -> Optional[str]:
+    """Extract the organization ID from a request body.
+
+    For locations/activities, reads org_id directly.
+    For pricing/schedules, would need to look up via activity_id (handled separately).
+
+    Returns:
+        The organization ID as a string, or None if not in body.
+    """
+    org_id = body.get("org_id")
+    if org_id:
+        return str(org_id)
+    return None
+
+
+def _get_all_filtered_by_org(
+    session: Session,
+    config: ResourceConfig,
+    owned_org_ids: set[str],
+    limit: int,
+    cursor: Optional[UUID],
+) -> Sequence[Any]:
+    """Get all entities filtered by organization ownership.
+
+    Args:
+        session: Database session.
+        config: Resource configuration.
+        owned_org_ids: Set of owned organization IDs.
+        limit: Maximum results to return.
+        cursor: Optional pagination cursor.
+
+    Returns:
+        Sequence of entities belonging to the owned organizations.
+    """
+    model = config.model
+
+    # Build base query based on model type
+    if model == Organization:
+        # Organization - filter by entity ID
+        query = select(model).where(model.id.in_(owned_org_ids))
+    elif hasattr(model, "org_id"):
+        # Direct org_id (Location, Activity)
+        query = select(model).where(model.org_id.in_(owned_org_ids))
+    elif hasattr(model, "activity_id"):
+        # Through activity (Pricing, Schedule)
+        query = (
+            select(model)
+            .join(Activity, model.activity_id == Activity.id)
+            .where(Activity.org_id.in_(owned_org_ids))
+        )
+    else:
+        # Fallback - shouldn't happen for owner-accessible resources
+        query = select(model)
+
+    # Add cursor pagination
+    if cursor:
+        query = query.where(model.id > cursor)
+
+    query = query.order_by(model.id).limit(limit)
+
+    return session.execute(query).scalars().all()
+
+
+# --- Owner-specific routes ---
+
+
+def _handle_owner_routes(
+    event: Mapping[str, Any],
+    method: str,
+    resource: str,
+    resource_id: Optional[str],
+) -> dict[str, Any]:
+    """Handle routes accessible to users in the 'owner' group.
+
+    All owner routes filter data by organization ownership.
+
+    Owner routes:
+        /v1/owner/organizations - CRUD for owned organizations
+        /v1/owner/locations - CRUD for locations in owned organizations
+        /v1/owner/activities - CRUD for activities in owned organizations
+        /v1/owner/pricing - CRUD for pricing in owned organizations
+        /v1/owner/schedules - CRUD for schedules in owned organizations
+        /v1/owner/access-request - Request access to an organization
+    """
+    # Check if user is in owner group (or admin group - admins can do everything)
+    if not _is_owner(event) and not _is_admin(event):
+        logger.warning("Unauthorized owner access attempt")
+        return json_response(403, {"error": "Forbidden"}, event=event)
+
+    # Access request (doesn't require ownership)
+    if resource == "access-request":
+        return _safe_handler(
+            lambda: _handle_owner_access_request(event, method),
+            event,
+        )
+
+    # Resources that can be managed by owners
+    owner_resources = {
+        "organizations",
+        "locations",
+        "activities",
+        "pricing",
+        "schedules",
+    }
+    if resource not in owner_resources:
+        return json_response(404, {"error": "Not found"}, event=event)
+
+    # Get owned organization IDs for filtering
+    owned_org_ids = _get_owned_organization_ids(event)
+
+    # Handle no organizations case
+    if not owned_org_ids:
+        if method == "GET" and not resource_id:
+            return json_response(200, {"items": [], "next_cursor": None}, event=event)
+        return json_response(
+            403, {"error": "You don't own any organizations"}, event=event
+        )
+
+    # Get resource configuration
+    config = _RESOURCE_CONFIG.get(resource)
+    if not config:
+        return json_response(404, {"error": "Not found"}, event=event)
+
+    # Use unified CRUD handler with ownership filtering
+    return _safe_handler(
+        lambda: _handle_crud(event, method, config, resource_id, owned_org_ids),
+        event,
+    )
+
+
+def _update_organization_for_owner(
+    repo: OrganizationRepository,
+    entity: Organization,
+    body: dict[str, Any],
+) -> Organization:
+    """Update an organization for an owner (limited fields).
+
+    Owners cannot change the owner_id field.
+    The repo parameter is unused but included for signature compatibility.
+    """
+    del repo  # Unused, for signature compatibility
+    if "name" in body:
+        name = _validate_string_length(
+            body["name"], "name", MAX_NAME_LENGTH, required=True
+        )
+        entity.name = name  # type: ignore[assignment]
+    if "description" in body:
+        entity.description = _validate_string_length(
+            body["description"], "description", MAX_DESCRIPTION_LENGTH
+        )
+    if "media_urls" in body:
+        media_urls = _parse_media_urls(body["media_urls"])
+        if media_urls:
+            media_urls = _validate_media_urls(media_urls)
+        entity.media_urls = media_urls
+    return entity
+
+
+def _handle_owner_access_request(
+    event: Mapping[str, Any],
+    method: str,
+) -> dict[str, Any]:
+    """Handle owner access request operations.
+
+    GET: Check if user has a pending access request
+    POST: Submit a new access request (if none pending)
+    """
+    user_sub = _get_user_sub(event)
+    user_email = _get_user_email(event)
+
+    if not user_sub:
+        return json_response(401, {"error": "User identity not found"}, event=event)
+
+    if method == "GET":
+        # Check if user has a pending request and return their organizations count
+        with Session(get_engine()) as session:
+            org_repo = OrganizationRepository(session)
+            request_repo = OrganizationAccessRequestRepository(session)
+
+            # Get user's organizations
+            user_orgs = org_repo.find_by_owner(user_sub)
+
+            # Check for pending request
+            pending_request = request_repo.find_pending_by_requester(user_sub)
+
+            return json_response(
+                200,
+                {
+                    "has_pending_request": pending_request is not None,
+                    "pending_request": _serialize_access_request(pending_request)
+                    if pending_request
+                    else None,
+                    "organizations_count": len(user_orgs),
+                },
+                event=event,
+            )
+
+    if method == "POST":
+        # Submit a new access request
+        body = _parse_body(event)
+
+        with Session(get_engine()) as session:
+            request_repo = OrganizationAccessRequestRepository(session)
+
+            # Check if user already has a pending request
+            existing = request_repo.find_pending_by_requester(user_sub)
+            if existing:
+                return json_response(
+                    409,
+                    {
+                        "error": "You already have a pending access request",
+                        "request": _serialize_access_request(existing),
+                    },
+                    event=event,
+                )
+
+            # Validate request fields
+            organization_name = _validate_string_length(
+                body.get("organization_name"),
+                "organization_name",
+                MAX_NAME_LENGTH,
+                required=True,
+            )
+            request_message = _validate_string_length(
+                body.get("request_message"),
+                "request_message",
+                MAX_DESCRIPTION_LENGTH,
+                required=False,
+            )
+
+            # Generate a unique progressive ticket ID
+            ticket_id = _generate_ticket_id(session)
+
+            # Create the access request
+            access_request = OrganizationAccessRequest(
+                ticket_id=ticket_id,
+                requester_id=user_sub,
+                requester_email=user_email or "unknown",
+                organization_name=organization_name,
+                request_message=request_message,
+            )
+            request_repo.create(access_request)
+            session.commit()
+            session.refresh(access_request)
+
+            logger.info(f"Created access request for user: {user_sub}")
+
+            # Send email notification
+            _send_access_request_email(access_request)
+
+            return json_response(
+                201,
+                {
+                    "message": "Your request has been submitted successfully",
+                    "request": _serialize_access_request(access_request),
+                },
+                event=event,
+            )
+
+    return json_response(405, {"error": "Method not allowed"}, event=event)
+
+
+def _generate_ticket_id(session: Session) -> str:
+    """Generate a unique progressive ticket ID in format R + 5 digits.
+
+    Queries the database for the highest existing ticket number and
+    increments it by 1. Thread-safe due to database unique constraint.
+
+    Args:
+        session: SQLAlchemy database session for querying existing tickets.
+
+    Returns:
+        A new ticket ID like R00001, R00002, etc.
+    """
+    from sqlalchemy import text
+
+    # Query the highest ticket number from existing requests
+    result = session.execute(
+        text(
+            "SELECT MAX(CAST(SUBSTRING(ticket_id FROM 2) AS BIGINT)) "
+            "FROM organization_access_requests "
+            "WHERE ticket_id LIKE 'R%'"
+        )
+    ).scalar()
+
+    # Start from 1 if no existing tickets, otherwise increment
+    next_number = (result or 0) + 1
+
+    return f"R{next_number:05d}"
+
+
+def _serialize_access_request(
+    request: Optional[OrganizationAccessRequest],
+) -> Optional[dict[str, Any]]:
+    """Serialize an access request for the API response."""
+    if request is None:
+        return None
+    return {
+        "id": str(request.id),
+        "ticket_id": request.ticket_id,
+        "organization_name": request.organization_name,
+        "request_message": request.request_message,
+        "status": request.status.value,
+        "requester_email": request.requester_email,
+        "requester_id": request.requester_id,
+        "created_at": request.created_at.isoformat() if request.created_at else None,
+        "reviewed_at": request.reviewed_at.isoformat() if request.reviewed_at else None,
+        "reviewed_by": request.reviewed_by,
+    }
+
+
+def _send_access_request_email(request: OrganizationAccessRequest) -> None:
+    """Send email notification for a new access request using Amazon SES.
+
+    The support email address is configured via SUPPORT_EMAIL environment variable.
+    The sender email is configured via SES_SENDER_EMAIL environment variable.
+
+    Email template is defined in app/templates/email_templates.py
+    """
+    from app.templates import render_new_request_email
+
+    support_email = os.getenv("SUPPORT_EMAIL")
+    sender_email = os.getenv("SES_SENDER_EMAIL")
+
+    if not support_email or not sender_email:
+        logger.warning(
+            "Email notification skipped: SUPPORT_EMAIL or SES_SENDER_EMAIL not configured"
+        )
+        return
+
+    try:
+        ses_client = boto3.client("ses")
+
+        email_content = render_new_request_email(
+            ticket_id=request.ticket_id,
+            requester_email=request.requester_email,
+            organization_name=request.organization_name,
+            request_message=request.request_message,
+            submitted_at=request.created_at.isoformat()
+            if request.created_at
+            else "Unknown",
+        )
+
+        ses_client.send_email(
+            Source=sender_email,
+            Destination={"ToAddresses": [support_email]},
+            Message={
+                "Subject": {"Data": email_content.subject, "Charset": "UTF-8"},
+                "Body": {
+                    "Text": {"Data": email_content.body_text, "Charset": "UTF-8"},
+                    "Html": {"Data": email_content.body_html, "Charset": "UTF-8"},
+                },
+            },
+        )
+        logger.info(f"Access request email sent to {support_email}")
+    except Exception as exc:
+        # Don't fail the request if email fails
+        logger.error(f"Failed to send access request email: {exc}")
+
+
+# --- Admin access request management ---
+
+
+def _handle_admin_access_requests(
+    event: Mapping[str, Any],
+    method: str,
+    request_id: Optional[str],
+) -> dict[str, Any]:
+    """Handle admin access request management.
+
+    GET: List all access requests (optionally filtered by status)
+    PUT /{id}: Approve or reject an access request
+    """
+    try:
+        if method == "GET":
+            return _handle_list_access_requests(event)
+        if method == "PUT" and request_id:
+            return _handle_review_access_request(event, request_id)
+        return json_response(405, {"error": "Method not allowed"}, event=event)
+    except ValidationError as exc:
+        logger.warning(f"Validation error: {exc.message}")
+        return json_response(exc.status_code, exc.to_dict(), event=event)
+    except NotFoundError as exc:
+        return json_response(exc.status_code, exc.to_dict(), event=event)
+    except Exception as exc:
+        logger.exception("Unexpected error in admin access requests handler")
+        return json_response(
+            500, {"error": "Internal server error", "detail": str(exc)}, event=event
+        )
+
+
+def _handle_list_access_requests(event: Mapping[str, Any]) -> dict[str, Any]:
+    """List all access requests for admin review."""
+    from app.db.models import AccessRequestStatus
+
+    limit = parse_int(_query_param(event, "limit")) or 50
+    if limit < 1 or limit > 200:
+        raise ValidationError("limit must be between 1 and 200", field="limit")
+
+    status_filter = _query_param(event, "status")
+    status = None
+    if status_filter:
+        try:
+            status = AccessRequestStatus(status_filter)
+        except ValueError:
+            raise ValidationError(
+                f"Invalid status: {status_filter}. Must be pending, approved, or rejected",
+                field="status",
+            )
+
+    with Session(get_engine()) as session:
+        repo = OrganizationAccessRequestRepository(session)
+        cursor = _parse_cursor(_query_param(event, "cursor"))
+        rows = repo.find_all(status=status, limit=limit + 1, cursor=cursor)
+        has_more = len(rows) > limit
+        trimmed = list(rows)[:limit]
+        next_cursor = _encode_cursor(trimmed[-1].id) if has_more and trimmed else None
+
+        return json_response(
+            200,
+            {
+                "items": [_serialize_access_request(row) for row in trimmed],
+                "next_cursor": next_cursor,
+            },
+            event=event,
+        )
+
+
+def _handle_review_access_request(
+    event: Mapping[str, Any],
+    request_id: str,
+) -> dict[str, Any]:
+    """Approve or reject an access request."""
+    from datetime import datetime, timezone
+    from app.db.models import AccessRequestStatus
+
+    body = _parse_body(event)
+    action = body.get("action")
+    admin_message = body.get("message", "")
+
+    if action not in ("approve", "reject"):
+        raise ValidationError(
+            "action must be 'approve' or 'reject'",
+            field="action",
+        )
+
+    reviewer_sub = _get_user_sub(event)
+    if not reviewer_sub:
+        return json_response(401, {"error": "User identity not found"}, event=event)
+
+    with Session(get_engine()) as session:
+        repo = OrganizationAccessRequestRepository(session)
+        request = repo.get_by_id(_parse_uuid(request_id))
+
+        if request is None:
+            raise NotFoundError("access_request", request_id)
+
+        if request.status != AccessRequestStatus.PENDING:
+            return json_response(
+                409,
+                {"error": f"Request has already been {request.status.value}"},
+                event=event,
+            )
+
+        # Update the request status
+        new_status = (
+            AccessRequestStatus.APPROVED
+            if action == "approve"
+            else AccessRequestStatus.REJECTED
+        )
+        request.status = new_status
+        request.reviewed_at = datetime.now(timezone.utc)
+        request.reviewed_by = reviewer_sub
+
+        repo.update(request)
+        session.commit()
+        session.refresh(request)
+
+        logger.info(f"Access request {request_id} {action}d by {reviewer_sub}")
+
+        # Send notification email to the requester
+        _send_request_decision_email(request, action, admin_message)
+
+        return json_response(
+            200,
+            {
+                "message": f"Request has been {action}d",
+                "request": _serialize_access_request(request),
+            },
+            event=event,
+        )
+
+
+def _send_request_decision_email(
+    request: OrganizationAccessRequest,
+    action: str,
+    admin_message: str,
+) -> None:
+    """Send email notification to requester about their request decision.
+
+    Email template is defined in app/templates/email_templates.py
+
+    Args:
+        request: The access request that was reviewed.
+        action: Either 'approve' or 'reject'.
+        admin_message: Optional message from the admin.
+    """
+    from app.templates import render_request_decision_email
+
+    sender_email = os.getenv("SES_SENDER_EMAIL")
+
+    if not sender_email:
+        logger.warning("Email notification skipped: SES_SENDER_EMAIL not configured")
+        return
+
+    if not request.requester_email or request.requester_email == "unknown":
+        logger.warning(
+            f"Email notification skipped: No valid email for request {request.ticket_id}"
+        )
+        return
+
+    try:
+        ses_client = boto3.client("ses")
+
+        email_content = render_request_decision_email(
+            ticket_id=request.ticket_id,
+            organization_name=request.organization_name,
+            reviewed_at=request.reviewed_at.isoformat()
+            if request.reviewed_at
+            else "Unknown",
+            action=action,
+            admin_message=admin_message if admin_message else None,
+        )
+
+        ses_client.send_email(
+            Source=sender_email,
+            Destination={"ToAddresses": [request.requester_email]},
+            Message={
+                "Subject": {"Data": email_content.subject, "Charset": "UTF-8"},
+                "Body": {
+                    "Text": {"Data": email_content.body_text, "Charset": "UTF-8"},
+                    "Html": {"Data": email_content.body_html, "Charset": "UTF-8"},
+                },
+            },
+        )
+        logger.info(
+            f"Request decision email sent to {request.requester_email} for {request.ticket_id}"
+        )
+    except Exception as exc:
+        # Don't fail the request if email fails
+        logger.error(f"Failed to send request decision email: {exc}")
 
 
 # --- User group management ---
@@ -1534,6 +2318,7 @@ _RESOURCE_CONFIG = {
         serializer=_serialize_organization,
         create_handler=_create_organization,
         update_handler=_update_organization,
+        owner_update_handler=_update_organization_for_owner,
     ),
     "locations": ResourceConfig(
         name="locations",
