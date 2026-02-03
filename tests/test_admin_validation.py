@@ -238,19 +238,40 @@ class TestValidateOwnerId:
         assert result == test_uuid.lower()
 
     def test_none_owner_id(self) -> None:
-        """None owner_id should return None."""
+        """None owner_id should return None when not required."""
         result = _validate_owner_id(None)
         assert result is None
 
+    def test_none_owner_id_required(self) -> None:
+        """None owner_id should raise ValidationError when required."""
+        with pytest.raises(ValidationError) as exc_info:
+            _validate_owner_id(None, required=True)
+        assert "owner_id is required" in str(exc_info.value)
+        assert exc_info.value.field == "owner_id"
+
     def test_empty_string_owner_id(self) -> None:
-        """Empty string owner_id should return None."""
+        """Empty string owner_id should return None when not required."""
         result = _validate_owner_id("")
         assert result is None
 
+    def test_empty_string_owner_id_required(self) -> None:
+        """Empty string owner_id should raise ValidationError when required."""
+        with pytest.raises(ValidationError) as exc_info:
+            _validate_owner_id("", required=True)
+        assert "owner_id is required" in str(exc_info.value)
+        assert exc_info.value.field == "owner_id"
+
     def test_whitespace_only_owner_id(self) -> None:
-        """Whitespace-only owner_id should return None."""
+        """Whitespace-only owner_id should return None when not required."""
         result = _validate_owner_id("   ")
         assert result is None
+
+    def test_whitespace_only_owner_id_required(self) -> None:
+        """Whitespace-only owner_id should raise ValidationError when required."""
+        with pytest.raises(ValidationError) as exc_info:
+            _validate_owner_id("   ", required=True)
+        assert "owner_id is required" in str(exc_info.value)
+        assert exc_info.value.field == "owner_id"
 
     def test_invalid_uuid_format(self) -> None:
         """Invalid UUID format should raise ValidationError."""
@@ -277,3 +298,9 @@ class TestValidateOwnerId:
         test_uuid = uuid4()
         result = _validate_owner_id(test_uuid)
         assert result == str(test_uuid)
+
+    def test_valid_owner_id_required(self) -> None:
+        """Valid UUID owner_id with required=True should pass validation."""
+        test_uuid = str(uuid4())
+        result = _validate_owner_id(test_uuid, required=True)
+        assert result == test_uuid

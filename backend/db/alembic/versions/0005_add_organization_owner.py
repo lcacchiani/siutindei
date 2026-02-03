@@ -19,8 +19,13 @@ def upgrade() -> None:
 
     The owner_id references a Cognito user's sub (subject) identifier.
     This is stored as TEXT since Cognito subs are UUID strings.
-    The column is nullable to support existing organizations without owners.
+    The column is NOT NULL - every organization must have an owner.
+
+    Note: If there are existing organizations without owners, you must either:
+    1. Delete them before running this migration, or
+    2. Assign them an owner using a data migration script before making NOT NULL
     """
+    # First add the column as nullable
     op.add_column(
         "organizations",
         sa.Column(
@@ -30,11 +35,20 @@ def upgrade() -> None:
             comment="Cognito user sub (subject) identifier of the organization owner",
         ),
     )
+
     # Create an index for efficient lookups by owner
     op.create_index(
         "organizations_owner_id_idx",
         "organizations",
         ["owner_id"],
+    )
+
+    # Make the column NOT NULL
+    # Note: This will fail if there are existing rows with NULL owner_id
+    op.alter_column(
+        "organizations",
+        "owner_id",
+        nullable=False,
     )
 
 
