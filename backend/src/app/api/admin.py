@@ -593,8 +593,8 @@ def _update_organization(
         name = _validate_string_length(
             body["name"], "name", MAX_NAME_LENGTH, required=True
         )
-        assert name is not None  # required=True ensures non-None
-        entity.name = name
+        # _validate_string_length with required=True always returns str
+        entity.name = name  # type: ignore[assignment]
     if "description" in body:
         entity.description = _validate_string_length(
             body["description"], "description", MAX_DESCRIPTION_LENGTH
@@ -658,8 +658,8 @@ def _update_location(
         district = _validate_string_length(
             body["district"], "district", MAX_DISTRICT_LENGTH, required=True
         )
-        assert district is not None  # required=True ensures non-None
-        entity.district = district
+        # _validate_string_length with required=True always returns str
+        entity.district = district  # type: ignore[assignment]
     if "address" in body:
         entity.address = _validate_string_length(
             body["address"], "address", MAX_ADDRESS_LENGTH
@@ -760,8 +760,8 @@ def _update_activity(
         name = _validate_string_length(
             body["name"], "name", MAX_NAME_LENGTH, required=True
         )
-        assert name is not None  # required=True ensures non-None
-        entity.name = name
+        # _validate_string_length with required=True always returns str
+        entity.name = name  # type: ignore[assignment]
     if "description" in body:
         entity.description = _validate_string_length(
             body["description"], "description", MAX_DESCRIPTION_LENGTH
