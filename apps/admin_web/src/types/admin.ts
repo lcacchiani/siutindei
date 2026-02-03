@@ -3,7 +3,7 @@ export interface Organization {
   name: string;
   description?: string | null;
   owner_id: string;
-  picture_urls?: string[];
+  media_urls?: string[];
   created_at?: string;
   updated_at?: string;
 }

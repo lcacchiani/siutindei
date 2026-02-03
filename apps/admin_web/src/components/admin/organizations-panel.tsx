@@ -129,30 +129,30 @@ export function OrganizationsPanel() {
         owner_id: formState.owner_id,
       };
       if (editingId) {
-        // Preserve existing picture_urls when updating
+        // Preserve existing media_urls when updating
         const existingOrg = items.find((item) => item.id === editingId);
-        const payloadWithPictures = {
+        const payloadWithMedia = {
           ...payload,
-          picture_urls: existingOrg?.picture_urls ?? [],
+          media_urls: existingOrg?.media_urls ?? [],
         };
         const updated = await updateResource<
-          typeof payloadWithPictures,
+          typeof payloadWithMedia,
           Organization
-        >('organizations', editingId, payloadWithPictures);
+        >('organizations', editingId, payloadWithMedia);
         setItems((prev) =>
           prev.map((item) =>
             item.id === editingId ? updated : item
           )
         );
       } else {
-        const payloadWithPictures = {
+        const payloadWithMedia = {
           ...payload,
-          picture_urls: [],
+          media_urls: [],
         };
         const created = await createResource<
-          typeof payloadWithPictures,
+          typeof payloadWithMedia,
           Organization
-        >('organizations', payloadWithPictures);
+        >('organizations', payloadWithMedia);
         setItems((prev) => [created, ...prev]);
       }
       resetForm();
@@ -205,7 +205,7 @@ export function OrganizationsPanel() {
     <div className='space-y-6'>
       <Card
         title='Organizations'
-        description='Create and manage organizations. Use the Pictures section to add images.'
+        description='Create and manage organizations. Use the Media section to add images.'
       >
         {error && (
           <div className='mb-4'>

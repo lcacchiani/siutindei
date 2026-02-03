@@ -842,8 +842,8 @@ export class ApiStack extends cdk.Stack {
         DATABASE_IAM_AUTH: "true",
         ADMIN_GROUP: adminGroupName,
         COGNITO_USER_POOL_ID: userPool.userPoolId,
-        ORGANIZATION_PICTURES_BUCKET: organizationImagesBucket.bucketName,
-        ORGANIZATION_PICTURES_BASE_URL:
+        ORGANIZATION_MEDIA_BUCKET: organizationImagesBucket.bucketName,
+        ORGANIZATION_MEDIA_BASE_URL:
           `https://${organizationImagesBucket.bucketRegionalDomainName}`,
         CORS_ALLOWED_ORIGINS: corsAllowedOrigins.join(","),
       },
@@ -1343,12 +1343,12 @@ export class ApiStack extends cdk.Stack {
       });
 
       if (resourceName === "organizations") {
-        const pictures = resourceById.addResource("pictures");
-        pictures.addMethod("POST", adminIntegration, {
+        const media = resourceById.addResource("media");
+        media.addMethod("POST", adminIntegration, {
           authorizationType: apigateway.AuthorizationType.COGNITO,
           authorizer,
         });
-        pictures.addMethod("DELETE", adminIntegration, {
+        media.addMethod("DELETE", adminIntegration, {
           authorizationType: apigateway.AuthorizationType.COGNITO,
           authorizer,
         });

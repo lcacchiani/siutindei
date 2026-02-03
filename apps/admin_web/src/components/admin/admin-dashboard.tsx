@@ -9,13 +9,13 @@ import { StatusBanner } from '../status-banner';
 import { ActivitiesPanel } from './activities-panel';
 import { LocationsPanel } from './locations-panel';
 import { OrganizationsPanel } from './organizations-panel';
-import { PicturesPanel } from './pictures-panel';
+import { MediaPanel } from './media-panel';
 import { PricingPanel } from './pricing-panel';
 import { SchedulesPanel } from './schedules-panel';
 
 const sectionLabels = [
   { key: 'organizations', label: 'Organizations' },
-  { key: 'pictures', label: 'Pictures' },
+  { key: 'media', label: 'Media' },
   { key: 'locations', label: 'Locations' },
   { key: 'activities', label: 'Activities' },
   { key: 'pricing', label: 'Pricing' },
@@ -28,8 +28,8 @@ export function AdminDashboard() {
 
   const activeContent = useMemo(() => {
     switch (activeSection) {
-      case 'pictures':
-        return <PicturesPanel />;
+      case 'media':
+        return <MediaPanel />;
       case 'locations':
         return <LocationsPanel />;
       case 'activities':
