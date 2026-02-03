@@ -460,45 +460,32 @@ jobs:
             echo "$value"
           }
 
-          # Check for existing organization images log bucket from stack resources
-          stack_log_bucket=""
-          stack_images_bucket=""
-          if aws cloudformation describe-stacks --stack-name "$stack_name" \
-            >/dev/null 2>&1; then
-            stack_log_bucket=$(aws cloudformation list-stack-resources \
-              --stack-name "$stack_name" \
-              --query "StackResourceSummaries[?LogicalResourceId=='OrganizationImagesLogBucket'].PhysicalResourceId | [0]" \
-              --output text 2>/dev/null || true)
-            stack_images_bucket=$(aws cloudformation list-stack-resources \
-              --stack-name "$stack_name" \
-              --query "StackResourceSummaries[?LogicalResourceId=='OrganizationImagesBucket'].PhysicalResourceId | [0]" \
-              --output text 2>/dev/null || true)
-          fi
-          stack_log_bucket=$(normalize_value "$stack_log_bucket")
-          stack_images_bucket=$(normalize_value "$stack_images_bucket")
+          # Always search for existing buckets by name pattern.
+          # This handles cases where:
+          # 1. Bucket exists but stack is in rollback state
+          # 2. Bucket was retained from a previous stack deletion
+          # 3. Bucket exists in stack but CloudFormation state is inconsistent
+          # The RETAIN policy means these buckets persist, so we should always
+          # import them rather than trying to create new ones.
 
-          # If log bucket not in stack, search for existing bucket by prefix
-          if [ -z "$stack_log_bucket" ]; then
-            log_bucket=$(aws s3api list-buckets \
-              --query "Buckets[?starts_with(Name, '${resource_prefix}') && contains(Name, 'org-images-log')].Name | [0]" \
-              --output text 2>/dev/null || true)
-            log_bucket=$(normalize_value "$log_bucket")
-            if [ -n "$log_bucket" ]; then
-              echo "EXISTING_ORG_IMAGES_LOG_BUCKET_NAME=$log_bucket" \
-                >> "$GITHUB_ENV"
-            fi
+          log_bucket=$(aws s3api list-buckets \
+            --query "Buckets[?starts_with(Name, '${resource_prefix}') && contains(Name, 'org-images-log')].Name | [0]" \
+            --output text 2>/dev/null || true)
+          log_bucket=$(normalize_value "$log_bucket")
+          if [ -n "$log_bucket" ]; then
+            echo "Found existing log bucket: $log_bucket"
+            echo "EXISTING_ORG_IMAGES_LOG_BUCKET_NAME=$log_bucket" \
+              >> "$GITHUB_ENV"
           fi
 
-          # If images bucket not in stack, search for existing bucket by prefix
-          if [ -z "$stack_images_bucket" ]; then
-            images_bucket=$(aws s3api list-buckets \
-              --query "Buckets[?starts_with(Name, '${resource_prefix}') && contains(Name, 'org-images') && !contains(Name, 'log')].Name | [0]" \
-              --output text 2>/dev/null || true)
-            images_bucket=$(normalize_value "$images_bucket")
-            if [ -n "$images_bucket" ]; then
-              echo "EXISTING_ORG_IMAGES_BUCKET_NAME=$images_bucket" \
-                >> "$GITHUB_ENV"
-            fi
+          images_bucket=$(aws s3api list-buckets \
+            --query "Buckets[?starts_with(Name, '${resource_prefix}') && contains(Name, 'org-images') && !contains(Name, 'log')].Name | [0]" \
+            --output text 2>/dev/null || true)
+          images_bucket=$(normalize_value "$images_bucket")
+          if [ -n "$images_bucket" ]; then
+            echo "Found existing images bucket: $images_bucket"
+            echo "EXISTING_ORG_IMAGES_BUCKET_NAME=$images_bucket" \
+              >> "$GITHUB_ENV"
           fi
 
       - name: Deploy backend with CDK
