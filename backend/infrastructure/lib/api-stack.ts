@@ -375,6 +375,21 @@ export class ApiStack extends cdk.Stack {
     );
 
     // ---------------------------------------------------------------------
+    // Migration Parameters
+    // ---------------------------------------------------------------------
+    const fallbackOwnerEmail = new cdk.CfnParameter(
+      this,
+      "FallbackOwnerEmail",
+      {
+        type: "String",
+        default: "",
+        description:
+          "Email of the Cognito user to use as fallback owner for existing " +
+          "organizations without an owner during migration.",
+      }
+    );
+
+    // ---------------------------------------------------------------------
     // API Custom Domain Parameters (Optional)
     // ---------------------------------------------------------------------
     const apiCustomDomainName = new cdk.CfnParameter(
@@ -864,6 +879,8 @@ export class ApiStack extends cdk.Stack {
         DATABASE_APP_USER_SECRET_ARN: database.appUserSecret.secretArn,
         DATABASE_ADMIN_USER_SECRET_ARN: database.adminUserSecret.secretArn,
         SEED_FILE_PATH: "/var/task/db/seed/seed_data.sql",
+        COGNITO_USER_POOL_ID: userPool.userPoolId,
+        FALLBACK_OWNER_EMAIL: fallbackOwnerEmail.valueAsString,
       },
     });
     database.grantSecretRead(migrationFunction);
@@ -871,6 +888,13 @@ export class ApiStack extends cdk.Stack {
     database.grantAdminUserSecretRead(migrationFunction);
     database.grantConnect(migrationFunction, "postgres");
     migrationFunction.node.addDependency(database.cluster);
+    // Grant permission to list Cognito users (needed for owner migration)
+    migrationFunction.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["cognito-idp:ListUsers"],
+        resources: [userPool.userPoolArn],
+      })
+    );
     migrationFunction.addPermission("MigrationInvokePermission", {
       principal: new iam.ServicePrincipal("cloudformation.amazonaws.com"),
       sourceArn: cdk.Stack.of(this).stackId,
