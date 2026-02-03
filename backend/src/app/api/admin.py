@@ -33,6 +33,8 @@ from app.db.models import ActivityPricing
 from app.db.models import ActivitySchedule
 from app.db.models import Location
 from app.db.models import Organization
+from app.db.models import OrganizationAccessRequest
+from app.db.models import AccessRequestStatus
 from app.db.models import PricingType
 from app.db.models import ScheduleType
 from app.db.repositories import (
@@ -41,6 +43,7 @@ from app.db.repositories import (
     ActivityScheduleRepository,
     LocationRepository,
     OrganizationRepository,
+    OrganizationAccessRequestRepository,
 )
 from app.exceptions import NotFoundError, ValidationError
 from app.utils import json_response, parse_datetime, parse_int
@@ -89,10 +92,6 @@ def lambda_handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
     request_id = event.get("requestContext", {}).get("requestId", "")
     set_request_context(req_id=request_id)
 
-    if not _is_admin(event):
-        logger.warning("Unauthorized admin access attempt")
-        return json_response(403, {"error": "Forbidden"}, event=event)
-
     method = event.get("httpMethod", "")
     path = event.get("path", "")
     resource, resource_id, sub_resource = _parse_path(path)
@@ -101,6 +100,15 @@ def lambda_handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
         f"Admin request: {method} {path}",
         extra={"resource": resource, "resource_id": resource_id},
     )
+
+    # Handle owner-specific routes (for users in 'owner' group but not 'admin')
+    if resource == "owner":
+        return _handle_owner_routes(event, method, resource_id, sub_resource)
+
+    # All other routes require admin access
+    if not _is_admin(event):
+        logger.warning("Unauthorized admin access attempt")
+        return json_response(403, {"error": "Forbidden"}, event=event)
 
     if resource == "users" and sub_resource == "groups":
         return _handle_user_group(event, method, resource_id)
@@ -300,6 +308,378 @@ def _is_admin(event: Mapping[str, Any]) -> bool:
     groups = claims.get("cognito:groups", "")
     admin_group = os.getenv("ADMIN_GROUP", "admin")
     return admin_group in groups.split(",") if groups else False
+
+
+def _is_owner(event: Mapping[str, Any]) -> bool:
+    """Return True when request belongs to an owner user."""
+
+    claims = event.get("requestContext", {}).get("authorizer", {}).get("claims", {})
+    groups = claims.get("cognito:groups", "")
+    owner_group = os.getenv("OWNER_GROUP", "owner")
+    return owner_group in groups.split(",") if groups else False
+
+
+def _get_user_sub(event: Mapping[str, Any]) -> Optional[str]:
+    """Extract the user's Cognito sub (subject) from JWT claims."""
+
+    claims = event.get("requestContext", {}).get("authorizer", {}).get("claims", {})
+    return claims.get("sub")
+
+
+def _get_user_email(event: Mapping[str, Any]) -> Optional[str]:
+    """Extract the user's email from JWT claims."""
+
+    claims = event.get("requestContext", {}).get("authorizer", {}).get("claims", {})
+    return claims.get("email")
+
+
+# --- Owner-specific routes ---
+
+
+def _handle_owner_routes(
+    event: Mapping[str, Any],
+    method: str,
+    resource_id: Optional[str],
+    sub_resource: Optional[str],
+) -> dict[str, Any]:
+    """Handle routes accessible to users in the 'owner' group.
+
+    Owner routes:
+        GET /admin/owner/organizations - List organizations owned by the user
+        GET /admin/owner/organizations/{id} - Get specific organization (if owned)
+        PUT /admin/owner/organizations/{id} - Update organization (if owned)
+        DELETE /admin/owner/organizations/{id} - Delete organization (if owned)
+        GET /admin/owner/access-request - Check if user has a pending request
+        POST /admin/owner/access-request - Submit a new access request
+    """
+    # Check if user is in owner group (or admin group - admins can do everything)
+    if not _is_owner(event) and not _is_admin(event):
+        logger.warning("Unauthorized owner access attempt")
+        return json_response(403, {"error": "Forbidden"}, event=event)
+
+    try:
+        if resource_id == "organizations":
+            return _handle_owner_organizations(event, method, sub_resource)
+        if resource_id == "access-request":
+            return _handle_owner_access_request(event, method)
+        return json_response(404, {"error": "Not found"}, event=event)
+    except ValidationError as exc:
+        logger.warning(f"Validation error: {exc.message}")
+        return json_response(exc.status_code, exc.to_dict(), event=event)
+    except NotFoundError as exc:
+        return json_response(exc.status_code, exc.to_dict(), event=event)
+    except ValueError as exc:
+        logger.warning(f"Value error: {exc}")
+        return json_response(400, {"error": str(exc)}, event=event)
+    except Exception as exc:  # pragma: no cover
+        logger.exception("Unexpected error in owner handler")
+        return json_response(
+            500, {"error": "Internal server error", "detail": str(exc)}, event=event
+        )
+
+
+def _handle_owner_organizations(
+    event: Mapping[str, Any],
+    method: str,
+    organization_id: Optional[str],
+) -> dict[str, Any]:
+    """Handle owner organization CRUD operations.
+
+    Owners can only view, edit, and delete organizations they own.
+    """
+    user_sub = _get_user_sub(event)
+    if not user_sub:
+        return json_response(401, {"error": "User identity not found"}, event=event)
+
+    if method == "GET":
+        if organization_id:
+            # Get specific organization
+            with Session(get_engine()) as session:
+                repo = OrganizationRepository(session)
+                entity = repo.get_by_id(_parse_uuid(organization_id))
+                if entity is None:
+                    raise NotFoundError("organization", organization_id)
+                # Check ownership
+                if entity.owner_id != user_sub:
+                    return json_response(
+                        403, {"error": "You don't own this organization"}, event=event
+                    )
+                return json_response(
+                    200, _serialize_organization(entity), event=event
+                )
+        else:
+            # List organizations owned by the user
+            with Session(get_engine()) as session:
+                repo = OrganizationRepository(session)
+                orgs = repo.find_by_owner(user_sub)
+                return json_response(
+                    200,
+                    {"items": [_serialize_organization(org) for org in orgs]},
+                    event=event,
+                )
+
+    if method == "PUT":
+        if not organization_id:
+            raise ValidationError("Organization ID is required", field="id")
+
+        body = _parse_body(event)
+        with Session(get_engine()) as session:
+            repo = OrganizationRepository(session)
+            entity = repo.get_by_id(_parse_uuid(organization_id))
+            if entity is None:
+                raise NotFoundError("organization", organization_id)
+            # Check ownership
+            if entity.owner_id != user_sub:
+                return json_response(
+                    403, {"error": "You don't own this organization"}, event=event
+                )
+            # Update organization (owners can't change owner_id)
+            updated = _update_organization_for_owner(entity, body)
+            repo.update(updated)
+            session.commit()
+            session.refresh(updated)
+            logger.info(f"Owner updated organization: {organization_id}")
+            return json_response(200, _serialize_organization(updated), event=event)
+
+    if method == "DELETE":
+        if not organization_id:
+            raise ValidationError("Organization ID is required", field="id")
+
+        with Session(get_engine()) as session:
+            repo = OrganizationRepository(session)
+            entity = repo.get_by_id(_parse_uuid(organization_id))
+            if entity is None:
+                raise NotFoundError("organization", organization_id)
+            # Check ownership
+            if entity.owner_id != user_sub:
+                return json_response(
+                    403, {"error": "You don't own this organization"}, event=event
+                )
+            repo.delete(entity)
+            session.commit()
+            logger.info(f"Owner deleted organization: {organization_id}")
+            return json_response(204, {}, event=event)
+
+    return json_response(405, {"error": "Method not allowed"}, event=event)
+
+
+def _update_organization_for_owner(
+    entity: Organization,
+    body: dict[str, Any],
+) -> Organization:
+    """Update an organization for an owner (limited fields).
+
+    Owners cannot change the owner_id field.
+    """
+    if "name" in body:
+        name = _validate_string_length(
+            body["name"], "name", MAX_NAME_LENGTH, required=True
+        )
+        entity.name = name  # type: ignore[assignment]
+    if "description" in body:
+        entity.description = _validate_string_length(
+            body["description"], "description", MAX_DESCRIPTION_LENGTH
+        )
+    if "media_urls" in body:
+        media_urls = _parse_media_urls(body["media_urls"])
+        if media_urls:
+            media_urls = _validate_media_urls(media_urls)
+        entity.media_urls = media_urls
+    return entity
+
+
+def _handle_owner_access_request(
+    event: Mapping[str, Any],
+    method: str,
+) -> dict[str, Any]:
+    """Handle owner access request operations.
+
+    GET: Check if user has a pending access request
+    POST: Submit a new access request (if none pending)
+    """
+    user_sub = _get_user_sub(event)
+    user_email = _get_user_email(event)
+
+    if not user_sub:
+        return json_response(401, {"error": "User identity not found"}, event=event)
+
+    if method == "GET":
+        # Check if user has a pending request and return their organizations count
+        with Session(get_engine()) as session:
+            org_repo = OrganizationRepository(session)
+            request_repo = OrganizationAccessRequestRepository(session)
+
+            # Get user's organizations
+            user_orgs = org_repo.find_by_owner(user_sub)
+
+            # Check for pending request
+            pending_request = request_repo.find_pending_by_requester(user_sub)
+
+            return json_response(
+                200,
+                {
+                    "has_pending_request": pending_request is not None,
+                    "pending_request": _serialize_access_request(pending_request)
+                    if pending_request
+                    else None,
+                    "organizations_count": len(user_orgs),
+                },
+                event=event,
+            )
+
+    if method == "POST":
+        # Submit a new access request
+        body = _parse_body(event)
+
+        with Session(get_engine()) as session:
+            request_repo = OrganizationAccessRequestRepository(session)
+
+            # Check if user already has a pending request
+            existing = request_repo.find_pending_by_requester(user_sub)
+            if existing:
+                return json_response(
+                    409,
+                    {
+                        "error": "You already have a pending access request",
+                        "request": _serialize_access_request(existing),
+                    },
+                    event=event,
+                )
+
+            # Validate request fields
+            organization_name = _validate_string_length(
+                body.get("organization_name"),
+                "organization_name",
+                MAX_NAME_LENGTH,
+                required=True,
+            )
+            request_message = _validate_string_length(
+                body.get("request_message"),
+                "request_message",
+                MAX_DESCRIPTION_LENGTH,
+                required=False,
+            )
+
+            # Create the access request
+            access_request = OrganizationAccessRequest(
+                requester_id=user_sub,
+                requester_email=user_email or "unknown",
+                organization_name=organization_name,
+                request_message=request_message,
+            )
+            request_repo.create(access_request)
+            session.commit()
+            session.refresh(access_request)
+
+            logger.info(f"Created access request for user: {user_sub}")
+
+            # Send email notification
+            _send_access_request_email(access_request)
+
+            return json_response(
+                201,
+                {
+                    "message": "Your request has been submitted successfully",
+                    "request": _serialize_access_request(access_request),
+                },
+                event=event,
+            )
+
+    return json_response(405, {"error": "Method not allowed"}, event=event)
+
+
+def _serialize_access_request(
+    request: Optional[OrganizationAccessRequest],
+) -> Optional[dict[str, Any]]:
+    """Serialize an access request for the API response."""
+    if request is None:
+        return None
+    return {
+        "id": str(request.id),
+        "organization_name": request.organization_name,
+        "request_message": request.request_message,
+        "status": request.status.value,
+        "created_at": request.created_at.isoformat() if request.created_at else None,
+    }
+
+
+def _send_access_request_email(request: OrganizationAccessRequest) -> None:
+    """Send email notification for a new access request using Amazon SES.
+
+    The support email address is configured via SUPPORT_EMAIL environment variable.
+    The sender email is configured via SES_SENDER_EMAIL environment variable.
+    """
+    support_email = os.getenv("SUPPORT_EMAIL")
+    sender_email = os.getenv("SES_SENDER_EMAIL")
+
+    if not support_email or not sender_email:
+        logger.warning(
+            "Email notification skipped: SUPPORT_EMAIL or SES_SENDER_EMAIL not configured"
+        )
+        return
+
+    try:
+        ses_client = boto3.client("ses")
+
+        subject = f"New Organization Access Request: {request.organization_name}"
+        body_text = f"""
+New Organization Access Request
+
+Requester Email: {request.requester_email}
+Requester ID: {request.requester_id}
+Organization Name: {request.organization_name}
+Request Message: {request.request_message or 'No message provided'}
+Submitted At: {request.created_at.isoformat() if request.created_at else 'Unknown'}
+
+Please review this request in the admin dashboard.
+"""
+        body_html = f"""
+<html>
+<head></head>
+<body>
+    <h2>New Organization Access Request</h2>
+    <table style="border-collapse: collapse; width: 100%; max-width: 600px;">
+        <tr>
+            <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Requester Email</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">{request.requester_email}</td>
+        </tr>
+        <tr>
+            <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Requester ID</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">{request.requester_id}</td>
+        </tr>
+        <tr>
+            <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Organization Name</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">{request.organization_name}</td>
+        </tr>
+        <tr>
+            <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Request Message</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">{request.request_message or 'No message provided'}</td>
+        </tr>
+        <tr>
+            <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Submitted At</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">{request.created_at.isoformat() if request.created_at else 'Unknown'}</td>
+        </tr>
+    </table>
+    <p style="margin-top: 20px;">Please review this request in the admin dashboard.</p>
+</body>
+</html>
+"""
+
+        ses_client.send_email(
+            Source=sender_email,
+            Destination={"ToAddresses": [support_email]},
+            Message={
+                "Subject": {"Data": subject, "Charset": "UTF-8"},
+                "Body": {
+                    "Text": {"Data": body_text, "Charset": "UTF-8"},
+                    "Html": {"Data": body_html, "Charset": "UTF-8"},
+                },
+            },
+        )
+        logger.info(f"Access request email sent to {support_email}")
+    except Exception as exc:
+        # Don't fail the request if email fails
+        logger.error(f"Failed to send access request email: {exc}")
 
 
 # --- User group management ---

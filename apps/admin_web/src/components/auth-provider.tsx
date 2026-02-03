@@ -19,6 +19,7 @@ export interface AuthContextValue {
   status: AuthStatus;
   user: ReturnType<typeof getUserProfile> | null;
   isAdmin: boolean;
+  isOwner: boolean;
   configErrors: string[];
   error: string;
   login: () => Promise<void>;
@@ -100,11 +101,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const isAdmin = Boolean(user?.groups?.includes('admin'));
+  const isOwner = Boolean(user?.groups?.includes('owner'));
 
   const value: AuthContextValue = {
     status,
     user,
     isAdmin,
+    isOwner,
     configErrors,
     error,
     login,

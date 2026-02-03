@@ -43,6 +43,14 @@ class ScheduleType(str, enum.Enum):
     DATE_SPECIFIC = "date_specific"
 
 
+class AccessRequestStatus(str, enum.Enum):
+    """Status for organization access requests."""
+
+    PENDING = "pending"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+
+
 class Organization(Base):
     """Organization that provides activities."""
 
@@ -337,3 +345,65 @@ class ActivitySchedule(Base):
 
     activity: Mapped["Activity"] = relationship(back_populates="schedules")
     location: Mapped["Location"] = relationship(back_populates="activity_schedules")
+
+
+class OrganizationAccessRequest(Base):
+    """Request from an owner to be added to an organization."""
+
+    __tablename__ = "organization_access_requests"
+
+    id: Mapped[str] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        server_default=text("gen_random_uuid()"),
+    )
+    requester_id: Mapped[str] = mapped_column(
+        Text(),
+        nullable=False,
+        comment="Cognito user sub (subject) identifier of the requesting user",
+    )
+    requester_email: Mapped[str] = mapped_column(
+        Text(),
+        nullable=False,
+        comment="Email address of the requester",
+    )
+    organization_name: Mapped[str] = mapped_column(
+        Text(),
+        nullable=False,
+        comment="Name of the organization the user wants to join/create",
+    )
+    request_message: Mapped[Optional[str]] = mapped_column(
+        Text(),
+        nullable=True,
+        comment="Optional message from the requester",
+    )
+    status: Mapped[AccessRequestStatus] = mapped_column(
+        sa.Enum(
+            AccessRequestStatus,
+            name="access_request_status",
+            values_callable=lambda x: [e.value for e in x],
+            create_type=False,
+        ),
+        nullable=False,
+        server_default=text("'pending'"),
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True),
+        nullable=False,
+        server_default=text("now()"),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True),
+        nullable=False,
+        server_default=text("now()"),
+    )
+    reviewed_at: Mapped[Optional[datetime]] = mapped_column(
+        TIMESTAMP(timezone=True),
+        nullable=True,
+        comment="When the request was reviewed",
+    )
+    reviewed_by: Mapped[Optional[str]] = mapped_column(
+        Text(),
+        nullable=True,
+        comment="Cognito user sub of the admin who reviewed the request",
+    )
