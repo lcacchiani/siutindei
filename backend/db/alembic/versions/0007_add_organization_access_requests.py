@@ -38,10 +38,16 @@ def upgrade() -> None:
         - reviewed_at: When the request was reviewed (approved/rejected)
         - reviewed_by: Cognito user sub of the admin who reviewed
     """
-    # Create the status enum type
-    op.execute(
-        "CREATE TYPE access_request_status AS ENUM ('pending', 'approved', 'rejected')"
-    )
+    # Create the status enum type if it doesn't exist
+    op.execute("""
+        DO $$
+        BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'access_request_status') THEN
+                CREATE TYPE access_request_status AS ENUM ('pending', 'approved', 'rejected');
+            END IF;
+        END
+        $$;
+    """)
 
     op.create_table(
         "organization_access_requests",
@@ -152,4 +158,4 @@ def downgrade() -> None:
         table_name="organization_access_requests",
     )
     op.drop_table("organization_access_requests")
-    op.execute("DROP TYPE access_request_status")
+    op.execute("DROP TYPE IF EXISTS access_request_status")
