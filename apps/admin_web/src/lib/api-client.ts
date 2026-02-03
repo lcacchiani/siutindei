@@ -196,3 +196,110 @@ export async function listCognitoUsers(
   }
   return request<CognitoUsersResponse>(url.toString());
 }
+
+// --- Owner-specific API methods ---
+
+export interface AccessRequest {
+  id: string;
+  organization_name: string;
+  request_message?: string | null;
+  status: 'pending' | 'approved' | 'rejected';
+  created_at?: string | null;
+}
+
+export interface OwnerStatusResponse {
+  has_pending_request: boolean;
+  pending_request: AccessRequest | null;
+  organizations_count: number;
+}
+
+export interface SubmitAccessRequestPayload {
+  organization_name: string;
+  request_message?: string;
+}
+
+export interface SubmitAccessRequestResponse {
+  message: string;
+  request: AccessRequest;
+}
+
+function buildOwnerUrl(resource: string, id?: string) {
+  const base = getApiBaseUrl();
+  const normalized = base.endsWith('/') ? base : `${base}/`;
+  const suffix = id
+    ? `v1/admin/owner/${resource}/${id}`
+    : `v1/admin/owner/${resource}`;
+  return new URL(suffix, normalized).toString();
+}
+
+/**
+ * Get owner status including pending requests and organizations count.
+ */
+export async function getOwnerStatus(): Promise<OwnerStatusResponse> {
+  return request<OwnerStatusResponse>(buildOwnerUrl('access-request'));
+}
+
+/**
+ * Submit a new organization access request.
+ */
+export async function submitAccessRequest(
+  payload: SubmitAccessRequestPayload
+): Promise<SubmitAccessRequestResponse> {
+  return request<SubmitAccessRequestResponse>(buildOwnerUrl('access-request'), {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
+/**
+ * List organizations owned by the current user.
+ */
+export async function listOwnerOrganizations(): Promise<
+  ListResponse<import('../types/admin').Organization>
+> {
+  return request<ListResponse<import('../types/admin').Organization>>(
+    buildOwnerUrl('organizations')
+  );
+}
+
+/**
+ * Get a specific organization owned by the current user.
+ */
+export async function getOwnerOrganization(
+  id: string
+): Promise<import('../types/admin').Organization> {
+  return request<import('../types/admin').Organization>(
+    buildOwnerUrl('organizations', id)
+  );
+}
+
+/**
+ * Update an organization owned by the current user.
+ */
+export async function updateOwnerOrganization<TInput>(
+  id: string,
+  payload: TInput
+): Promise<import('../types/admin').Organization> {
+  return request<import('../types/admin').Organization>(
+    buildOwnerUrl('organizations', id),
+    {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    }
+  );
+}
+
+/**
+ * Delete an organization owned by the current user.
+ */
+export async function deleteOwnerOrganization(id: string): Promise<void> {
+  return request<void>(buildOwnerUrl('organizations', id), {
+    method: 'DELETE',
+  });
+}
