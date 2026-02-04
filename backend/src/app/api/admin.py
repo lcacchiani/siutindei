@@ -1224,12 +1224,28 @@ def _serialize_cognito_user(user: dict[str, Any]) -> Optional[dict[str, Any]]:
     Returns:
         Serialized user data with sub, email, and status, or None if sub is missing.
     """
+    from datetime import datetime, timezone
+
     attributes = {attr["Name"]: attr["Value"] for attr in user.get("Attributes", [])}
 
     # The sub attribute is required - it's the owner_id
     sub = attributes.get("sub")
     if not sub:
         return None
+
+    # Parse last_auth_time from custom:last_auth_time attribute (epoch timestamp)
+    # This is set by Cognito during authentication
+    last_auth_time = None
+    last_auth_time_str = attributes.get("custom:last_auth_time")
+    if last_auth_time_str:
+        try:
+            # Convert epoch timestamp to ISO 8601 format
+            epoch_time = int(last_auth_time_str)
+            last_auth_time = datetime.fromtimestamp(
+                epoch_time, tz=timezone.utc
+            ).isoformat()
+        except (ValueError, TypeError):
+            pass
 
     return {
         "sub": sub,
@@ -1243,6 +1259,7 @@ def _serialize_cognito_user(user: dict[str, Any]) -> Optional[dict[str, Any]]:
         "enabled": user.get("Enabled", True),
         "created_at": user.get("UserCreateDate"),
         "updated_at": user.get("UserLastModifiedDate"),
+        "last_auth_time": last_auth_time,
     }
 
 

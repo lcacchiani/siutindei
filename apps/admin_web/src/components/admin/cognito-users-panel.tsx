@@ -151,6 +151,33 @@ export function CognitoUsersPanel() {
     });
   };
 
+  /**
+   * Format a datetime string for display with both date and time.
+   * Uses the browser's timezone for display, falling back to UTC if unavailable.
+   */
+  const formatDateTime = (dateStr: string | null | undefined) => {
+    if (!dateStr) return '-';
+    try {
+      const date = new Date(dateStr);
+      if (isNaN(date.getTime())) return '-';
+
+      // Get the browser's timezone
+      const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+
+      return date.toLocaleString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZone,
+        timeZoneName: 'short',
+      });
+    } catch {
+      return '-';
+    }
+  };
+
   // Filter users based on search query
   const filteredUsers = users.filter((cognitoUser) => {
     if (!searchQuery.trim()) return true;
@@ -212,6 +239,7 @@ export function CognitoUsersPanel() {
                   <th className='py-2'>Email</th>
                   <th className='py-2'>Status</th>
                   <th className='py-2'>Roles</th>
+                  <th className='py-2'>Last Login</th>
                   <th className='py-2'>Created</th>
                   <th className='py-2 text-right'>Actions</th>
                 </tr>
@@ -249,6 +277,9 @@ export function CognitoUsersPanel() {
                           <RoleBadge role='admin' isActive={hasAdminRole} />
                           <RoleBadge role='owner' isActive={hasOwnerRole} />
                         </div>
+                      </td>
+                      <td className='py-2 text-slate-600'>
+                        {formatDateTime(cognitoUser.last_auth_time)}
                       </td>
                       <td className='py-2 text-slate-600'>
                         {formatDate(cognitoUser.created_at)}
@@ -338,9 +369,14 @@ export function CognitoUsersPanel() {
                         <RoleBadge role='owner' isActive={hasOwnerRole} />
                       </div>
                       <span className='text-slate-500'>
-                        {formatDate(cognitoUser.created_at)}
+                        Created: {formatDate(cognitoUser.created_at)}
                       </span>
                     </div>
+                    {cognitoUser.last_auth_time && (
+                      <div className='mt-1 text-xs text-slate-500'>
+                        Last login: {formatDateTime(cognitoUser.last_auth_time)}
+                      </div>
+                    )}
                     <div className='mt-3 border-t border-slate-200 pt-3'>
                       {isCurrent ? (
                         <span className='block text-center text-xs text-slate-400'>
