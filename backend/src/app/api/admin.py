@@ -1162,6 +1162,8 @@ def _handle_user_group(
             Username=username,
             GroupName=group_name,
         )
+        # Invalidate user's session to force re-authentication with new permissions
+        _invalidate_user_session(client, user_pool_id, username)
         logger.info(f"Added user {username} to group {group_name}")
         return json_response(200, {"status": "added", "group": group_name}, event=event)
 
@@ -1171,12 +1173,41 @@ def _handle_user_group(
             Username=username,
             GroupName=group_name,
         )
+        # Invalidate user's session to force re-authentication with new permissions
+        _invalidate_user_session(client, user_pool_id, username)
         logger.info(f"Removed user {username} from group {group_name}")
         return json_response(
             200, {"status": "removed", "group": group_name}, event=event
         )
 
     return json_response(405, {"error": "Method not allowed"}, event=event)
+
+
+def _invalidate_user_session(
+    client: Any,
+    user_pool_id: str,
+    username: str,
+) -> None:
+    """Invalidate a user's session by signing them out globally.
+
+    This forces the user to re-authenticate and get new tokens with
+    updated permissions (e.g., after group membership changes).
+
+    Args:
+        client: The Cognito IDP client.
+        user_pool_id: The Cognito user pool ID.
+        username: The username of the user to sign out.
+    """
+    try:
+        client.admin_user_global_sign_out(
+            UserPoolId=user_pool_id,
+            Username=username,
+        )
+        logger.info(f"Invalidated session for user: {username}")
+    except Exception as exc:
+        # Log but don't fail the operation if sign-out fails
+        # The user may not have an active session
+        logger.warning(f"Failed to invalidate session for user {username}: {exc}")
 
 
 def _handle_list_cognito_users(event: Mapping[str, Any]) -> dict[str, Any]:
@@ -1367,6 +1398,9 @@ def _handle_delete_cognito_user(
             f"Transferred {transferred_count} organizations from user {user_sub} "
             f"to fallback manager {fallback_manager_id}"
         )
+
+        # Invalidate user's session before deletion
+        _invalidate_user_session(client, user_pool_id, username)
 
         # Delete the user from Cognito
         client.admin_delete_user(
