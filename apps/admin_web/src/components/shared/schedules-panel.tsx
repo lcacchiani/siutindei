@@ -482,7 +482,7 @@ export function SchedulesPanel({ mode }: SchedulesPanelProps) {
           <p className='text-sm text-slate-600'>No schedules yet.</p>
         ) : (
           <div className='space-y-4'>
-            <div className='max-w-sm'>
+            <div className='max-w-full sm:max-w-sm'>
               <SearchInput
                 placeholder='Search schedules...'
                 value={searchQuery}
@@ -492,7 +492,9 @@ export function SchedulesPanel({ mode }: SchedulesPanelProps) {
             {filteredItems.length === 0 ? (
               <p className='text-sm text-slate-600'>No schedules match your search.</p>
             ) : (
-            <div className='overflow-x-auto'>
+            <>
+            {/* Desktop table view */}
+            <div className='hidden overflow-x-auto md:block'>
             <table className='w-full text-left text-sm'>
               <thead className='border-b border-slate-200 text-slate-500'>
                 <tr>
@@ -548,18 +550,76 @@ export function SchedulesPanel({ mode }: SchedulesPanelProps) {
                 })}
               </tbody>
             </table>
+            </div>
+
+            {/* Mobile card view */}
+            <div className='space-y-3 md:hidden'>
+              {filteredItems.map((item) => {
+                const activityName =
+                  activities.find((a) => a.id === item.activity_id)?.name ||
+                  item.activity_id;
+                const locationName =
+                  locations.find((l) => l.id === item.location_id)?.district ||
+                  item.location_id;
+                return (
+                  <div
+                    key={item.id}
+                    className='rounded-lg border border-slate-200 bg-slate-50 p-3'
+                  >
+                    <div className='font-medium text-slate-900'>{activityName}</div>
+                    <div className='mt-1 text-sm text-slate-600'>{locationName}</div>
+                    <div className='mt-2 space-y-1 text-sm'>
+                      <div className='flex justify-between'>
+                        <span className='text-slate-500'>Type:</span>
+                        <span className='text-slate-700'>{item.schedule_type}</span>
+                      </div>
+                      <div className='flex justify-between'>
+                        <span className='text-slate-500'>Languages:</span>
+                        <span className='text-slate-700'>
+                          {item.languages?.length ? item.languages.join(', ') : '—'}
+                        </span>
+                      </div>
+                    </div>
+                    <div className='mt-3 flex gap-2 border-t border-slate-200 pt-3'>
+                      <Button
+                        type='button'
+                        size='sm'
+                        variant='secondary'
+                        onClick={() => panel.startEdit(item)}
+                        className='flex-1'
+                      >
+                        Edit
+                      </Button>
+                      <Button
+                        type='button'
+                        size='sm'
+                        variant='danger'
+                        onClick={() =>
+                          panel.handleDelete({ ...item, name: activityName })
+                        }
+                        className='flex-1'
+                      >
+                        Delete
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
             {panel.nextCursor && (
               <div className='mt-4'>
                 <Button
                   type='button'
                   variant='secondary'
                   onClick={panel.loadMore}
+                  className='w-full sm:w-auto'
                 >
                   Load more
                 </Button>
               </div>
             )}
-            </div>
+            </>
             )}
           </div>
         )}

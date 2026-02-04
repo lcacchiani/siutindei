@@ -49,10 +49,10 @@ function ReviewModal({ request, onClose, onReviewed }: ReviewModalProps) {
   };
 
   return (
-    <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/50'>
-      <div className='w-full max-w-lg rounded-lg bg-white p-6 shadow-xl'>
-        <h3 className='mb-4 text-lg font-semibold'>
-          Review Request: {request.ticket_id}
+    <div className='fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center sm:p-4'>
+      <div className='max-h-[90vh] w-full overflow-y-auto rounded-t-xl bg-white p-4 shadow-xl sm:max-w-lg sm:rounded-xl sm:p-6'>
+        <h3 className='mb-4 text-base font-semibold sm:text-lg'>
+          Review Request: <span className='break-all'>{request.ticket_id}</span>
         </h3>
 
         {error && (
@@ -68,7 +68,7 @@ function ReviewModal({ request, onClose, onReviewed }: ReviewModalProps) {
             <span className='font-medium'>Organization:</span>{' '}
             {request.organization_name}
           </p>
-          <p>
+          <p className='break-all'>
             <span className='font-medium'>Requester:</span>{' '}
             {request.requester_email}
           </p>
@@ -103,12 +103,13 @@ function ReviewModal({ request, onClose, onReviewed }: ReviewModalProps) {
           />
         </div>
 
-        <div className='flex justify-end gap-3'>
+        <div className='flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-3'>
           <Button
             type='button'
             variant='secondary'
             onClick={onClose}
             disabled={isSubmitting}
+            className='w-full sm:w-auto'
           >
             Cancel
           </Button>
@@ -117,6 +118,7 @@ function ReviewModal({ request, onClose, onReviewed }: ReviewModalProps) {
             variant={action === 'approve' ? 'primary' : 'danger'}
             onClick={handleSubmit}
             disabled={isSubmitting}
+            className='w-full sm:w-auto'
           >
             {isSubmitting
               ? 'Processing...'
@@ -255,7 +257,7 @@ export function AccessRequestsPanel() {
           </p>
         ) : (
           <div className='space-y-4'>
-            <div className='max-w-sm'>
+            <div className='max-w-full sm:max-w-sm'>
               <SearchInput
                 placeholder='Search requests...'
                 value={searchQuery}
@@ -265,7 +267,9 @@ export function AccessRequestsPanel() {
             {filteredItems.length === 0 ? (
               <p className='text-sm text-slate-600'>No requests match your search.</p>
             ) : (
-            <div className='overflow-x-auto'>
+            <>
+            {/* Desktop table view */}
+            <div className='hidden overflow-x-auto md:block'>
             <table className='w-full text-left text-sm'>
               <thead className='border-b border-slate-200 text-slate-500'>
                 <tr>
@@ -314,6 +318,56 @@ export function AccessRequestsPanel() {
                 ))}
               </tbody>
             </table>
+            </div>
+
+            {/* Mobile card view */}
+            <div className='space-y-3 md:hidden'>
+              {filteredItems.map((item) => (
+                <div
+                  key={item.id}
+                  className='rounded-lg border border-slate-200 bg-slate-50 p-3'
+                >
+                  <div className='flex items-start justify-between gap-2'>
+                    <div>
+                      <div className='font-medium text-slate-900'>
+                        {item.organization_name}
+                      </div>
+                      <div className='mt-0.5 font-mono text-xs text-slate-500'>
+                        {item.ticket_id}
+                      </div>
+                    </div>
+                    <StatusBadge status={item.status} />
+                  </div>
+                  <div className='mt-2 space-y-1 text-sm'>
+                    <div className='truncate text-slate-600'>
+                      {item.requester_email}
+                    </div>
+                    <div className='text-slate-500'>
+                      Submitted: {formatDate(item.created_at)}
+                    </div>
+                  </div>
+                  <div className='mt-3 border-t border-slate-200 pt-3'>
+                    {item.status === 'pending' ? (
+                      <Button
+                        type='button'
+                        size='sm'
+                        onClick={() => setReviewingRequest(item)}
+                        className='w-full'
+                      >
+                        Review Request
+                      </Button>
+                    ) : (
+                      <span className='block text-center text-xs text-slate-400'>
+                        {item.reviewed_at
+                          ? `Reviewed ${formatDate(item.reviewed_at)}`
+                          : '—'}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
             {nextCursor && (
               <div className='mt-4'>
                 <Button
@@ -321,12 +375,13 @@ export function AccessRequestsPanel() {
                   variant='secondary'
                   onClick={() => loadItems(nextCursor)}
                   disabled={isLoading}
+                  className='w-full sm:w-auto'
                 >
                   {isLoading ? 'Loading...' : 'Load more'}
                 </Button>
               </div>
             )}
-            </div>
+            </>
             )}
           </div>
         )}
