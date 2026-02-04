@@ -921,13 +921,15 @@ export class ApiStack extends cdk.Stack {
     // -------------------------------------------------------------------------
 
     // Dead Letter Queue for failed message processing
+    // SECURITY: Use KMS encryption (Checkov CKV_AWS_27)
     const managerRequestDLQ = new sqs.Queue(this, "ManagerRequestDLQ", {
       queueName: name("manager-request-dlq"),
       retentionPeriod: cdk.Duration.days(14),
-      encryption: sqs.QueueEncryption.SQS_MANAGED,
+      encryption: sqs.QueueEncryption.KMS_MANAGED,
     });
 
     // Main processing queue with DLQ
+    // SECURITY: Use KMS encryption (Checkov CKV_AWS_27)
     const managerRequestQueue = new sqs.Queue(this, "ManagerRequestQueue", {
       queueName: name("manager-request-queue"),
       visibilityTimeout: cdk.Duration.seconds(60), // 6x Lambda timeout
@@ -935,7 +937,7 @@ export class ApiStack extends cdk.Stack {
         queue: managerRequestDLQ,
         maxReceiveCount: 3, // Retry 3 times before DLQ
       },
-      encryption: sqs.QueueEncryption.SQS_MANAGED,
+      encryption: sqs.QueueEncryption.KMS_MANAGED,
     });
 
     // SNS Topic for manager request events
