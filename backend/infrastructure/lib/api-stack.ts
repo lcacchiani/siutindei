@@ -447,7 +447,6 @@ export class ApiStack extends cdk.Stack {
     const adminGroupName = "admin";
     const userPoolGroups = [
       { name: adminGroupName, description: "Administrative users" },
-      { name: "customer", description: "Customer users" },
       { name: "owner", description: "Owner users" },
     ];
 
