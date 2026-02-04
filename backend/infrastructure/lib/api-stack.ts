@@ -1499,7 +1499,8 @@ export class ApiStack extends cdk.Stack {
     );
 
     // Grant permissions to manage the secret
-    apiKeySecret.grantReadWrite(apiKeyRotationFunction);
+    apiKeySecret.grantRead(apiKeyRotationFunction);
+    apiKeySecret.grantWrite(apiKeyRotationFunction);
 
     // Schedule API key rotation every 90 days
     const apiKeyRotationRule = new cdk.aws_events.Rule(this, "ApiKeyRotationSchedule", {
