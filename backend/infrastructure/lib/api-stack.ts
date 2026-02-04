@@ -1478,10 +1478,18 @@ export class ApiStack extends cdk.Stack {
     // SECURITY: Rotate API keys every 90 days to limit exposure from compromise
     // -------------------------------------------------------------------------
 
+    // KMS key for secrets encryption (Checkov CKV_AWS_149)
+    const secretsEncryptionKey = new kms.Key(this, "SecretsEncryptionKey", {
+      enableKeyRotation: true,
+      description: "KMS key for Secrets Manager encryption",
+    });
+
     // Secret to store the current API key (for rotation tracking)
+    // SECURITY: Use customer-managed KMS key (Checkov CKV_AWS_149)
     const apiKeySecret = new secretsmanager.Secret(this, "ApiKeySecret", {
       secretName: name("api-key"),
       description: "Current mobile API key for rotation tracking",
+      encryptionKey: secretsEncryptionKey,
     });
 
     // API Key rotation Lambda
