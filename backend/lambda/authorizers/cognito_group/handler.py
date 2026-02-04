@@ -7,7 +7,7 @@ Environment Variables:
     COGNITO_USER_POOL_ID: The Cognito User Pool ID for token validation
     COGNITO_CLIENT_ID: The Cognito App Client ID for audience validation
     ALLOWED_GROUPS: Comma-separated list of groups that can access the endpoint
-                    (e.g., "admin" or "admin,owner")
+                    (e.g., "admin" or "admin,manager")
 """
 
 from __future__ import annotations
