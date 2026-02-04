@@ -1084,6 +1084,26 @@ export class ApiStack extends cdk.Stack {
       }
     );
 
+    // Cognito authorizer for any logged-in user (no group requirement)
+    const userAuthorizerFunction = createPythonFunction(
+      "UserAuthorizerFunction",
+      {
+        handler: "lambda/authorizers/cognito_user/handler.lambda_handler",
+        memorySize: 256,
+        timeout: cdk.Duration.seconds(5),
+      }
+    );
+
+    const userAuthorizer = new apigateway.RequestAuthorizer(
+      this,
+      "UserAuthorizer",
+      {
+        handler: userAuthorizerFunction,
+        identitySources: [apigateway.IdentitySource.header("Authorization")],
+        resultsCacheTtl: cdk.Duration.minutes(5),
+      }
+    );
+
     // Health check function
     const healthFunction = createPythonFunction("HealthCheckFunction", {
       handler: "lambda/health/handler.lambda_handler",
@@ -1512,6 +1532,26 @@ export class ApiStack extends cdk.Stack {
       authorizationType: apigateway.AuthorizationType.CUSTOM,
       authorizer: ownerAuthorizer,
     });
+
+    // -------------------------------------------------------------------------
+    // User routes at /v1/user (accessible by any logged-in Cognito user)
+    // These endpoints require authentication but no specific group membership.
+    // Use userAuthorizer for any endpoint that should be available to all
+    // authenticated users.
+    // -------------------------------------------------------------------------
+    const user = v1.addResource("user");
+
+    // Example: User profile endpoint (placeholder - implement as needed)
+    // const userProfile = user.addResource("profile");
+    // userProfile.addMethod("GET", adminIntegration, {
+    //   authorizationType: apigateway.AuthorizationType.CUSTOM,
+    //   authorizer: userAuthorizer,
+    // });
+
+    // Export the user resource for use in other parts of the stack
+    // Add your logged-in user endpoints here using:
+    //   authorizationType: apigateway.AuthorizationType.CUSTOM,
+    //   authorizer: userAuthorizer,
 
     // ---------------------------------------------------------------------
     // Admin Bootstrap (Conditional)
