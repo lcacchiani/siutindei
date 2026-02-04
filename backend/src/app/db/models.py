@@ -63,10 +63,10 @@ class Organization(Base):
     )
     name: Mapped[str] = mapped_column(Text(), nullable=False)
     description: Mapped[Optional[str]] = mapped_column(Text(), nullable=True)
-    owner_id: Mapped[str] = mapped_column(
+    manager_id: Mapped[str] = mapped_column(
         Text(),
         nullable=False,
-        comment="Cognito user sub (subject) identifier of the organization owner",
+        comment="Cognito user sub (subject) identifier of the organization manager",
     )
     media_urls: Mapped[List[str]] = mapped_column(
         ARRAY(Text()),
@@ -348,7 +348,7 @@ class ActivitySchedule(Base):
 
 
 class OrganizationAccessRequest(Base):
-    """Request from an owner to be added to an organization."""
+    """Request from a manager to be added to an organization."""
 
     __tablename__ = "organization_access_requests"
 

@@ -377,26 +377,26 @@ export class ApiStack extends cdk.Stack {
     // ---------------------------------------------------------------------
     // Migration Parameters
     // ---------------------------------------------------------------------
-    const fallbackOwnerEmail = new cdk.CfnParameter(
+    const fallbackManagerEmail = new cdk.CfnParameter(
       this,
-      "FallbackOwnerEmail",
+      "FallbackManagerEmail",
       {
         type: "String",
         default: "",
         description:
-          "Email of the Cognito user to use as fallback owner for existing " +
-          "organizations without an owner during migration.",
+          "Email of the Cognito user to use as fallback manager for existing " +
+          "organizations without a manager during migration.",
       }
     );
 
     // ---------------------------------------------------------------------
-    // Owner Access Request Email Parameters
+    // Manager Access Request Email Parameters
     // ---------------------------------------------------------------------
     const supportEmail = new cdk.CfnParameter(this, "SupportEmail", {
       type: "String",
       default: "",
       description:
-        "Email address to receive owner access request notifications. " +
+        "Email address to receive manager access request notifications. " +
         "Must be verified in SES.",
     });
     const sesSenderEmail = new cdk.CfnParameter(this, "SesSenderEmail", {
@@ -447,7 +447,7 @@ export class ApiStack extends cdk.Stack {
     const adminGroupName = "admin";
     const userPoolGroups = [
       { name: adminGroupName, description: "Administrative users" },
-      { name: "owner", description: "Owner users" },
+      { name: "manager", description: "Manager users" },
     ];
 
     const googleProvider = new cognito.CfnUserPoolIdentityProvider(
@@ -849,7 +849,7 @@ export class ApiStack extends cdk.Stack {
     database.grantConnect(searchFunction, "siutindei_app");
 
     // Admin function
-    const ownerGroupName = "owner";
+    const managerGroupName = "manager";
     const adminFunction = createPythonFunction("SiutindeiAdminFunction", {
       handler: "lambda/admin/handler.lambda_handler",
       environment: {
@@ -859,7 +859,7 @@ export class ApiStack extends cdk.Stack {
         DATABASE_PROXY_ENDPOINT: database.proxy.endpoint,
         DATABASE_IAM_AUTH: "true",
         ADMIN_GROUP: adminGroupName,
-        OWNER_GROUP: ownerGroupName,
+        MANAGER_GROUP: managerGroupName,
         COGNITO_USER_POOL_ID: userPool.userPoolId,
         ORGANIZATION_MEDIA_BUCKET: organizationImagesBucket.bucketName,
         ORGANIZATION_MEDIA_BASE_URL:
@@ -916,7 +916,7 @@ export class ApiStack extends cdk.Stack {
         DATABASE_ADMIN_USER_SECRET_ARN: database.adminUserSecret.secretArn,
         SEED_FILE_PATH: "/var/task/db/seed/seed_data.sql",
         COGNITO_USER_POOL_ID: userPool.userPoolId,
-        FALLBACK_OWNER_EMAIL: fallbackOwnerEmail.valueAsString,
+        FALLBACK_MANAGER_EMAIL: fallbackManagerEmail.valueAsString,
       },
     });
     database.grantSecretRead(migrationFunction);
@@ -924,7 +924,7 @@ export class ApiStack extends cdk.Stack {
     database.grantAdminUserSecretRead(migrationFunction);
     database.grantConnect(migrationFunction, "postgres");
     migrationFunction.node.addDependency(database.cluster);
-    // Grant permission to list Cognito users (needed for owner migration)
+    // Grant permission to list Cognito users (needed for manager migration)
     migrationFunction.addToRolePolicy(
       new iam.PolicyStatement({
         actions: ["cognito-idp:ListUsers"],
@@ -1060,24 +1060,24 @@ export class ApiStack extends cdk.Stack {
       }
     );
 
-    // Cognito group-based authorizer for owner endpoints (admin OR owner)
-    const ownerGroupAuthorizerFunction = createPythonFunction(
-      "OwnerGroupAuthorizerFunction",
+    // Cognito group-based authorizer for manager endpoints (admin OR manager)
+    const managerGroupAuthorizerFunction = createPythonFunction(
+      "ManagerGroupAuthorizerFunction",
       {
         handler: "lambda/authorizers/cognito_group/handler.lambda_handler",
         memorySize: 256,
         timeout: cdk.Duration.seconds(5),
         environment: {
-          ALLOWED_GROUPS: `${adminGroupName},${ownerGroupName}`,
+          ALLOWED_GROUPS: `${adminGroupName},${managerGroupName}`,
         },
       }
     );
 
-    const ownerAuthorizer = new apigateway.RequestAuthorizer(
+    const managerAuthorizer = new apigateway.RequestAuthorizer(
       this,
-      "OwnerGroupAuthorizer",
+      "ManagerGroupAuthorizer",
       {
-        handler: ownerGroupAuthorizerFunction,
+        handler: managerGroupAuthorizerFunction,
         identitySources: [apigateway.IdentitySource.header("Authorization")],
         resultsCacheTtl: cdk.Duration.minutes(5),
       }
@@ -1462,14 +1462,14 @@ export class ApiStack extends cdk.Stack {
       authorizer: adminAuthorizer,
     });
 
-    // Cognito users listing endpoint (for owner selection) - admin only
+    // Cognito users listing endpoint (for manager selection) - admin only
     const cognitoUsers = admin.addResource("cognito-users");
     cognitoUsers.addMethod("GET", adminIntegration, {
       authorizationType: apigateway.AuthorizationType.CUSTOM,
       authorizer: adminAuthorizer,
     });
 
-    // Admin access requests management (for reviewing owner requests) - admin only
+    // Admin access requests management (for reviewing manager requests) - admin only
     const accessRequests = admin.addResource("access-requests");
     accessRequests.addMethod("GET", adminIntegration, {
       authorizationType: apigateway.AuthorizationType.CUSTOM,
@@ -1482,12 +1482,12 @@ export class ApiStack extends cdk.Stack {
       authorizer: adminAuthorizer,
     });
 
-    // Owner-specific routes at /v1/owner (accessible by users in 'admin' OR 'owner' group)
-    // All owner routes are filtered by organization ownership in the Lambda
-    const owner = v1.addResource("owner");
+    // Manager-specific routes at /v1/manager (accessible by users in 'admin' OR 'manager' group)
+    // All manager routes are filtered by organization management in the Lambda
+    const manager = v1.addResource("manager");
 
-    // Owner resources - CRUD filtered by owned organizations
-    const ownerResources = [
+    // Manager resources - CRUD filtered by managed organizations
+    const managerResources = [
       "organizations",
       "locations",
       "activities",
@@ -1495,41 +1495,41 @@ export class ApiStack extends cdk.Stack {
       "schedules",
     ];
 
-    for (const resourceName of ownerResources) {
-      const resource = owner.addResource(resourceName);
+    for (const resourceName of managerResources) {
+      const resource = manager.addResource(resourceName);
       resource.addMethod("GET", adminIntegration, {
         authorizationType: apigateway.AuthorizationType.CUSTOM,
-        authorizer: ownerAuthorizer,
+        authorizer: managerAuthorizer,
       });
       resource.addMethod("POST", adminIntegration, {
         authorizationType: apigateway.AuthorizationType.CUSTOM,
-        authorizer: ownerAuthorizer,
+        authorizer: managerAuthorizer,
       });
 
       const resourceById = resource.addResource("{id}");
       resourceById.addMethod("GET", adminIntegration, {
         authorizationType: apigateway.AuthorizationType.CUSTOM,
-        authorizer: ownerAuthorizer,
+        authorizer: managerAuthorizer,
       });
       resourceById.addMethod("PUT", adminIntegration, {
         authorizationType: apigateway.AuthorizationType.CUSTOM,
-        authorizer: ownerAuthorizer,
+        authorizer: managerAuthorizer,
       });
       resourceById.addMethod("DELETE", adminIntegration, {
         authorizationType: apigateway.AuthorizationType.CUSTOM,
-        authorizer: ownerAuthorizer,
+        authorizer: managerAuthorizer,
       });
     }
 
-    // Owner access request (submit request to be added to an organization)
-    const ownerAccessRequest = owner.addResource("access-request");
-    ownerAccessRequest.addMethod("GET", adminIntegration, {
+    // Manager access request (submit request to be added to an organization)
+    const managerAccessRequest = manager.addResource("access-request");
+    managerAccessRequest.addMethod("GET", adminIntegration, {
       authorizationType: apigateway.AuthorizationType.CUSTOM,
-      authorizer: ownerAuthorizer,
+      authorizer: managerAuthorizer,
     });
-    ownerAccessRequest.addMethod("POST", adminIntegration, {
+    managerAccessRequest.addMethod("POST", adminIntegration, {
       authorizationType: apigateway.AuthorizationType.CUSTOM,
-      authorizer: ownerAuthorizer,
+      authorizer: managerAuthorizer,
     });
 
     // -------------------------------------------------------------------------
