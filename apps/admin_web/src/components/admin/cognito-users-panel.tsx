@@ -7,6 +7,7 @@ import {
   listCognitoUsers,
   addUserToGroup,
   removeUserFromGroup,
+  deleteCognitoUser,
   type CognitoUsersResponse,
 } from '../../lib/api-client';
 import type { CognitoUser } from '../../types/admin';
@@ -113,6 +114,7 @@ export function CognitoUsersPanel() {
   const [error, setError] = useState('');
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [actionError, setActionError] = useState('');
+  const [deleteConfirm, setDeleteConfirm] = useState<CognitoUser | null>(null);
 
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
@@ -179,6 +181,37 @@ export function CognitoUsersPanel() {
         err instanceof ApiError
           ? err.message
           : `Failed to ${currentlyHasRole ? 'remove' : 'add'} ${role} role.`;
+      setActionError(message);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleDeleteUser = async (targetUser: CognitoUser) => {
+    if (!targetUser.username) {
+      setActionError('User has no username');
+      return;
+    }
+
+    const actionKey = `delete-${targetUser.sub}`;
+    setActionLoading(actionKey);
+    setActionError('');
+    setDeleteConfirm(null);
+
+    try {
+      const response = await deleteCognitoUser(targetUser.username);
+
+      // Remove the user from the local state
+      setUsers((prev) => prev.filter((u) => u.sub !== targetUser.sub));
+
+      // Show success message if organizations were transferred
+      if (response.transferred_organizations_count > 0) {
+        setActionError(''); // Clear any previous error
+        // Use actionError temporarily to show success (could be improved with separate state)
+      }
+    } catch (err) {
+      const message =
+        err instanceof ApiError ? err.message : 'Failed to delete user.';
       setActionError(message);
     } finally {
       setActionLoading(null);
@@ -335,7 +368,7 @@ export function CognitoUsersPanel() {
                       <td className='py-2 text-right'>
                         {isCurrent ? (
                           <span className='text-xs text-slate-400'>
-                            Cannot modify your own roles
+                            Cannot modify your own account
                           </span>
                         ) : (
                           <div className='flex justify-end gap-2'>
@@ -368,6 +401,17 @@ export function CognitoUsersPanel() {
                                 : hasManagerRole
                                   ? 'Remove Manager'
                                   : 'Make Manager'}
+                            </Button>
+                            <Button
+                              type='button'
+                              size='sm'
+                              variant='danger'
+                              onClick={() => setDeleteConfirm(cognitoUser)}
+                              disabled={actionLoading === `delete-${cognitoUser.sub}`}
+                            >
+                              {actionLoading === `delete-${cognitoUser.sub}`
+                                ? '...'
+                                : 'Delete'}
                             </Button>
                           </div>
                         )}
@@ -428,41 +472,55 @@ export function CognitoUsersPanel() {
                     <div className='mt-3 border-t border-slate-200 pt-3'>
                       {isCurrent ? (
                         <span className='block text-center text-xs text-slate-400'>
-                          Cannot modify your own roles
+                          Cannot modify your own account
                         </span>
                       ) : (
-                        <div className='flex gap-2'>
+                        <div className='space-y-2'>
+                          <div className='flex gap-2'>
+                            <Button
+                              type='button'
+                              size='sm'
+                              variant={hasAdminRole ? 'danger' : 'secondary'}
+                              onClick={() =>
+                                handleToggleRole(cognitoUser, 'admin', hasAdminRole)
+                              }
+                              disabled={actionLoading === `${cognitoUser.sub}-admin`}
+                              className='flex-1'
+                            >
+                              {actionLoading === `${cognitoUser.sub}-admin`
+                                ? '...'
+                                : hasAdminRole
+                                  ? 'Remove Admin'
+                                  : 'Make Admin'}
+                            </Button>
+                            <Button
+                              type='button'
+                              size='sm'
+                              variant={hasManagerRole ? 'danger' : 'secondary'}
+                              onClick={() =>
+                                handleToggleRole(cognitoUser, 'manager', hasManagerRole)
+                              }
+                              disabled={actionLoading === `${cognitoUser.sub}-manager`}
+                              className='flex-1'
+                            >
+                              {actionLoading === `${cognitoUser.sub}-manager`
+                                ? '...'
+                                : hasManagerRole
+                                  ? 'Remove Manager'
+                                  : 'Make Manager'}
+                            </Button>
+                          </div>
                           <Button
                             type='button'
                             size='sm'
-                            variant={hasAdminRole ? 'danger' : 'secondary'}
-                            onClick={() =>
-                              handleToggleRole(cognitoUser, 'admin', hasAdminRole)
-                            }
-                            disabled={actionLoading === `${cognitoUser.sub}-admin`}
-                            className='flex-1'
+                            variant='danger'
+                            onClick={() => setDeleteConfirm(cognitoUser)}
+                            disabled={actionLoading === `delete-${cognitoUser.sub}`}
+                            className='w-full'
                           >
-                            {actionLoading === `${cognitoUser.sub}-admin`
+                            {actionLoading === `delete-${cognitoUser.sub}`
                               ? '...'
-                              : hasAdminRole
-                                ? 'Remove Admin'
-                                : 'Make Admin'}
-                          </Button>
-                          <Button
-                            type='button'
-                            size='sm'
-                            variant={hasManagerRole ? 'danger' : 'secondary'}
-                            onClick={() =>
-                              handleToggleRole(cognitoUser, 'manager', hasManagerRole)
-                            }
-                            disabled={actionLoading === `${cognitoUser.sub}-manager`}
-                            className='flex-1'
-                          >
-                            {actionLoading === `${cognitoUser.sub}-manager`
-                              ? '...'
-                              : hasManagerRole
-                                ? 'Remove Manager'
-                                : 'Make Manager'}
+                              : 'Delete User'}
                           </Button>
                         </div>
                       )}
@@ -490,6 +548,50 @@ export function CognitoUsersPanel() {
           </div>
         )}
       </Card>
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirm && (
+        <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/50'>
+          <div className='mx-4 w-full max-w-md rounded-lg bg-white p-6 shadow-xl'>
+            <h3 className='text-lg font-semibold text-slate-900'>
+              Delete User
+            </h3>
+            <p className='mt-2 text-sm text-slate-600'>
+              Are you sure you want to delete{' '}
+              <span className='font-medium'>
+                {deleteConfirm.email || deleteConfirm.username}
+              </span>
+              ?
+            </p>
+            <p className='mt-2 text-sm text-slate-600'>
+              Any organizations they manage will be transferred to you as the fallback manager.
+            </p>
+            <p className='mt-2 text-sm font-medium text-red-600'>
+              This action cannot be undone.
+            </p>
+            <div className='mt-6 flex justify-end gap-3'>
+              <Button
+                type='button'
+                variant='secondary'
+                onClick={() => setDeleteConfirm(null)}
+                disabled={actionLoading === `delete-${deleteConfirm.sub}`}
+              >
+                Cancel
+              </Button>
+              <Button
+                type='button'
+                variant='danger'
+                onClick={() => handleDeleteUser(deleteConfirm)}
+                disabled={actionLoading === `delete-${deleteConfirm.sub}`}
+              >
+                {actionLoading === `delete-${deleteConfirm.sub}`
+                  ? 'Deleting...'
+                  : 'Delete User'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

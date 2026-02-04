@@ -130,6 +130,11 @@ def lambda_handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
         return _handle_organization_media(event, method, resource_id)
     if resource == "cognito-users" and method == "GET":
         return _handle_list_cognito_users(event)
+    if resource == "cognito-users" and method == "DELETE" and resource_id:
+        return _safe_handler(
+            lambda: _handle_delete_cognito_user(event, resource_id),
+            event,
+        )
     if resource == "access-requests":
         return _handle_admin_access_requests(event, method, resource_id)
 
@@ -1287,6 +1292,111 @@ def _serialize_cognito_user(user: dict[str, Any]) -> Optional[dict[str, Any]]:
         "updated_at": user.get("UserLastModifiedDate"),
         "last_auth_time": last_auth_time,
     }
+
+
+def _handle_delete_cognito_user(
+    event: Mapping[str, Any],
+    username: str,
+) -> dict[str, Any]:
+    """Delete a Cognito user and transfer their organizations to a fallback manager.
+
+    This endpoint:
+    1. Gets the user's Cognito sub (subject) from their username
+    2. Finds all organizations managed by this user
+    3. Transfers them to a fallback manager (the admin calling the API)
+    4. Deletes the user from Cognito
+
+    Args:
+        event: The Lambda event.
+        username: The Cognito username of the user to delete.
+
+    Returns:
+        API Gateway response with deletion status and transferred orgs count.
+    """
+    client = boto3.client("cognito-idp")
+    user_pool_id = _require_env("COGNITO_USER_POOL_ID")
+
+    # Get the admin's sub to use as fallback manager
+    fallback_manager_id = _get_user_sub(event)
+    if not fallback_manager_id:
+        return json_response(401, {"error": "User identity not found"}, event=event)
+
+    try:
+        # Get the user to find their sub (subject)
+        user_response = client.admin_get_user(
+            UserPoolId=user_pool_id,
+            Username=username,
+        )
+
+        # Extract the sub from user attributes
+        user_sub = None
+        for attr in user_response.get("UserAttributes", []):
+            if attr["Name"] == "sub":
+                user_sub = attr["Value"]
+                break
+
+        if not user_sub:
+            return json_response(
+                500,
+                {"error": "User has no sub attribute"},
+                event=event,
+            )
+
+        # Prevent admin from deleting themselves
+        if user_sub == fallback_manager_id:
+            return json_response(
+                400,
+                {"error": "Cannot delete yourself"},
+                event=event,
+            )
+
+        # Transfer organizations to the fallback manager
+        transferred_count = 0
+        with Session(get_engine()) as session:
+            org_repo = OrganizationRepository(session)
+            orgs = org_repo.find_by_manager(user_sub, limit=1000)
+
+            for org in orgs:
+                org.manager_id = fallback_manager_id
+                org_repo.update(org)
+                transferred_count += 1
+
+            session.commit()
+
+        logger.info(
+            f"Transferred {transferred_count} organizations from user {user_sub} "
+            f"to fallback manager {fallback_manager_id}"
+        )
+
+        # Delete the user from Cognito
+        client.admin_delete_user(
+            UserPoolId=user_pool_id,
+            Username=username,
+        )
+
+        logger.info(f"Deleted Cognito user: {username}")
+
+        return json_response(
+            200,
+            {
+                "status": "deleted",
+                "username": username,
+                "user_sub": user_sub,
+                "transferred_organizations_count": transferred_count,
+                "fallback_manager_id": fallback_manager_id,
+            },
+            event=event,
+        )
+
+    except client.exceptions.UserNotFoundException:
+        raise NotFoundError("cognito_user", username)
+    except Exception as exc:
+        logger.exception(f"Failed to delete Cognito user: {username}")
+        return json_response(
+            500,
+            {"error": "Failed to delete user", "detail": str(exc)},
+            event=event,
+        )
 
 
 def _handle_organization_media(

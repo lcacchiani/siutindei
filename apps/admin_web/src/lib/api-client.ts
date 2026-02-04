@@ -240,6 +240,27 @@ export async function removeUserFromGroup(
   });
 }
 
+export interface DeleteCognitoUserResponse {
+  status: 'deleted';
+  username: string;
+  user_sub: string;
+  transferred_organizations_count: number;
+  fallback_manager_id: string;
+}
+
+/**
+ * Delete a Cognito user and transfer their organizations to a fallback manager.
+ * The fallback manager is the admin calling the API.
+ */
+export async function deleteCognitoUser(
+  username: string
+): Promise<DeleteCognitoUserResponse> {
+  const url = `${buildCognitoUsersUrl()}/${encodeURIComponent(username)}`;
+  return request<DeleteCognitoUserResponse>(url, {
+    method: 'DELETE',
+  });
+}
+
 // --- Manager-specific API methods ---
 
 export interface AccessRequest {
