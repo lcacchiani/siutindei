@@ -1453,6 +1453,65 @@ export class ApiStack extends cdk.Stack {
     mobileUsagePlan.addApiKey(mobileApiKey);
     mobileUsagePlan.addApiStage({ stage: api.deploymentStage });
 
+    // -------------------------------------------------------------------------
+    // API Key Rotation
+    // SECURITY: Rotate API keys every 90 days to limit exposure from compromise
+    // -------------------------------------------------------------------------
+
+    // Secret to store the current API key (for rotation tracking)
+    const apiKeySecret = new secretsmanager.Secret(this, "ApiKeySecret", {
+      secretName: name("api-key"),
+      description: "Current mobile API key for rotation tracking",
+    });
+
+    // API Key rotation Lambda
+    const apiKeyRotationFunction = createPythonFunction("ApiKeyRotationFunction", {
+      handler: "lambda/api_key_rotation/handler.lambda_handler",
+      memorySize: 256,
+      timeout: cdk.Duration.seconds(60),
+      environment: {
+        API_GATEWAY_REST_API_ID: api.restApiId,
+        API_GATEWAY_USAGE_PLAN_ID: mobileUsagePlan.usagePlanId,
+        API_KEY_SECRET_ARN: apiKeySecret.secretArn,
+        API_KEY_NAME_PREFIX: name("mobile-search-key"),
+        GRACE_PERIOD_HOURS: "24",
+      },
+    });
+
+    // Grant permissions to manage API keys
+    apiKeyRotationFunction.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: [
+          "apigateway:GET",
+          "apigateway:POST",
+          "apigateway:PUT",
+          "apigateway:DELETE",
+        ],
+        resources: [
+          `arn:aws:apigateway:${cdk.Stack.of(this).region}::/apikeys`,
+          `arn:aws:apigateway:${cdk.Stack.of(this).region}::/apikeys/*`,
+          `arn:aws:apigateway:${cdk.Stack.of(this).region}::/usageplans/${mobileUsagePlan.usagePlanId}`,
+          `arn:aws:apigateway:${cdk.Stack.of(this).region}::/usageplans/${mobileUsagePlan.usagePlanId}/keys`,
+          `arn:aws:apigateway:${cdk.Stack.of(this).region}::/usageplans/${mobileUsagePlan.usagePlanId}/keys/*`,
+        ],
+      })
+    );
+
+    // Grant permissions to manage the secret
+    apiKeySecret.grantReadWrite(apiKeyRotationFunction);
+
+    // Schedule API key rotation every 90 days
+    const apiKeyRotationRule = new cdk.aws_events.Rule(this, "ApiKeyRotationSchedule", {
+      ruleName: name("api-key-rotation"),
+      description: "Rotate mobile API key every 90 days",
+      schedule: cdk.aws_events.Schedule.rate(cdk.Duration.days(90)),
+    });
+    apiKeyRotationRule.addTarget(
+      new cdk.aws_events_targets.LambdaFunction(apiKeyRotationFunction, {
+        retryAttempts: 2,
+      })
+    );
+
     // ---------------------------------------------------------------------
     // API Routes
     // ---------------------------------------------------------------------

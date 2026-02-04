@@ -100,11 +100,30 @@ export class WafStack extends cdk.Stack {
             sampledRequestsEnabled: true,
           },
         },
+        // AWS Managed SQL Injection Rule Set
+        // SECURITY: Protects against SQL injection attacks in request bodies,
+        // query strings, headers, and cookies
+        {
+          name: "AWSManagedRulesSQLiRuleSet",
+          priority: 4,
+          overrideAction: { none: {} },
+          statement: {
+            managedRuleGroupStatement: {
+              vendorName: "AWS",
+              name: "AWSManagedRulesSQLiRuleSet",
+            },
+          },
+          visibilityConfig: {
+            cloudWatchMetricsEnabled: true,
+            metricName: name("sqli-rules"),
+            sampledRequestsEnabled: true,
+          },
+        },
         // Rate limiting - 1000 requests per 5 minutes per IP
         // Helps prevent DDoS and brute force attacks
         {
           name: "RateLimitRule",
-          priority: 4,
+          priority: 5,
           action: { block: {} },
           statement: {
             rateBasedStatement: {
