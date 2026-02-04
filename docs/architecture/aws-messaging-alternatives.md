@@ -1,27 +1,64 @@
-# AWS Messaging Alternatives to Database Polling
+# AWS Messaging with SNS + SQS
 
-## Current Implementation
+## Current Implementation Problem
 
-The application currently uses PostgreSQL tables to manage "requests" (specifically `organization_access_requests`). This pattern involves:
+The application uses PostgreSQL as a message queue for `organization_access_requests`:
 
-1. **Producers** (managers) write request records to the database
-2. **Consumers** (admins) poll the database for pending requests
-3. **Status updates** track request lifecycle (pending → approved/rejected)
+```
+Manager submits → API writes to DB → Admins poll DB → Process request
+```
 
-### Drawbacks of Database-as-Queue
-
-| Issue | Impact |
-|-------|--------|
-| **Polling overhead** | Constant database queries, even when no new requests |
-| **No push notifications** | Admins must actively check for new requests |
-| **No retry mechanisms** | Failed processing requires manual intervention |
-| **No dead letter queue** | No automatic handling of poison messages |
-| **Scaling limitations** | Database becomes bottleneck under high load |
-| **No fan-out** | Can't easily notify multiple systems |
+**Problems:**
+- Database is both storage AND queue (conflated responsibilities)
+- No push notifications to admins
+- Polling wastes resources
+- No automatic retries if email sending fails
 
 ---
 
-## AWS Messaging Options
+## Recommended Architecture: SNS + SQS
+
+**SNS** (Simple Notification Service) + **SQS** (Simple Queue Service) is the standard AWS pattern for reliable, decoupled messaging.
+
+```
+                                    ┌─────────────────────────────────────┐
+                                    │         SNS Topic                    │
+                                    │    "access-request-events"           │
+                                    └─────────────────────────────────────┘
+                                                    │
+                     ┌──────────────────────────────┼──────────────────────────────┐
+                     │                              │                              │
+                     ▼                              ▼                              ▼
+          ┌─────────────────────┐      ┌─────────────────────┐      ┌─────────────────────┐
+          │   SQS Queue         │      │   SQS Queue         │      │   Email (direct)    │
+          │ "process-requests"  │      │ "audit-log"         │      │   admin@example.com │
+          └─────────────────────┘      └─────────────────────┘      └─────────────────────┘
+                     │                              │
+                     ▼                              ▼
+          ┌─────────────────────┐      ┌─────────────────────┐
+          │   Lambda            │      │   Lambda            │
+          │ - Store in DB       │      │ - Write to          │
+          │ - Send SES email    │      │   CloudWatch Logs   │
+          └─────────────────────┘      └─────────────────────┘
+                     │
+                     ▼
+          ┌─────────────────────┐
+          │   Dead Letter Queue │
+          │   (failed messages) │
+          └─────────────────────┘
+```
+
+### Why SNS + SQS Together?
+
+| Component | Role |
+|-----------|------|
+| **SNS** | Fan-out to multiple subscribers, direct email delivery |
+| **SQS** | Reliable delivery with retries, dead letter queue |
+| **Together** | Best of both worlds - fan-out AND reliability |
+
+---
+
+## AWS Messaging Options (Reference)
 
 ### 1. Amazon SQS (Simple Queue Service)
 
@@ -360,95 +397,391 @@ new events.Rule(this, 'NotifyAdminOnNewRequest', {
 
 ---
 
-## Recommendation for Access Requests
+## Implementation: SNS + SQS for Access Requests
 
-For your `OrganizationAccessRequest` use case, I recommend a **hybrid approach**:
-
-### Option A: Simple (SNS + SQS + Database)
-
-Keep the database as the source of truth, but add messaging for notifications:
+### Architecture Overview
 
 ```
-┌─────────┐      ┌─────┐      ┌─────────────┐
-│ Manager │─────▶│ API │─────▶│ DB (writes) │
-│ submits │      │     │      └─────────────┘
-└─────────┘      │     │            │
-                 │     │      ┌─────▼─────┐      ┌─────────────┐
-                 │     │─────▶│    SNS    │─────▶│ Admin Email │
-                 │     │      │   Topic   │      └─────────────┘
-                 └─────┘      └───────────┘
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              CURRENT FLOW                                    │
+│                                                                             │
+│  Manager ──▶ API ──▶ DB (write) ──▶ SES (email) ──▶ Done                   │
+│                          │                                                  │
+│                          └──▶ [Admins poll DB for pending requests]         │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              NEW FLOW (SNS + SQS)                           │
+│                                                                             │
+│  Manager ──▶ API ──▶ SNS Topic ──┬──▶ SQS Queue ──▶ Lambda ──▶ DB + SES    │
+│                                  │                      │                   │
+│                                  │                      └──▶ DLQ (failures) │
+│                                  │                                          │
+│                                  └──▶ Email Subscription (instant notify)   │
+│                                                                             │
+│  [Admins still query DB for list, but get instant email when new arrives]   │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-**Benefits:**
-- Minimal change to existing code
-- Database remains source of truth
-- Admins get push notifications
+### Step 1: CDK Infrastructure
 
-### Option B: Event-Driven (EventBridge + Database)
+Add to `api-stack.ts`:
 
-Use EventBridge as the central hub:
+```typescript
+import * as sns from "aws-cdk-lib/aws-sns";
+import * as sqs from "aws-cdk-lib/aws-sqs";
+import * as subscriptions from "aws-cdk-lib/aws-sns-subscriptions";
+import * as lambdaEventSources from "aws-cdk-lib/aws-lambda-event-sources";
 
+// Dead Letter Queue for failed message processing
+const accessRequestDLQ = new sqs.Queue(this, "AccessRequestDLQ", {
+  queueName: name("access-request-dlq"),
+  retentionPeriod: cdk.Duration.days(14),
+  encryption: sqs.QueueEncryption.SQS_MANAGED,
+});
+
+// Main processing queue
+const accessRequestQueue = new sqs.Queue(this, "AccessRequestQueue", {
+  queueName: name("access-request-queue"),
+  visibilityTimeout: cdk.Duration.seconds(60), // 6x Lambda timeout
+  deadLetterQueue: {
+    queue: accessRequestDLQ,
+    maxReceiveCount: 3, // Retry 3 times before DLQ
+  },
+  encryption: sqs.QueueEncryption.SQS_MANAGED,
+});
+
+// SNS Topic for access request events
+const accessRequestTopic = new sns.Topic(this, "AccessRequestTopic", {
+  topicName: name("access-request-events"),
+});
+
+// Subscribe SQS queue to SNS topic
+accessRequestTopic.addSubscription(
+  new subscriptions.SqsSubscription(accessRequestQueue)
+);
+
+// Optional: Direct email subscription for instant admin notification
+// (in addition to the SES email sent by the Lambda processor)
+const adminNotificationEmail = new cdk.CfnParameter(this, "AdminNotificationEmail", {
+  type: "String",
+  default: "",
+  description: "Email for instant SNS notifications (optional)",
+});
+
+const hasAdminEmail = new cdk.CfnCondition(this, "HasAdminNotificationEmail", {
+  expression: cdk.Fn.conditionNot(
+    cdk.Fn.conditionEquals(adminNotificationEmail.valueAsString, "")
+  ),
+});
+
+// Conditional email subscription
+const emailSubscription = new sns.CfnSubscription(this, "AdminEmailSubscription", {
+  topicArn: accessRequestTopic.topicArn,
+  protocol: "email",
+  endpoint: adminNotificationEmail.valueAsString,
+});
+emailSubscription.cfnOptions.condition = hasAdminEmail;
+
+// Lambda processor triggered by SQS
+const accessRequestProcessor = createPythonFunction("AccessRequestProcessor", {
+  handler: "lambda/access_request_processor/handler.lambda_handler",
+  timeout: cdk.Duration.seconds(10),
+  environment: {
+    DATABASE_SECRET_ARN: database.adminUserSecret.secretArn,
+    DATABASE_NAME: "siutindei",
+    DATABASE_USERNAME: "siutindei_admin",
+    DATABASE_PROXY_ENDPOINT: database.proxy.endpoint,
+    DATABASE_IAM_AUTH: "true",
+    SES_SENDER_EMAIL: sesSenderEmail.valueAsString,
+    SUPPORT_EMAIL: supportEmail.valueAsString,
+  },
+});
+
+// Grant permissions
+database.grantAdminUserSecretRead(accessRequestProcessor);
+database.grantConnect(accessRequestProcessor, "siutindei_admin");
+accessRequestProcessor.addToRolePolicy(
+  new iam.PolicyStatement({
+    actions: ["ses:SendEmail", "ses:SendRawEmail"],
+    resources: [sesSenderIdentityArn],
+  })
+);
+
+// Connect SQS to Lambda
+accessRequestProcessor.addEventSource(
+  new lambdaEventSources.SqsEventSource(accessRequestQueue, {
+    batchSize: 1, // Process one at a time for simplicity
+  })
+);
+
+// Grant API Lambda permission to publish to SNS
+accessRequestTopic.grantPublish(adminFunction);
+
+// Pass topic ARN to admin Lambda
+adminFunction.addEnvironment("ACCESS_REQUEST_TOPIC_ARN", accessRequestTopic.topicArn);
 ```
-┌─────────┐      ┌─────────────┐      ┌────────────┐
-│ Manager │─────▶│ EventBridge │─────▶│ Lambda:    │───▶ Database
-│ submits │      │     Bus     │      │ Store      │
-└─────────┘      └─────────────┘      └────────────┘
-                        │             ┌────────────┐
-                        ├────────────▶│ Lambda:    │───▶ SES Email
-                        │             │ Notify     │
-                        │             └────────────┘
-                        │             ┌────────────┐
-                        └────────────▶│ CloudWatch │───▶ Audit Log
-                                      │ Logs       │
-                                      └────────────┘
+
+### Step 2: API Handler (Publish to SNS)
+
+Update `backend/src/app/api/admin.py`:
+
+```python
+import boto3
+import json
+import os
+
+sns_client = boto3.client("sns")
+
+def _handle_user_access_request(event: Mapping[str, Any], method: str) -> dict[str, Any]:
+    """Handle user access request operations."""
+    user_sub = _get_user_sub(event)
+    user_email = _get_user_email(event)
+
+    if not user_sub:
+        return json_response(401, {"error": "User identity not found"}, event=event)
+
+    if method == "POST":
+        body = _parse_body(event)
+
+        # Validate request fields
+        organization_name = _validate_string_length(
+            body.get("organization_name"), "organization_name", MAX_NAME_LENGTH, required=True
+        )
+        request_message = _validate_string_length(
+            body.get("request_message"), "request_message", MAX_DESCRIPTION_LENGTH, required=False
+        )
+
+        # Generate ticket ID (could also be done by processor)
+        with Session(get_engine()) as session:
+            request_repo = OrganizationAccessRequestRepository(session)
+
+            # Check for existing pending request
+            existing = request_repo.find_pending_by_requester(user_sub)
+            if existing:
+                return json_response(409, {
+                    "error": "You already have a pending access request",
+                    "request": _serialize_access_request(existing),
+                }, event=event)
+
+            ticket_id = _generate_ticket_id(session)
+
+        # Publish to SNS instead of writing directly to DB
+        topic_arn = os.getenv("ACCESS_REQUEST_TOPIC_ARN")
+        if topic_arn:
+            sns_client.publish(
+                TopicArn=topic_arn,
+                Message=json.dumps({
+                    "event_type": "access_request.submitted",
+                    "ticket_id": ticket_id,
+                    "requester_id": user_sub,
+                    "requester_email": user_email or "unknown",
+                    "organization_name": organization_name,
+                    "request_message": request_message,
+                }),
+                MessageAttributes={
+                    "event_type": {
+                        "DataType": "String",
+                        "StringValue": "access_request.submitted",
+                    },
+                },
+            )
+
+            return json_response(202, {
+                "message": "Your request has been submitted and is being processed",
+                "ticket_id": ticket_id,
+            }, event=event)
+
+        # Fallback: direct DB write if SNS not configured (for backwards compatibility)
+        # ... existing code ...
 ```
 
-**Benefits:**
-- Decoupled architecture
-- Easy to add new consumers
-- Built-in audit trail
-- Future-proof for more event types
+### Step 3: SQS Processor Lambda
 
-### Option C: Full Workflow (Step Functions)
+Create `backend/lambda/access_request_processor/handler.py`:
 
-For complete workflow management:
+```python
+"""Lambda handler for processing access requests from SQS."""
 
+import json
+import os
+from typing import Any
+
+import boto3
+from sqlalchemy.orm import Session
+
+from app.db.engine import get_engine
+from app.db.models import OrganizationAccessRequest
+from app.db.repositories import OrganizationAccessRequestRepository
+from app.templates import render_new_request_email
+from app.utils.logging import configure_logging, get_logger
+
+configure_logging()
+logger = get_logger(__name__)
+
+ses_client = boto3.client("ses")
+
+
+def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
+    """Process access request messages from SQS.
+
+    Each message contains:
+    - event_type: "access_request.submitted"
+    - ticket_id: Unique ticket ID
+    - requester_id: Cognito user sub
+    - requester_email: User's email
+    - organization_name: Requested organization name
+    - request_message: Optional message
+    """
+    processed = 0
+    failed = 0
+
+    for record in event.get("Records", []):
+        try:
+            # Parse SNS message wrapped in SQS
+            body = json.loads(record["body"])
+            message = json.loads(body.get("Message", "{}"))
+
+            if message.get("event_type") != "access_request.submitted":
+                logger.info(f"Skipping unknown event type: {message.get('event_type')}")
+                continue
+
+            # Store in database
+            with Session(get_engine()) as session:
+                repo = OrganizationAccessRequestRepository(session)
+
+                # Check if already processed (idempotency)
+                existing = repo.find_by_ticket_id(message["ticket_id"])
+                if existing:
+                    logger.info(f"Request {message['ticket_id']} already exists, skipping")
+                    processed += 1
+                    continue
+
+                access_request = OrganizationAccessRequest(
+                    ticket_id=message["ticket_id"],
+                    requester_id=message["requester_id"],
+                    requester_email=message["requester_email"],
+                    organization_name=message["organization_name"],
+                    request_message=message.get("request_message"),
+                )
+                repo.create(access_request)
+                session.commit()
+                session.refresh(access_request)
+
+                logger.info(f"Stored access request: {access_request.ticket_id}")
+
+            # Send email notification
+            _send_notification_email(access_request)
+
+            processed += 1
+
+        except Exception as e:
+            logger.exception(f"Failed to process record: {e}")
+            failed += 1
+            # Re-raise to trigger SQS retry / DLQ
+            raise
+
+    return {
+        "statusCode": 200,
+        "body": json.dumps({"processed": processed, "failed": failed}),
+    }
+
+
+def _send_notification_email(request: OrganizationAccessRequest) -> None:
+    """Send email notification for new access request."""
+    support_email = os.getenv("SUPPORT_EMAIL")
+    sender_email = os.getenv("SES_SENDER_EMAIL")
+
+    if not support_email or not sender_email:
+        logger.warning("Email notification skipped: emails not configured")
+        return
+
+    try:
+        email_content = render_new_request_email(
+            ticket_id=request.ticket_id,
+            requester_email=request.requester_email,
+            organization_name=request.organization_name,
+            request_message=request.request_message,
+            submitted_at=request.created_at.isoformat() if request.created_at else "Unknown",
+        )
+
+        ses_client.send_email(
+            Source=sender_email,
+            Destination={"ToAddresses": [support_email]},
+            Message={
+                "Subject": {"Data": email_content.subject, "Charset": "UTF-8"},
+                "Body": {
+                    "Text": {"Data": email_content.body_text, "Charset": "UTF-8"},
+                    "Html": {"Data": email_content.body_html, "Charset": "UTF-8"},
+                },
+            },
+        )
+        logger.info(f"Notification email sent for {request.ticket_id}")
+    except Exception as e:
+        logger.error(f"Failed to send email: {e}")
+        # Don't re-raise - DB write succeeded, email failure is non-critical
 ```
-Manager ──▶ Step Functions Workflow ──▶ [Validate → Store → Notify → Wait → Process Decision]
+
+### Step 4: Add Repository Method for Idempotency
+
+Update `backend/src/app/db/repositories/access_request.py`:
+
+```python
+def find_by_ticket_id(self, ticket_id: str) -> Optional[OrganizationAccessRequest]:
+    """Find a request by its ticket ID.
+
+    Args:
+        ticket_id: The unique ticket ID (e.g., R00001).
+
+    Returns:
+        The request if found, None otherwise.
+    """
+    query = select(OrganizationAccessRequest).where(
+        OrganizationAccessRequest.ticket_id == ticket_id
+    )
+    return self._session.execute(query).scalar_one_or_none()
 ```
 
-**Benefits:**
-- Complete audit trail of request lifecycle
-- Built-in human approval pattern
-- Automatic timeout/escalation handling
-- Visual workflow monitoring
+---
+
+## Benefits of This Architecture
+
+| Before (DB as Queue) | After (SNS + SQS) |
+|---------------------|-------------------|
+| Sync write blocks until email sent | Async - API returns immediately |
+| Email failure fails the request | Email failure retried automatically |
+| No retry mechanism | 3 retries before DLQ |
+| Admins must poll | Instant email notification option |
+| Single point of failure | Decoupled, fault-tolerant |
+| Hard to add new consumers | Easy to add more SQS subscriptions |
 
 ---
 
 ## Implementation Checklist
 
-### For Option A (SNS + Database):
+### Infrastructure (CDK):
 
-1. [ ] Create SNS topic for access request notifications
-2. [ ] Add email subscription for admin team
-3. [ ] Update API to publish to SNS after database write
-4. [ ] Add CloudWatch alarms for failed publishes
+1. [ ] Create Dead Letter Queue for failed messages
+2. [ ] Create main SQS queue with DLQ
+3. [ ] Create SNS topic
+4. [ ] Subscribe SQS to SNS
+5. [ ] Optional: Add email subscription for instant notification
+6. [ ] Create processor Lambda
+7. [ ] Wire SQS as Lambda event source
+8. [ ] Grant admin Lambda permission to publish to SNS
 
-### For Option B (EventBridge):
+### Application Code:
 
-1. [ ] Create custom EventBridge bus
-2. [ ] Define event schema for `OrganizationAccessRequest`
-3. [ ] Create rules for: store, notify, audit
-4. [ ] Update API to publish events
-5. [ ] Add DLQ for failed deliveries
+1. [ ] Update API to publish to SNS instead of direct DB write
+2. [ ] Create processor Lambda handler
+3. [ ] Add `find_by_ticket_id` repository method for idempotency
+4. [ ] Return 202 Accepted (instead of 201) for async processing
 
-### For Option C (Step Functions):
+### Monitoring:
 
-1. [ ] Design state machine for request workflow
-2. [ ] Implement Lambda functions for each step
-3. [ ] Set up TaskToken pattern for admin approval
-4. [ ] Create API endpoint to receive admin decisions
-5. [ ] Configure execution history retention
+1. [ ] CloudWatch alarm for DLQ message count > 0
+2. [ ] CloudWatch alarm for queue age (messages stuck)
+3. [ ] Dashboard for message throughput
 
 ---
 
@@ -458,19 +791,21 @@ Manager ──▶ Step Functions Workflow ──▶ [Validate → Store → Noti
 |---------|-------------|
 | SQS | Free tier covers it |
 | SNS | Free tier covers it |
-| EventBridge | ~$0.001 |
-| Step Functions Standard | ~$0.025 |
+| Lambda | Free tier covers it |
 | SES (emails) | ~$0.10 |
 
 **Total:** < $1/month for low-volume use cases
 
 ---
 
-## Next Steps
+## When to Graduate to EventBridge
 
-1. **Decide on architecture** based on complexity needs
-2. **Start with Option A** if you just need admin notifications
-3. **Graduate to Option B** when you need multiple consumers
-4. **Use Option C** when you need full workflow orchestration
+Consider moving to EventBridge when you need:
 
-For your current use case (access requests with admin review), I recommend **starting with Option A** (SNS for notifications while keeping DB as source of truth), with a clear path to migrate to **Option B** (EventBridge) as your event-driven needs grow.
+- **Multiple event types** (not just access requests)
+- **Content-based routing** (route based on message content)
+- **Cross-account events** (events shared between AWS accounts)
+- **Schema registry** (formal event schema management)
+- **Event replay** (replay historical events for debugging/recovery)
+
+For now, SNS + SQS is the right level of complexity for your access request use case.
