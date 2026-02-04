@@ -2,12 +2,14 @@ export interface AppConfig {
   apiBaseUrl: string;
   cognitoDomain: string;
   cognitoClientId: string;
+  cognitoUserPoolId: string;
 }
 
 export const appConfig: AppConfig = {
   apiBaseUrl: process.env.NEXT_PUBLIC_API_BASE_URL ?? '',
   cognitoDomain: process.env.NEXT_PUBLIC_COGNITO_DOMAIN ?? '',
   cognitoClientId: process.env.NEXT_PUBLIC_COGNITO_CLIENT_ID ?? '',
+  cognitoUserPoolId: process.env.NEXT_PUBLIC_COGNITO_USER_POOL_ID ?? '',
 };
 
 function trimTrailingSlashes(value: string) {
@@ -24,6 +26,9 @@ export function getConfigErrors() {
   }
   if (!appConfig.cognitoClientId) {
     errors.push('NEXT_PUBLIC_COGNITO_CLIENT_ID is missing.');
+  }
+  if (!appConfig.cognitoUserPoolId) {
+    errors.push('NEXT_PUBLIC_COGNITO_USER_POOL_ID is missing.');
   }
   return errors;
 }

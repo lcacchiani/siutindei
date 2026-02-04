@@ -1,5 +1,6 @@
 'use client';
 
+import type { CognitoUser } from 'amazon-cognito-identity-js';
 import type { ReactNode } from 'react';
 
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
@@ -10,10 +11,23 @@ import {
   getUserProfile,
   startLogin,
   startLogout,
+  storeTokensFromPasswordless,
 } from '../lib/auth';
+import {
+  initiatePasswordlessSignIn,
+  respondToPasswordlessChallenge,
+  signUpPasswordlessUser,
+} from '../lib/cognito-auth';
 import { getConfigErrors } from '../lib/config';
 
 export type AuthStatus = 'loading' | 'authenticated' | 'unauthenticated';
+
+export type PasswordlessStatus =
+  | 'idle'
+  | 'sending'
+  | 'challenge'
+  | 'verifying'
+  | 'error';
 
 export interface AuthContextValue {
   status: AuthStatus;
@@ -24,6 +38,13 @@ export interface AuthContextValue {
   error: string;
   login: () => Promise<void>;
   logout: () => void;
+  // Passwordless auth
+  passwordlessStatus: PasswordlessStatus;
+  passwordlessError: string;
+  passwordlessEmail: string;
+  sendPasswordlessCode: (email: string) => Promise<void>;
+  verifyPasswordlessCode: (code: string) => Promise<void>;
+  resetPasswordless: () => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -33,6 +54,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthContextValue['user']>(null);
   const [error, setError] = useState('');
   const configErrors = useMemo(() => getConfigErrors(), []);
+
+  // Passwordless state
+  const [passwordlessStatus, setPasswordlessStatus] =
+    useState<PasswordlessStatus>('idle');
+  const [passwordlessError, setPasswordlessError] = useState('');
+  const [passwordlessEmail, setPasswordlessEmail] = useState('');
+  const [cognitoUser, setCognitoUser] = useState<CognitoUser | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -100,6 +128,83 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     startLogout();
   };
 
+  const sendPasswordlessCode = async (email: string) => {
+    const normalizedEmail = email.toLowerCase().trim();
+    if (!normalizedEmail) {
+      setPasswordlessError('Please enter your email address.');
+      setPasswordlessStatus('error');
+      return;
+    }
+
+    setPasswordlessEmail(normalizedEmail);
+    setPasswordlessError('');
+    setPasswordlessStatus('sending');
+
+    try {
+      // First, try to sign up the user (will be ignored if they already exist)
+      await signUpPasswordlessUser(normalizedEmail);
+
+      // Then initiate the passwordless sign-in
+      const user = await initiatePasswordlessSignIn(normalizedEmail);
+      setCognitoUser(user);
+      setPasswordlessStatus('challenge');
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : 'Failed to send verification code.';
+      setPasswordlessError(message);
+      setPasswordlessStatus('error');
+    }
+  };
+
+  const verifyPasswordlessCode = async (code: string) => {
+    if (!cognitoUser) {
+      setPasswordlessError('Session expired. Please request a new code.');
+      setPasswordlessStatus('error');
+      return;
+    }
+
+    const trimmedCode = code.trim();
+    if (!trimmedCode) {
+      setPasswordlessError('Please enter the verification code.');
+      setPasswordlessStatus('error');
+      return;
+    }
+
+    setPasswordlessError('');
+    setPasswordlessStatus('verifying');
+
+    try {
+      const tokens = await respondToPasswordlessChallenge(cognitoUser, trimmedCode);
+
+      // Store tokens and update auth state
+      storeTokensFromPasswordless(tokens);
+      const profile = getUserProfile({
+        accessToken: tokens.accessToken,
+        idToken: tokens.idToken,
+        refreshToken: tokens.refreshToken,
+        expiresAt: tokens.expiresAt,
+      });
+
+      setUser(profile);
+      setStatus('authenticated');
+      setPasswordlessStatus('idle');
+      setCognitoUser(null);
+      setPasswordlessEmail('');
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : 'Failed to verify code.';
+      setPasswordlessError(message);
+      setPasswordlessStatus('challenge'); // Stay in challenge state to allow retry
+    }
+  };
+
+  const resetPasswordless = () => {
+    setPasswordlessStatus('idle');
+    setPasswordlessError('');
+    setPasswordlessEmail('');
+    setCognitoUser(null);
+  };
+
   const isAdmin = Boolean(user?.groups?.includes('admin'));
   const isManager = Boolean(user?.groups?.includes('manager'));
 
@@ -112,6 +217,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     error,
     login,
     logout,
+    passwordlessStatus,
+    passwordlessError,
+    passwordlessEmail,
+    sendPasswordlessCode,
+    verifyPasswordlessCode,
+    resetPasswordless,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
