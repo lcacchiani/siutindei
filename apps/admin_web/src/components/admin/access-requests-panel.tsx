@@ -5,9 +5,11 @@ import { useEffect, useState } from 'react';
 import {
   ApiError,
   listAccessRequests,
+  listResource,
   reviewAccessRequest,
   type AccessRequest,
 } from '../../lib/api-client';
+import type { Organization } from '../../types/admin';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
 import { SearchInput } from '../ui/search-input';
@@ -24,20 +26,69 @@ interface ReviewModalProps {
   onReviewed: (updatedRequest: AccessRequest) => void;
 }
 
+type OrganizationMode = 'existing' | 'new';
+
 function ReviewModal({ request, onClose, onReviewed }: ReviewModalProps) {
   const [action, setAction] = useState<'approve' | 'reject'>('approve');
   const [message, setMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
+  // Organization selection state (for approval)
+  const [organizations, setOrganizations] = useState<Organization[]>([]);
+  const [isLoadingOrgs, setIsLoadingOrgs] = useState(false);
+  const [organizationMode, setOrganizationMode] = useState<OrganizationMode>('new');
+  const [selectedOrgId, setSelectedOrgId] = useState<string>('');
+
+  // Load organizations when modal opens
+  useEffect(() => {
+    const loadOrganizations = async () => {
+      setIsLoadingOrgs(true);
+      try {
+        const response = await listResource<Organization>('organizations');
+        setOrganizations(response.items);
+      } catch (err) {
+        // Don't show error, just fall back to create-only mode
+        console.error('Failed to load organizations:', err);
+      } finally {
+        setIsLoadingOrgs(false);
+      }
+    };
+    loadOrganizations();
+  }, []);
+
   const handleSubmit = async () => {
+    // Validate organization selection for approval
+    if (action === 'approve') {
+      if (organizationMode === 'existing' && !selectedOrgId) {
+        setError('Please select an organization');
+        return;
+      }
+    }
+
     setIsSubmitting(true);
     setError('');
     try {
-      const response = await reviewAccessRequest(request.id, {
+      const payload: {
+        action: 'approve' | 'reject';
+        message?: string;
+        organization_id?: string;
+        create_organization?: boolean;
+      } = {
         action,
         message: message.trim() || undefined,
-      });
+      };
+
+      // Add organization options for approval
+      if (action === 'approve') {
+        if (organizationMode === 'existing') {
+          payload.organization_id = selectedOrgId;
+        } else {
+          payload.create_organization = true;
+        }
+      }
+
+      const response = await reviewAccessRequest(request.id, payload);
       onReviewed(response.request);
     } catch (err) {
       const errorMessage =
@@ -65,7 +116,7 @@ function ReviewModal({ request, onClose, onReviewed }: ReviewModalProps) {
 
         <div className='mb-4 space-y-2 text-sm'>
           <p>
-            <span className='font-medium'>Organization:</span>{' '}
+            <span className='font-medium'>Requested Organization:</span>{' '}
             {request.organization_name}
           </p>
           <p className='break-all'>
@@ -91,6 +142,71 @@ function ReviewModal({ request, onClose, onReviewed }: ReviewModalProps) {
             <option value='reject'>Reject</option>
           </Select>
         </div>
+
+        {/* Organization selection - only show when approving */}
+        {action === 'approve' && (
+          <div className='mb-4 space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3'>
+            <Label>Organization Assignment</Label>
+            <p className='text-xs text-slate-500'>
+              The requester will become the manager of the selected organization.
+            </p>
+
+            <div className='flex gap-2'>
+              <label className='flex items-center gap-2'>
+                <input
+                  type='radio'
+                  name='org-mode'
+                  value='new'
+                  checked={organizationMode === 'new'}
+                  onChange={() => setOrganizationMode('new')}
+                  className='h-4 w-4 border-slate-300 text-slate-900 focus:ring-slate-500'
+                />
+                <span className='text-sm'>Create new</span>
+              </label>
+              <label className='flex items-center gap-2'>
+                <input
+                  type='radio'
+                  name='org-mode'
+                  value='existing'
+                  checked={organizationMode === 'existing'}
+                  onChange={() => setOrganizationMode('existing')}
+                  className='h-4 w-4 border-slate-300 text-slate-900 focus:ring-slate-500'
+                />
+                <span className='text-sm'>Use existing</span>
+              </label>
+            </div>
+
+            {organizationMode === 'new' ? (
+              <div className='rounded border border-slate-200 bg-white p-2 text-sm'>
+                <span className='text-slate-500'>New organization name:</span>{' '}
+                <span className='font-medium'>{request.organization_name}</span>
+              </div>
+            ) : (
+              <div>
+                {isLoadingOrgs ? (
+                  <p className='text-sm text-slate-500'>Loading organizations...</p>
+                ) : organizations.length === 0 ? (
+                  <p className='text-sm text-slate-500'>
+                    No existing organizations available. Please create a new one.
+                  </p>
+                ) : (
+                  <Select
+                    id='org-select'
+                    value={selectedOrgId}
+                    onChange={(e) => setSelectedOrgId(e.target.value)}
+                  >
+                    <option value=''>Select an organization...</option>
+                    {organizations.map((org) => (
+                      <option key={org.id} value={org.id}>
+                        {org.name}
+                      </option>
+                    ))}
+                  </Select>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         <div className='mb-4'>
           <Label htmlFor='review-message'>Message to Requester (Optional)</Label>
