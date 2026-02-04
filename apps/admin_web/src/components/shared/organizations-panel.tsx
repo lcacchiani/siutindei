@@ -6,6 +6,7 @@ import { useResourcePanel } from '../../hooks/use-resource-panel';
 import { ApiError, listCognitoUsers } from '../../lib/api-client';
 import type { ApiMode } from '../../lib/resource-api';
 import type { CognitoUser, Organization } from '../../types/admin';
+import { useAuth } from '../auth-provider';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
 import { Input } from '../ui/input';
@@ -85,6 +86,7 @@ interface OrganizationsPanelProps {
 
 export function OrganizationsPanel({ mode }: OrganizationsPanelProps) {
   const isAdmin = mode === 'admin';
+  const { user } = useAuth();
   const panel = useResourcePanel<Organization, OrganizationFormState>(
     'organizations',
     mode,
@@ -205,9 +207,9 @@ export function OrganizationsPanel({ mode }: OrganizationsPanelProps) {
                 }
               />
             </div>
-            {isAdmin && (
-              <div>
-                <Label htmlFor='org-manager'>Manager</Label>
+            <div>
+              <Label htmlFor='org-manager'>Manager</Label>
+              {isAdmin ? (
                 <Select
                   id='org-manager'
                   value={panel.formState.manager_id}
@@ -222,16 +224,26 @@ export function OrganizationsPanel({ mode }: OrganizationsPanelProps) {
                   <option value=''>
                     {isLoadingUsers ? 'Loading users...' : 'Select a manager'}
                   </option>
-                  {cognitoUsers.map((user) => (
-                    <option key={user.sub} value={user.sub}>
-                      {user.email || user.username || user.sub}
-                      {user.name ? ` (${user.name})` : ''}
+                  {cognitoUsers.map((cognitoUser) => (
+                    <option key={cognitoUser.sub} value={cognitoUser.sub}>
+                      {cognitoUser.email || cognitoUser.username || cognitoUser.sub}
+                      {cognitoUser.name ? ` (${cognitoUser.name})` : ''}
                     </option>
                   ))}
                 </Select>
-              </div>
-            )}
-            <div className={isAdmin ? 'md:col-span-2' : ''}>
+              ) : (
+                <Select
+                  id='org-manager'
+                  value={user?.email ?? ''}
+                  disabled
+                >
+                  <option value={user?.email ?? ''}>
+                    {user?.email ?? 'Unknown'}
+                  </option>
+                </Select>
+              )}
+            </div>
+            <div className='md:col-span-2'>
               <Label htmlFor='org-description'>Description</Label>
               <Textarea
                 id='org-description'
