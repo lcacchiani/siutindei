@@ -130,7 +130,7 @@ def render_new_request_email(
     """Render the new access request notification email.
 
     This email is sent to the support/admin team when a new access request
-    is submitted by an owner.
+    is submitted by a manager.
 
     Args:
         ticket_id: Unique ticket identifier (e.g., HK1234567890)

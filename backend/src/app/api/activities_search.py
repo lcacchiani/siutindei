@@ -153,7 +153,7 @@ def map_row_to_result(row: Any) -> ActivitySearchResultSchema:
             id=str(organization.id),
             name=organization.name,
             description=organization.description,
-            owner_id=organization.owner_id,
+            manager_id=organization.manager_id,
             media_urls=organization.media_urls or [],
         ),
         location=LocationSchema(

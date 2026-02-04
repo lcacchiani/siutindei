@@ -16,7 +16,7 @@ import {
 import { AccessRequestsPanel } from './access-requests-panel';
 import { CognitoUsersPanel } from './cognito-users-panel';
 import { MediaPanel } from './media-panel';
-import { OwnerDashboard } from './owner-dashboard';
+import { ManagerDashboard } from './manager-dashboard';
 
 const sectionLabels = [
   { key: 'organizations', label: 'Organizations' },
@@ -30,7 +30,7 @@ const sectionLabels = [
 ];
 
 export function AdminDashboard() {
-  const { status, user, isAdmin, isOwner, logout, error } = useAuth();
+  const { status, user, isAdmin, isManager, logout, error } = useAuth();
   const [activeSection, setActiveSection] = useState('organizations');
 
   const activeContent = useMemo(() => {
@@ -69,14 +69,14 @@ export function AdminDashboard() {
     return <LoginScreen />;
   }
 
-  // If user is in the owner group but NOT in the admin group,
-  // show the owner-specific experience
-  if (isOwner && !isAdmin) {
-    return <OwnerDashboard />;
+  // If user is in the manager group but NOT in the admin group,
+  // show the manager-specific experience
+  if (isManager && !isAdmin) {
+    return <ManagerDashboard />;
   }
 
-  // If user is neither admin nor owner, show access denied
-  if (!isAdmin && !isOwner) {
+  // If user is neither admin nor manager, show access denied
+  if (!isAdmin && !isManager) {
     return (
       <AppShell
         sections={[]}

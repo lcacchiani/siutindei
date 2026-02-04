@@ -20,7 +20,7 @@ function RoleBadge({
   role,
   isActive,
 }: {
-  role: 'admin' | 'owner';
+  role: 'admin' | 'manager';
   isActive: boolean;
 }) {
   const colors = isActive
@@ -143,7 +143,7 @@ export function CognitoUsersPanel() {
 
   const handleToggleRole = async (
     targetUser: CognitoUser,
-    role: 'admin' | 'owner',
+    role: 'admin' | 'manager',
     currentlyHasRole: boolean
   ) => {
     if (!targetUser.username) {
@@ -244,7 +244,7 @@ export function CognitoUsersPanel() {
     <div className='space-y-6'>
       <Card
         title='Cognito Users'
-        description='Manage user roles across all identity providers. Promote or demote users to Admin or Owner roles.'
+        description='Manage user roles across all identity providers. Promote or demote users to Admin or Manager roles.'
       >
         {error && (
           <div className='mb-4'>
@@ -295,7 +295,7 @@ export function CognitoUsersPanel() {
               <tbody>
                 {filteredUsers.map((cognitoUser) => {
                   const hasAdminRole = cognitoUser.groups?.includes('admin') || false;
-                  const hasOwnerRole = cognitoUser.groups?.includes('owner') || false;
+                  const hasManagerRole = cognitoUser.groups?.includes('manager') || false;
                   const isCurrent = isCurrentUser(cognitoUser);
 
                   return (
@@ -323,7 +323,7 @@ export function CognitoUsersPanel() {
                       <td className='py-2'>
                         <div className='flex gap-1'>
                           <RoleBadge role='admin' isActive={hasAdminRole} />
-                          <RoleBadge role='owner' isActive={hasOwnerRole} />
+                          <RoleBadge role='manager' isActive={hasManagerRole} />
                         </div>
                       </td>
                       <td className='py-2 text-slate-600'>
@@ -357,17 +357,17 @@ export function CognitoUsersPanel() {
                             <Button
                               type='button'
                               size='sm'
-                              variant={hasOwnerRole ? 'danger' : 'secondary'}
+                              variant={hasManagerRole ? 'danger' : 'secondary'}
                               onClick={() =>
-                                handleToggleRole(cognitoUser, 'owner', hasOwnerRole)
+                                handleToggleRole(cognitoUser, 'manager', hasManagerRole)
                               }
-                              disabled={actionLoading === `${cognitoUser.sub}-owner`}
+                              disabled={actionLoading === `${cognitoUser.sub}-manager`}
                             >
-                              {actionLoading === `${cognitoUser.sub}-owner`
+                              {actionLoading === `${cognitoUser.sub}-manager`
                                 ? '...'
-                                : hasOwnerRole
-                                  ? 'Remove Owner'
-                                  : 'Make Owner'}
+                                : hasManagerRole
+                                  ? 'Remove Manager'
+                                  : 'Make Manager'}
                             </Button>
                           </div>
                         )}
@@ -383,7 +383,7 @@ export function CognitoUsersPanel() {
             <div className='space-y-3 lg:hidden'>
               {filteredUsers.map((cognitoUser) => {
                 const hasAdminRole = cognitoUser.groups?.includes('admin') || false;
-                const hasOwnerRole = cognitoUser.groups?.includes('owner') || false;
+                const hasManagerRole = cognitoUser.groups?.includes('manager') || false;
                 const isCurrent = isCurrentUser(cognitoUser);
 
                 return (
@@ -414,7 +414,7 @@ export function CognitoUsersPanel() {
                     <div className='mt-2 flex items-center justify-between text-sm'>
                       <div className='flex gap-1'>
                         <RoleBadge role='admin' isActive={hasAdminRole} />
-                        <RoleBadge role='owner' isActive={hasOwnerRole} />
+                        <RoleBadge role='manager' isActive={hasManagerRole} />
                       </div>
                       <span className='text-slate-500'>
                         Created: {formatDate(cognitoUser.created_at)}
@@ -451,18 +451,18 @@ export function CognitoUsersPanel() {
                           <Button
                             type='button'
                             size='sm'
-                            variant={hasOwnerRole ? 'danger' : 'secondary'}
+                            variant={hasManagerRole ? 'danger' : 'secondary'}
                             onClick={() =>
-                              handleToggleRole(cognitoUser, 'owner', hasOwnerRole)
+                              handleToggleRole(cognitoUser, 'manager', hasManagerRole)
                             }
-                            disabled={actionLoading === `${cognitoUser.sub}-owner`}
+                            disabled={actionLoading === `${cognitoUser.sub}-manager`}
                             className='flex-1'
                           >
-                            {actionLoading === `${cognitoUser.sub}-owner`
+                            {actionLoading === `${cognitoUser.sub}-manager`
                               ? '...'
-                              : hasOwnerRole
-                                ? 'Remove Owner'
-                                : 'Make Owner'}
+                              : hasManagerRole
+                                ? 'Remove Manager'
+                                : 'Make Manager'}
                           </Button>
                         </div>
                       )}

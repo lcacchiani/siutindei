@@ -224,7 +224,7 @@ export function AccessRequestsPanel() {
     <div className='space-y-6'>
       <Card
         title='Access Requests'
-        description='Review and manage organization access requests from owners.'
+        description='Review and manage organization access requests from managers.'
       >
         {error && (
           <div className='mb-4'>

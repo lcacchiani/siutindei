@@ -83,8 +83,8 @@ class ResourceConfig:
     serializer: Callable[[Any], dict[str, Any]]
     create_handler: Callable[..., Any]
     update_handler: Callable[..., Any]
-    # Optional: different update handler for owner routes (e.g., to restrict fields)
-    owner_update_handler: Optional[Callable[..., Any]] = None
+    # Optional: different update handler for manager routes (e.g., to restrict fields)
+    manager_update_handler: Optional[Callable[..., Any]] = None
 
 
 def lambda_handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
@@ -107,9 +107,13 @@ def lambda_handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
         },
     )
 
-    # Handle /v1/owner/... routes (for users in 'owner' or 'admin' group)
-    if base_path == "owner":
-        return _handle_owner_routes(event, method, resource, resource_id)
+    # Handle /v1/user/... routes (for any logged-in user)
+    if base_path == "user":
+        return _handle_user_routes(event, method, resource, resource_id)
+
+    # Handle /v1/manager/... routes (for users in 'manager' or 'admin' group)
+    if base_path == "manager":
+        return _handle_manager_routes(event, method, resource, resource_id)
 
     # All /v1/admin/... routes require admin access
     if base_path != "admin":
@@ -174,9 +178,9 @@ def _safe_handler(
 
 
 # --- Unified CRUD Handlers ---
-# These handlers work for both admin (full access) and owner (filtered) routes.
-# When owned_org_ids is None, no filtering is applied (admin mode).
-# When owned_org_ids is set, resources are filtered by ownership (owner mode).
+# These handlers work for both admin (full access) and manager (filtered) routes.
+# When managed_org_ids is None, no filtering is applied (admin mode).
+# When managed_org_ids is set, resources are filtered by management (manager mode).
 
 
 def _handle_crud(
@@ -184,29 +188,29 @@ def _handle_crud(
     method: str,
     config: ResourceConfig,
     resource_id: Optional[str],
-    owned_org_ids: Optional[set[str]] = None,
+    managed_org_ids: Optional[set[str]] = None,
 ) -> dict[str, Any]:
-    """Unified CRUD handler for both admin and owner routes.
+    """Unified CRUD handler for both admin and manager routes.
 
     Args:
         event: The Lambda event.
         method: HTTP method (GET, POST, PUT, DELETE).
         config: Resource configuration.
         resource_id: Optional specific resource ID.
-        owned_org_ids: If set, filter/validate by organization ownership.
+        managed_org_ids: If set, filter/validate by organization management.
 
     Returns:
         API Gateway response.
     """
     with Session(get_engine()) as session:
         if method == "GET":
-            return _crud_get(event, session, config, resource_id, owned_org_ids)
+            return _crud_get(event, session, config, resource_id, managed_org_ids)
         if method == "POST":
-            return _crud_post(event, session, config, owned_org_ids)
+            return _crud_post(event, session, config, managed_org_ids)
         if method == "PUT":
-            return _crud_put(event, session, config, resource_id, owned_org_ids)
+            return _crud_put(event, session, config, resource_id, managed_org_ids)
         if method == "DELETE":
-            return _crud_delete(event, session, config, resource_id, owned_org_ids)
+            return _crud_delete(event, session, config, resource_id, managed_org_ids)
 
     return json_response(405, {"error": "Method not allowed"}, event=event)
 
@@ -216,9 +220,9 @@ def _crud_get(
     session: Session,
     config: ResourceConfig,
     resource_id: Optional[str],
-    owned_org_ids: Optional[set[str]] = None,
+    managed_org_ids: Optional[set[str]] = None,
 ) -> dict[str, Any]:
-    """Handle GET requests with optional ownership filtering."""
+    """Handle GET requests with optional management filtering."""
     limit = parse_int(_query_param(event, "limit")) or 50
     if limit < 1 or limit > 200:
         raise ValidationError("limit must be between 1 and 200", field="limit")
@@ -229,10 +233,10 @@ def _crud_get(
         entity = repo.get_by_id(_parse_uuid(resource_id))
         if entity is None:
             raise NotFoundError(config.name, resource_id)
-        # Check ownership if filtering is enabled
-        if owned_org_ids is not None:
+        # Check management if filtering is enabled
+        if managed_org_ids is not None:
             entity_org_id = _get_entity_org_id(entity, session)
-            if entity_org_id not in owned_org_ids:
+            if entity_org_id not in managed_org_ids:
                 return json_response(
                     403,
                     {"error": "You don't have access to this resource"},
@@ -242,9 +246,9 @@ def _crud_get(
 
     # List resources
     cursor = _parse_cursor(_query_param(event, "cursor"))
-    if owned_org_ids is not None:
+    if managed_org_ids is not None:
         rows = _get_all_filtered_by_org(
-            session, config, owned_org_ids, limit + 1, cursor
+            session, config, managed_org_ids, limit + 1, cursor
         )
     else:
         rows = repo.get_all(limit=limit + 1, cursor=cursor)
@@ -267,27 +271,27 @@ def _crud_post(
     event: Mapping[str, Any],
     session: Session,
     config: ResourceConfig,
-    owned_org_ids: Optional[set[str]] = None,
+    managed_org_ids: Optional[set[str]] = None,
 ) -> dict[str, Any]:
-    """Handle POST requests with optional ownership validation."""
+    """Handle POST requests with optional management validation."""
     body = _parse_body(event)
 
-    # Validate ownership if filtering is enabled
-    if owned_org_ids is not None:
+    # Validate management if filtering is enabled
+    if managed_org_ids is not None:
         org_id = _get_org_id_from_body(body, config.name)
-        if org_id and org_id not in owned_org_ids:
+        if org_id and org_id not in managed_org_ids:
             return json_response(
                 403,
                 {"error": "You don't have access to this organization"},
                 event=event,
             )
-        # For pricing/schedules, verify ownership through activity
+        # For pricing/schedules, verify management through activity
         if config.name in ("pricing", "schedules"):
             activity_id = body.get("activity_id")
             if activity_id:
                 activity_repo = ActivityRepository(session)
                 activity = activity_repo.get_by_id(_parse_uuid(activity_id))
-                if activity and str(activity.org_id) not in owned_org_ids:
+                if activity and str(activity.org_id) not in managed_org_ids:
                     return json_response(
                         403,
                         {"error": "You don't have access to this activity"},
@@ -308,9 +312,9 @@ def _crud_put(
     session: Session,
     config: ResourceConfig,
     resource_id: Optional[str],
-    owned_org_ids: Optional[set[str]] = None,
+    managed_org_ids: Optional[set[str]] = None,
 ) -> dict[str, Any]:
-    """Handle PUT requests with optional ownership validation."""
+    """Handle PUT requests with optional management validation."""
     if not resource_id:
         raise ValidationError("Resource id is required", field="id")
 
@@ -319,19 +323,19 @@ def _crud_put(
     if entity is None:
         raise NotFoundError(config.name, resource_id)
 
-    # Check ownership if filtering is enabled
-    if owned_org_ids is not None:
+    # Check management if filtering is enabled
+    if managed_org_ids is not None:
         entity_org_id = _get_entity_org_id(entity, session)
-        if entity_org_id not in owned_org_ids:
+        if entity_org_id not in managed_org_ids:
             return json_response(
                 403, {"error": "You don't have access to this resource"}, event=event
             )
 
     body = _parse_body(event)
 
-    # Use owner-specific update handler if available and in owner mode
-    if owned_org_ids is not None and config.owner_update_handler is not None:
-        update_handler = config.owner_update_handler
+    # Use manager-specific update handler if available and in manager mode
+    if managed_org_ids is not None and config.manager_update_handler is not None:
+        update_handler = config.manager_update_handler
     else:
         update_handler = config.update_handler
 
@@ -348,9 +352,9 @@ def _crud_delete(
     session: Session,
     config: ResourceConfig,
     resource_id: Optional[str],
-    owned_org_ids: Optional[set[str]] = None,
+    managed_org_ids: Optional[set[str]] = None,
 ) -> dict[str, Any]:
-    """Handle DELETE requests with optional ownership validation."""
+    """Handle DELETE requests with optional management validation."""
     if not resource_id:
         raise ValidationError("Resource id is required", field="id")
 
@@ -359,10 +363,10 @@ def _crud_delete(
     if entity is None:
         raise NotFoundError(config.name, resource_id)
 
-    # Check ownership if filtering is enabled
-    if owned_org_ids is not None:
+    # Check management if filtering is enabled
+    if managed_org_ids is not None:
         entity_org_id = _get_entity_org_id(entity, session)
-        if entity_org_id not in owned_org_ids:
+        if entity_org_id not in managed_org_ids:
             return json_response(
                 403, {"error": "You don't have access to this resource"}, event=event
             )
@@ -394,7 +398,7 @@ def _parse_path(
 
     Returns:
         Tuple of (base_path, resource, resource_id, sub_resource)
-        base_path is either "admin" or "owner"
+        base_path is either "admin", "manager", or "user"
     """
     parts = [segment for segment in path.split("/") if segment]
     parts = _strip_version_prefix(parts)
@@ -413,8 +417,15 @@ def _parse_path(
         sub_resource = parts[3] if len(parts) > 3 else None
         return base_path, resource, resource_id, sub_resource
 
-    # Handle /v1/owner/... paths
-    if base_path == "owner":
+    # Handle /v1/manager/... paths
+    if base_path == "manager":
+        resource = parts[1] if len(parts) > 1 else ""
+        resource_id = parts[2] if len(parts) > 2 else None
+        sub_resource = parts[3] if len(parts) > 3 else None
+        return base_path, resource, resource_id, sub_resource
+
+    # Handle /v1/user/... paths
+    if base_path == "user":
         resource = parts[1] if len(parts) > 1 else ""
         resource_id = parts[2] if len(parts) > 2 else None
         sub_resource = parts[3] if len(parts) > 3 else None
@@ -490,12 +501,12 @@ def _is_admin(event: Mapping[str, Any]) -> bool:
     return admin_group in groups.split(",") if groups else False
 
 
-def _is_owner(event: Mapping[str, Any]) -> bool:
-    """Return True when request belongs to an owner user."""
+def _is_manager(event: Mapping[str, Any]) -> bool:
+    """Return True when request belongs to a manager user."""
     ctx = _get_authorizer_context(event)
     groups = ctx.get("groups", "")
-    owner_group = os.getenv("OWNER_GROUP", "owner")
-    return owner_group in groups.split(",") if groups else False
+    manager_group = os.getenv("MANAGER_GROUP", "manager")
+    return manager_group in groups.split(",") if groups else False
 
 
 def _get_user_sub(event: Mapping[str, Any]) -> Optional[str]:
@@ -510,11 +521,11 @@ def _get_user_email(event: Mapping[str, Any]) -> Optional[str]:
     return ctx.get("email") or None
 
 
-def _get_owned_organization_ids(event: Mapping[str, Any]) -> set[str]:
-    """Get the IDs of organizations owned by the current user.
+def _get_managed_organization_ids(event: Mapping[str, Any]) -> set[str]:
+    """Get the IDs of organizations managed by the current user.
 
     Returns:
-        Set of organization IDs (as strings) owned by the user.
+        Set of organization IDs (as strings) managed by the user.
     """
     user_sub = _get_user_sub(event)
     if not user_sub:
@@ -522,7 +533,7 @@ def _get_owned_organization_ids(event: Mapping[str, Any]) -> set[str]:
 
     with Session(get_engine()) as session:
         repo = OrganizationRepository(session)
-        orgs = repo.find_by_owner(user_sub)
+        orgs = repo.find_by_manager(user_sub)
         return {str(org.id) for org in orgs}
 
 
@@ -573,40 +584,40 @@ def _get_org_id_from_body(body: dict[str, Any], resource_name: str) -> Optional[
 def _get_all_filtered_by_org(
     session: Session,
     config: ResourceConfig,
-    owned_org_ids: set[str],
+    managed_org_ids: set[str],
     limit: int,
     cursor: Optional[UUID],
 ) -> Sequence[Any]:
-    """Get all entities filtered by organization ownership.
+    """Get all entities filtered by organization management.
 
     Args:
         session: Database session.
         config: Resource configuration.
-        owned_org_ids: Set of owned organization IDs.
+        managed_org_ids: Set of managed organization IDs.
         limit: Maximum results to return.
         cursor: Optional pagination cursor.
 
     Returns:
-        Sequence of entities belonging to the owned organizations.
+        Sequence of entities belonging to the managed organizations.
     """
     model = config.model
 
     # Build base query based on model type
     if model == Organization:
         # Organization - filter by entity ID
-        query = select(model).where(model.id.in_(owned_org_ids))
+        query = select(model).where(model.id.in_(managed_org_ids))
     elif hasattr(model, "org_id"):
         # Direct org_id (Location, Activity)
-        query = select(model).where(model.org_id.in_(owned_org_ids))
+        query = select(model).where(model.org_id.in_(managed_org_ids))
     elif hasattr(model, "activity_id"):
         # Through activity (Pricing, Schedule)
         query = (
             select(model)
             .join(Activity, model.activity_id == Activity.id)
-            .where(Activity.org_id.in_(owned_org_ids))
+            .where(Activity.org_id.in_(managed_org_ids))
         )
     else:
-        # Fallback - shouldn't happen for owner-accessible resources
+        # Fallback - shouldn't happen for manager-accessible resources
         query = select(model)
 
     # Add cursor pagination
@@ -618,59 +629,72 @@ def _get_all_filtered_by_org(
     return session.execute(query).scalars().all()
 
 
-# --- Owner-specific routes ---
+# --- Manager-specific routes ---
 
 
-def _handle_owner_routes(
+def _handle_user_routes(
     event: Mapping[str, Any],
     method: str,
     resource: str,
     resource_id: Optional[str],
 ) -> dict[str, Any]:
-    """Handle routes accessible to users in the 'owner' group.
+    """Handle routes accessible to any logged-in Cognito user.
 
-    All owner routes filter data by organization ownership.
-
-    Owner routes:
-        /v1/owner/organizations - CRUD for owned organizations
-        /v1/owner/locations - CRUD for locations in owned organizations
-        /v1/owner/activities - CRUD for activities in owned organizations
-        /v1/owner/pricing - CRUD for pricing in owned organizations
-        /v1/owner/schedules - CRUD for schedules in owned organizations
-        /v1/owner/access-request - Request access to an organization
+    User routes:
+        /v1/user/access-request - Request access to become a manager
     """
-    # Check if user is in owner group (or admin group - admins can do everything)
-    if not _is_owner(event) and not _is_admin(event):
-        logger.warning("Unauthorized owner access attempt")
-        return json_response(403, {"error": "Forbidden"}, event=event)
-
-    # Access request (doesn't require ownership)
+    # Access request - any logged-in user can request
     if resource == "access-request":
         return _safe_handler(
-            lambda: _handle_owner_access_request(event, method),
+            lambda: _handle_user_access_request(event, method),
             event,
         )
 
-    # Resources that can be managed by owners
-    owner_resources = {
+    return json_response(404, {"error": "Not found"}, event=event)
+
+
+def _handle_manager_routes(
+    event: Mapping[str, Any],
+    method: str,
+    resource: str,
+    resource_id: Optional[str],
+) -> dict[str, Any]:
+    """Handle routes accessible to users in the 'manager' group.
+
+    All manager routes filter data by organization management.
+
+    Manager routes:
+        /v1/manager/organizations - CRUD for managed organizations
+        /v1/manager/locations - CRUD for locations in managed organizations
+        /v1/manager/activities - CRUD for activities in managed organizations
+        /v1/manager/pricing - CRUD for pricing in managed organizations
+        /v1/manager/schedules - CRUD for schedules in managed organizations
+    """
+    # Check if user is in manager group (or admin group - admins can do everything)
+    if not _is_manager(event) and not _is_admin(event):
+        logger.warning("Unauthorized manager access attempt")
+        return json_response(403, {"error": "Forbidden"}, event=event)
+
+    # Resources that can be managed by managers
+    manager_resources = {
         "organizations",
         "locations",
         "activities",
         "pricing",
         "schedules",
     }
-    if resource not in owner_resources:
+    if resource not in manager_resources:
         return json_response(404, {"error": "Not found"}, event=event)
 
-    # Get owned organization IDs for filtering
-    owned_org_ids = _get_owned_organization_ids(event)
+    # Get managed organization IDs for filtering
+    managed_org_ids = _get_managed_organization_ids(event)
 
     # Handle no organizations case
-    if not owned_org_ids:
+    if not managed_org_ids:
         if method == "GET" and not resource_id:
             return json_response(200, {"items": [], "next_cursor": None}, event=event)
         return json_response(
-            403, {"error": "You don't own any organizations"}, event=event
+            403, {"error": "You don't manage any organizations"}, event=event
         )
 
     # Get resource configuration
@@ -678,21 +702,21 @@ def _handle_owner_routes(
     if not config:
         return json_response(404, {"error": "Not found"}, event=event)
 
-    # Use unified CRUD handler with ownership filtering
+    # Use unified CRUD handler with management filtering
     return _safe_handler(
-        lambda: _handle_crud(event, method, config, resource_id, owned_org_ids),
+        lambda: _handle_crud(event, method, config, resource_id, managed_org_ids),
         event,
     )
 
 
-def _update_organization_for_owner(
+def _update_organization_for_manager(
     repo: OrganizationRepository,
     entity: Organization,
     body: dict[str, Any],
 ) -> Organization:
-    """Update an organization for an owner (limited fields).
+    """Update an organization for a manager (limited fields).
 
-    Owners cannot change the owner_id field.
+    Managers cannot change the manager_id field.
     The repo parameter is unused but included for signature compatibility.
     """
     del repo  # Unused, for signature compatibility
@@ -713,11 +737,13 @@ def _update_organization_for_owner(
     return entity
 
 
-def _handle_owner_access_request(
+def _handle_user_access_request(
     event: Mapping[str, Any],
     method: str,
 ) -> dict[str, Any]:
-    """Handle owner access request operations.
+    """Handle user access request operations.
+
+    Any logged-in user can request to become a manager of an organization.
 
     GET: Check if user has a pending access request
     POST: Submit a new access request (if none pending)
@@ -735,7 +761,7 @@ def _handle_owner_access_request(
             request_repo = OrganizationAccessRequestRepository(session)
 
             # Get user's organizations
-            user_orgs = org_repo.find_by_owner(user_sub)
+            user_orgs = org_repo.find_by_manager(user_sub)
 
             # Check for pending request
             pending_request = request_repo.find_pending_by_requester(user_sub)
@@ -1149,10 +1175,10 @@ def _handle_user_group(
 
 
 def _handle_list_cognito_users(event: Mapping[str, Any]) -> dict[str, Any]:
-    """List Cognito users for owner selection.
+    """List Cognito users for manager selection.
 
     Returns a paginated list of users from the Cognito user pool with their
-    sub (to use as owner_id), email, and other relevant attributes.
+    sub (to use as manager_id), email, and other relevant attributes.
 
     Query parameters:
         - limit: Maximum number of users to return (default 50, max 60)
@@ -1228,7 +1254,7 @@ def _serialize_cognito_user(user: dict[str, Any]) -> Optional[dict[str, Any]]:
 
     attributes = {attr["Name"]: attr["Value"] for attr in user.get("Attributes", [])}
 
-    # The sub attribute is required - it's the owner_id
+    # The sub attribute is required - it's the manager_id
     sub = attributes.get("sub")
     if not sub:
         return None
@@ -1494,7 +1520,7 @@ def _create_organization(
     description = _validate_string_length(
         body.get("description"), "description", MAX_DESCRIPTION_LENGTH
     )
-    owner_id = _validate_owner_id(body.get("owner_id"), required=True)
+    manager_id = _validate_manager_id(body.get("manager_id"), required=True)
     media_urls = _parse_media_urls(body.get("media_urls"))
     if media_urls:
         media_urls = _validate_media_urls(media_urls)
@@ -1502,7 +1528,7 @@ def _create_organization(
     return Organization(
         name=name,
         description=description,
-        owner_id=owner_id,
+        manager_id=manager_id,
         media_urls=media_urls,
     )
 
@@ -1524,9 +1550,9 @@ def _update_organization(
         entity.description = _validate_string_length(
             body["description"], "description", MAX_DESCRIPTION_LENGTH
         )
-    if "owner_id" in body:
-        # owner_id is required, so if provided it must be a valid UUID
-        entity.owner_id = _validate_owner_id(body["owner_id"], required=True)  # type: ignore[assignment]
+    if "manager_id" in body:
+        # manager_id is required, so if provided it must be a valid UUID
+        entity.manager_id = _validate_manager_id(body["manager_id"], required=True)  # type: ignore[assignment]
     if "media_urls" in body:
         media_urls = _parse_media_urls(body["media_urls"])
         if media_urls:
@@ -1542,7 +1568,7 @@ def _serialize_organization(entity: Organization) -> dict[str, Any]:
         "id": str(entity.id),
         "name": entity.name,
         "description": entity.description,
-        "owner_id": entity.owner_id,
+        "manager_id": entity.manager_id,
         "media_urls": entity.media_urls or [],
         "created_at": entity.created_at,
         "updated_at": entity.updated_at,
@@ -2044,45 +2070,45 @@ def _validate_currency(currency: str) -> str:
     return currency
 
 
-def _validate_owner_id(owner_id: Any, required: bool = False) -> Optional[str]:
-    """Validate and sanitize a Cognito user sub (owner_id).
+def _validate_manager_id(manager_id: Any, required: bool = False) -> Optional[str]:
+    """Validate and sanitize a Cognito user sub (manager_id).
 
-    The owner_id should be a valid Cognito user sub, which is a UUID string.
+    The manager_id should be a valid Cognito user sub, which is a UUID string.
 
     Args:
-        owner_id: The owner_id value to validate.
-        required: Whether the owner_id is required.
+        manager_id: The manager_id value to validate.
+        required: Whether the manager_id is required.
 
     Returns:
-        The validated owner_id string, or None if empty/None and not required.
+        The validated manager_id string, or None if empty/None and not required.
 
     Raises:
-        ValidationError: If the owner_id format is invalid or missing when required.
+        ValidationError: If the manager_id format is invalid or missing when required.
     """
-    if owner_id is None:
+    if manager_id is None:
         if required:
-            raise ValidationError("owner_id is required", field="owner_id")
+            raise ValidationError("manager_id is required", field="manager_id")
         return None
 
-    if not isinstance(owner_id, str):
-        owner_id = str(owner_id)
+    if not isinstance(manager_id, str):
+        manager_id = str(manager_id)
 
-    owner_id = owner_id.strip()
+    manager_id = manager_id.strip()
 
-    if not owner_id:
+    if not manager_id:
         if required:
-            raise ValidationError("owner_id is required", field="owner_id")
+            raise ValidationError("manager_id is required", field="manager_id")
         return None
 
     # Cognito user sub is a UUID, validate format
     try:
         # Parse and re-format to ensure consistent UUID format
-        parsed = UUID(owner_id)
+        parsed = UUID(manager_id)
         return str(parsed)
     except (ValueError, TypeError) as e:
         raise ValidationError(
-            "owner_id must be a valid UUID (Cognito user sub)",
-            field="owner_id",
+            "manager_id must be a valid UUID (Cognito user sub)",
+            field="manager_id",
         ) from e
 
 
@@ -2372,7 +2398,7 @@ _RESOURCE_CONFIG = {
         serializer=_serialize_organization,
         create_handler=_create_organization,
         update_handler=_update_organization,
-        owner_update_handler=_update_organization_for_owner,
+        manager_update_handler=_update_organization_for_manager,
     ),
     "locations": ResourceConfig(
         name="locations",

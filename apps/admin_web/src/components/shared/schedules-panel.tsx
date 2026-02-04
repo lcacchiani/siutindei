@@ -5,8 +5,8 @@ import { useEffect, useState } from 'react';
 import { useResourcePanel } from '../../hooks/use-resource-panel';
 import {
   listResource,
-  listOwnerActivities,
-  listOwnerLocations,
+  listManagerActivities,
+  listManagerLocations,
 } from '../../lib/api-client';
 import type { ApiMode } from '../../lib/resource-api';
 import type { Activity, ActivitySchedule, Location } from '../../types/admin';
@@ -139,8 +139,8 @@ export function SchedulesPanel({ mode }: SchedulesPanelProps) {
           setLocations(locationsResponse.items);
         } else {
           const [activitiesResponse, locationsResponse] = await Promise.all([
-            listOwnerActivities(),
-            listOwnerLocations(),
+            listManagerActivities(),
+            listManagerLocations(),
           ]);
           setActivities(activitiesResponse.items);
           setLocations(locationsResponse.items);

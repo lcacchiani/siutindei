@@ -12,7 +12,7 @@ test.describe('Organizations Panel', () => {
 
     // Check form fields
     await expect(adminPage.getByLabel('Name')).toBeVisible();
-    await expect(adminPage.getByLabel('Owner')).toBeVisible();
+    await expect(adminPage.getByLabel('Manager')).toBeVisible();
     await expect(adminPage.getByLabel('Description')).toBeVisible();
 
     // Check for submit button
@@ -25,7 +25,7 @@ test.describe('Organizations Panel', () => {
 
     // Check for table headers
     await expect(adminPage.getByRole('columnheader', { name: 'Name' })).toBeVisible();
-    await expect(adminPage.getByRole('columnheader', { name: 'Owner' })).toBeVisible();
+    await expect(adminPage.getByRole('columnheader', { name: 'Manager' })).toBeVisible();
     await expect(adminPage.getByRole('columnheader', { name: 'Description' })).toBeVisible();
     await expect(adminPage.getByRole('columnheader', { name: 'Actions' })).toBeVisible();
 
@@ -34,15 +34,15 @@ test.describe('Organizations Panel', () => {
     await expect(adminPage.getByText('Test Organization 2')).toBeVisible();
   });
 
-  test('should display owner selector with Cognito users', async ({ adminPage }) => {
-    const ownerSelect = adminPage.getByLabel('Owner');
-    await expect(ownerSelect).toBeVisible();
+  test('should display manager selector with Cognito users', async ({ adminPage }) => {
+    const managerSelect = adminPage.getByLabel('Manager');
+    await expect(managerSelect).toBeVisible();
 
     // Click to open the select
-    await ownerSelect.click();
+    await managerSelect.click();
 
     // Check that users are available in the dropdown
-    await expect(adminPage.locator('option').filter({ hasText: 'owner@example.com' })).toBeVisible();
+    await expect(adminPage.locator('option').filter({ hasText: 'manager@example.com' })).toBeVisible();
   });
 
   test('should validate required fields on submit', async ({ adminPage }) => {
@@ -53,24 +53,24 @@ test.describe('Organizations Panel', () => {
     await expect(adminPage.getByText('Name is required.')).toBeVisible();
   });
 
-  test('should validate owner field on submit', async ({ adminPage }) => {
+  test('should validate manager field on submit', async ({ adminPage }) => {
     // Fill only name
     await adminPage.getByLabel('Name').fill('Test Org');
 
-    // Try to submit without owner
+    // Try to submit without manager
     await adminPage.getByRole('button', { name: 'Add Organization' }).click();
 
-    // Should show error message for owner
-    await expect(adminPage.getByText('Owner is required.')).toBeVisible();
+    // Should show error message for manager
+    await expect(adminPage.getByText('Manager is required.')).toBeVisible();
   });
 
   test('should fill out the organization form', async ({ adminPage }) => {
     // Fill name
     await adminPage.getByLabel('Name').fill('New Test Organization');
 
-    // Select owner
-    const ownerSelect = adminPage.getByLabel('Owner');
-    await ownerSelect.selectOption({ label: /owner@example\.com/ });
+    // Select manager
+    const managerSelect = adminPage.getByLabel('Manager');
+    await managerSelect.selectOption({ label: /manager@example\.com/ });
 
     // Fill description
     await adminPage.getByLabel('Description').fill('This is a test organization description');
@@ -85,7 +85,7 @@ test.describe('Organizations Panel', () => {
   test('should create a new organization', async ({ adminPage }) => {
     // Fill the form
     await adminPage.getByLabel('Name').fill('Brand New Organization');
-    await adminPage.getByLabel('Owner').selectOption({ index: 1 }); // Select first user
+    await adminPage.getByLabel('Manager').selectOption({ index: 1 }); // Select first user
     await adminPage.getByLabel('Description').fill('A brand new organization');
 
     // Submit the form
@@ -208,7 +208,7 @@ test.describe('Organizations Panel', () => {
   });
 });
 
-test.describe('Organizations Panel - Admin vs Owner', () => {
+test.describe('Organizations Panel - Admin vs Manager', () => {
   test('admin should see all organizations', async ({ adminPage }) => {
     await adminPage.goto('/');
 
@@ -217,18 +217,18 @@ test.describe('Organizations Panel - Admin vs Owner', () => {
     await expect(adminPage.getByText('Test Organization 2')).toBeVisible();
   });
 
-  test('admin should see owner column', async ({ adminPage }) => {
+  test('admin should see manager column', async ({ adminPage }) => {
     await adminPage.goto('/');
 
-    // Should see Owner column header
-    await expect(adminPage.getByRole('columnheader', { name: 'Owner' })).toBeVisible();
+    // Should see Manager column header
+    await expect(adminPage.getByRole('columnheader', { name: 'Manager' })).toBeVisible();
   });
 
-  test('admin should see owner selector in form', async ({ adminPage }) => {
+  test('admin should see manager selector in form', async ({ adminPage }) => {
     await adminPage.goto('/');
 
-    // Should see Owner field
-    await expect(adminPage.getByLabel('Owner')).toBeVisible();
+    // Should see Manager field
+    await expect(adminPage.getByLabel('Manager')).toBeVisible();
   });
 
   test('admin should be able to create new organizations', async ({ adminPage }) => {

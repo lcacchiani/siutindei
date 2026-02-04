@@ -14,7 +14,7 @@ sys.path.append(str(Path(__file__).resolve().parents[1] / "backend" / "src"))
 from app.api.admin import (  # noqa: E402
     _validate_age_range,
     _validate_coordinates,
-    _validate_owner_id,
+    _validate_manager_id,
     _validate_pricing_amount,
     _validate_sessions_count,
 )
@@ -220,87 +220,87 @@ class TestValidateSessionsCount:
         _validate_sessions_count(5.0)  # int(5.0) = 5
 
 
-class TestValidateOwnerId:
-    """Tests for organization owner_id (Cognito user sub) validation."""
+class TestValidateManagerId:
+    """Tests for organization manager_id (Cognito user sub) validation."""
 
-    def test_valid_owner_id(self) -> None:
-        """Valid UUID owner_id should pass validation."""
+    def test_valid_manager_id(self) -> None:
+        """Valid UUID manager_id should pass validation."""
         test_uuid = str(uuid4())
-        result = _validate_owner_id(test_uuid)
+        result = _validate_manager_id(test_uuid)
         assert result == test_uuid
 
-    def test_valid_owner_id_uppercase(self) -> None:
+    def test_valid_manager_id_uppercase(self) -> None:
         """Uppercase UUID should be normalized."""
         test_uuid = str(uuid4()).upper()
-        result = _validate_owner_id(test_uuid)
+        result = _validate_manager_id(test_uuid)
         assert result is not None
         # Result should be lowercase UUID format
         assert result == test_uuid.lower()
 
-    def test_none_owner_id(self) -> None:
-        """None owner_id should return None when not required."""
-        result = _validate_owner_id(None)
+    def test_none_manager_id(self) -> None:
+        """None manager_id should return None when not required."""
+        result = _validate_manager_id(None)
         assert result is None
 
-    def test_none_owner_id_required(self) -> None:
-        """None owner_id should raise ValidationError when required."""
+    def test_none_manager_id_required(self) -> None:
+        """None manager_id should raise ValidationError when required."""
         with pytest.raises(ValidationError) as exc_info:
-            _validate_owner_id(None, required=True)
-        assert "owner_id is required" in str(exc_info.value)
-        assert exc_info.value.field == "owner_id"
+            _validate_manager_id(None, required=True)
+        assert "manager_id is required" in str(exc_info.value)
+        assert exc_info.value.field == "manager_id"
 
-    def test_empty_string_owner_id(self) -> None:
-        """Empty string owner_id should return None when not required."""
-        result = _validate_owner_id("")
+    def test_empty_string_manager_id(self) -> None:
+        """Empty string manager_id should return None when not required."""
+        result = _validate_manager_id("")
         assert result is None
 
-    def test_empty_string_owner_id_required(self) -> None:
-        """Empty string owner_id should raise ValidationError when required."""
+    def test_empty_string_manager_id_required(self) -> None:
+        """Empty string manager_id should raise ValidationError when required."""
         with pytest.raises(ValidationError) as exc_info:
-            _validate_owner_id("", required=True)
-        assert "owner_id is required" in str(exc_info.value)
-        assert exc_info.value.field == "owner_id"
+            _validate_manager_id("", required=True)
+        assert "manager_id is required" in str(exc_info.value)
+        assert exc_info.value.field == "manager_id"
 
-    def test_whitespace_only_owner_id(self) -> None:
-        """Whitespace-only owner_id should return None when not required."""
-        result = _validate_owner_id("   ")
+    def test_whitespace_only_manager_id(self) -> None:
+        """Whitespace-only manager_id should return None when not required."""
+        result = _validate_manager_id("   ")
         assert result is None
 
-    def test_whitespace_only_owner_id_required(self) -> None:
-        """Whitespace-only owner_id should raise ValidationError when required."""
+    def test_whitespace_only_manager_id_required(self) -> None:
+        """Whitespace-only manager_id should raise ValidationError when required."""
         with pytest.raises(ValidationError) as exc_info:
-            _validate_owner_id("   ", required=True)
-        assert "owner_id is required" in str(exc_info.value)
-        assert exc_info.value.field == "owner_id"
+            _validate_manager_id("   ", required=True)
+        assert "manager_id is required" in str(exc_info.value)
+        assert exc_info.value.field == "manager_id"
 
     def test_invalid_uuid_format(self) -> None:
         """Invalid UUID format should raise ValidationError."""
         with pytest.raises(ValidationError) as exc_info:
-            _validate_owner_id("not-a-valid-uuid")
-        assert "owner_id must be a valid UUID" in str(exc_info.value)
-        assert exc_info.value.field == "owner_id"
+            _validate_manager_id("not-a-valid-uuid")
+        assert "manager_id must be a valid UUID" in str(exc_info.value)
+        assert exc_info.value.field == "manager_id"
 
     def test_uuid_with_whitespace(self) -> None:
         """UUID with surrounding whitespace should be trimmed and valid."""
         test_uuid = str(uuid4())
-        result = _validate_owner_id(f"  {test_uuid}  ")
+        result = _validate_manager_id(f"  {test_uuid}  ")
         assert result == test_uuid
 
     def test_sql_injection_attempt(self) -> None:
         """SQL injection attempt should raise ValidationError."""
         with pytest.raises(ValidationError) as exc_info:
-            _validate_owner_id("'; DROP TABLE organizations; --")
-        assert "owner_id must be a valid UUID" in str(exc_info.value)
+            _validate_manager_id("'; DROP TABLE organizations; --")
+        assert "manager_id must be a valid UUID" in str(exc_info.value)
 
     def test_non_string_convertible(self) -> None:
         """Non-string that can be converted should work if valid UUID."""
         # UUID object passed directly
         test_uuid = uuid4()
-        result = _validate_owner_id(test_uuid)
+        result = _validate_manager_id(test_uuid)
         assert result == str(test_uuid)
 
-    def test_valid_owner_id_required(self) -> None:
-        """Valid UUID owner_id with required=True should pass validation."""
+    def test_valid_manager_id_required(self) -> None:
+        """Valid UUID manager_id with required=True should pass validation."""
         test_uuid = str(uuid4())
-        result = _validate_owner_id(test_uuid, required=True)
+        result = _validate_manager_id(test_uuid, required=True)
         assert result == test_uuid

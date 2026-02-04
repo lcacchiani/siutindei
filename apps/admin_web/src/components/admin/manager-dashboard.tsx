@@ -4,9 +4,9 @@ import { useEffect, useMemo, useState } from 'react';
 
 import {
   ApiError,
-  getOwnerStatus,
+  getUserAccessStatus,
   type AccessRequest,
-  type OwnerStatusResponse,
+  type ManagerStatusResponse,
 } from '../../lib/api-client';
 import { useAuth } from '../auth-provider';
 import { AppShell } from '../app-shell';
@@ -22,27 +22,27 @@ import { AccessRequestForm } from './access-request-form';
 import { PendingRequestNotice } from './pending-request-notice';
 import { MediaPanel } from './media-panel';
 
-type OwnerView = 'loading' | 'request-form' | 'pending' | 'dashboard';
+type ManagerView = 'loading' | 'request-form' | 'pending' | 'dashboard';
 
-export function OwnerDashboard() {
+export function ManagerDashboard() {
   const { user, logout, error: authError } = useAuth();
-  const [ownerStatus, setOwnerStatus] = useState<OwnerStatusResponse | null>(
+  const [managerStatus, setManagerStatus] = useState<ManagerStatusResponse | null>(
     null
   );
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
-  const [view, setView] = useState<OwnerView>('loading');
+  const [view, setView] = useState<ManagerView>('loading');
   const [pendingRequest, setPendingRequest] = useState<AccessRequest | null>(
     null
   );
   const [activeSection, setActiveSection] = useState('organizations');
 
-  const loadOwnerStatus = async () => {
+  const loadManagerStatus = async () => {
     setIsLoading(true);
     setError('');
     try {
-      const status = await getOwnerStatus();
-      setOwnerStatus(status);
+      const status = await getUserAccessStatus();
+      setManagerStatus(status);
 
       if (status.organizations_count > 0) {
         // User has organizations, show the dashboard
@@ -68,7 +68,7 @@ export function OwnerDashboard() {
   };
 
   useEffect(() => {
-    loadOwnerStatus();
+    loadManagerStatus();
   }, []);
 
   const handleRequestSubmitted = (request: AccessRequest) => {
@@ -76,7 +76,7 @@ export function OwnerDashboard() {
     setView('pending');
   };
 
-  // Sections available to owners
+  // Sections available to managers
   const sectionLabels = [
     { key: 'organizations', label: 'Organizations' },
     { key: 'media', label: 'Media' },
@@ -86,22 +86,22 @@ export function OwnerDashboard() {
     { key: 'schedules', label: 'Schedules' },
   ];
 
-  // Use shared components with mode='owner'
+  // Use shared components with mode='manager'
   const activeContent = useMemo(() => {
     switch (activeSection) {
       case 'media':
         return <MediaPanel />;
       case 'locations':
-        return <LocationsPanel mode='owner' />;
+        return <LocationsPanel mode='manager' />;
       case 'activities':
-        return <ActivitiesPanel mode='owner' />;
+        return <ActivitiesPanel mode='manager' />;
       case 'pricing':
-        return <PricingPanel mode='owner' />;
+        return <PricingPanel mode='manager' />;
       case 'schedules':
-        return <SchedulesPanel mode='owner' />;
+        return <SchedulesPanel mode='manager' />;
       case 'organizations':
       default:
-        return <OrganizationsPanel mode='owner' />;
+        return <OrganizationsPanel mode='manager' />;
     }
   }, [activeSection]);
 
@@ -179,7 +179,7 @@ export function OwnerDashboard() {
     );
   }
 
-  // Dashboard view (owner has organizations)
+  // Dashboard view (manager has organizations)
   return (
     <AppShell
       sections={sectionLabels}
@@ -194,8 +194,8 @@ export function OwnerDashboard() {
           {authError}
         </StatusBanner>
       )}
-      <StatusBanner variant='info' title='Owner View'>
-        You are viewing as an organization owner. You can edit or delete your
+      <StatusBanner variant='info' title='Manager View'>
+        You are viewing as an organization manager. You can edit or delete your
         organizations but cannot create new ones. Contact an administrator if you
         need additional organizations.
       </StatusBanner>

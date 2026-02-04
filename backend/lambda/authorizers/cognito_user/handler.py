@@ -1,19 +1,18 @@
-"""API Gateway request authorizer for Cognito group-based access control.
+"""API Gateway request authorizer for any authenticated Cognito user.
 
-This Lambda validates JWT tokens and checks if the user belongs to the
-required Cognito groups before allowing access to protected endpoints.
+This Lambda validates JWT tokens and allows access to any authenticated user,
+regardless of their Cognito group membership. Use this for endpoints that
+require authentication but not specific role-based permissions.
 
 Environment Variables:
     COGNITO_USER_POOL_ID: The Cognito User Pool ID for token validation
     COGNITO_CLIENT_ID: The Cognito App Client ID for audience validation
-    ALLOWED_GROUPS: Comma-separated list of groups that can access the endpoint
-                    (e.g., "admin" or "admin,manager")
 """
 
 from __future__ import annotations
 
+import base64
 import json
-import os
 import time
 import urllib.request
 from typing import Any
@@ -55,8 +54,6 @@ def _decode_jwt_unverified(token: str) -> dict[str, Any]:
     Note: This is safe because API Gateway's Cognito authorizer already
     validates the token signature. We just need to read the claims.
     """
-    import base64
-
     parts = token.split(".")
     if len(parts) != 3:
         raise ValueError("Invalid JWT format")
@@ -134,7 +131,10 @@ def _policy(
 
 
 def lambda_handler(event: dict[str, Any], _context: Any) -> dict[str, Any]:
-    """Authorize requests based on Cognito group membership.
+    """Authorize requests for any authenticated Cognito user.
+
+    This authorizer validates the JWT token and allows access to any
+    authenticated user, regardless of their group membership.
 
     Args:
         event: API Gateway authorizer event containing headers and methodArn
@@ -145,14 +145,6 @@ def lambda_handler(event: dict[str, Any], _context: Any) -> dict[str, Any]:
     """
     headers = event.get("headers") or {}
     method_arn = event.get("methodArn", "")
-
-    # Get configuration
-    allowed_groups_str = os.getenv("ALLOWED_GROUPS", "")
-    if not allowed_groups_str:
-        logger.error("ALLOWED_GROUPS environment variable not configured")
-        return _policy("Deny", method_arn, "misconfigured", {"reason": "misconfigured"})
-
-    allowed_groups = {g.strip() for g in allowed_groups_str.split(",") if g.strip()}
 
     # Extract token from Authorization header
     token = _extract_token(headers)
@@ -165,49 +157,40 @@ def lambda_handler(event: dict[str, Any], _context: Any) -> dict[str, Any]:
         # Note: Token signature is already validated by Cognito
         claims = _decode_jwt_unverified(token)
 
+        # Validate token expiration
+        exp = claims.get("exp")
+        if exp and time.time() > exp:
+            logger.warning("Token has expired")
+            return _policy("Deny", method_arn, "expired", {"reason": "token_expired"})
+
         # Get user info
         user_sub = claims.get("sub", "unknown")
         email = claims.get("email", "")
 
-        # Get user's groups from the cognito:groups claim
+        # Get user's groups from the cognito:groups claim (for context, not authorization)
         user_groups_claim = claims.get("cognito:groups", [])
         if isinstance(user_groups_claim, str):
-            user_groups = {g.strip() for g in user_groups_claim.split(",") if g.strip()}
+            user_groups = [g.strip() for g in user_groups_claim.split(",") if g.strip()]
         elif isinstance(user_groups_claim, list):
-            user_groups = set(user_groups_claim)
+            user_groups = list(user_groups_claim)
         else:
-            user_groups = set()
+            user_groups = []
 
-        # Check if user is in any of the allowed groups
-        matching_groups = user_groups & allowed_groups
+        logger.info(
+            f"Access granted for authenticated user {user_sub[:8]}*** "
+            f"(groups: {', '.join(user_groups) if user_groups else 'none'})"
+        )
 
-        if matching_groups:
-            logger.info(
-                f"Access granted for user {user_sub[:8]}*** "
-                f"(groups: {', '.join(matching_groups)})"
-            )
-            return _policy(
-                "Allow",
-                method_arn,
-                user_sub,
-                {
-                    "userSub": user_sub,
-                    "email": email,
-                    "groups": ",".join(user_groups),
-                    "matchedGroups": ",".join(matching_groups),
-                },
-            )
-        else:
-            logger.warning(
-                f"Access denied for user {user_sub[:8]}*** "
-                f"(user groups: {user_groups}, required: {allowed_groups})"
-            )
-            return _policy(
-                "Deny",
-                method_arn,
-                user_sub,
-                {"reason": "insufficient_permissions", "userSub": user_sub},
-            )
+        return _policy(
+            "Allow",
+            method_arn,
+            user_sub,
+            {
+                "userSub": user_sub,
+                "email": email,
+                "groups": ",".join(user_groups),
+            },
+        )
 
     except Exception as exc:
         logger.warning(f"Token validation failed: {type(exc).__name__}: {exc}")

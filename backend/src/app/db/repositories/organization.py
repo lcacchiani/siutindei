@@ -35,23 +35,23 @@ class OrganizationRepository(BaseRepository[Organization]):
         query = select(Organization).where(Organization.name == name)
         return self._session.execute(query).scalar_one_or_none()
 
-    def find_by_owner(
+    def find_by_manager(
         self,
-        owner_id: str,
+        manager_id: str,
         limit: int = 50,
     ) -> Sequence[Organization]:
-        """Find organizations owned by a specific Cognito user.
+        """Find organizations managed by a specific Cognito user.
 
         Args:
-            owner_id: The Cognito user sub (subject) identifier.
+            manager_id: The Cognito user sub (subject) identifier.
             limit: Maximum results to return.
 
         Returns:
-            Organizations owned by the specified user.
+            Organizations managed by the specified user.
         """
         query = (
             select(Organization)
-            .where(Organization.owner_id == owner_id)
+            .where(Organization.manager_id == manager_id)
             .order_by(Organization.name)
             .limit(limit)
         )
