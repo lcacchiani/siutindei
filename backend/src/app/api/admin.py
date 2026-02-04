@@ -752,6 +752,9 @@ def _handle_user_access_request(
 
     GET: Check if user has a pending access request
     POST: Submit a new access request (if none pending)
+
+    When ACCESS_REQUEST_TOPIC_ARN is configured, POST requests are published
+    to SNS for async processing. Otherwise, falls back to direct DB write.
     """
     user_sub = _get_user_sub(event)
     user_email = _get_user_email(event)
@@ -787,6 +790,20 @@ def _handle_user_access_request(
         # Submit a new access request
         body = _parse_body(event)
 
+        # Validate request fields first (before any DB or SNS operations)
+        organization_name = _validate_string_length(
+            body.get("organization_name"),
+            "organization_name",
+            MAX_NAME_LENGTH,
+            required=True,
+        )
+        request_message = _validate_string_length(
+            body.get("request_message"),
+            "request_message",
+            MAX_DESCRIPTION_LENGTH,
+            required=False,
+        )
+
         with Session(get_engine()) as session:
             request_repo = OrganizationAccessRequestRepository(session)
 
@@ -802,50 +819,153 @@ def _handle_user_access_request(
                     event=event,
                 )
 
-            # Validate request fields
-            organization_name = _validate_string_length(
-                body.get("organization_name"),
-                "organization_name",
-                MAX_NAME_LENGTH,
-                required=True,
-            )
-            request_message = _validate_string_length(
-                body.get("request_message"),
-                "request_message",
-                MAX_DESCRIPTION_LENGTH,
-                required=False,
-            )
-
             # Generate a unique progressive ticket ID
             ticket_id = _generate_ticket_id(session)
 
-            # Create the access request
-            access_request = OrganizationAccessRequest(
+        # Check if SNS topic is configured for async processing
+        topic_arn = os.getenv("ACCESS_REQUEST_TOPIC_ARN")
+        if topic_arn:
+            # Publish to SNS for async processing
+            return _publish_access_request_to_sns(
+                event=event,
+                topic_arn=topic_arn,
                 ticket_id=ticket_id,
-                requester_id=user_sub,
-                requester_email=user_email or "unknown",
+                user_sub=user_sub,
+                user_email=user_email or "unknown",
                 organization_name=organization_name,
                 request_message=request_message,
             )
-            request_repo.create(access_request)
-            session.commit()
-            session.refresh(access_request)
 
-            logger.info(f"Created access request for user: {user_sub}")
-
-            # Send email notification
-            _send_access_request_email(access_request)
-
-            return json_response(
-                201,
-                {
-                    "message": "Your request has been submitted successfully",
-                    "request": _serialize_access_request(access_request),
-                },
-                event=event,
-            )
+        # Fallback: Direct DB write (for backwards compatibility)
+        return _create_access_request_sync(
+            event=event,
+            ticket_id=ticket_id,
+            user_sub=user_sub,
+            user_email=user_email or "unknown",
+            organization_name=organization_name,
+            request_message=request_message,
+        )
 
     return json_response(405, {"error": "Method not allowed"}, event=event)
+
+
+def _publish_access_request_to_sns(
+    event: Mapping[str, Any],
+    topic_arn: str,
+    ticket_id: str,
+    user_sub: str,
+    user_email: str,
+    organization_name: str,
+    request_message: Optional[str],
+) -> dict[str, Any]:
+    """Publish access request to SNS for async processing.
+
+    This enables decoupled, reliable processing with automatic retries.
+
+    Args:
+        event: Lambda event for response formatting.
+        topic_arn: SNS topic ARN to publish to.
+        ticket_id: Generated ticket ID for the request.
+        user_sub: Cognito user sub (subject) identifier.
+        user_email: User's email address.
+        organization_name: Name of requested organization.
+        request_message: Optional message from the user.
+
+    Returns:
+        API Gateway response (202 Accepted).
+    """
+    sns_client = boto3.client("sns")
+
+    try:
+        sns_client.publish(
+            TopicArn=topic_arn,
+            Message=json.dumps({
+                "event_type": "access_request.submitted",
+                "ticket_id": ticket_id,
+                "requester_id": user_sub,
+                "requester_email": user_email,
+                "organization_name": organization_name,
+                "request_message": request_message,
+            }),
+            MessageAttributes={
+                "event_type": {
+                    "DataType": "String",
+                    "StringValue": "access_request.submitted",
+                },
+            },
+        )
+
+        logger.info(f"Published access request to SNS: {ticket_id}")
+
+        return json_response(
+            202,
+            {
+                "message": "Your request has been submitted and is being processed",
+                "ticket_id": ticket_id,
+            },
+            event=event,
+        )
+
+    except Exception as exc:
+        logger.exception(f"Failed to publish access request to SNS: {exc}")
+        return json_response(
+            500,
+            {"error": "Failed to submit request. Please try again."},
+            event=event,
+        )
+
+
+def _create_access_request_sync(
+    event: Mapping[str, Any],
+    ticket_id: str,
+    user_sub: str,
+    user_email: str,
+    organization_name: str,
+    request_message: Optional[str],
+) -> dict[str, Any]:
+    """Create access request synchronously (direct DB write).
+
+    Fallback method when SNS is not configured.
+
+    Args:
+        event: Lambda event for response formatting.
+        ticket_id: Generated ticket ID for the request.
+        user_sub: Cognito user sub (subject) identifier.
+        user_email: User's email address.
+        organization_name: Name of requested organization.
+        request_message: Optional message from the user.
+
+    Returns:
+        API Gateway response (201 Created).
+    """
+    with Session(get_engine()) as session:
+        request_repo = OrganizationAccessRequestRepository(session)
+
+        # Create the access request
+        access_request = OrganizationAccessRequest(
+            ticket_id=ticket_id,
+            requester_id=user_sub,
+            requester_email=user_email,
+            organization_name=organization_name,
+            request_message=request_message,
+        )
+        request_repo.create(access_request)
+        session.commit()
+        session.refresh(access_request)
+
+        logger.info(f"Created access request for user: {user_sub}")
+
+        # Send email notification
+        _send_access_request_email(access_request)
+
+        return json_response(
+            201,
+            {
+                "message": "Your request has been submitted successfully",
+                "request": _serialize_access_request(access_request),
+            },
+            event=event,
+        )
 
 
 def _generate_ticket_id(session: Session) -> str:
