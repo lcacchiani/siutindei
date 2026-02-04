@@ -24,6 +24,26 @@ class OrganizationAccessRequestRepository(BaseRepository[OrganizationAccessReque
         """
         super().__init__(session, OrganizationAccessRequest)
 
+    def find_by_ticket_id(
+        self,
+        ticket_id: str,
+    ) -> Optional[OrganizationAccessRequest]:
+        """Find a request by its ticket ID.
+
+        Used for idempotency checks in async processing to avoid
+        creating duplicate requests.
+
+        Args:
+            ticket_id: The unique ticket ID (e.g., R00001).
+
+        Returns:
+            The request if found, None otherwise.
+        """
+        query = select(OrganizationAccessRequest).where(
+            OrganizationAccessRequest.ticket_id == ticket_id
+        )
+        return self._session.execute(query).scalar_one_or_none()
+
     def find_pending_by_requester(
         self,
         requester_id: str,

@@ -6,7 +6,11 @@ import * as ec2 from "aws-cdk-lib/aws-ec2";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as kms from "aws-cdk-lib/aws-kms";
 import * as lambda from "aws-cdk-lib/aws-lambda";
+import * as lambdaEventSources from "aws-cdk-lib/aws-lambda-event-sources";
 import * as s3 from "aws-cdk-lib/aws-s3";
+import * as sns from "aws-cdk-lib/aws-sns";
+import * as snsSubscriptions from "aws-cdk-lib/aws-sns-subscriptions";
+import * as sqs from "aws-cdk-lib/aws-sqs";
 import * as customresources from "aws-cdk-lib/custom-resources";
 import * as logs from "aws-cdk-lib/aws-logs";
 import { Construct, IConstruct } from "constructs";
@@ -906,6 +910,97 @@ export class ApiStack extends cdk.Stack {
       })
     );
 
+    // -------------------------------------------------------------------------
+    // Manager Request Messaging (SNS + SQS)
+    // Decouples manager request submission from processing for reliability
+    // -------------------------------------------------------------------------
+
+    // Dead Letter Queue for failed message processing
+    const managerRequestDLQ = new sqs.Queue(this, "ManagerRequestDLQ", {
+      queueName: name("manager-request-dlq"),
+      retentionPeriod: cdk.Duration.days(14),
+      encryption: sqs.QueueEncryption.SQS_MANAGED,
+    });
+
+    // Main processing queue with DLQ
+    const managerRequestQueue = new sqs.Queue(this, "ManagerRequestQueue", {
+      queueName: name("manager-request-queue"),
+      visibilityTimeout: cdk.Duration.seconds(60), // 6x Lambda timeout
+      deadLetterQueue: {
+        queue: managerRequestDLQ,
+        maxReceiveCount: 3, // Retry 3 times before DLQ
+      },
+      encryption: sqs.QueueEncryption.SQS_MANAGED,
+    });
+
+    // SNS Topic for manager request events
+    const managerRequestTopic = new sns.Topic(this, "ManagerRequestTopic", {
+      topicName: name("manager-request-events"),
+    });
+
+    // Subscribe SQS queue to SNS topic
+    managerRequestTopic.addSubscription(
+      new snsSubscriptions.SqsSubscription(managerRequestQueue)
+    );
+
+    // Lambda processor triggered by SQS
+    const managerRequestProcessor = createPythonFunction(
+      "ManagerRequestProcessor",
+      {
+        handler: "lambda/manager_request_processor/handler.lambda_handler",
+        timeout: cdk.Duration.seconds(10),
+        environment: {
+          DATABASE_SECRET_ARN: database.adminUserSecret.secretArn,
+          DATABASE_NAME: "siutindei",
+          DATABASE_USERNAME: "siutindei_admin",
+          DATABASE_PROXY_ENDPOINT: database.proxy.endpoint,
+          DATABASE_IAM_AUTH: "true",
+          SES_SENDER_EMAIL: sesSenderEmail.valueAsString,
+          SUPPORT_EMAIL: supportEmail.valueAsString,
+        },
+      }
+    );
+
+    // Grant database access to processor
+    database.grantAdminUserSecretRead(managerRequestProcessor);
+    database.grantConnect(managerRequestProcessor, "siutindei_admin");
+
+    // Grant SES permissions to processor
+    managerRequestProcessor.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["ses:SendEmail", "ses:SendRawEmail"],
+        resources: [sesSenderIdentityArn],
+      })
+    );
+
+    // Connect SQS to Lambda (triggers Lambda on new messages)
+    managerRequestProcessor.addEventSource(
+      new lambdaEventSources.SqsEventSource(managerRequestQueue, {
+        batchSize: 1, // Process one at a time for simplicity
+      })
+    );
+
+    // Grant admin Lambda permission to publish to SNS
+    managerRequestTopic.grantPublish(adminFunction);
+
+    // Pass topic ARN to admin Lambda
+    adminFunction.addEnvironment(
+      "MANAGER_REQUEST_TOPIC_ARN",
+      managerRequestTopic.topicArn
+    );
+
+    // CloudWatch alarm for DLQ (messages that failed processing)
+    const dlqAlarm = new cdk.aws_cloudwatch.Alarm(this, "ManagerRequestDLQAlarm", {
+      alarmName: name("manager-request-dlq-alarm"),
+      alarmDescription: "Manager request messages failed processing and landed in DLQ",
+      metric: managerRequestDLQ.metricApproximateNumberOfMessagesVisible({
+        period: cdk.Duration.minutes(5),
+      }),
+      threshold: 1,
+      evaluationPeriods: 1,
+      treatMissingData: cdk.aws_cloudwatch.TreatMissingData.NOT_BREACHING,
+    });
+
     // Migration function
     const migrationFunction = createPythonFunction("SiutindeiMigrationFunction", {
       handler: "lambda/migrations/handler.lambda_handler",
@@ -1730,6 +1825,21 @@ export class ApiStack extends cdk.Stack {
     new cdk.CfnOutput(this, "OrganizationImagesBaseUrl", {
       value:
         `https://${organizationImagesBucket.bucketRegionalDomainName}`,
+    });
+
+    new cdk.CfnOutput(this, "ManagerRequestTopicArn", {
+      value: managerRequestTopic.topicArn,
+      description: "SNS topic ARN for manager request events",
+    });
+
+    new cdk.CfnOutput(this, "ManagerRequestQueueUrl", {
+      value: managerRequestQueue.queueUrl,
+      description: "SQS queue URL for manager request processing",
+    });
+
+    new cdk.CfnOutput(this, "ManagerRequestDLQUrl", {
+      value: managerRequestDLQ.queueUrl,
+      description: "SQS dead letter queue URL for failed manager requests",
     });
 
     const customAuthDomainOutput = new cdk.CfnOutput(
