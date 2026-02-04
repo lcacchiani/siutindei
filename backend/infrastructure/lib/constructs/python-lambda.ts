@@ -26,8 +26,8 @@ export function selectPrivateSubnets(_vpc: ec2.IVpc): ec2.SubnetSelection {
  * Properties for the PythonLambda construct.
  */
 export interface PythonLambdaProps {
-  /** Function name (optional - CloudFormation will generate if not provided). */
-  functionName?: string;
+  /** Function name (required for standard /aws/lambda/ log group naming). */
+  functionName: string;
   /** Handler path (e.g., "lambda/handler.lambda_handler"). */
   handler: string;
   /** Optional function description. */
@@ -180,7 +180,9 @@ export class PythonLambda extends Construct {
 
     // Standard 90-day log retention for all Lambda functions
     // SECURITY: Encrypted with KMS key
+    // Use standard /aws/lambda/{functionName} naming convention
     const logGroup = new logs.LogGroup(this, "LogGroup", {
+      logGroupName: `/aws/lambda/${props.functionName}`,
       retention: STANDARD_LOG_RETENTION,
       removalPolicy: cdk.RemovalPolicy.RETAIN,
       encryptionKey: logEncryptionKey,

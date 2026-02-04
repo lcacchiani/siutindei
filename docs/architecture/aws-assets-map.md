@@ -215,9 +215,9 @@ For each function above, the following resources are created:
 | `AdminBootstrapFunction` | Cognito `AdminCreateUser`, `AdminUpdateUserAttributes`, `AdminSetUserPassword`, `AdminAddUserToGroup`, CloudFormation invoke permission |
 
 **Lambda Log Groups:**
-- Created automatically by Lambda service on first invocation
-- Naming: `/aws/lambda/{function-name}`
-- Not explicitly created by CDK
+- Explicitly created by CDK with KMS encryption
+- Naming: `/aws/lambda/{function-name}` (e.g., `/aws/lambda/lxsoftware-siutindei-SiutindeiSearchFunction`)
+- 90-day retention policy
 
 ---
 
@@ -447,7 +447,7 @@ All other resources are deleted when the stack is deleted (unless they are impor
 
 ## Notes
 
-1. **Lambda Log Groups**: Created automatically by AWS Lambda service on first invocation, not by CDK.
+1. **Lambda Log Groups**: Explicitly created by CDK with standard `/aws/lambda/{functionName}` naming and KMS encryption.
 2. **API Gateway Access Log Group**: Must exist before deployment (imported, not created).
 3. **Existing Resources**: The workflow detects and imports existing VPC, database, and security group resources to avoid recreation.
 4. **CDK Bootstrap**: Required once per account/region. The workflow runs `cdk bootstrap` if needed.
