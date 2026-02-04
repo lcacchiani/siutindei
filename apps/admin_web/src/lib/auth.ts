@@ -50,6 +50,20 @@ function storeTokens(tokens: StoredTokens) {
   window.localStorage.setItem(tokenStorageKey, JSON.stringify(tokens));
 }
 
+export function storeTokensFromPasswordless(tokens: {
+  accessToken: string;
+  idToken: string;
+  refreshToken?: string;
+  expiresAt: number;
+}) {
+  storeTokens({
+    accessToken: tokens.accessToken,
+    idToken: tokens.idToken,
+    refreshToken: tokens.refreshToken,
+    expiresAt: tokens.expiresAt,
+  });
+}
+
 function clearTokens() {
   if (typeof window === 'undefined') {
     return;
