@@ -5,11 +5,12 @@ import { useEffect, useState } from 'react';
 import {
   ApiError,
   listAccessRequests,
+  listCognitoUsers,
   listResource,
   reviewAccessRequest,
   type AccessRequest,
 } from '../../lib/api-client';
-import type { Organization } from '../../types/admin';
+import type { CognitoUser, Organization } from '../../types/admin';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
 import { SearchInput } from '../ui/search-input';
@@ -36,17 +37,32 @@ function ReviewModal({ request, onClose, onReviewed }: ReviewModalProps) {
 
   // Organization selection state (for approval)
   const [organizations, setOrganizations] = useState<Organization[]>([]);
+  const [managerEmails, setManagerEmails] = useState<Record<string, string>>({});
   const [isLoadingOrgs, setIsLoadingOrgs] = useState(false);
   const [organizationMode, setOrganizationMode] = useState<OrganizationMode>('new');
   const [selectedOrgId, setSelectedOrgId] = useState<string>('');
 
-  // Load organizations when modal opens
+  // Load organizations and users when modal opens
   useEffect(() => {
-    const loadOrganizations = async () => {
+    const loadOrganizationsAndUsers = async () => {
       setIsLoadingOrgs(true);
       try {
-        const response = await listResource<Organization>('organizations');
-        setOrganizations(response.items);
+        // Load organizations and users in parallel
+        const [orgsResponse, usersResponse] = await Promise.all([
+          listResource<Organization>('organizations'),
+          listCognitoUsers(),
+        ]);
+
+        setOrganizations(orgsResponse.items);
+
+        // Create a mapping of user sub to email
+        const emailMap: Record<string, string> = {};
+        for (const user of usersResponse.items) {
+          if (user.sub && user.email) {
+            emailMap[user.sub] = user.email;
+          }
+        }
+        setManagerEmails(emailMap);
       } catch (err) {
         // Don't show error, just fall back to create-only mode
         console.error('Failed to load organizations:', err);
@@ -54,7 +70,7 @@ function ReviewModal({ request, onClose, onReviewed }: ReviewModalProps) {
         setIsLoadingOrgs(false);
       }
     };
-    loadOrganizations();
+    loadOrganizationsAndUsers();
   }, []);
 
   const handleSubmit = async () => {
@@ -196,11 +212,17 @@ function ReviewModal({ request, onClose, onReviewed }: ReviewModalProps) {
                     onChange={(e) => setSelectedOrgId(e.target.value)}
                   >
                     <option value=''>Select an organization...</option>
-                    {organizations.map((org) => (
-                      <option key={org.id} value={org.id}>
-                        {org.name}
-                      </option>
-                    ))}
+                    {organizations.map((org) => {
+                      const managerEmail = managerEmails[org.manager_id];
+                      const displayText = managerEmail
+                        ? `${org.name} - ${managerEmail}`
+                        : org.name;
+                      return (
+                        <option key={org.id} value={org.id}>
+                          {displayText}
+                        </option>
+                      );
+                    })}
                   </Select>
                 )}
               </div>
