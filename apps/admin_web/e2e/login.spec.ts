@@ -27,7 +27,7 @@ test.describe('Login Screen', () => {
 
     // The page should show loading state
     const loadingText = page.getByText('Preparing your admin session.');
-    
+
     // Note: This may be very brief, so we use a short timeout
     // If the loading state is too fast, this test may need adjustment
     try {
