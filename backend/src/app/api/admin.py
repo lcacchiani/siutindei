@@ -792,13 +792,16 @@ def _handle_user_access_request(
 
         # Validate request fields first (before any DB or SNS operations)
         # organization_name is required, so _validate_string_length will raise if None
-        organization_name = _validate_string_length(
+        organization_name_validated = _validate_string_length(
             body.get("organization_name"),
             "organization_name",
             MAX_NAME_LENGTH,
             required=True,
         )
-        assert organization_name is not None  # required=True guarantees this
+        # required=True guarantees non-None return, but mypy doesn't know this
+        if organization_name_validated is None:
+            raise ValidationError("organization_name is required", field="organization_name")
+        organization_name: str = organization_name_validated
         request_message = _validate_string_length(
             body.get("request_message"),
             "request_message",
