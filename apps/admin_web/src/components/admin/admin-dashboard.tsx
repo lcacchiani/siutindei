@@ -17,6 +17,7 @@ import { AccessRequestsPanel } from './access-requests-panel';
 import { CognitoUsersPanel } from './cognito-users-panel';
 import { MediaPanel } from './media-panel';
 import { ManagerDashboard } from './manager-dashboard';
+import { UserDashboard } from './user-dashboard';
 
 const sectionLabels = [
   { key: 'organizations', label: 'Organizations' },
@@ -75,23 +76,10 @@ export function AdminDashboard() {
     return <ManagerDashboard />;
   }
 
-  // If user is neither admin nor manager, show access denied
+  // If user is neither admin nor manager, show the user dashboard
+  // where they can request to become a manager
   if (!isAdmin && !isManager) {
-    return (
-      <AppShell
-        sections={[]}
-        activeKey=''
-        onSelect={() => {}}
-        onLogout={logout}
-        userEmail={user?.email}
-        lastAuthTime={user?.lastAuthTime}
-      >
-        <StatusBanner variant='error' title='Access denied'>
-          Your account is not authorized to access this system. Please contact
-          an administrator to request access.
-        </StatusBanner>
-      </AppShell>
-    );
+    return <UserDashboard />;
   }
 
   // Admin experience (full access)
