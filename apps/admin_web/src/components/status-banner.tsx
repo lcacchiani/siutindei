@@ -21,12 +21,10 @@ export function StatusBanner({
 }: StatusBannerProps) {
   return (
     <div
-      className={`w-full rounded-lg border px-4 py-3 ${
-        variantStyles[variant]
-      }`}
+      className={`w-full rounded-lg border px-3 py-2.5 sm:px-4 sm:py-3 ${variantStyles[variant]}`}
     >
-      <p className='text-sm font-semibold'>{title}</p>
-      <p className='mt-1 text-sm'>{children}</p>
+      <p className='text-xs font-semibold sm:text-sm'>{title}</p>
+      <p className='mt-1 text-xs sm:text-sm'>{children}</p>
     </div>
   );
 }

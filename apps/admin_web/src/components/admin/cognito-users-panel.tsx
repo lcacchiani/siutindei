@@ -193,7 +193,7 @@ export function CognitoUsersPanel() {
           <p className='text-sm text-slate-600'>No users found.</p>
         ) : (
           <div className='space-y-4'>
-            <div className='max-w-sm'>
+            <div className='max-w-full sm:max-w-sm'>
               <SearchInput
                 placeholder='Search users...'
                 value={searchQuery}
@@ -203,7 +203,9 @@ export function CognitoUsersPanel() {
             {filteredUsers.length === 0 ? (
               <p className='text-sm text-slate-600'>No users match your search.</p>
             ) : (
-            <div className='overflow-x-auto'>
+            <>
+            {/* Desktop table view */}
+            <div className='hidden overflow-x-auto lg:block'>
             <table className='w-full text-left text-sm'>
               <thead className='border-b border-slate-200 text-slate-500'>
                 <tr>
@@ -296,6 +298,96 @@ export function CognitoUsersPanel() {
                 })}
               </tbody>
             </table>
+            </div>
+
+            {/* Mobile/tablet card view */}
+            <div className='space-y-3 lg:hidden'>
+              {filteredUsers.map((cognitoUser) => {
+                const hasAdminRole = cognitoUser.groups?.includes('admin') || false;
+                const hasOwnerRole = cognitoUser.groups?.includes('owner') || false;
+                const isCurrent = isCurrentUser(cognitoUser);
+
+                return (
+                  <div
+                    key={cognitoUser.sub}
+                    className='rounded-lg border border-slate-200 bg-slate-50 p-3'
+                  >
+                    <div className='flex items-start justify-between gap-2'>
+                      <div className='min-w-0 flex-1'>
+                        <div className='flex items-center gap-2'>
+                          <span className='truncate font-medium text-slate-900'>
+                            {cognitoUser.email || cognitoUser.username || 'Unknown'}
+                          </span>
+                          {isCurrent && (
+                            <span className='shrink-0 rounded bg-slate-200 px-1.5 py-0.5 text-xs text-slate-600'>
+                              You
+                            </span>
+                          )}
+                        </div>
+                        {cognitoUser.name && (
+                          <div className='mt-0.5 text-sm text-slate-500'>
+                            {cognitoUser.name}
+                          </div>
+                        )}
+                      </div>
+                      <UserStatusBadge status={cognitoUser.status} />
+                    </div>
+                    <div className='mt-2 flex items-center justify-between text-sm'>
+                      <div className='flex gap-1'>
+                        <RoleBadge role='admin' isActive={hasAdminRole} />
+                        <RoleBadge role='owner' isActive={hasOwnerRole} />
+                      </div>
+                      <span className='text-slate-500'>
+                        {formatDate(cognitoUser.created_at)}
+                      </span>
+                    </div>
+                    <div className='mt-3 border-t border-slate-200 pt-3'>
+                      {isCurrent ? (
+                        <span className='block text-center text-xs text-slate-400'>
+                          Cannot modify your own roles
+                        </span>
+                      ) : (
+                        <div className='flex gap-2'>
+                          <Button
+                            type='button'
+                            size='sm'
+                            variant={hasAdminRole ? 'danger' : 'secondary'}
+                            onClick={() =>
+                              handleToggleRole(cognitoUser, 'admin', hasAdminRole)
+                            }
+                            disabled={actionLoading === `${cognitoUser.sub}-admin`}
+                            className='flex-1'
+                          >
+                            {actionLoading === `${cognitoUser.sub}-admin`
+                              ? '...'
+                              : hasAdminRole
+                                ? 'Remove Admin'
+                                : 'Make Admin'}
+                          </Button>
+                          <Button
+                            type='button'
+                            size='sm'
+                            variant={hasOwnerRole ? 'danger' : 'secondary'}
+                            onClick={() =>
+                              handleToggleRole(cognitoUser, 'owner', hasOwnerRole)
+                            }
+                            disabled={actionLoading === `${cognitoUser.sub}-owner`}
+                            className='flex-1'
+                          >
+                            {actionLoading === `${cognitoUser.sub}-owner`
+                              ? '...'
+                              : hasOwnerRole
+                                ? 'Remove Owner'
+                                : 'Make Owner'}
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
             {paginationToken && (
               <div className='mt-4'>
                 <Button
@@ -303,12 +395,13 @@ export function CognitoUsersPanel() {
                   variant='secondary'
                   onClick={() => loadUsers(paginationToken)}
                   disabled={isLoading}
+                  className='w-full sm:w-auto'
                 >
                   {isLoading ? 'Loading...' : 'Load more'}
                 </Button>
               </div>
             )}
-            </div>
+            </>
             )}
           </div>
         )}

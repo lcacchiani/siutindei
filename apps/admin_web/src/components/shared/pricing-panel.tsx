@@ -307,7 +307,7 @@ export function PricingPanel({ mode }: PricingPanelProps) {
           <p className='text-sm text-slate-600'>No pricing entries yet.</p>
         ) : (
           <div className='space-y-4'>
-            <div className='max-w-sm'>
+            <div className='max-w-full sm:max-w-sm'>
               <SearchInput
                 placeholder='Search pricing...'
                 value={searchQuery}
@@ -317,7 +317,9 @@ export function PricingPanel({ mode }: PricingPanelProps) {
             {filteredItems.length === 0 ? (
               <p className='text-sm text-slate-600'>No pricing entries match your search.</p>
             ) : (
-            <div className='overflow-x-auto'>
+            <>
+            {/* Desktop table view */}
+            <div className='hidden overflow-x-auto md:block'>
             <table className='w-full text-left text-sm'>
               <thead className='border-b border-slate-200 text-slate-500'>
                 <tr>
@@ -371,18 +373,75 @@ export function PricingPanel({ mode }: PricingPanelProps) {
                 })}
               </tbody>
             </table>
+            </div>
+
+            {/* Mobile card view */}
+            <div className='space-y-3 md:hidden'>
+              {filteredItems.map((item) => {
+                const activityName =
+                  activities.find((a) => a.id === item.activity_id)?.name ||
+                  item.activity_id;
+                const locationName =
+                  locations.find((l) => l.id === item.location_id)?.district ||
+                  item.location_id;
+                return (
+                  <div
+                    key={item.id}
+                    className='rounded-lg border border-slate-200 bg-slate-50 p-3'
+                  >
+                    <div className='font-medium text-slate-900'>{activityName}</div>
+                    <div className='mt-1 text-sm text-slate-600'>{locationName}</div>
+                    <div className='mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm'>
+                      <span className='text-slate-500'>
+                        Type: <span className='text-slate-700'>{item.pricing_type}</span>
+                      </span>
+                      <span className='text-slate-500'>
+                        Amount:{' '}
+                        <span className='font-medium text-slate-900'>
+                          {item.amount} {item.currency}
+                        </span>
+                      </span>
+                    </div>
+                    <div className='mt-3 flex gap-2 border-t border-slate-200 pt-3'>
+                      <Button
+                        type='button'
+                        size='sm'
+                        variant='secondary'
+                        onClick={() => panel.startEdit(item)}
+                        className='flex-1'
+                      >
+                        Edit
+                      </Button>
+                      <Button
+                        type='button'
+                        size='sm'
+                        variant='danger'
+                        onClick={() =>
+                          panel.handleDelete({ ...item, name: activityName })
+                        }
+                        className='flex-1'
+                      >
+                        Delete
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
             {panel.nextCursor && (
               <div className='mt-4'>
                 <Button
                   type='button'
                   variant='secondary'
                   onClick={panel.loadMore}
+                  className='w-full sm:w-auto'
                 >
                   Load more
                 </Button>
               </div>
             )}
-            </div>
+            </>
             )}
           </div>
         )}

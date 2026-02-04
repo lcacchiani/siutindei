@@ -75,8 +75,8 @@ export function PendingRequestNotice({ request }: PendingRequestNoticeProps) {
             </div>
           </div>
 
-          <div className='mt-6 rounded-md bg-slate-50 p-4'>
-            <p className='text-sm text-slate-600'>
+          <div className='mt-6 rounded-md bg-slate-50 p-3 sm:p-4'>
+            <p className='text-xs text-slate-600 sm:text-sm'>
               You will be notified once your request has been reviewed. In the
               meantime, you cannot submit another request. If you have any
               questions, please contact support.

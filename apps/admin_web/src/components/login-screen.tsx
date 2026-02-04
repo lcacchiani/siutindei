@@ -11,7 +11,7 @@ export function LoginScreen() {
   const hasError = error.length > 0;
 
   return (
-    <main className='mx-auto flex min-h-screen max-w-lg items-center px-6'>
+    <main className='mx-auto flex min-h-screen max-w-lg items-center px-4 py-8 sm:px-6'>
       <Card
         title='Admin sign in'
         description='Sign in with your admin account to manage entries.'
@@ -35,11 +35,11 @@ export function LoginScreen() {
           type='button'
           onClick={login}
           disabled={hasConfigErrors}
-          className='w-full'
+          className='h-11 w-full text-base sm:h-10 sm:text-sm'
         >
           Continue to login
         </Button>
-        <p className='mt-3 text-sm text-slate-600'>
+        <p className='mt-3 text-xs text-slate-600 sm:text-sm'>
           You must be in the admin group to access management tools.
         </p>
       </Card>

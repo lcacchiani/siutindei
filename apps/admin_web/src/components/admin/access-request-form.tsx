@@ -100,7 +100,11 @@ export function AccessRequestForm({ onRequestSubmitted }: AccessRequestFormProps
           </div>
 
           <div className='pt-2'>
-            <Button type='submit' disabled={isSubmitting}>
+            <Button
+              type='submit'
+              disabled={isSubmitting}
+              className='w-full sm:w-auto'
+            >
               {isSubmitting ? 'Submitting...' : 'Submit Request'}
             </Button>
           </div>

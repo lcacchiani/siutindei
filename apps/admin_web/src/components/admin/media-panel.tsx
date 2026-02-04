@@ -433,7 +433,7 @@ export function MediaPanel() {
             </div>
 
             {mediaUrls.length > 0 ? (
-              <div className='grid gap-3 sm:grid-cols-2 lg:grid-cols-3'>
+              <div className='grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'>
                 {mediaUrls.map((url, index) => (
                   <div
                     key={`${url}-${index}`}
@@ -448,21 +448,16 @@ export function MediaPanel() {
                         '(min-width: 1024px) 33vw, ' +
                         '(min-width: 640px) 50vw, 100vw'
                       }
-                      className='h-28 w-full object-cover'
+                      className='h-32 w-full object-cover sm:h-28'
                       loading='lazy'
                       loader={imageLoader}
                     />
-                    <div
-                      className={
-                        'flex items-center justify-between gap-2 ' +
-                        'px-3 py-2 text-xs'
-                      }
-                    >
+                    <div className='flex items-center justify-between gap-2 px-3 py-2 text-xs'>
                       <a
                         href={url}
                         target='_blank'
                         rel='noreferrer'
-                        className='truncate text-slate-600'
+                        className='truncate text-slate-600 hover:text-slate-900'
                       >
                         Open
                       </a>
@@ -485,11 +480,12 @@ export function MediaPanel() {
               </p>
             )}
 
-            <div className='flex flex-wrap gap-3 pt-2'>
+            <div className='flex flex-col gap-2 pt-2 sm:flex-row sm:flex-wrap sm:gap-3'>
               <Button
                 type='button'
                 onClick={handleSave}
                 disabled={isMediaBusy || !hasUnsavedChanges}
+                className='w-full sm:w-auto'
               >
                 {isSaving ? 'Saving...' : 'Save media'}
               </Button>
@@ -499,6 +495,7 @@ export function MediaPanel() {
                   variant='secondary'
                   onClick={() => void handleCancelChanges()}
                   disabled={isMediaBusy}
+                  className='w-full sm:w-auto'
                 >
                   Cancel changes
                 </Button>

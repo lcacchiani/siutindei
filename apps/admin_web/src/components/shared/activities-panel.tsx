@@ -245,7 +245,7 @@ export function ActivitiesPanel({ mode }: ActivitiesPanelProps) {
           <p className='text-sm text-slate-600'>No activities yet.</p>
         ) : (
           <div className='space-y-4'>
-            <div className='max-w-sm'>
+            <div className='max-w-full sm:max-w-sm'>
               <SearchInput
                 placeholder='Search activities...'
                 value={searchQuery}
@@ -255,7 +255,9 @@ export function ActivitiesPanel({ mode }: ActivitiesPanelProps) {
             {filteredItems.length === 0 ? (
               <p className='text-sm text-slate-600'>No activities match your search.</p>
             ) : (
-            <div className='overflow-x-auto'>
+            <>
+            {/* Desktop table view */}
+            <div className='hidden overflow-x-auto md:block'>
             <table className='w-full text-left text-sm'>
               <thead className='border-b border-slate-200 text-slate-500'>
                 <tr>
@@ -300,18 +302,59 @@ export function ActivitiesPanel({ mode }: ActivitiesPanelProps) {
                 ))}
               </tbody>
             </table>
+            </div>
+
+            {/* Mobile card view */}
+            <div className='space-y-3 md:hidden'>
+              {filteredItems.map((item) => (
+                <div
+                  key={item.id}
+                  className='rounded-lg border border-slate-200 bg-slate-50 p-3'
+                >
+                  <div className='font-medium text-slate-900'>{item.name}</div>
+                  <div className='mt-1 text-sm text-slate-600'>
+                    {organizations.find((org) => org.id === item.org_id)?.name || item.org_id}
+                  </div>
+                  <div className='mt-1 text-sm text-slate-500'>
+                    Ages: {item.age_min} - {item.age_max}
+                  </div>
+                  <div className='mt-3 flex gap-2 border-t border-slate-200 pt-3'>
+                    <Button
+                      type='button'
+                      size='sm'
+                      variant='secondary'
+                      onClick={() => panel.startEdit(item)}
+                      className='flex-1'
+                    >
+                      Edit
+                    </Button>
+                    <Button
+                      type='button'
+                      size='sm'
+                      variant='danger'
+                      onClick={() => panel.handleDelete(item)}
+                      className='flex-1'
+                    >
+                      Delete
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
             {panel.nextCursor && (
               <div className='mt-4'>
                 <Button
                   type='button'
                   variant='secondary'
                   onClick={panel.loadMore}
+                  className='w-full sm:w-auto'
                 >
                   Load more
                 </Button>
               </div>
             )}
-            </div>
+            </>
             )}
           </div>
         )}
