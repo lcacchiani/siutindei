@@ -800,7 +800,9 @@ def _handle_user_access_request(
         )
         # required=True guarantees non-None return, but mypy doesn't know this
         if organization_name_validated is None:
-            raise ValidationError("organization_name is required", field="organization_name")
+            raise ValidationError(
+                "organization_name is required", field="organization_name"
+            )
         organization_name: str = organization_name_validated
         request_message = _validate_string_length(
             body.get("request_message"),
