@@ -38,21 +38,32 @@ function RoleBadge({
   );
 }
 
-function UserStatusBadge({ status }: { status: string | null | undefined }) {
-  const statusColors: Record<string, string> = {
-    CONFIRMED: 'bg-green-100 text-green-800',
-    UNCONFIRMED: 'bg-yellow-100 text-yellow-800',
-    FORCE_CHANGE_PASSWORD: 'bg-orange-100 text-orange-800',
-    DISABLED: 'bg-red-100 text-red-800',
-  };
+type IdentityProvider = 'Google' | 'Apple' | 'Microsoft' | 'Email';
 
-  const color = status ? statusColors[status] || 'bg-slate-100 text-slate-600' : 'bg-slate-100 text-slate-600';
+function getIdentityProvider(username: string | null | undefined): IdentityProvider {
+  if (!username) return 'Email';
+  const lowerUsername = username.toLowerCase();
+  if (lowerUsername.startsWith('google_')) return 'Google';
+  if (lowerUsername.startsWith('signinwithapple_')) return 'Apple';
+  if (lowerUsername.startsWith('azuread_') || lowerUsername.startsWith('microsoft_')) return 'Microsoft';
+  return 'Email';
+}
+
+function IdentityProviderBadge({ username }: { username: string | null | undefined }) {
+  const provider = getIdentityProvider(username);
+
+  const providerStyles: Record<IdentityProvider, string> = {
+    Google: 'bg-red-50 text-red-700',
+    Apple: 'bg-slate-100 text-slate-800',
+    Microsoft: 'bg-blue-50 text-blue-700',
+    Email: 'bg-green-50 text-green-700',
+  };
 
   return (
     <span
-      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${color}`}
+      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${providerStyles[provider]}`}
     >
-      {status || 'Unknown'}
+      {provider}
     </span>
   );
 }
@@ -196,7 +207,7 @@ export function CognitoUsersPanel() {
     <div className='space-y-6'>
       <Card
         title='Cognito Users'
-        description='Manage user roles across all identity providers (Google, Apple, Microsoft). Promote or demote users to Admin or Owner roles.'
+        description='Manage user roles across all identity providers. Promote or demote users to Admin or Owner roles.'
       >
         {error && (
           <div className='mb-4'>
@@ -237,7 +248,7 @@ export function CognitoUsersPanel() {
               <thead className='border-b border-slate-200 text-slate-500'>
                 <tr>
                   <th className='py-2'>Email</th>
-                  <th className='py-2'>Status</th>
+                  <th className='py-2'>Provider</th>
                   <th className='py-2'>Roles</th>
                   <th className='py-2'>Last Login</th>
                   <th className='py-2'>Created</th>
@@ -270,7 +281,7 @@ export function CognitoUsersPanel() {
                         )}
                       </td>
                       <td className='py-2'>
-                        <UserStatusBadge status={cognitoUser.status} />
+                        <IdentityProviderBadge username={cognitoUser.username} />
                       </td>
                       <td className='py-2'>
                         <div className='flex gap-1'>
@@ -361,7 +372,7 @@ export function CognitoUsersPanel() {
                           </div>
                         )}
                       </div>
-                      <UserStatusBadge status={cognitoUser.status} />
+                      <IdentityProviderBadge username={cognitoUser.username} />
                     </div>
                     <div className='mt-2 flex items-center justify-between text-sm'>
                       <div className='flex gap-1'>
