@@ -102,6 +102,12 @@ export function LocationsPanel({ mode }: LocationsPanelProps) {
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
 
+  // For managers with a single org, auto-select and disable the dropdown
+  const isSingleOrgManager = !isAdmin && organizations.length === 1;
+
+  // Extract setFormState for stable reference in useEffect
+  const { setFormState } = panel;
+
   useEffect(() => {
     const loadOrganizations = async () => {
       try {
@@ -115,13 +121,20 @@ export function LocationsPanel({ mode }: LocationsPanelProps) {
         } else {
           const response = await listManagerOrganizations();
           setOrganizations(response.items);
+          // Auto-select if manager has exactly one organization
+          if (response.items.length === 1) {
+            setFormState((prev) => ({
+              ...prev,
+              org_id: response.items[0].id,
+            }));
+          }
         }
       } catch {
         setOrganizations([]);
       }
     };
     loadOrganizations();
-  }, [isAdmin]);
+  }, [isAdmin, setFormState]);
 
   const validate = () => {
     if (!panel.formState.org_id || !panel.formState.district.trim()) {
@@ -174,6 +187,7 @@ export function LocationsPanel({ mode }: LocationsPanelProps) {
                   org_id: e.target.value,
                 }))
               }
+              disabled={isSingleOrgManager}
             >
               <option value=''>Select organization</option>
               {organizations.map((org) => (
@@ -288,7 +302,7 @@ export function LocationsPanel({ mode }: LocationsPanelProps) {
               <thead className='border-b border-slate-200 text-slate-500'>
                 <tr>
                   <th className='py-2'>District</th>
-                  <th className='py-2'>Organization</th>
+                  {isAdmin && <th className='py-2'>Organization</th>}
                   <th className='py-2'>Address</th>
                   <th className='py-2 text-right'>Actions</th>
                 </tr>
@@ -297,10 +311,12 @@ export function LocationsPanel({ mode }: LocationsPanelProps) {
                 {filteredItems.map((item) => (
                   <tr key={item.id} className='border-b border-slate-100'>
                     <td className='py-2 font-medium'>{item.district}</td>
-                    <td className='py-2 text-slate-600'>
-                      {organizations.find((org) => org.id === item.org_id)
-                        ?.name || item.org_id}
-                    </td>
+                    {isAdmin && (
+                      <td className='py-2 text-slate-600'>
+                        {organizations.find((org) => org.id === item.org_id)
+                          ?.name || item.org_id}
+                      </td>
+                    )}
                     <td className='py-2 text-slate-600'>
                       {item.address || '—'}
                     </td>
@@ -345,9 +361,11 @@ export function LocationsPanel({ mode }: LocationsPanelProps) {
                   className='rounded-lg border border-slate-200 bg-slate-50 p-3'
                 >
                   <div className='font-medium text-slate-900'>{item.district}</div>
-                  <div className='mt-1 text-sm text-slate-600'>
-                    {organizations.find((org) => org.id === item.org_id)?.name || item.org_id}
-                  </div>
+                  {isAdmin && (
+                    <div className='mt-1 text-sm text-slate-600'>
+                      {organizations.find((org) => org.id === item.org_id)?.name || item.org_id}
+                    </div>
+                  )}
                   {item.address && (
                     <div className='mt-1 text-sm text-slate-500'>{item.address}</div>
                   )}
