@@ -633,14 +633,63 @@ export class ApiStack extends cdk.Stack {
     userPoolClient.addDependency(appleProvider);
     userPoolClient.addDependency(microsoftProvider);
 
-    // Create Cognito user pool groups using native CloudFormation resource
+    // Create Cognito user pool groups using AwsCustomResource
+    // This approach handles groups that already exist gracefully (ignores GroupExistsException)
     // Using group name in logical ID for stability (not array index)
+    const groupPolicy = customresources.AwsCustomResourcePolicy.fromStatements([
+      new iam.PolicyStatement({
+        actions: [
+          "cognito-idp:CreateGroup",
+          "cognito-idp:UpdateGroup",
+          "cognito-idp:DeleteGroup",
+        ],
+        resources: [userPool.userPoolArn],
+      }),
+    ]);
+
     for (const group of userPoolGroups) {
       const groupId = group.name.charAt(0).toUpperCase() + group.name.slice(1);
-      new cognito.CfnUserPoolGroup(this, `UserPoolGroup${groupId}`, {
-        userPoolId: userPool.userPoolId,
-        groupName: group.name,
-        description: group.description,
+      new customresources.AwsCustomResource(this, `UserGroup${groupId}`, {
+        onCreate: {
+          service: "CognitoIdentityServiceProvider",
+          action: "createGroup",
+          parameters: {
+            UserPoolId: userPool.userPoolId,
+            GroupName: group.name,
+            Description: group.description,
+          },
+          physicalResourceId: customresources.PhysicalResourceId.of(
+            `${userPool.userPoolId}-${group.name}`
+          ),
+          // Skip if group already exists
+          ignoreErrorCodesMatching: "GroupExistsException",
+        },
+        onUpdate: {
+          service: "CognitoIdentityServiceProvider",
+          action: "updateGroup",
+          parameters: {
+            UserPoolId: userPool.userPoolId,
+            GroupName: group.name,
+            Description: group.description,
+          },
+          physicalResourceId: customresources.PhysicalResourceId.of(
+            `${userPool.userPoolId}-${group.name}`
+          ),
+          // Skip if group doesn't exist (shouldn't happen, but be safe)
+          ignoreErrorCodesMatching: "ResourceNotFoundException",
+        },
+        onDelete: {
+          service: "CognitoIdentityServiceProvider",
+          action: "deleteGroup",
+          parameters: {
+            UserPoolId: userPool.userPoolId,
+            GroupName: group.name,
+          },
+          // Skip if group doesn't exist
+          ignoreErrorCodesMatching: "ResourceNotFoundException",
+        },
+        policy: groupPolicy,
+        installLatestAwsSdk: false,
       });
     }
 
