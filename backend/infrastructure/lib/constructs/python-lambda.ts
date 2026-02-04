@@ -179,9 +179,12 @@ export class PythonLambda extends Construct {
       encryptionKey: logEncryptionKey,
     });
 
+    // COST OPTIMIZATION: Use ARM64 architecture for 20% cost savings
+    // Graviton2 processors offer better price-performance ratio
     this.function = new lambda.Function(this, "Function", {
       functionName: props.functionName,
       runtime: lambda.Runtime.PYTHON_3_12,
+      architecture: lambda.Architecture.ARM_64,
       handler: props.handler,
       description: props.description,
       code:
@@ -223,8 +226,9 @@ export class PythonLambda extends Construct {
       timeout: props.timeout ?? cdk.Duration.seconds(30),
       vpc: props.vpc,
       securityGroups: props.securityGroups,
+      // COST OPTIMIZATION: Use isolated subnets with VPC endpoints (no NAT Gateway)
       vpcSubnets: props.vpc
-        ? { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS }
+        ? { subnetType: ec2.SubnetType.PRIVATE_ISOLATED }
         : undefined,
       environmentEncryption: environmentEncryptionKey,
       deadLetterQueue,

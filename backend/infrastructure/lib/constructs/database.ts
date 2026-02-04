@@ -388,7 +388,8 @@ export class DatabaseConstruct extends Construct {
         writer: writerInstance,
         clusterIdentifier: name("db-cluster"),
         vpc: props.vpc,
-        vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
+        // COST OPTIMIZATION: Use isolated subnets with VPC endpoints (no NAT Gateway)
+        vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_ISOLATED },
         securityGroups: [this.dbSecurityGroup],
       });
       this.cluster = cluster;

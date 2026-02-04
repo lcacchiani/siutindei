@@ -138,13 +138,87 @@ export class ApiStack extends cdk.Stack {
     // ---------------------------------------------------------------------
     // VPC and Security Groups
     // ---------------------------------------------------------------------
+    // COST OPTIMIZATION: Use VPC Endpoints instead of NAT Gateway
+    // This saves ~$30-40/month by eliminating NAT Gateway hourly charges
+    // and data processing fees for AWS service traffic
     const vpc = existingVpcId
       ? ec2.Vpc.fromLookup(this, "ExistingVpc", { vpcId: existingVpcId })
       : new ec2.Vpc(this, "SiutindeiVpc", {
           vpcName: name("vpc"),
           maxAzs: 2,
-          natGateways: 1,
+          // Remove NAT Gateway - use VPC Endpoints for AWS services
+          natGateways: 0,
+          subnetConfiguration: [
+            {
+              name: "Public",
+              subnetType: ec2.SubnetType.PUBLIC,
+              cidrMask: 24,
+            },
+            {
+              name: "Private",
+              subnetType: ec2.SubnetType.PRIVATE_ISOLATED,
+              cidrMask: 24,
+            },
+          ],
         });
+
+    // VPC Endpoints for AWS services (Gateway endpoints are free)
+    // S3 Gateway Endpoint - free, high throughput
+    vpc.addGatewayEndpoint("S3Endpoint", {
+      service: ec2.GatewayVpcEndpointAwsService.S3,
+    });
+
+    // DynamoDB Gateway Endpoint - free (if used in future)
+    vpc.addGatewayEndpoint("DynamoDBEndpoint", {
+      service: ec2.GatewayVpcEndpointAwsService.DYNAMODB,
+    });
+
+    // Interface endpoints for services that need them
+    // These have hourly costs but are cheaper than NAT Gateway for typical usage
+    const endpointSecurityGroup = new ec2.SecurityGroup(
+      this,
+      "VpcEndpointSecurityGroup",
+      {
+        vpc,
+        description: "Security group for VPC endpoints",
+        allowAllOutbound: false,
+      }
+    );
+    endpointSecurityGroup.addIngressRule(
+      ec2.Peer.ipv4(vpc.vpcCidrBlock),
+      ec2.Port.tcp(443),
+      "Allow HTTPS from VPC"
+    );
+
+    // Secrets Manager endpoint - required for Lambda to access secrets
+    vpc.addInterfaceEndpoint("SecretsManagerEndpoint", {
+      service: ec2.InterfaceVpcEndpointAwsService.SECRETS_MANAGER,
+      securityGroups: [endpointSecurityGroup],
+    });
+
+    // STS endpoint - required for IAM authentication
+    vpc.addInterfaceEndpoint("StsEndpoint", {
+      service: ec2.InterfaceVpcEndpointAwsService.STS,
+      securityGroups: [endpointSecurityGroup],
+    });
+
+    // RDS endpoint - required for RDS Proxy connections
+    vpc.addInterfaceEndpoint("RdsEndpoint", {
+      service: ec2.InterfaceVpcEndpointAwsService.RDS,
+      securityGroups: [endpointSecurityGroup],
+    });
+
+    // CloudWatch Logs endpoint - required for Lambda logging
+    vpc.addInterfaceEndpoint("CloudWatchLogsEndpoint", {
+      service: ec2.InterfaceVpcEndpointAwsService.CLOUDWATCH_LOGS,
+      securityGroups: [endpointSecurityGroup],
+    });
+
+    // Lambda endpoint - required for Lambda invocations
+    vpc.addInterfaceEndpoint("LambdaEndpoint", {
+      service: ec2.InterfaceVpcEndpointAwsService.LAMBDA,
+      securityGroups: [endpointSecurityGroup],
+    });
 
     const lambdaSecurityGroup = existingLambdaSecurityGroupId
       ? ec2.SecurityGroup.fromSecurityGroupId(
@@ -808,6 +882,38 @@ export class ApiStack extends cdk.Stack {
           removalPolicy: cdk.RemovalPolicy.RETAIN,
           serverAccessLogsBucket: organizationImagesLogBucket,
           serverAccessLogsPrefix: "s3-access-logs/",
+          // COST OPTIMIZATION: Use Intelligent-Tiering for automatic cost savings
+          // Images accessed infrequently will automatically move to cheaper storage
+          intelligentTieringConfigurations: [
+            {
+              name: "ImagesTiering",
+              // Move to Archive Access tier after 90 days without access
+              archiveAccessTierTime: cdk.Duration.days(90),
+              // Move to Deep Archive Access tier after 180 days
+              deepArchiveAccessTierTime: cdk.Duration.days(180),
+            },
+          ],
+          lifecycleRules: [
+            {
+              id: "TransitionToIntelligentTiering",
+              enabled: true,
+              // Transition new objects to Intelligent-Tiering after 30 days
+              transitions: [
+                {
+                  storageClass: s3.StorageClass.INTELLIGENT_TIERING,
+                  transitionAfter: cdk.Duration.days(30),
+                },
+              ],
+              // Clean up incomplete multipart uploads
+              abortIncompleteMultipartUploadAfter: cdk.Duration.days(7),
+            },
+            {
+              id: "ExpireNoncurrentVersions",
+              enabled: true,
+              // Delete old versions after 90 days to save storage costs
+              noncurrentVersionExpiration: cdk.Duration.days(90),
+            },
+          ],
           cors: [
             {
               allowedMethods: [
