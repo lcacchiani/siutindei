@@ -171,11 +171,13 @@ def _store_key_in_secrets_manager(
         key_id: The API Gateway key ID
         rotation_date: ISO format date of rotation
     """
-    secret_value = json.dumps({
-        "api_key": key_value,
-        "api_key_id": key_id,
-        "rotated_at": rotation_date,
-    })
+    secret_value = json.dumps(
+        {
+            "api_key": key_value,
+            "api_key_id": key_id,
+            "rotated_at": rotation_date,
+        }
+    )
 
     secrets_client.put_secret_value(
         SecretId=secret_arn,
@@ -229,7 +231,6 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     usage_plan_id = os.getenv("API_GATEWAY_USAGE_PLAN_ID")
     secret_arn = os.getenv("API_KEY_SECRET_ARN")
     key_prefix = os.getenv("API_KEY_NAME_PREFIX", "mobile-search-key")
-    grace_period_hours = int(os.getenv("GRACE_PERIOD_HOURS", "24"))
 
     # Validate configuration
     if not rest_api_id or not usage_plan_id or not secret_arn:
@@ -296,20 +297,24 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
 
         return {
             "statusCode": 200,
-            "body": json.dumps({
-                "message": "API key rotated successfully",
-                "new_key_id": new_key_id,
-                "old_key_id": old_key_id,
-                "rotated_at": rotation_date,
-            }),
+            "body": json.dumps(
+                {
+                    "message": "API key rotated successfully",
+                    "new_key_id": new_key_id,
+                    "old_key_id": old_key_id,
+                    "rotated_at": rotation_date,
+                }
+            ),
         }
 
     except ClientError as exc:
         logger.exception(f"Failed to rotate API key: {exc}")
         return {
             "statusCode": 500,
-            "body": json.dumps({
-                "error": "Failed to rotate API key",
-                "detail": str(exc),
-            }),
+            "body": json.dumps(
+                {
+                    "error": "Failed to rotate API key",
+                    "detail": str(exc),
+                }
+            ),
         }

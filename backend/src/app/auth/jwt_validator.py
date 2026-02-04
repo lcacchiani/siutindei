@@ -15,7 +15,6 @@ import base64
 import json
 import os
 import time
-import urllib.request
 from dataclasses import dataclass
 from typing import Any, Optional
 
@@ -68,6 +67,7 @@ def _extract_unverified_claims(token: str) -> dict[str, Any]:
             "Invalid JWT format: could not decode payload",
             reason="invalid_token",
         ) from exc
+
 
 # Cache for JWKS client to avoid re-fetching keys
 _jwks_clients: dict[str, PyJWKClient] = {}
@@ -132,9 +132,7 @@ def _get_jwks_client(user_pool_id: str, region: str) -> PyJWKClient:
             return _jwks_clients[cache_key]
 
     # Create new client with caching enabled
-    jwks_url = (
-        f"https://cognito-idp.{region}.amazonaws.com/{user_pool_id}/.well-known/jwks.json"
-    )
+    jwks_url = f"https://cognito-idp.{region}.amazonaws.com/{user_pool_id}/.well-known/jwks.json"
 
     client = PyJWKClient(
         jwks_url,
@@ -227,9 +225,7 @@ def decode_and_verify_token(
             user_pool_id = user_pool_id or _get_user_pool_id()
 
     # Build expected issuer
-    expected_issuer = (
-        f"https://cognito-idp.{region}.amazonaws.com/{user_pool_id}"
-    )
+    expected_issuer = f"https://cognito-idp.{region}.amazonaws.com/{user_pool_id}"
 
     # Get JWKS client and signing key
     try:
