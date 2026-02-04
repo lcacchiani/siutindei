@@ -1,15 +1,20 @@
 # AWS Messaging with SNS + SQS
 
-## Current Implementation Problem
+## Status: IMPLEMENTED
 
-The application uses PostgreSQL as a message queue for `organization_access_requests`:
+This document describes the SNS + SQS messaging architecture for access requests.
+The implementation is complete and ready for deployment.
+
+## Previous Implementation Problem
+
+The application previously used PostgreSQL as a message queue for `organization_access_requests`:
 
 ```
 Manager submits → API writes to DB → Admins poll DB → Process request
 ```
 
 **Problems:**
-- Database is both storage AND queue (conflated responsibilities)
+- Database was both storage AND queue (conflated responsibilities)
 - No push notifications to admins
 - Polling wastes resources
 - No automatic retries if email sending fails
@@ -397,7 +402,7 @@ new events.Rule(this, 'NotifyAdminOnNewRequest', {
 
 ---
 
-## Implementation: SNS + SQS for Access Requests
+## Implementation Details
 
 ### Architecture Overview
 
@@ -423,9 +428,11 @@ new events.Rule(this, 'NotifyAdminOnNewRequest', {
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Step 1: CDK Infrastructure
+### CDK Infrastructure
 
-Add to `api-stack.ts`:
+Location: `backend/infrastructure/lib/api-stack.ts`
+
+Key infrastructure components:
 
 ```typescript
 import * as sns from "aws-cdk-lib/aws-sns";
@@ -522,9 +529,11 @@ accessRequestTopic.grantPublish(adminFunction);
 adminFunction.addEnvironment("ACCESS_REQUEST_TOPIC_ARN", accessRequestTopic.topicArn);
 ```
 
-### Step 2: API Handler (Publish to SNS)
+### API Handler (Publish to SNS)
 
-Update `backend/src/app/api/admin.py`:
+Location: `backend/src/app/api/admin.py`
+
+The `_handle_user_access_request` function now publishes to SNS when `ACCESS_REQUEST_TOPIC_ARN` is set:
 
 ```python
 import boto3
@@ -596,9 +605,11 @@ def _handle_user_access_request(event: Mapping[str, Any], method: str) -> dict[s
         # ... existing code ...
 ```
 
-### Step 3: SQS Processor Lambda
+### SQS Processor Lambda
 
-Create `backend/lambda/access_request_processor/handler.py`:
+Location: `backend/lambda/access_request_processor/handler.py`
+
+This Lambda is triggered by SQS messages and processes access requests:
 
 ```python
 """Lambda handler for processing access requests from SQS."""
@@ -722,9 +733,11 @@ def _send_notification_email(request: OrganizationAccessRequest) -> None:
         # Don't re-raise - DB write succeeded, email failure is non-critical
 ```
 
-### Step 4: Add Repository Method for Idempotency
+### Repository Method for Idempotency
 
-Update `backend/src/app/db/repositories/access_request.py`:
+Location: `backend/src/app/db/repositories/access_request.py`
+
+The `find_by_ticket_id` method enables idempotent processing:
 
 ```python
 def find_by_ticket_id(self, ticket_id: str) -> Optional[OrganizationAccessRequest]:
@@ -759,29 +772,38 @@ def find_by_ticket_id(self, ticket_id: str) -> Optional[OrganizationAccessReques
 
 ## Implementation Checklist
 
-### Infrastructure (CDK):
+### Infrastructure (CDK) - COMPLETED:
 
-1. [ ] Create Dead Letter Queue for failed messages
-2. [ ] Create main SQS queue with DLQ
-3. [ ] Create SNS topic
-4. [ ] Subscribe SQS to SNS
-5. [ ] Optional: Add email subscription for instant notification
-6. [ ] Create processor Lambda
-7. [ ] Wire SQS as Lambda event source
-8. [ ] Grant admin Lambda permission to publish to SNS
+1. [x] Create Dead Letter Queue for failed messages (`lxsoftware-siutindei-access-request-dlq`)
+2. [x] Create main SQS queue with DLQ (`lxsoftware-siutindei-access-request-queue`)
+3. [x] Create SNS topic (`lxsoftware-siutindei-access-request-events`)
+4. [x] Subscribe SQS to SNS
+5. [x] Create processor Lambda (`AccessRequestProcessor`)
+6. [x] Wire SQS as Lambda event source
+7. [x] Grant admin Lambda permission to publish to SNS
+8. [x] Add CloudWatch alarm for DLQ messages
 
-### Application Code:
+### Application Code - COMPLETED:
 
-1. [ ] Update API to publish to SNS instead of direct DB write
-2. [ ] Create processor Lambda handler
-3. [ ] Add `find_by_ticket_id` repository method for idempotency
-4. [ ] Return 202 Accepted (instead of 201) for async processing
+1. [x] Update API to publish to SNS instead of direct DB write (`_publish_access_request_to_sns`)
+2. [x] Create processor Lambda handler (`lambda/access_request_processor/handler.py`)
+3. [x] Add `find_by_ticket_id` repository method for idempotency
+4. [x] Return 202 Accepted (instead of 201) for async processing
+5. [x] Maintain backwards compatibility (falls back to sync write if SNS not configured)
 
-### Monitoring:
+### Files Changed:
 
-1. [ ] CloudWatch alarm for DLQ message count > 0
-2. [ ] CloudWatch alarm for queue age (messages stuck)
-3. [ ] Dashboard for message throughput
+- `backend/infrastructure/lib/api-stack.ts` - CDK infrastructure
+- `backend/src/app/api/admin.py` - API handler with SNS publish
+- `backend/src/app/db/repositories/access_request.py` - Repository with `find_by_ticket_id`
+- `backend/lambda/access_request_processor/handler.py` - NEW: SQS processor Lambda
+
+### Stack Outputs:
+
+After deployment, these outputs will be available:
+- `AccessRequestTopicArn` - SNS topic ARN for access request events
+- `AccessRequestQueueUrl` - SQS queue URL for access request processing
+- `AccessRequestDLQUrl` - SQS dead letter queue URL for failed access requests
 
 ---
 
