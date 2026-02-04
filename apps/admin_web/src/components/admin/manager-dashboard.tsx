@@ -194,12 +194,7 @@ export function ManagerDashboard() {
           {authError}
         </StatusBanner>
       )}
-      <StatusBanner variant='info' title='Manager View'>
-        You are viewing as an organization manager. You can edit or delete your
-        organizations but cannot create new ones. Contact an administrator if you
-        need additional organizations.
-      </StatusBanner>
-      <div className='mt-4'>{activeContent}</div>
+      <div>{activeContent}</div>
     </AppShell>
   );
 }
