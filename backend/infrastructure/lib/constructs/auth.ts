@@ -214,7 +214,11 @@ export class AuthConstruct extends Construct {
       callbackUrLs: props.callbackUrls,
       logoutUrLs: props.logoutUrls,
       supportedIdentityProviders: supportedProviders,
-      explicitAuthFlows: ["ALLOW_CUSTOM_AUTH", "ALLOW_REFRESH_TOKEN_AUTH"],
+      explicitAuthFlows: [
+        "ALLOW_CUSTOM_AUTH",
+        "ALLOW_USER_SRP_AUTH",
+        "ALLOW_REFRESH_TOKEN_AUTH",
+      ],
     });
 
     // Add dependencies on identity providers

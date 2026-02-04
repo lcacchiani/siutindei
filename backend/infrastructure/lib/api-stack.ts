@@ -629,7 +629,11 @@ export class ApiStack extends cdk.Stack {
           "SignInWithApple",
           "Microsoft",
         ],
-        explicitAuthFlows: ["ALLOW_CUSTOM_AUTH", "ALLOW_REFRESH_TOKEN_AUTH"],
+        explicitAuthFlows: [
+          "ALLOW_CUSTOM_AUTH",
+          "ALLOW_USER_SRP_AUTH",
+          "ALLOW_REFRESH_TOKEN_AUTH",
+        ],
       }
     );
 
