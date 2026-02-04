@@ -911,43 +911,43 @@ export class ApiStack extends cdk.Stack {
     );
 
     // -------------------------------------------------------------------------
-    // Access Request Messaging (SNS + SQS)
-    // Decouples access request submission from processing for reliability
+    // Manager Request Messaging (SNS + SQS)
+    // Decouples manager request submission from processing for reliability
     // -------------------------------------------------------------------------
 
     // Dead Letter Queue for failed message processing
-    const accessRequestDLQ = new sqs.Queue(this, "AccessRequestDLQ", {
-      queueName: name("access-request-dlq"),
+    const managerRequestDLQ = new sqs.Queue(this, "ManagerRequestDLQ", {
+      queueName: name("manager-request-dlq"),
       retentionPeriod: cdk.Duration.days(14),
       encryption: sqs.QueueEncryption.SQS_MANAGED,
     });
 
     // Main processing queue with DLQ
-    const accessRequestQueue = new sqs.Queue(this, "AccessRequestQueue", {
-      queueName: name("access-request-queue"),
+    const managerRequestQueue = new sqs.Queue(this, "ManagerRequestQueue", {
+      queueName: name("manager-request-queue"),
       visibilityTimeout: cdk.Duration.seconds(60), // 6x Lambda timeout
       deadLetterQueue: {
-        queue: accessRequestDLQ,
+        queue: managerRequestDLQ,
         maxReceiveCount: 3, // Retry 3 times before DLQ
       },
       encryption: sqs.QueueEncryption.SQS_MANAGED,
     });
 
-    // SNS Topic for access request events
-    const accessRequestTopic = new sns.Topic(this, "AccessRequestTopic", {
-      topicName: name("access-request-events"),
+    // SNS Topic for manager request events
+    const managerRequestTopic = new sns.Topic(this, "ManagerRequestTopic", {
+      topicName: name("manager-request-events"),
     });
 
     // Subscribe SQS queue to SNS topic
-    accessRequestTopic.addSubscription(
-      new snsSubscriptions.SqsSubscription(accessRequestQueue)
+    managerRequestTopic.addSubscription(
+      new snsSubscriptions.SqsSubscription(managerRequestQueue)
     );
 
     // Lambda processor triggered by SQS
-    const accessRequestProcessor = createPythonFunction(
-      "AccessRequestProcessor",
+    const managerRequestProcessor = createPythonFunction(
+      "ManagerRequestProcessor",
       {
-        handler: "lambda/access_request_processor/handler.lambda_handler",
+        handler: "lambda/manager_request_processor/handler.lambda_handler",
         timeout: cdk.Duration.seconds(10),
         environment: {
           DATABASE_SECRET_ARN: database.adminUserSecret.secretArn,
@@ -962,11 +962,11 @@ export class ApiStack extends cdk.Stack {
     );
 
     // Grant database access to processor
-    database.grantAdminUserSecretRead(accessRequestProcessor);
-    database.grantConnect(accessRequestProcessor, "siutindei_admin");
+    database.grantAdminUserSecretRead(managerRequestProcessor);
+    database.grantConnect(managerRequestProcessor, "siutindei_admin");
 
     // Grant SES permissions to processor
-    accessRequestProcessor.addToRolePolicy(
+    managerRequestProcessor.addToRolePolicy(
       new iam.PolicyStatement({
         actions: ["ses:SendEmail", "ses:SendRawEmail"],
         resources: [sesSenderIdentityArn],
@@ -974,26 +974,26 @@ export class ApiStack extends cdk.Stack {
     );
 
     // Connect SQS to Lambda (triggers Lambda on new messages)
-    accessRequestProcessor.addEventSource(
-      new lambdaEventSources.SqsEventSource(accessRequestQueue, {
+    managerRequestProcessor.addEventSource(
+      new lambdaEventSources.SqsEventSource(managerRequestQueue, {
         batchSize: 1, // Process one at a time for simplicity
       })
     );
 
     // Grant admin Lambda permission to publish to SNS
-    accessRequestTopic.grantPublish(adminFunction);
+    managerRequestTopic.grantPublish(adminFunction);
 
     // Pass topic ARN to admin Lambda
     adminFunction.addEnvironment(
-      "ACCESS_REQUEST_TOPIC_ARN",
-      accessRequestTopic.topicArn
+      "MANAGER_REQUEST_TOPIC_ARN",
+      managerRequestTopic.topicArn
     );
 
     // CloudWatch alarm for DLQ (messages that failed processing)
-    const dlqAlarm = new cdk.aws_cloudwatch.Alarm(this, "AccessRequestDLQAlarm", {
-      alarmName: name("access-request-dlq-alarm"),
-      alarmDescription: "Access request messages failed processing and landed in DLQ",
-      metric: accessRequestDLQ.metricApproximateNumberOfMessagesVisible({
+    const dlqAlarm = new cdk.aws_cloudwatch.Alarm(this, "ManagerRequestDLQAlarm", {
+      alarmName: name("manager-request-dlq-alarm"),
+      alarmDescription: "Manager request messages failed processing and landed in DLQ",
+      metric: managerRequestDLQ.metricApproximateNumberOfMessagesVisible({
         period: cdk.Duration.minutes(5),
       }),
       threshold: 1,
@@ -1827,19 +1827,19 @@ export class ApiStack extends cdk.Stack {
         `https://${organizationImagesBucket.bucketRegionalDomainName}`,
     });
 
-    new cdk.CfnOutput(this, "AccessRequestTopicArn", {
-      value: accessRequestTopic.topicArn,
-      description: "SNS topic ARN for access request events",
+    new cdk.CfnOutput(this, "ManagerRequestTopicArn", {
+      value: managerRequestTopic.topicArn,
+      description: "SNS topic ARN for manager request events",
     });
 
-    new cdk.CfnOutput(this, "AccessRequestQueueUrl", {
-      value: accessRequestQueue.queueUrl,
-      description: "SQS queue URL for access request processing",
+    new cdk.CfnOutput(this, "ManagerRequestQueueUrl", {
+      value: managerRequestQueue.queueUrl,
+      description: "SQS queue URL for manager request processing",
     });
 
-    new cdk.CfnOutput(this, "AccessRequestDLQUrl", {
-      value: accessRequestDLQ.queueUrl,
-      description: "SQS dead letter queue URL for failed access requests",
+    new cdk.CfnOutput(this, "ManagerRequestDLQUrl", {
+      value: managerRequestDLQ.queueUrl,
+      description: "SQS dead letter queue URL for failed manager requests",
     });
 
     const customAuthDomainOutput = new cdk.CfnOutput(

@@ -2,13 +2,13 @@
 
 ## Overview
 
-Access requests are processed asynchronously using SNS + SQS messaging. This provides reliable, decoupled processing with automatic retries and dead letter queue support.
+Manager requests are processed asynchronously using SNS + SQS messaging. This provides reliable, decoupled processing with automatic retries and dead letter queue support.
 
 ## Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                           ACCESS REQUEST FLOW                                │
+│                           MANAGER REQUEST FLOW                               │
 │                                                                             │
 │  User submits ──▶ API Lambda ──▶ SNS Topic ──▶ SQS Queue ──▶ Processor     │
 │   request              │              │              │         Lambda       │
@@ -26,26 +26,26 @@ Access requests are processed asynchronously using SNS + SQS messaging. This pro
 
 ## Components
 
-### SNS Topic: `lxsoftware-siutindei-access-request-events`
+### SNS Topic: `lxsoftware-siutindei-manager-request-events`
 
-- Receives access request events from the API
+- Receives manager request events from the API
 - Fans out to subscribed SQS queue
 - Message attributes enable future filtering
 
-### SQS Queue: `lxsoftware-siutindei-access-request-queue`
+### SQS Queue: `lxsoftware-siutindei-manager-request-queue`
 
 - Subscribes to SNS topic
 - 60 second visibility timeout (6x Lambda timeout)
 - 3 retry attempts before DLQ
 - SQS-managed encryption
 
-### Dead Letter Queue: `lxsoftware-siutindei-access-request-dlq`
+### Dead Letter Queue: `lxsoftware-siutindei-manager-request-dlq`
 
 - Receives messages that fail processing 3 times
 - 14 day retention for debugging
 - CloudWatch alarm triggers when messages arrive
 
-### Processor Lambda: `AccessRequestProcessor`
+### Processor Lambda: `ManagerRequestProcessor`
 
 - Triggered by SQS messages
 - Stores request in PostgreSQL database
@@ -56,7 +56,7 @@ Access requests are processed asynchronously using SNS + SQS messaging. This pro
 
 ```json
 {
-  "event_type": "access_request.submitted",
+  "event_type": "manager_request.submitted",
   "ticket_id": "R00001",
   "requester_id": "cognito-user-sub-uuid",
   "requester_email": "user@example.com",
@@ -105,7 +105,7 @@ The processor checks if a request with the same `ticket_id` already exists befor
 |------|-------------|
 | `backend/infrastructure/lib/api-stack.ts` | CDK infrastructure |
 | `backend/src/app/api/admin.py` | API handler with SNS publish |
-| `backend/lambda/access_request_processor/handler.py` | SQS processor |
+| `backend/lambda/manager_request_processor/handler.py` | SQS processor |
 | `backend/src/app/db/repositories/access_request.py` | Repository with `find_by_ticket_id` |
 
 ## Environment Variables
@@ -114,7 +114,7 @@ The processor checks if a request with the same `ticket_id` already exists befor
 
 | Variable | Description |
 |----------|-------------|
-| `ACCESS_REQUEST_TOPIC_ARN` | SNS topic ARN (required) |
+| `MANAGER_REQUEST_TOPIC_ARN` | SNS topic ARN (required) |
 
 ### Processor Lambda
 
@@ -129,9 +129,9 @@ The processor checks if a request with the same `ticket_id` already exists befor
 
 | Output | Description |
 |--------|-------------|
-| `AccessRequestTopicArn` | SNS topic ARN |
-| `AccessRequestQueueUrl` | SQS queue URL |
-| `AccessRequestDLQUrl` | Dead letter queue URL |
+| `ManagerRequestTopicArn` | SNS topic ARN |
+| `ManagerRequestQueueUrl` | SQS queue URL |
+| `ManagerRequestDLQUrl` | Dead letter queue URL |
 
 ## Monitoring
 

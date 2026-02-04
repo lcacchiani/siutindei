@@ -1,7 +1,7 @@
-"""Lambda handler for processing access requests from SQS.
+"""Lambda handler for processing manager requests from SQS.
 
 This Lambda is triggered by SQS messages that originate from the SNS topic.
-It processes access request submissions asynchronously:
+It processes manager request submissions asynchronously:
 1. Parses the SNS message from SQS
 2. Stores the request in the database (with idempotency check)
 3. Sends email notification to support/admin
@@ -37,10 +37,10 @@ ses_client = boto3.client("ses")
 
 
 def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
-    """Process access request messages from SQS.
+    """Process manager request messages from SQS.
 
     Each SQS message contains an SNS notification with:
-    - event_type: "access_request.submitted"
+    - event_type: "manager_request.submitted"
     - ticket_id: Unique ticket ID (e.g., R00001)
     - requester_id: Cognito user sub
     - requester_email: User's email
@@ -70,7 +70,7 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
             message = json.loads(message_str)
 
             event_type = message.get("event_type")
-            if event_type != "access_request.submitted":
+            if event_type != "manager_request.submitted":
                 logger.info(f"Skipping event type: {event_type}")
                 skipped += 1
                 continue
@@ -81,19 +81,19 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
                 skipped += 1
                 continue
 
-            logger.info(f"Processing access request: {ticket_id}")
+            logger.info(f"Processing manager request: {ticket_id}")
 
             # Store in database with idempotency check
-            access_request = _store_access_request(message)
+            manager_request = _store_manager_request(message)
 
-            if access_request is None:
+            if manager_request is None:
                 # Already processed (idempotent)
                 logger.info(f"Request {ticket_id} already exists, skipping")
                 skipped += 1
                 continue
 
             # Send email notification (non-blocking)
-            _send_notification_email(access_request)
+            _send_notification_email(manager_request)
 
             processed += 1
             logger.info(f"Successfully processed request: {ticket_id}")
@@ -118,10 +118,10 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     return result
 
 
-def _store_access_request(
+def _store_manager_request(
     message: dict[str, Any],
 ) -> OrganizationAccessRequest | None:
-    """Store access request in database with idempotency check.
+    """Store manager request in database with idempotency check.
 
     Args:
         message: Parsed SNS message containing request data.
@@ -139,8 +139,8 @@ def _store_access_request(
         if existing:
             return None
 
-        # Create new access request
-        access_request = OrganizationAccessRequest(
+        # Create new manager request
+        manager_request = OrganizationAccessRequest(
             ticket_id=ticket_id,
             requester_id=message["requester_id"],
             requester_email=message["requester_email"],
@@ -148,22 +148,22 @@ def _store_access_request(
             request_message=message.get("request_message"),
         )
 
-        repo.create(access_request)
+        repo.create(manager_request)
         session.commit()
-        session.refresh(access_request)
+        session.refresh(manager_request)
 
-        logger.info(f"Stored access request in database: {ticket_id}")
-        return access_request
+        logger.info(f"Stored manager request in database: {ticket_id}")
+        return manager_request
 
 
 def _send_notification_email(request: OrganizationAccessRequest) -> None:
-    """Send email notification for new access request.
+    """Send email notification for new manager request.
 
     This is a best-effort operation - failures are logged but don't
     cause the overall processing to fail (DB write already succeeded).
 
     Args:
-        request: The access request to notify about.
+        request: The manager request to notify about.
     """
     support_email = os.getenv("SUPPORT_EMAIL")
     sender_email = os.getenv("SES_SENDER_EMAIL")

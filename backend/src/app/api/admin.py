@@ -754,7 +754,7 @@ def _handle_user_access_request(
     POST: Submit a new access request (if none pending)
 
     POST requests are published to SNS for async processing via SQS.
-    Requires ACCESS_REQUEST_TOPIC_ARN environment variable.
+    Requires MANAGER_REQUEST_TOPIC_ARN environment variable.
     """
     user_sub = _get_user_sub(event)
     user_email = _get_user_email(event)
@@ -787,7 +787,7 @@ def _handle_user_access_request(
             )
 
     if method == "POST":
-        # Submit a new access request
+        # Submit a new manager request
         body = _parse_body(event)
 
         # Validate request fields first (before any DB or SNS operations)
@@ -805,9 +805,9 @@ def _handle_user_access_request(
         )
 
         # Require SNS topic ARN
-        topic_arn = os.getenv("ACCESS_REQUEST_TOPIC_ARN")
+        topic_arn = os.getenv("MANAGER_REQUEST_TOPIC_ARN")
         if not topic_arn:
-            logger.error("ACCESS_REQUEST_TOPIC_ARN not configured")
+            logger.error("MANAGER_REQUEST_TOPIC_ARN not configured")
             return json_response(
                 500,
                 {"error": "Service configuration error. Please contact support."},
@@ -833,7 +833,7 @@ def _handle_user_access_request(
             ticket_id = _generate_ticket_id(session)
 
         # Publish to SNS for async processing
-        return _publish_access_request_to_sns(
+        return _publish_manager_request_to_sns(
             event=event,
             topic_arn=topic_arn,
             ticket_id=ticket_id,
@@ -846,7 +846,7 @@ def _handle_user_access_request(
     return json_response(405, {"error": "Method not allowed"}, event=event)
 
 
-def _publish_access_request_to_sns(
+def _publish_manager_request_to_sns(
     event: Mapping[str, Any],
     topic_arn: str,
     ticket_id: str,
@@ -855,7 +855,7 @@ def _publish_access_request_to_sns(
     organization_name: str,
     request_message: Optional[str],
 ) -> dict[str, Any]:
-    """Publish access request to SNS for async processing.
+    """Publish manager request to SNS for async processing.
 
     The message is processed by an SQS-triggered Lambda that stores
     the request in the database and sends email notifications.
@@ -878,7 +878,7 @@ def _publish_access_request_to_sns(
         sns_client.publish(
             TopicArn=topic_arn,
             Message=json.dumps({
-                "event_type": "access_request.submitted",
+                "event_type": "manager_request.submitted",
                 "ticket_id": ticket_id,
                 "requester_id": user_sub,
                 "requester_email": user_email,
@@ -888,12 +888,12 @@ def _publish_access_request_to_sns(
             MessageAttributes={
                 "event_type": {
                     "DataType": "String",
-                    "StringValue": "access_request.submitted",
+                    "StringValue": "manager_request.submitted",
                 },
             },
         )
 
-        logger.info(f"Published access request to SNS: {ticket_id}")
+        logger.info(f"Published manager request to SNS: {ticket_id}")
 
         return json_response(
             202,
@@ -905,7 +905,7 @@ def _publish_access_request_to_sns(
         )
 
     except Exception as exc:
-        logger.exception(f"Failed to publish access request to SNS: {exc}")
+        logger.exception(f"Failed to publish manager request to SNS: {exc}")
         return json_response(
             500,
             {"error": "Failed to submit request. Please try again."},
