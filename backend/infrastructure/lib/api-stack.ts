@@ -767,8 +767,8 @@ export class ApiStack extends cdk.Stack {
     });
 
     // Helper to create Lambda functions using the factory
-    // Note: functionName is omitted to let CloudFormation generate unique names
-    // and avoid conflicts with existing Lambda functions.
+    // Function names use the standard prefix for consistent naming and
+    // to ensure log groups follow the /aws/lambda/{functionName} convention.
     const createPythonFunction = (
       id: string,
       props: {
@@ -781,6 +781,7 @@ export class ApiStack extends cdk.Stack {
       }
     ) => {
       const pythonLambda = lambdaFactory.create(id, {
+        functionName: name(id),
         handler: props.handler,
         environment: props.environment,
         timeout: props.timeout,
