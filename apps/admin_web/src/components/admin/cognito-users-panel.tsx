@@ -89,6 +89,25 @@ function EmailIcon({ className }: { className?: string }) {
   );
 }
 
+function DeleteIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <polyline points="3 6 5 6 21 6" />
+      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+      <line x1="10" y1="11" x2="10" y2="17" />
+      <line x1="14" y1="11" x2="14" y2="17" />
+    </svg>
+  );
+}
+
 function IdentityProviderBadge({ username }: { username: string | null | undefined }) {
   const provider = getIdentityProvider(username);
 
@@ -318,7 +337,6 @@ export function CognitoUsersPanel() {
               <thead className='border-b border-slate-200 text-slate-500'>
                 <tr>
                   <th className='py-2'>Email</th>
-                  <th className='py-2'>Provider</th>
                   <th className='py-2'>Roles</th>
                   <th className='py-2'>Last Login</th>
                   <th className='py-2'>Created</th>
@@ -338,6 +356,7 @@ export function CognitoUsersPanel() {
                           <span className='font-medium'>
                             {cognitoUser.email || cognitoUser.username || 'Unknown'}
                           </span>
+                          <IdentityProviderBadge username={cognitoUser.username} />
                           {isCurrent && (
                             <span className='rounded bg-slate-200 px-1.5 py-0.5 text-xs text-slate-600'>
                               You
@@ -349,9 +368,6 @@ export function CognitoUsersPanel() {
                             {cognitoUser.name}
                           </div>
                         )}
-                      </td>
-                      <td className='py-2'>
-                        <IdentityProviderBadge username={cognitoUser.username} />
                       </td>
                       <td className='py-2'>
                         <div className='flex gap-1'>
@@ -408,10 +424,11 @@ export function CognitoUsersPanel() {
                               variant='danger'
                               onClick={() => setDeleteConfirm(cognitoUser)}
                               disabled={actionLoading === `delete-${cognitoUser.sub}`}
+                              title='Delete'
                             >
                               {actionLoading === `delete-${cognitoUser.sub}`
                                 ? '...'
-                                : 'Delete'}
+                                : <DeleteIcon className='h-4 w-4' />}
                             </Button>
                           </div>
                         )}
@@ -435,25 +452,23 @@ export function CognitoUsersPanel() {
                     key={cognitoUser.sub}
                     className='rounded-lg border border-slate-200 bg-slate-50 p-3'
                   >
-                    <div className='flex items-start justify-between gap-2'>
-                      <div className='min-w-0 flex-1'>
-                        <div className='flex items-center gap-2'>
-                          <span className='truncate font-medium text-slate-900'>
-                            {cognitoUser.email || cognitoUser.username || 'Unknown'}
+                    <div className='min-w-0'>
+                      <div className='flex items-center gap-2'>
+                        <span className='truncate font-medium text-slate-900'>
+                          {cognitoUser.email || cognitoUser.username || 'Unknown'}
+                        </span>
+                        <IdentityProviderBadge username={cognitoUser.username} />
+                        {isCurrent && (
+                          <span className='shrink-0 rounded bg-slate-200 px-1.5 py-0.5 text-xs text-slate-600'>
+                            You
                           </span>
-                          {isCurrent && (
-                            <span className='shrink-0 rounded bg-slate-200 px-1.5 py-0.5 text-xs text-slate-600'>
-                              You
-                            </span>
-                          )}
-                        </div>
-                        {cognitoUser.name && (
-                          <div className='mt-0.5 text-sm text-slate-500'>
-                            {cognitoUser.name}
-                          </div>
                         )}
                       </div>
-                      <IdentityProviderBadge username={cognitoUser.username} />
+                      {cognitoUser.name && (
+                        <div className='mt-0.5 text-sm text-slate-500'>
+                          {cognitoUser.name}
+                        </div>
+                      )}
                     </div>
                     <div className='mt-2 flex items-center justify-between text-sm'>
                       <div className='flex gap-1'>
@@ -517,10 +532,11 @@ export function CognitoUsersPanel() {
                             onClick={() => setDeleteConfirm(cognitoUser)}
                             disabled={actionLoading === `delete-${cognitoUser.sub}`}
                             className='w-full'
+                            title='Delete User'
                           >
                             {actionLoading === `delete-${cognitoUser.sub}`
                               ? '...'
-                              : 'Delete User'}
+                              : <DeleteIcon className='h-4 w-4' />}
                           </Button>
                         </div>
                       )}
