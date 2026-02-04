@@ -753,8 +753,8 @@ def _handle_user_access_request(
     GET: Check if user has a pending access request
     POST: Submit a new access request (if none pending)
 
-    When ACCESS_REQUEST_TOPIC_ARN is configured, POST requests are published
-    to SNS for async processing. Otherwise, falls back to direct DB write.
+    POST requests are published to SNS for async processing via SQS.
+    Requires ACCESS_REQUEST_TOPIC_ARN environment variable.
     """
     user_sub = _get_user_sub(event)
     user_email = _get_user_email(event)
@@ -804,6 +804,16 @@ def _handle_user_access_request(
             required=False,
         )
 
+        # Require SNS topic ARN
+        topic_arn = os.getenv("ACCESS_REQUEST_TOPIC_ARN")
+        if not topic_arn:
+            logger.error("ACCESS_REQUEST_TOPIC_ARN not configured")
+            return json_response(
+                500,
+                {"error": "Service configuration error. Please contact support."},
+                event=event,
+            )
+
         with Session(get_engine()) as session:
             request_repo = OrganizationAccessRequestRepository(session)
 
@@ -822,23 +832,10 @@ def _handle_user_access_request(
             # Generate a unique progressive ticket ID
             ticket_id = _generate_ticket_id(session)
 
-        # Check if SNS topic is configured for async processing
-        topic_arn = os.getenv("ACCESS_REQUEST_TOPIC_ARN")
-        if topic_arn:
-            # Publish to SNS for async processing
-            return _publish_access_request_to_sns(
-                event=event,
-                topic_arn=topic_arn,
-                ticket_id=ticket_id,
-                user_sub=user_sub,
-                user_email=user_email or "unknown",
-                organization_name=organization_name,
-                request_message=request_message,
-            )
-
-        # Fallback: Direct DB write (for backwards compatibility)
-        return _create_access_request_sync(
+        # Publish to SNS for async processing
+        return _publish_access_request_to_sns(
             event=event,
+            topic_arn=topic_arn,
             ticket_id=ticket_id,
             user_sub=user_sub,
             user_email=user_email or "unknown",
@@ -860,7 +857,8 @@ def _publish_access_request_to_sns(
 ) -> dict[str, Any]:
     """Publish access request to SNS for async processing.
 
-    This enables decoupled, reliable processing with automatic retries.
+    The message is processed by an SQS-triggered Lambda that stores
+    the request in the database and sends email notifications.
 
     Args:
         event: Lambda event for response formatting.
@@ -915,59 +913,6 @@ def _publish_access_request_to_sns(
         )
 
 
-def _create_access_request_sync(
-    event: Mapping[str, Any],
-    ticket_id: str,
-    user_sub: str,
-    user_email: str,
-    organization_name: str,
-    request_message: Optional[str],
-) -> dict[str, Any]:
-    """Create access request synchronously (direct DB write).
-
-    Fallback method when SNS is not configured.
-
-    Args:
-        event: Lambda event for response formatting.
-        ticket_id: Generated ticket ID for the request.
-        user_sub: Cognito user sub (subject) identifier.
-        user_email: User's email address.
-        organization_name: Name of requested organization.
-        request_message: Optional message from the user.
-
-    Returns:
-        API Gateway response (201 Created).
-    """
-    with Session(get_engine()) as session:
-        request_repo = OrganizationAccessRequestRepository(session)
-
-        # Create the access request
-        access_request = OrganizationAccessRequest(
-            ticket_id=ticket_id,
-            requester_id=user_sub,
-            requester_email=user_email,
-            organization_name=organization_name,
-            request_message=request_message,
-        )
-        request_repo.create(access_request)
-        session.commit()
-        session.refresh(access_request)
-
-        logger.info(f"Created access request for user: {user_sub}")
-
-        # Send email notification
-        _send_access_request_email(access_request)
-
-        return json_response(
-            201,
-            {
-                "message": "Your request has been submitted successfully",
-                "request": _serialize_access_request(access_request),
-            },
-            event=event,
-        )
-
-
 def _generate_ticket_id(session: Session) -> str:
     """Generate a unique progressive ticket ID in format R + 5 digits.
 
@@ -1015,55 +960,6 @@ def _serialize_access_request(
         "reviewed_at": request.reviewed_at.isoformat() if request.reviewed_at else None,
         "reviewed_by": request.reviewed_by,
     }
-
-
-def _send_access_request_email(request: OrganizationAccessRequest) -> None:
-    """Send email notification for a new access request using Amazon SES.
-
-    The support email address is configured via SUPPORT_EMAIL environment variable.
-    The sender email is configured via SES_SENDER_EMAIL environment variable.
-
-    Email template is defined in app/templates/email_templates.py
-    """
-    from app.templates import render_new_request_email
-
-    support_email = os.getenv("SUPPORT_EMAIL")
-    sender_email = os.getenv("SES_SENDER_EMAIL")
-
-    if not support_email or not sender_email:
-        logger.warning(
-            "Email notification skipped: SUPPORT_EMAIL or SES_SENDER_EMAIL not configured"
-        )
-        return
-
-    try:
-        ses_client = boto3.client("ses")
-
-        email_content = render_new_request_email(
-            ticket_id=request.ticket_id,
-            requester_email=request.requester_email,
-            organization_name=request.organization_name,
-            request_message=request.request_message,
-            submitted_at=request.created_at.isoformat()
-            if request.created_at
-            else "Unknown",
-        )
-
-        ses_client.send_email(
-            Source=sender_email,
-            Destination={"ToAddresses": [support_email]},
-            Message={
-                "Subject": {"Data": email_content.subject, "Charset": "UTF-8"},
-                "Body": {
-                    "Text": {"Data": email_content.body_text, "Charset": "UTF-8"},
-                    "Html": {"Data": email_content.body_html, "Charset": "UTF-8"},
-                },
-            },
-        )
-        logger.info(f"Access request email sent to {support_email}")
-    except Exception as exc:
-        # Don't fail the request if email fails
-        logger.error(f"Failed to send access request email: {exc}")
 
 
 # --- Admin access request management ---
