@@ -939,8 +939,10 @@ export class ApiStack extends cdk.Stack {
     });
 
     // SNS Topic for manager request events
+    // SECURITY: Enable server-side encryption with AWS managed key
     const managerRequestTopic = new sns.Topic(this, "ManagerRequestTopic", {
       topicName: name("manager-request-events"),
+      masterKey: kms.Alias.fromAliasName(this, "SnsKmsKey", "alias/aws/sns"),
     });
 
     // Subscribe SQS queue to SNS topic
