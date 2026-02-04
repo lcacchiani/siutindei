@@ -16,6 +16,35 @@ import * as path from "path";
 export const STANDARD_LOG_RETENTION = logs.RetentionDays.THREE_MONTHS;
 
 /**
+ * Select appropriate private subnets from a VPC.
+ *
+ * This function handles both VPC configurations:
+ * - VPCs with NAT Gateway: Uses PRIVATE_WITH_EGRESS subnets
+ * - VPCs with VPC Endpoints (cost optimized): Uses PRIVATE_ISOLATED subnets
+ *
+ * @param vpc The VPC to select subnets from
+ * @returns SubnetSelection for the appropriate private subnet type
+ */
+export function selectPrivateSubnets(vpc: ec2.IVpc): ec2.SubnetSelection {
+  // Try to find private subnets with egress (NAT Gateway) first
+  // This handles existing VPCs and default VPC configurations
+  try {
+    const privateSubnets = vpc.selectSubnets({
+      subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
+    });
+    if (privateSubnets.subnets.length > 0) {
+      return { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS };
+    }
+  } catch {
+    // No PRIVATE_WITH_EGRESS subnets available
+  }
+
+  // Fall back to isolated subnets (VPC Endpoints, no NAT)
+  // This is the cost-optimized configuration for new VPCs
+  return { subnetType: ec2.SubnetType.PRIVATE_ISOLATED };
+}
+
+/**
  * Properties for the PythonLambda construct.
  */
 export interface PythonLambdaProps {
@@ -226,10 +255,10 @@ export class PythonLambda extends Construct {
       timeout: props.timeout ?? cdk.Duration.seconds(30),
       vpc: props.vpc,
       securityGroups: props.securityGroups,
-      // COST OPTIMIZATION: Use isolated subnets with VPC endpoints (no NAT Gateway)
-      vpcSubnets: props.vpc
-        ? { subnetType: ec2.SubnetType.PRIVATE_ISOLATED }
-        : undefined,
+      // Select private subnets - works with both NAT Gateway and VPC Endpoints
+      // For new VPCs: uses PRIVATE_ISOLATED with VPC Endpoints (cost optimized)
+      // For existing VPCs: uses PRIVATE_WITH_EGRESS with NAT Gateway
+      vpcSubnets: props.vpc ? selectPrivateSubnets(props.vpc) : undefined,
       environmentEncryption: environmentEncryptionKey,
       deadLetterQueue,
       deadLetterQueueEnabled: true,
