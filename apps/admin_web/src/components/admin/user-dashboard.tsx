@@ -117,13 +117,7 @@ export function UserDashboard() {
           {error}
         </StatusBanner>
       )}
-      <StatusBanner variant='info' title='Welcome'>
-        You are logged in but not yet a manager. Submit a request below to
-        become a manager of an organization.
-      </StatusBanner>
-      <div className='mt-6'>
-        <AccessRequestForm onRequestSubmitted={handleRequestSubmitted} />
-      </div>
+      <AccessRequestForm onRequestSubmitted={handleRequestSubmitted} />
     </AppShell>
   );
 }
