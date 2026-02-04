@@ -299,7 +299,7 @@ export function LocationsPanel({ mode }: LocationsPanelProps) {
               <thead className='border-b border-slate-200 text-slate-500'>
                 <tr>
                   <th className='py-2'>District</th>
-                  <th className='py-2'>Organization</th>
+                  {isAdmin && <th className='py-2'>Organization</th>}
                   <th className='py-2'>Address</th>
                   <th className='py-2 text-right'>Actions</th>
                 </tr>
@@ -308,10 +308,12 @@ export function LocationsPanel({ mode }: LocationsPanelProps) {
                 {filteredItems.map((item) => (
                   <tr key={item.id} className='border-b border-slate-100'>
                     <td className='py-2 font-medium'>{item.district}</td>
-                    <td className='py-2 text-slate-600'>
-                      {organizations.find((org) => org.id === item.org_id)
-                        ?.name || item.org_id}
-                    </td>
+                    {isAdmin && (
+                      <td className='py-2 text-slate-600'>
+                        {organizations.find((org) => org.id === item.org_id)
+                          ?.name || item.org_id}
+                      </td>
+                    )}
                     <td className='py-2 text-slate-600'>
                       {item.address || '—'}
                     </td>
@@ -356,9 +358,11 @@ export function LocationsPanel({ mode }: LocationsPanelProps) {
                   className='rounded-lg border border-slate-200 bg-slate-50 p-3'
                 >
                   <div className='font-medium text-slate-900'>{item.district}</div>
-                  <div className='mt-1 text-sm text-slate-600'>
-                    {organizations.find((org) => org.id === item.org_id)?.name || item.org_id}
-                  </div>
+                  {isAdmin && (
+                    <div className='mt-1 text-sm text-slate-600'>
+                      {organizations.find((org) => org.id === item.org_id)?.name || item.org_id}
+                    </div>
+                  )}
                   {item.address && (
                     <div className='mt-1 text-sm text-slate-500'>{item.address}</div>
                   )}

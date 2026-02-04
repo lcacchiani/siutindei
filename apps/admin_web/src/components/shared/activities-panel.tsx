@@ -309,7 +309,7 @@ export function ActivitiesPanel({ mode }: ActivitiesPanelProps) {
               <thead className='border-b border-slate-200 text-slate-500'>
                 <tr>
                   <th className='py-2'>Name</th>
-                  <th className='py-2'>Organization</th>
+                  {isAdmin && <th className='py-2'>Organization</th>}
                   <th className='py-2'>Age Range</th>
                   <th className='py-2 text-right'>Actions</th>
                 </tr>
@@ -318,10 +318,12 @@ export function ActivitiesPanel({ mode }: ActivitiesPanelProps) {
                 {filteredItems.map((item) => (
                   <tr key={item.id} className='border-b border-slate-100'>
                     <td className='py-2 font-medium'>{item.name}</td>
-                    <td className='py-2 text-slate-600'>
-                      {organizations.find((org) => org.id === item.org_id)
-                        ?.name || item.org_id}
-                    </td>
+                    {isAdmin && (
+                      <td className='py-2 text-slate-600'>
+                        {organizations.find((org) => org.id === item.org_id)
+                          ?.name || item.org_id}
+                      </td>
+                    )}
                     <td className='py-2 text-slate-600'>
                       {item.age_min} - {item.age_max}
                     </td>
@@ -361,9 +363,11 @@ export function ActivitiesPanel({ mode }: ActivitiesPanelProps) {
                   className='rounded-lg border border-slate-200 bg-slate-50 p-3'
                 >
                   <div className='font-medium text-slate-900'>{item.name}</div>
-                  <div className='mt-1 text-sm text-slate-600'>
-                    {organizations.find((org) => org.id === item.org_id)?.name || item.org_id}
-                  </div>
+                  {isAdmin && (
+                    <div className='mt-1 text-sm text-slate-600'>
+                      {organizations.find((org) => org.id === item.org_id)?.name || item.org_id}
+                    </div>
+                  )}
                   <div className='mt-1 text-sm text-slate-500'>
                     Ages: {item.age_min} - {item.age_max}
                   </div>
