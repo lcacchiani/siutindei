@@ -6,7 +6,7 @@ import * as logs from "aws-cdk-lib/aws-logs";
 import * as rds from "aws-cdk-lib/aws-rds";
 import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
 import { Construct } from "constructs";
-import { STANDARD_LOG_RETENTION } from "./python-lambda";
+import { STANDARD_LOG_RETENTION, selectPrivateSubnets } from "./python-lambda";
 
 /**
  * Properties for the DatabaseConstruct.
@@ -388,7 +388,8 @@ export class DatabaseConstruct extends Construct {
         writer: writerInstance,
         clusterIdentifier: name("db-cluster"),
         vpc: props.vpc,
-        vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
+        // Select private subnets - works with both NAT Gateway and VPC Endpoints
+        vpcSubnets: selectPrivateSubnets(props.vpc),
         securityGroups: [this.dbSecurityGroup],
       });
       this.cluster = cluster;

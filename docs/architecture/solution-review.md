@@ -1028,11 +1028,37 @@ vpc.addInterfaceEndpoint("RdsEndpoint", {
 });
 ```
 
-3. **Reserved Capacity for Predictable Workloads**
-   - Aurora: Reserved instance pricing
-   - Savings: 30-40% on database costs
+3. **Aurora Reserved Capacity** (Save 30-40% on database)
+   
+   For production workloads with predictable usage, Aurora Reserved Instances provide significant savings:
+   
+   | Commitment | 1-Year Savings | 3-Year Savings |
+   |------------|----------------|----------------|
+   | No Upfront | ~30% | ~40% |
+   | Partial Upfront | ~35% | ~45% |
+   | All Upfront | ~40% | ~50% |
+   
+   **How to Purchase:**
+   ```bash
+   # Via AWS CLI - purchase 1-year reserved capacity
+   aws rds purchase-reserved-db-instances-offering \
+     --reserved-db-instances-offering-id <offering-id> \
+     --db-instance-count 1 \
+     --reserved-db-instance-id siutindei-prod-reserved
+   
+   # List available offerings for Aurora Serverless v2
+   aws rds describe-reserved-db-instances-offerings \
+     --product-description "aurora-postgresql" \
+     --offering-type "No Upfront"
+   ```
+   
+   **Recommendations:**
+   - For production: 1-year partial upfront (best balance of savings vs flexibility)
+   - For staging/dev: Keep on-demand (workloads are unpredictable)
+   - Review usage patterns quarterly using AWS Cost Explorer
+   - Consider Savings Plans as an alternative for multi-service discounts
 
-4. **Use Graviton2/ARM for Lambda**
+4. **Use Graviton2/ARM for Lambda** (Save 20% on compute)
    - 20% lower cost, often better performance
    
 ```typescript
