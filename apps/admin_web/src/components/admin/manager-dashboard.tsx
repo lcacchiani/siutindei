@@ -90,7 +90,7 @@ export function ManagerDashboard() {
   const activeContent = useMemo(() => {
     switch (activeSection) {
       case 'media':
-        return <MediaPanel />;
+        return <MediaPanel mode='manager' />;
       case 'locations':
         return <LocationsPanel mode='manager' />;
       case 'activities':

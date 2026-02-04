@@ -102,6 +102,9 @@ export function LocationsPanel({ mode }: LocationsPanelProps) {
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
 
+  // For managers with a single org, auto-select and disable the dropdown
+  const isSingleOrgManager = !isAdmin && organizations.length === 1;
+
   useEffect(() => {
     const loadOrganizations = async () => {
       try {
@@ -115,6 +118,13 @@ export function LocationsPanel({ mode }: LocationsPanelProps) {
         } else {
           const response = await listManagerOrganizations();
           setOrganizations(response.items);
+          // Auto-select if manager has exactly one organization
+          if (response.items.length === 1) {
+            panel.setFormState((prev) => ({
+              ...prev,
+              org_id: response.items[0].id,
+            }));
+          }
         }
       } catch {
         setOrganizations([]);
@@ -174,6 +184,7 @@ export function LocationsPanel({ mode }: LocationsPanelProps) {
                   org_id: e.target.value,
                 }))
               }
+              disabled={isSingleOrgManager}
             >
               <option value=''>Select organization</option>
               {organizations.map((org) => (

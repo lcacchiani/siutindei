@@ -9,8 +9,10 @@ import {
   createOrganizationMediaUpload,
   deleteOrganizationMedia,
   listResource,
+  listManagerOrganizations,
   updateResource,
 } from '../../lib/api-client';
+import type { ApiMode } from '../../lib/resource-api';
 import type { Organization } from '../../types/admin';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
@@ -83,7 +85,12 @@ async function uploadMediaFile(
   return upload.media_url;
 }
 
-export function MediaPanel() {
+interface MediaPanelProps {
+  mode?: ApiMode;
+}
+
+export function MediaPanel({ mode = 'admin' }: MediaPanelProps) {
+  const isAdmin = mode === 'admin';
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [selectedOrgId, setSelectedOrgId] = useState<string>('');
   const [isLoadingOrgs, setIsLoadingOrgs] = useState(true);
@@ -103,6 +110,9 @@ export function MediaPanel() {
 
   const isMediaBusy = isSaving || isProcessingMedia;
 
+  // For managers with a single org, auto-select and disable the dropdown
+  const isSingleOrgManager = !isAdmin && organizations.length === 1;
+
   const selectedOrganization = organizations.find(
     (org) => org.id === selectedOrgId
   );
@@ -111,19 +121,33 @@ export function MediaPanel() {
     setIsLoadingOrgs(true);
     setError('');
     try {
-      const allOrganizations: Organization[] = [];
-      let cursor: string | undefined;
+      let allOrganizations: Organization[];
 
-      do {
-        const response = await listResource<Organization>(
-          'organizations',
-          cursor
-        );
-        allOrganizations.push(...response.items);
-        cursor = response.next_cursor ?? undefined;
-      } while (cursor);
+      if (isAdmin) {
+        allOrganizations = [];
+        let cursor: string | undefined;
+
+        do {
+          const response = await listResource<Organization>(
+            'organizations',
+            cursor
+          );
+          allOrganizations.push(...response.items);
+          cursor = response.next_cursor ?? undefined;
+        } while (cursor);
+      } else {
+        const response = await listManagerOrganizations();
+        allOrganizations = response.items;
+      }
 
       setOrganizations(allOrganizations);
+
+      // Auto-select if manager has exactly one organization
+      if (!isAdmin && allOrganizations.length === 1) {
+        const singleOrg = allOrganizations[0];
+        setSelectedOrgId(singleOrg.id);
+        setMediaUrls(singleOrg.media_urls ?? []);
+      }
     } catch (err) {
       const message =
         err instanceof ApiError
@@ -137,7 +161,7 @@ export function MediaPanel() {
 
   useEffect(() => {
     loadOrganizations();
-  }, []);
+  }, [isAdmin]);
 
   const handleSelectOrganization = (orgId: string) => {
     if (hasUnsavedChanges) {
@@ -394,7 +418,7 @@ export function MediaPanel() {
               onChange={(event) =>
                 handleSelectOrganization(event.target.value)
               }
-              disabled={isLoadingOrgs || isMediaBusy}
+              disabled={isLoadingOrgs || isMediaBusy || isSingleOrgManager}
             >
               <option value=''>
                 {isLoadingOrgs
