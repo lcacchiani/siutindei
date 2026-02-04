@@ -108,6 +108,39 @@ function DeleteIcon({ className }: { className?: string }) {
   );
 }
 
+function ShieldIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+    </svg>
+  );
+}
+
+function BriefcaseIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
+      <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+    </svg>
+  );
+}
+
 function IdentityProviderBadge({ username }: { username: string | null | undefined }) {
   const provider = getIdentityProvider(username);
 
@@ -396,12 +429,11 @@ export function CognitoUsersPanel() {
                                 handleToggleRole(cognitoUser, 'admin', hasAdminRole)
                               }
                               disabled={actionLoading === `${cognitoUser.sub}-admin`}
+                              title={hasAdminRole ? 'Remove Admin' : 'Make Admin'}
                             >
                               {actionLoading === `${cognitoUser.sub}-admin`
                                 ? '...'
-                                : hasAdminRole
-                                  ? 'Remove Admin'
-                                  : 'Make Admin'}
+                                : <ShieldIcon className='h-4 w-4' />}
                             </Button>
                             <Button
                               type='button'
@@ -411,12 +443,11 @@ export function CognitoUsersPanel() {
                                 handleToggleRole(cognitoUser, 'manager', hasManagerRole)
                               }
                               disabled={actionLoading === `${cognitoUser.sub}-manager`}
+                              title={hasManagerRole ? 'Remove Manager' : 'Make Manager'}
                             >
                               {actionLoading === `${cognitoUser.sub}-manager`
                                 ? '...'
-                                : hasManagerRole
-                                  ? 'Remove Manager'
-                                  : 'Make Manager'}
+                                : <BriefcaseIcon className='h-4 w-4' />}
                             </Button>
                             <Button
                               type='button'
@@ -490,48 +521,41 @@ export function CognitoUsersPanel() {
                           Cannot modify your own account
                         </span>
                       ) : (
-                        <div className='space-y-2'>
-                          <div className='flex gap-2'>
-                            <Button
-                              type='button'
-                              size='sm'
-                              variant={hasAdminRole ? 'danger' : 'secondary'}
-                              onClick={() =>
-                                handleToggleRole(cognitoUser, 'admin', hasAdminRole)
-                              }
-                              disabled={actionLoading === `${cognitoUser.sub}-admin`}
-                              className='flex-1'
-                            >
-                              {actionLoading === `${cognitoUser.sub}-admin`
-                                ? '...'
-                                : hasAdminRole
-                                  ? 'Remove Admin'
-                                  : 'Make Admin'}
-                            </Button>
-                            <Button
-                              type='button'
-                              size='sm'
-                              variant={hasManagerRole ? 'danger' : 'secondary'}
-                              onClick={() =>
-                                handleToggleRole(cognitoUser, 'manager', hasManagerRole)
-                              }
-                              disabled={actionLoading === `${cognitoUser.sub}-manager`}
-                              className='flex-1'
-                            >
-                              {actionLoading === `${cognitoUser.sub}-manager`
-                                ? '...'
-                                : hasManagerRole
-                                  ? 'Remove Manager'
-                                  : 'Make Manager'}
-                            </Button>
-                          </div>
+                        <div className='flex justify-center gap-2'>
+                          <Button
+                            type='button'
+                            size='sm'
+                            variant={hasAdminRole ? 'danger' : 'secondary'}
+                            onClick={() =>
+                              handleToggleRole(cognitoUser, 'admin', hasAdminRole)
+                            }
+                            disabled={actionLoading === `${cognitoUser.sub}-admin`}
+                            title={hasAdminRole ? 'Remove Admin' : 'Make Admin'}
+                          >
+                            {actionLoading === `${cognitoUser.sub}-admin`
+                              ? '...'
+                              : <ShieldIcon className='h-4 w-4' />}
+                          </Button>
+                          <Button
+                            type='button'
+                            size='sm'
+                            variant={hasManagerRole ? 'danger' : 'secondary'}
+                            onClick={() =>
+                              handleToggleRole(cognitoUser, 'manager', hasManagerRole)
+                            }
+                            disabled={actionLoading === `${cognitoUser.sub}-manager`}
+                            title={hasManagerRole ? 'Remove Manager' : 'Make Manager'}
+                          >
+                            {actionLoading === `${cognitoUser.sub}-manager`
+                              ? '...'
+                              : <BriefcaseIcon className='h-4 w-4' />}
+                          </Button>
                           <Button
                             type='button'
                             size='sm'
                             variant='danger'
                             onClick={() => setDeleteConfirm(cognitoUser)}
                             disabled={actionLoading === `delete-${cognitoUser.sub}`}
-                            className='w-full'
                             title='Delete User'
                           >
                             {actionLoading === `delete-${cognitoUser.sub}`
