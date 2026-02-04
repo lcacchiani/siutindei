@@ -285,7 +285,7 @@ export function MediaPanel() {
       const payload = {
         name: selectedOrganization.name,
         description: selectedOrganization.description ?? null,
-        owner_id: selectedOrganization.owner_id,
+        manager_id: selectedOrganization.manager_id,
         media_urls: normalizedUrls,
       };
 

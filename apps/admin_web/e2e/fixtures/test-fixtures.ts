@@ -17,18 +17,18 @@ export const mockAdminUser: MockUser = {
   name: 'Admin User',
 };
 
-export const mockOwnerUser: MockUser = {
-  email: 'owner@example.com',
-  sub: 'owner-user-id-456',
-  groups: ['owner'],
-  name: 'Owner User',
+export const mockManagerUser: MockUser = {
+  email: 'manager@example.com',
+  sub: 'manager-user-id-456',
+  groups: ['manager'],
+  name: 'Manager User',
 };
 
-export const mockAdminOwnerUser: MockUser = {
-  email: 'admin-owner@example.com',
-  sub: 'admin-owner-id-789',
-  groups: ['admin', 'owner'],
-  name: 'Admin Owner User',
+export const mockAdminManagerUser: MockUser = {
+  email: 'admin-manager@example.com',
+  sub: 'admin-manager-id-789',
+  groups: ['admin', 'manager'],
+  name: 'Admin Manager User',
 };
 
 export const mockRegularUser: MockUser = {
@@ -85,7 +85,7 @@ export const mockOrganizations = [
     id: 'org-1',
     name: 'Test Organization 1',
     description: 'First test organization',
-    owner_id: 'owner-user-id-456',
+    manager_id: 'manager-user-id-456',
     media_urls: [],
     created_at: '2024-01-01T00:00:00Z',
     updated_at: '2024-01-01T00:00:00Z',
@@ -94,7 +94,7 @@ export const mockOrganizations = [
     id: 'org-2',
     name: 'Test Organization 2',
     description: 'Second test organization',
-    owner_id: 'admin-owner-id-789',
+    manager_id: 'admin-manager-id-789',
     media_urls: [],
     created_at: '2024-01-02T00:00:00Z',
     updated_at: '2024-01-02T00:00:00Z',
@@ -132,22 +132,22 @@ export const mockActivities = [
  */
 export const mockCognitoUsers = [
   {
-    sub: 'owner-user-id-456',
-    username: 'owner@example.com',
-    email: 'owner@example.com',
-    name: 'Owner User',
+    sub: 'manager-user-id-456',
+    username: 'manager@example.com',
+    email: 'manager@example.com',
+    name: 'Manager User',
     enabled: true,
     status: 'CONFIRMED',
-    groups: ['owner'],
+    groups: ['manager'],
   },
   {
-    sub: 'admin-owner-id-789',
-    username: 'admin-owner@example.com',
-    email: 'admin-owner@example.com',
-    name: 'Admin Owner User',
+    sub: 'admin-manager-id-789',
+    username: 'admin-manager@example.com',
+    email: 'admin-manager@example.com',
+    name: 'Admin Manager User',
     enabled: true,
     status: 'CONFIRMED',
-    groups: ['admin', 'owner'],
+    groups: ['admin', 'manager'],
   },
 ];
 
@@ -318,8 +318,8 @@ export async function setupApiMocks(page: Page): Promise<void> {
     });
   });
 
-  // Mock owner status endpoint
-  await page.route('**/api/mock/owner/status*', async (route) => {
+  // Mock manager status endpoint
+  await page.route('**/api/mock/manager/status*', async (route) => {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -331,8 +331,8 @@ export async function setupApiMocks(page: Page): Promise<void> {
     });
   });
 
-  // Mock owner organizations list
-  await page.route('**/api/mock/owner/organizations*', async (route) => {
+  // Mock manager organizations list
+  await page.route('**/api/mock/manager/organizations*', async (route) => {
     const method = route.request().method();
 
     if (method === 'GET') {
@@ -380,7 +380,7 @@ export async function setupApiMocks(page: Page): Promise<void> {
 export const test = base.extend<{
   authenticatedPage: Page;
   adminPage: Page;
-  ownerPage: Page;
+  managerPage: Page;
   unauthenticatedPage: Page;
 }>({
   // Authenticated page with admin user
@@ -397,9 +397,9 @@ export const test = base.extend<{
     await use(page);
   },
 
-  // Owner page (non-admin owner)
-  ownerPage: async ({ page }, use) => {
-    await setupAuth(page, mockOwnerUser);
+  // Manager page (non-admin manager)
+  managerPage: async ({ page }, use) => {
+    await setupAuth(page, mockManagerUser);
     await setupApiMocks(page);
     await use(page);
   },

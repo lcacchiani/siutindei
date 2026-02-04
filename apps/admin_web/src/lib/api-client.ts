@@ -240,7 +240,7 @@ export async function removeUserFromGroup(
   });
 }
 
-// --- Owner-specific API methods ---
+// --- Manager-specific API methods ---
 
 export interface AccessRequest {
   id: string;
@@ -255,7 +255,7 @@ export interface AccessRequest {
   reviewed_by?: string | null;
 }
 
-export interface OwnerStatusResponse {
+export interface ManagerStatusResponse {
   has_pending_request: boolean;
   pending_request: AccessRequest | null;
   organizations_count: number;
@@ -271,18 +271,18 @@ export interface SubmitAccessRequestResponse {
   request: AccessRequest;
 }
 
-function buildOwnerUrl(resource: string, id?: string) {
+function buildManagerUrl(resource: string, id?: string) {
   const base = getApiBaseUrl();
   const normalized = base.endsWith('/') ? base : `${base}/`;
-  const suffix = id ? `v1/owner/${resource}/${id}` : `v1/owner/${resource}`;
+  const suffix = id ? `v1/manager/${resource}/${id}` : `v1/manager/${resource}`;
   return new URL(suffix, normalized).toString();
 }
 
 /**
- * Get owner status including pending requests and organizations count.
+ * Get manager status including pending requests and organizations count.
  */
-export async function getOwnerStatus(): Promise<OwnerStatusResponse> {
-  return request<OwnerStatusResponse>(buildOwnerUrl('access-request'));
+export async function getManagerStatus(): Promise<ManagerStatusResponse> {
+  return request<ManagerStatusResponse>(buildManagerUrl('access-request'));
 }
 
 /**
@@ -291,7 +291,7 @@ export async function getOwnerStatus(): Promise<OwnerStatusResponse> {
 export async function submitAccessRequest(
   payload: SubmitAccessRequestPayload
 ): Promise<SubmitAccessRequestResponse> {
-  return request<SubmitAccessRequestResponse>(buildOwnerUrl('access-request'), {
+  return request<SubmitAccessRequestResponse>(buildManagerUrl('access-request'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -301,36 +301,36 @@ export async function submitAccessRequest(
 }
 
 /**
- * List organizations owned by the current user.
+ * List organizations managed by the current user.
  */
-export async function listOwnerOrganizations(): Promise<
+export async function listManagerOrganizations(): Promise<
   ListResponse<import('../types/admin').Organization>
 > {
   return request<ListResponse<import('../types/admin').Organization>>(
-    buildOwnerUrl('organizations')
+    buildManagerUrl('organizations')
   );
 }
 
 /**
- * Get a specific organization owned by the current user.
+ * Get a specific organization managed by the current user.
  */
-export async function getOwnerOrganization(
+export async function getManagerOrganization(
   id: string
 ): Promise<import('../types/admin').Organization> {
   return request<import('../types/admin').Organization>(
-    buildOwnerUrl('organizations', id)
+    buildManagerUrl('organizations', id)
   );
 }
 
 /**
- * Update an organization owned by the current user.
+ * Update an organization managed by the current user.
  */
-export async function updateOwnerOrganization<TInput>(
+export async function updateManagerOrganization<TInput>(
   id: string,
   payload: TInput
 ): Promise<import('../types/admin').Organization> {
   return request<import('../types/admin').Organization>(
-    buildOwnerUrl('organizations', id),
+    buildManagerUrl('organizations', id),
     {
       method: 'PUT',
       headers: {
@@ -342,45 +342,45 @@ export async function updateOwnerOrganization<TInput>(
 }
 
 /**
- * Delete an organization owned by the current user.
+ * Delete an organization managed by the current user.
  */
-export async function deleteOwnerOrganization(id: string): Promise<void> {
-  return request<void>(buildOwnerUrl('organizations', id), {
+export async function deleteManagerOrganization(id: string): Promise<void> {
+  return request<void>(buildManagerUrl('organizations', id), {
     method: 'DELETE',
   });
 }
 
-// --- Owner Locations ---
+// --- Manager Locations ---
 
 /**
- * List locations in organizations owned by the current user.
+ * List locations in organizations managed by the current user.
  */
-export async function listOwnerLocations(): Promise<
+export async function listManagerLocations(): Promise<
   ListResponse<import('../types/admin').Location>
 > {
   return request<ListResponse<import('../types/admin').Location>>(
-    buildOwnerUrl('locations')
+    buildManagerUrl('locations')
   );
 }
 
 /**
- * Get a specific location in an owned organization.
+ * Get a specific location in a managed organization.
  */
-export async function getOwnerLocation(
+export async function getManagerLocation(
   id: string
 ): Promise<import('../types/admin').Location> {
   return request<import('../types/admin').Location>(
-    buildOwnerUrl('locations', id)
+    buildManagerUrl('locations', id)
   );
 }
 
 /**
- * Create a location in an owned organization.
+ * Create a location in a managed organization.
  */
-export async function createOwnerLocation<TInput>(
+export async function createManagerLocation<TInput>(
   payload: TInput
 ): Promise<import('../types/admin').Location> {
-  return request<import('../types/admin').Location>(buildOwnerUrl('locations'), {
+  return request<import('../types/admin').Location>(buildManagerUrl('locations'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
@@ -388,14 +388,14 @@ export async function createOwnerLocation<TInput>(
 }
 
 /**
- * Update a location in an owned organization.
+ * Update a location in a managed organization.
  */
-export async function updateOwnerLocation<TInput>(
+export async function updateManagerLocation<TInput>(
   id: string,
   payload: TInput
 ): Promise<import('../types/admin').Location> {
   return request<import('../types/admin').Location>(
-    buildOwnerUrl('locations', id),
+    buildManagerUrl('locations', id),
     {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -405,46 +405,46 @@ export async function updateOwnerLocation<TInput>(
 }
 
 /**
- * Delete a location in an owned organization.
+ * Delete a location in a managed organization.
  */
-export async function deleteOwnerLocation(id: string): Promise<void> {
-  return request<void>(buildOwnerUrl('locations', id), {
+export async function deleteManagerLocation(id: string): Promise<void> {
+  return request<void>(buildManagerUrl('locations', id), {
     method: 'DELETE',
   });
 }
 
-// --- Owner Activities ---
+// --- Manager Activities ---
 
 /**
- * List activities in organizations owned by the current user.
+ * List activities in organizations managed by the current user.
  */
-export async function listOwnerActivities(): Promise<
+export async function listManagerActivities(): Promise<
   ListResponse<import('../types/admin').Activity>
 > {
   return request<ListResponse<import('../types/admin').Activity>>(
-    buildOwnerUrl('activities')
+    buildManagerUrl('activities')
   );
 }
 
 /**
- * Get a specific activity in an owned organization.
+ * Get a specific activity in a managed organization.
  */
-export async function getOwnerActivity(
+export async function getManagerActivity(
   id: string
 ): Promise<import('../types/admin').Activity> {
   return request<import('../types/admin').Activity>(
-    buildOwnerUrl('activities', id)
+    buildManagerUrl('activities', id)
   );
 }
 
 /**
- * Create an activity in an owned organization.
+ * Create an activity in a managed organization.
  */
-export async function createOwnerActivity<TInput>(
+export async function createManagerActivity<TInput>(
   payload: TInput
 ): Promise<import('../types/admin').Activity> {
   return request<import('../types/admin').Activity>(
-    buildOwnerUrl('activities'),
+    buildManagerUrl('activities'),
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -454,14 +454,14 @@ export async function createOwnerActivity<TInput>(
 }
 
 /**
- * Update an activity in an owned organization.
+ * Update an activity in a managed organization.
  */
-export async function updateOwnerActivity<TInput>(
+export async function updateManagerActivity<TInput>(
   id: string,
   payload: TInput
 ): Promise<import('../types/admin').Activity> {
   return request<import('../types/admin').Activity>(
-    buildOwnerUrl('activities', id),
+    buildManagerUrl('activities', id),
     {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -471,43 +471,43 @@ export async function updateOwnerActivity<TInput>(
 }
 
 /**
- * Delete an activity in an owned organization.
+ * Delete an activity in a managed organization.
  */
-export async function deleteOwnerActivity(id: string): Promise<void> {
-  return request<void>(buildOwnerUrl('activities', id), {
+export async function deleteManagerActivity(id: string): Promise<void> {
+  return request<void>(buildManagerUrl('activities', id), {
     method: 'DELETE',
   });
 }
 
-// --- Owner Pricing ---
+// --- Manager Pricing ---
 
 /**
- * List pricing in organizations owned by the current user.
+ * List pricing in organizations managed by the current user.
  */
-export async function listOwnerPricing(): Promise<
+export async function listManagerPricing(): Promise<
   ListResponse<import('../types/admin').ActivityPricing>
 > {
   return request<ListResponse<import('../types/admin').ActivityPricing>>(
-    buildOwnerUrl('pricing')
+    buildManagerUrl('pricing')
   );
 }
 
 /**
- * Get specific pricing in an owned organization.
+ * Get specific pricing in a managed organization.
  */
-export async function getOwnerPricing(
+export async function getManagerPricing(
   id: string
 ): Promise<import('../types/admin').ActivityPricing> {
-  return request<import('../types/admin').ActivityPricing>(buildOwnerUrl('pricing', id));
+  return request<import('../types/admin').ActivityPricing>(buildManagerUrl('pricing', id));
 }
 
 /**
- * Create pricing in an owned organization.
+ * Create pricing in a managed organization.
  */
-export async function createOwnerPricing<TInput>(
+export async function createManagerPricing<TInput>(
   payload: TInput
 ): Promise<import('../types/admin').ActivityPricing> {
-  return request<import('../types/admin').ActivityPricing>(buildOwnerUrl('pricing'), {
+  return request<import('../types/admin').ActivityPricing>(buildManagerUrl('pricing'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
@@ -515,14 +515,14 @@ export async function createOwnerPricing<TInput>(
 }
 
 /**
- * Update pricing in an owned organization.
+ * Update pricing in a managed organization.
  */
-export async function updateOwnerPricing<TInput>(
+export async function updateManagerPricing<TInput>(
   id: string,
   payload: TInput
 ): Promise<import('../types/admin').ActivityPricing> {
   return request<import('../types/admin').ActivityPricing>(
-    buildOwnerUrl('pricing', id),
+    buildManagerUrl('pricing', id),
     {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -532,45 +532,45 @@ export async function updateOwnerPricing<TInput>(
 }
 
 /**
- * Delete pricing in an owned organization.
+ * Delete pricing in a managed organization.
  */
-export async function deleteOwnerPricing(id: string): Promise<void> {
-  return request<void>(buildOwnerUrl('pricing', id), {
+export async function deleteManagerPricing(id: string): Promise<void> {
+  return request<void>(buildManagerUrl('pricing', id), {
     method: 'DELETE',
   });
 }
 
-// --- Owner Schedules ---
+// --- Manager Schedules ---
 
 /**
- * List schedules in organizations owned by the current user.
+ * List schedules in organizations managed by the current user.
  */
-export async function listOwnerSchedules(): Promise<
+export async function listManagerSchedules(): Promise<
   ListResponse<import('../types/admin').ActivitySchedule>
 > {
   return request<ListResponse<import('../types/admin').ActivitySchedule>>(
-    buildOwnerUrl('schedules')
+    buildManagerUrl('schedules')
   );
 }
 
 /**
- * Get a specific schedule in an owned organization.
+ * Get a specific schedule in a managed organization.
  */
-export async function getOwnerSchedule(
+export async function getManagerSchedule(
   id: string
 ): Promise<import('../types/admin').ActivitySchedule> {
   return request<import('../types/admin').ActivitySchedule>(
-    buildOwnerUrl('schedules', id)
+    buildManagerUrl('schedules', id)
   );
 }
 
 /**
- * Create a schedule in an owned organization.
+ * Create a schedule in a managed organization.
  */
-export async function createOwnerSchedule<TInput>(
+export async function createManagerSchedule<TInput>(
   payload: TInput
 ): Promise<import('../types/admin').ActivitySchedule> {
-  return request<import('../types/admin').ActivitySchedule>(buildOwnerUrl('schedules'), {
+  return request<import('../types/admin').ActivitySchedule>(buildManagerUrl('schedules'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
@@ -578,14 +578,14 @@ export async function createOwnerSchedule<TInput>(
 }
 
 /**
- * Update a schedule in an owned organization.
+ * Update a schedule in a managed organization.
  */
-export async function updateOwnerSchedule<TInput>(
+export async function updateManagerSchedule<TInput>(
   id: string,
   payload: TInput
 ): Promise<import('../types/admin').ActivitySchedule> {
   return request<import('../types/admin').ActivitySchedule>(
-    buildOwnerUrl('schedules', id),
+    buildManagerUrl('schedules', id),
     {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -595,10 +595,10 @@ export async function updateOwnerSchedule<TInput>(
 }
 
 /**
- * Delete a schedule in an owned organization.
+ * Delete a schedule in a managed organization.
  */
-export async function deleteOwnerSchedule(id: string): Promise<void> {
-  return request<void>(buildOwnerUrl('schedules', id), {
+export async function deleteManagerSchedule(id: string): Promise<void> {
+  return request<void>(buildManagerUrl('schedules', id), {
     method: 'DELETE',
   });
 }

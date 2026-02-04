@@ -18,27 +18,27 @@ import { StatusBanner } from '../status-banner';
 interface OrganizationFormState {
   name: string;
   description: string;
-  owner_id: string;
+  manager_id: string;
 }
 
 const emptyForm: OrganizationFormState = {
   name: '',
   description: '',
-  owner_id: '',
+  manager_id: '',
 };
 
 function itemToForm(item: Organization): OrganizationFormState {
   return {
     name: item.name ?? '',
     description: item.description ?? '',
-    owner_id: item.owner_id ?? '',
+    manager_id: item.manager_id ?? '',
   };
 }
 
-function getOwnerDisplayName(ownerId: string, users: CognitoUser[]): string {
-  const user = users.find((u) => u.sub === ownerId);
+function getManagerDisplayName(managerId: string, users: CognitoUser[]): string {
+  const user = users.find((u) => u.sub === managerId);
   if (!user) {
-    return ownerId.slice(0, 8) + '...';
+    return managerId.slice(0, 8) + '...';
   }
   return user.email || user.username || user.sub.slice(0, 8) + '...';
 }
@@ -56,7 +56,7 @@ export function OrganizationsPanel({ mode }: OrganizationsPanelProps) {
     itemToForm
   );
 
-  // Admin-only: Load Cognito users for owner selection
+  // Admin-only: Load Cognito users for manager selection
   const [cognitoUsers, setCognitoUsers] = useState<CognitoUser[]>([]);
   const [isLoadingUsers, setIsLoadingUsers] = useState(isAdmin);
 
@@ -86,7 +86,7 @@ export function OrganizationsPanel({ mode }: OrganizationsPanelProps) {
         const message =
           err instanceof ApiError
             ? err.message
-            : 'Failed to load users for owner selection.';
+            : 'Failed to load users for manager selection.';
         setError(message);
       } finally {
         setIsLoadingUsers(false);
@@ -100,8 +100,8 @@ export function OrganizationsPanel({ mode }: OrganizationsPanelProps) {
     if (!panel.formState.name.trim()) {
       return 'Name is required.';
     }
-    if (isAdmin && !panel.formState.owner_id) {
-      return 'Owner is required.';
+    if (isAdmin && !panel.formState.manager_id) {
+      return 'Manager is required.';
     }
     return null;
   };
@@ -114,14 +114,14 @@ export function OrganizationsPanel({ mode }: OrganizationsPanelProps) {
       media_urls: existingOrg?.media_urls ?? [],
     };
     if (isAdmin) {
-      payload.owner_id = form.owner_id;
+      payload.manager_id = form.manager_id;
     }
     return payload;
   };
 
   const handleSubmit = () => panel.handleSubmit(formToPayload, validate);
 
-  // Owner mode: Don't show create form, only edit
+  // Manager mode: Don't show create form, only edit
   const showCreateForm = isAdmin || panel.editingId;
   const canCreate = isAdmin;
 
@@ -129,11 +129,11 @@ export function OrganizationsPanel({ mode }: OrganizationsPanelProps) {
   const filteredItems = panel.items.filter((item) => {
     if (!searchQuery.trim()) return true;
     const query = searchQuery.toLowerCase();
-    const ownerDisplay = getOwnerDisplayName(item.owner_id, cognitoUsers).toLowerCase();
+    const managerDisplay = getManagerDisplayName(item.manager_id, cognitoUsers).toLowerCase();
     return (
       item.name?.toLowerCase().includes(query) ||
       item.description?.toLowerCase().includes(query) ||
-      ownerDisplay.includes(query)
+      managerDisplay.includes(query)
     );
   });
 
@@ -171,20 +171,20 @@ export function OrganizationsPanel({ mode }: OrganizationsPanelProps) {
             </div>
             {isAdmin && (
               <div>
-                <Label htmlFor='org-owner'>Owner</Label>
+                <Label htmlFor='org-manager'>Manager</Label>
                 <Select
-                  id='org-owner'
-                  value={panel.formState.owner_id}
+                  id='org-manager'
+                  value={panel.formState.manager_id}
                   onChange={(e) =>
                     panel.setFormState((prev) => ({
                       ...prev,
-                      owner_id: e.target.value,
+                      manager_id: e.target.value,
                     }))
                   }
                   disabled={isLoadingUsers}
                 >
                   <option value=''>
-                    {isLoadingUsers ? 'Loading users...' : 'Select an owner'}
+                    {isLoadingUsers ? 'Loading users...' : 'Select a manager'}
                   </option>
                   {cognitoUsers.map((user) => (
                     <option key={user.sub} value={user.sub}>
@@ -274,7 +274,7 @@ export function OrganizationsPanel({ mode }: OrganizationsPanelProps) {
               <thead className='border-b border-slate-200 text-slate-500'>
                 <tr>
                   <th className='py-2'>Name</th>
-                  {isAdmin && <th className='py-2'>Owner</th>}
+                  {isAdmin && <th className='py-2'>Manager</th>}
                   <th className='py-2'>Description</th>
                   <th className='py-2 text-right'>Actions</th>
                 </tr>
@@ -285,7 +285,7 @@ export function OrganizationsPanel({ mode }: OrganizationsPanelProps) {
                     <td className='py-2 font-medium'>{item.name}</td>
                     {isAdmin && (
                       <td className='py-2 text-slate-600'>
-                        {getOwnerDisplayName(item.owner_id, cognitoUsers)}
+                        {getManagerDisplayName(item.manager_id, cognitoUsers)}
                       </td>
                     )}
                     <td className='py-2 text-slate-600'>
@@ -327,7 +327,7 @@ export function OrganizationsPanel({ mode }: OrganizationsPanelProps) {
                   <div className='font-medium text-slate-900'>{item.name}</div>
                   {isAdmin && (
                     <div className='mt-1 text-sm text-slate-600'>
-                      Owner: {getOwnerDisplayName(item.owner_id, cognitoUsers)}
+                      Manager: {getManagerDisplayName(item.manager_id, cognitoUsers)}
                     </div>
                   )}
                   {item.description && (

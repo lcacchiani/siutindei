@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 
 import { useResourcePanel } from '../../hooks/use-resource-panel';
-import { listResource, listOwnerOrganizations } from '../../lib/api-client';
+import { listResource, listManagerOrganizations } from '../../lib/api-client';
 import type { ApiMode } from '../../lib/resource-api';
 import type { Location, Organization } from '../../types/admin';
 import { Button } from '../ui/button';
@@ -77,7 +77,7 @@ export function LocationsPanel({ mode }: LocationsPanelProps) {
           );
           setOrganizations(response.items);
         } else {
-          const response = await listOwnerOrganizations();
+          const response = await listManagerOrganizations();
           setOrganizations(response.items);
         }
       } catch {

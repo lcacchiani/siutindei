@@ -1,8 +1,8 @@
 /**
- * Unified resource API helpers for both admin and owner modes.
+ * Unified resource API helpers for both admin and manager modes.
  *
  * Admin mode: Full access to all resources via /v1/admin/*
- * Owner mode: Filtered access to owned resources via /v1/owner/*
+ * Manager mode: Filtered access to managed resources via /v1/manager/*
  */
 
 import {
@@ -11,29 +11,29 @@ import {
   deleteResource,
   listResource,
   updateResource,
-  listOwnerOrganizations,
-  createOwnerLocation,
-  createOwnerActivity,
-  createOwnerPricing,
-  createOwnerSchedule,
-  listOwnerLocations,
-  listOwnerActivities,
-  listOwnerPricing,
-  listOwnerSchedules,
-  updateOwnerOrganization,
-  updateOwnerLocation,
-  updateOwnerActivity,
-  updateOwnerPricing,
-  updateOwnerSchedule,
-  deleteOwnerOrganization,
-  deleteOwnerLocation,
-  deleteOwnerActivity,
-  deleteOwnerPricing,
-  deleteOwnerSchedule,
+  listManagerOrganizations,
+  createManagerLocation,
+  createManagerActivity,
+  createManagerPricing,
+  createManagerSchedule,
+  listManagerLocations,
+  listManagerActivities,
+  listManagerPricing,
+  listManagerSchedules,
+  updateManagerOrganization,
+  updateManagerLocation,
+  updateManagerActivity,
+  updateManagerPricing,
+  updateManagerSchedule,
+  deleteManagerOrganization,
+  deleteManagerLocation,
+  deleteManagerActivity,
+  deleteManagerPricing,
+  deleteManagerSchedule,
   type ListResponse,
 } from './api-client';
 
-export type ApiMode = 'admin' | 'owner';
+export type ApiMode = 'admin' | 'manager';
 
 export type ResourceType =
   | 'organizations'
@@ -67,53 +67,53 @@ export function getResourceApi<T>(
     };
   }
 
-  // Owner mode - use owner-specific endpoints
+  // Manager mode - use manager-specific endpoints
   switch (resource) {
     case 'organizations':
       return {
         list: () =>
-          listOwnerOrganizations() as unknown as Promise<ListResponse<T>>,
-        // Owners cannot create organizations
+          listManagerOrganizations() as unknown as Promise<ListResponse<T>>,
+        // Managers cannot create organizations
         update: <TInput>(id: string, payload: TInput) =>
-          updateOwnerOrganization(id, payload) as unknown as Promise<T>,
-        delete: (id: string) => deleteOwnerOrganization(id),
+          updateManagerOrganization(id, payload) as unknown as Promise<T>,
+        delete: (id: string) => deleteManagerOrganization(id),
       };
     case 'locations':
       return {
-        list: () => listOwnerLocations() as unknown as Promise<ListResponse<T>>,
+        list: () => listManagerLocations() as unknown as Promise<ListResponse<T>>,
         create: <TInput>(payload: TInput) =>
-          createOwnerLocation(payload) as unknown as Promise<T>,
+          createManagerLocation(payload) as unknown as Promise<T>,
         update: <TInput>(id: string, payload: TInput) =>
-          updateOwnerLocation(id, payload) as unknown as Promise<T>,
-        delete: (id: string) => deleteOwnerLocation(id),
+          updateManagerLocation(id, payload) as unknown as Promise<T>,
+        delete: (id: string) => deleteManagerLocation(id),
       };
     case 'activities':
       return {
         list: () =>
-          listOwnerActivities() as unknown as Promise<ListResponse<T>>,
+          listManagerActivities() as unknown as Promise<ListResponse<T>>,
         create: <TInput>(payload: TInput) =>
-          createOwnerActivity(payload) as unknown as Promise<T>,
+          createManagerActivity(payload) as unknown as Promise<T>,
         update: <TInput>(id: string, payload: TInput) =>
-          updateOwnerActivity(id, payload) as unknown as Promise<T>,
-        delete: (id: string) => deleteOwnerActivity(id),
+          updateManagerActivity(id, payload) as unknown as Promise<T>,
+        delete: (id: string) => deleteManagerActivity(id),
       };
     case 'pricing':
       return {
-        list: () => listOwnerPricing() as unknown as Promise<ListResponse<T>>,
+        list: () => listManagerPricing() as unknown as Promise<ListResponse<T>>,
         create: <TInput>(payload: TInput) =>
-          createOwnerPricing(payload) as unknown as Promise<T>,
+          createManagerPricing(payload) as unknown as Promise<T>,
         update: <TInput>(id: string, payload: TInput) =>
-          updateOwnerPricing(id, payload) as unknown as Promise<T>,
-        delete: (id: string) => deleteOwnerPricing(id),
+          updateManagerPricing(id, payload) as unknown as Promise<T>,
+        delete: (id: string) => deleteManagerPricing(id),
       };
     case 'schedules':
       return {
-        list: () => listOwnerSchedules() as unknown as Promise<ListResponse<T>>,
+        list: () => listManagerSchedules() as unknown as Promise<ListResponse<T>>,
         create: <TInput>(payload: TInput) =>
-          createOwnerSchedule(payload) as unknown as Promise<T>,
+          createManagerSchedule(payload) as unknown as Promise<T>,
         update: <TInput>(id: string, payload: TInput) =>
-          updateOwnerSchedule(id, payload) as unknown as Promise<T>,
-        delete: (id: string) => deleteOwnerSchedule(id),
+          updateManagerSchedule(id, payload) as unknown as Promise<T>,
+        delete: (id: string) => deleteManagerSchedule(id),
       };
     default:
       throw new Error(`Unknown resource type: ${resource}`);
