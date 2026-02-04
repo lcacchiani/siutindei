@@ -633,63 +633,15 @@ export class ApiStack extends cdk.Stack {
     userPoolClient.addDependency(appleProvider);
     userPoolClient.addDependency(microsoftProvider);
 
-    const groupPolicy = customresources.AwsCustomResourcePolicy.fromStatements([
-      new iam.PolicyStatement({
-        actions: [
-          "cognito-idp:CreateGroup",
-          "cognito-idp:UpdateGroup",
-          "cognito-idp:DeleteGroup",
-        ],
-        resources: [userPool.userPoolArn],
-      }),
-    ]);
-
-    for (const [index, group] of userPoolGroups.entries()) {
-      new customresources.AwsCustomResource(
-        this,
-        `UserGroup${index}`,
-        {
-          onCreate: {
-            service: "CognitoIdentityServiceProvider",
-            action: "createGroup",
-            parameters: {
-              UserPoolId: userPool.userPoolId,
-              GroupName: group.name,
-              Description: group.description,
-            },
-            physicalResourceId: customresources.PhysicalResourceId.of(
-              `${userPool.userPoolId}-${group.name}`
-            ),
-            ignoreErrorCodesMatching: "GroupExistsException",
-          },
-          onUpdate: {
-            service: "CognitoIdentityServiceProvider",
-            action: "updateGroup",
-            parameters: {
-              UserPoolId: userPool.userPoolId,
-              GroupName: group.name,
-              Description: group.description,
-            },
-            physicalResourceId: customresources.PhysicalResourceId.of(
-              `${userPool.userPoolId}-${group.name}`
-            ),
-            // Ignore if group doesn't exist yet (happens during rename when
-            // physical resource ID changes and triggers replacement)
-            ignoreErrorCodesMatching: "ResourceNotFoundException",
-          },
-          onDelete: {
-            service: "CognitoIdentityServiceProvider",
-            action: "deleteGroup",
-            parameters: {
-              UserPoolId: userPool.userPoolId,
-              GroupName: group.name,
-            },
-            ignoreErrorCodesMatching: "ResourceNotFoundException",
-          },
-          policy: groupPolicy,
-          installLatestAwsSdk: false,
-        }
-      );
+    // Create Cognito user pool groups using native CloudFormation resource
+    // Using group name in logical ID for stability (not array index)
+    for (const group of userPoolGroups) {
+      const groupId = group.name.charAt(0).toUpperCase() + group.name.slice(1);
+      new cognito.CfnUserPoolGroup(this, `UserPoolGroup${groupId}`, {
+        userPoolId: userPool.userPoolId,
+        groupName: group.name,
+        description: group.description,
+      });
     }
 
     // ---------------------------------------------------------------------
