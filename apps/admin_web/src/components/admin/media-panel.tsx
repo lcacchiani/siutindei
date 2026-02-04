@@ -117,49 +117,49 @@ export function MediaPanel({ mode = 'admin' }: MediaPanelProps) {
     (org) => org.id === selectedOrgId
   );
 
-  const loadOrganizations = async () => {
-    setIsLoadingOrgs(true);
-    setError('');
-    try {
-      let allOrganizations: Organization[];
-
-      if (isAdmin) {
-        allOrganizations = [];
-        let cursor: string | undefined;
-
-        do {
-          const response = await listResource<Organization>(
-            'organizations',
-            cursor
-          );
-          allOrganizations.push(...response.items);
-          cursor = response.next_cursor ?? undefined;
-        } while (cursor);
-      } else {
-        const response = await listManagerOrganizations();
-        allOrganizations = response.items;
-      }
-
-      setOrganizations(allOrganizations);
-
-      // Auto-select if manager has exactly one organization
-      if (!isAdmin && allOrganizations.length === 1) {
-        const singleOrg = allOrganizations[0];
-        setSelectedOrgId(singleOrg.id);
-        setMediaUrls(singleOrg.media_urls ?? []);
-      }
-    } catch (err) {
-      const message =
-        err instanceof ApiError
-          ? err.message
-          : 'Failed to load organizations.';
-      setError(message);
-    } finally {
-      setIsLoadingOrgs(false);
-    }
-  };
-
   useEffect(() => {
+    const loadOrganizations = async () => {
+      setIsLoadingOrgs(true);
+      setError('');
+      try {
+        let allOrganizations: Organization[];
+
+        if (isAdmin) {
+          allOrganizations = [];
+          let cursor: string | undefined;
+
+          do {
+            const response = await listResource<Organization>(
+              'organizations',
+              cursor
+            );
+            allOrganizations.push(...response.items);
+            cursor = response.next_cursor ?? undefined;
+          } while (cursor);
+        } else {
+          const response = await listManagerOrganizations();
+          allOrganizations = response.items;
+        }
+
+        setOrganizations(allOrganizations);
+
+        // Auto-select if manager has exactly one organization
+        if (!isAdmin && allOrganizations.length === 1) {
+          const singleOrg = allOrganizations[0];
+          setSelectedOrgId(singleOrg.id);
+          setMediaUrls(singleOrg.media_urls ?? []);
+        }
+      } catch (err) {
+        const message =
+          err instanceof ApiError
+            ? err.message
+            : 'Failed to load organizations.';
+        setError(message);
+      } finally {
+        setIsLoadingOrgs(false);
+      }
+    };
+
     loadOrganizations();
   }, [isAdmin]);
 
