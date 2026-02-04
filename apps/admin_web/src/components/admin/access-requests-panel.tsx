@@ -132,6 +132,23 @@ function ReviewModal({ request, onClose, onReviewed }: ReviewModalProps) {
   );
 }
 
+function ReviewIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox='0 0 24 24'
+      fill='none'
+      stroke='currentColor'
+      strokeWidth='2'
+      strokeLinecap='round'
+      strokeLinejoin='round'
+    >
+      <path d='M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z' />
+      <circle cx='12' cy='12' r='3' />
+    </svg>
+  );
+}
+
 function StatusBadge({ status }: { status: AccessRequest['status'] }) {
   const colors = {
     pending: 'bg-yellow-100 text-yellow-800',
@@ -284,7 +301,7 @@ export function AccessRequestsPanel() {
               <tbody>
                 {filteredItems.map((item) => (
                   <tr key={item.id} className='border-b border-slate-100'>
-                    <td className='py-2 font-mono text-xs'>{item.ticket_id}</td>
+                    <td className='py-2'>{item.ticket_id}</td>
                     <td className='py-2 font-medium'>
                       {item.organization_name}
                     </td>
@@ -302,9 +319,11 @@ export function AccessRequestsPanel() {
                         <Button
                           type='button'
                           size='sm'
+                          variant='ghost'
                           onClick={() => setReviewingRequest(item)}
+                          aria-label='Review request'
                         >
-                          Review
+                          <ReviewIcon className='h-4 w-4' />
                         </Button>
                       ) : (
                         <span className='text-xs text-slate-400'>
@@ -332,7 +351,7 @@ export function AccessRequestsPanel() {
                       <div className='font-medium text-slate-900'>
                         {item.organization_name}
                       </div>
-                      <div className='mt-0.5 font-mono text-xs text-slate-500'>
+                      <div className='mt-0.5 text-sm text-slate-500'>
                         {item.ticket_id}
                       </div>
                     </div>
@@ -351,10 +370,12 @@ export function AccessRequestsPanel() {
                       <Button
                         type='button'
                         size='sm'
+                        variant='ghost'
                         onClick={() => setReviewingRequest(item)}
                         className='w-full'
+                        aria-label='Review request'
                       >
-                        Review Request
+                        <ReviewIcon className='h-4 w-4' />
                       </Button>
                     ) : (
                       <span className='block text-center text-xs text-slate-400'>
