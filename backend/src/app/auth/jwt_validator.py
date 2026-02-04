@@ -11,6 +11,7 @@ SECURITY NOTES:
 
 from __future__ import annotations
 
+import base64
 import json
 import os
 import time
@@ -24,6 +25,49 @@ from jwt import PyJWKClient, PyJWKClientError
 from app.utils.logging import get_logger
 
 logger = get_logger(__name__)
+
+
+def _extract_unverified_claims(token: str) -> dict[str, Any]:
+    """Extract claims from a JWT token without verification.
+
+    This function manually decodes the JWT payload to extract claims
+    for the purpose of determining the issuer (to fetch the correct JWKS).
+    The signature is verified separately afterwards.
+
+    SECURITY NOTE: These claims are NOT trusted until the signature is verified.
+    This is only used to extract the issuer URL for JWKS lookup.
+
+    Args:
+        token: The JWT token string.
+
+    Returns:
+        Dictionary of unverified claims.
+
+    Raises:
+        JWTValidationError: If the token format is invalid.
+    """
+    try:
+        parts = token.split(".")
+        if len(parts) != 3:
+            raise JWTValidationError(
+                "Invalid JWT format: expected 3 parts",
+                reason="invalid_token",
+            )
+
+        # Decode the payload (second part)
+        payload = parts[1]
+        # Add padding if needed for base64 decoding
+        padding = 4 - len(payload) % 4
+        if padding != 4:
+            payload += "=" * padding
+
+        decoded_bytes = base64.urlsafe_b64decode(payload)
+        return json.loads(decoded_bytes.decode("utf-8"))
+    except (ValueError, json.JSONDecodeError, UnicodeDecodeError) as exc:
+        raise JWTValidationError(
+            "Invalid JWT format: could not decode payload",
+            reason="invalid_token",
+        ) from exc
 
 # Cache for JWKS client to avoid re-fetching keys
 _jwks_clients: dict[str, PyJWKClient] = {}
@@ -166,18 +210,9 @@ def decode_and_verify_token(
     Raises:
         JWTValidationError: If token validation fails
     """
-    # First, decode without verification to get the issuer
-    # This is safe because we verify the signature afterwards
-    try:
-        unverified_header = jwt.get_unverified_header(token)
-        unverified_claims = jwt.decode(
-            token, options={"verify_signature": False, "verify_exp": False}
-        )
-    except jwt.exceptions.DecodeError as exc:
-        raise JWTValidationError(
-            "Invalid JWT format",
-            reason="invalid_token",
-        ) from exc
+    # Extract unverified claims to get the issuer for JWKS lookup
+    # SECURITY: These claims are NOT trusted - we verify the signature below
+    unverified_claims = _extract_unverified_claims(token)
 
     # Extract issuer to get user pool info if not provided
     issuer = unverified_claims.get("iss", "")
