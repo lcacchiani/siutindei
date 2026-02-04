@@ -1521,17 +1521,6 @@ export class ApiStack extends cdk.Stack {
       });
     }
 
-    // Manager access request (submit request to be added to an organization)
-    const managerAccessRequest = manager.addResource("access-request");
-    managerAccessRequest.addMethod("GET", adminIntegration, {
-      authorizationType: apigateway.AuthorizationType.CUSTOM,
-      authorizer: managerAuthorizer,
-    });
-    managerAccessRequest.addMethod("POST", adminIntegration, {
-      authorizationType: apigateway.AuthorizationType.CUSTOM,
-      authorizer: managerAuthorizer,
-    });
-
     // -------------------------------------------------------------------------
     // User routes at /v1/user (accessible by any logged-in Cognito user)
     // These endpoints require authentication but no specific group membership.
@@ -1540,17 +1529,17 @@ export class ApiStack extends cdk.Stack {
     // -------------------------------------------------------------------------
     const user = v1.addResource("user");
 
-    // Example: User profile endpoint (placeholder - implement as needed)
-    // const userProfile = user.addResource("profile");
-    // userProfile.addMethod("GET", adminIntegration, {
-    //   authorizationType: apigateway.AuthorizationType.CUSTOM,
-    //   authorizer: userAuthorizer,
-    // });
-
-    // Export the user resource for use in other parts of the stack
-    // Add your logged-in user endpoints here using:
-    //   authorizationType: apigateway.AuthorizationType.CUSTOM,
-    //   authorizer: userAuthorizer,
+    // Access request (submit request to become a manager of an organization)
+    // Any logged-in user can request access, not just existing managers
+    const userAccessRequest = user.addResource("access-request");
+    userAccessRequest.addMethod("GET", adminIntegration, {
+      authorizationType: apigateway.AuthorizationType.CUSTOM,
+      authorizer: userAuthorizer,
+    });
+    userAccessRequest.addMethod("POST", adminIntegration, {
+      authorizationType: apigateway.AuthorizationType.CUSTOM,
+      authorizer: userAuthorizer,
+    });
 
     // ---------------------------------------------------------------------
     // Admin Bootstrap (Conditional)

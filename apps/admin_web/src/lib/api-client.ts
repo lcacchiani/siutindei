@@ -278,20 +278,31 @@ function buildManagerUrl(resource: string, id?: string) {
   return new URL(suffix, normalized).toString();
 }
 
+// --- User-specific API methods (any logged-in user) ---
+
+function buildUserUrl(resource: string, id?: string) {
+  const base = getApiBaseUrl();
+  const normalized = base.endsWith('/') ? base : `${base}/`;
+  const suffix = id ? `v1/user/${resource}/${id}` : `v1/user/${resource}`;
+  return new URL(suffix, normalized).toString();
+}
+
 /**
- * Get manager status including pending requests and organizations count.
+ * Get user's access request status including pending requests and organizations count.
+ * Available to any logged-in user.
  */
-export async function getManagerStatus(): Promise<ManagerStatusResponse> {
-  return request<ManagerStatusResponse>(buildManagerUrl('access-request'));
+export async function getUserAccessStatus(): Promise<ManagerStatusResponse> {
+  return request<ManagerStatusResponse>(buildUserUrl('access-request'));
 }
 
 /**
  * Submit a new organization access request.
+ * Available to any logged-in user requesting to become a manager.
  */
 export async function submitAccessRequest(
   payload: SubmitAccessRequestPayload
 ): Promise<SubmitAccessRequestResponse> {
-  return request<SubmitAccessRequestResponse>(buildManagerUrl('access-request'), {
+  return request<SubmitAccessRequestResponse>(buildUserUrl('access-request'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

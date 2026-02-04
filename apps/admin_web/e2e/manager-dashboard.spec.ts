@@ -174,8 +174,8 @@ test.describe('Manager Access Request Flow', () => {
     // Set up manager user
     await setupAuth(page, mockManagerUser);
 
-    // Override the manager status endpoint to show no organizations
-    await page.route('**/api/mock/manager/status*', async (route) => {
+    // Override the user access request status endpoint to show no organizations
+    await page.route('**/api/mock/user/access-request*', async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -199,8 +199,8 @@ test.describe('Manager Access Request Flow', () => {
     // Set up manager user
     await setupAuth(page, mockManagerUser);
 
-    // Override the manager status endpoint to show pending request
-    await page.route('**/api/mock/manager/status*', async (route) => {
+    // Override the user access request status endpoint to show pending request
+    await page.route('**/api/mock/user/access-request*', async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',

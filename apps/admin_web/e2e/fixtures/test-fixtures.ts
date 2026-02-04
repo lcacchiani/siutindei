@@ -318,8 +318,8 @@ export async function setupApiMocks(page: Page): Promise<void> {
     });
   });
 
-  // Mock manager status endpoint
-  await page.route('**/api/mock/manager/status*', async (route) => {
+  // Mock user access request status endpoint
+  await page.route('**/api/mock/user/access-request*', async (route) => {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',

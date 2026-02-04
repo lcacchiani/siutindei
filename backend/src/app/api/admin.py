@@ -107,6 +107,10 @@ def lambda_handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
         },
     )
 
+    # Handle /v1/user/... routes (for any logged-in user)
+    if base_path == "user":
+        return _handle_user_routes(event, method, resource, resource_id)
+
     # Handle /v1/manager/... routes (for users in 'manager' or 'admin' group)
     if base_path == "manager":
         return _handle_manager_routes(event, method, resource, resource_id)
@@ -394,7 +398,7 @@ def _parse_path(
 
     Returns:
         Tuple of (base_path, resource, resource_id, sub_resource)
-        base_path is either "admin" or "manager"
+        base_path is either "admin", "manager", or "user"
     """
     parts = [segment for segment in path.split("/") if segment]
     parts = _strip_version_prefix(parts)
@@ -415,6 +419,13 @@ def _parse_path(
 
     # Handle /v1/manager/... paths
     if base_path == "manager":
+        resource = parts[1] if len(parts) > 1 else ""
+        resource_id = parts[2] if len(parts) > 2 else None
+        sub_resource = parts[3] if len(parts) > 3 else None
+        return base_path, resource, resource_id, sub_resource
+
+    # Handle /v1/user/... paths
+    if base_path == "user":
         resource = parts[1] if len(parts) > 1 else ""
         resource_id = parts[2] if len(parts) > 2 else None
         sub_resource = parts[3] if len(parts) > 3 else None
@@ -621,6 +632,27 @@ def _get_all_filtered_by_org(
 # --- Manager-specific routes ---
 
 
+def _handle_user_routes(
+    event: Mapping[str, Any],
+    method: str,
+    resource: str,
+    resource_id: Optional[str],
+) -> dict[str, Any]:
+    """Handle routes accessible to any logged-in Cognito user.
+
+    User routes:
+        /v1/user/access-request - Request access to become a manager
+    """
+    # Access request - any logged-in user can request
+    if resource == "access-request":
+        return _safe_handler(
+            lambda: _handle_user_access_request(event, method),
+            event,
+        )
+
+    return json_response(404, {"error": "Not found"}, event=event)
+
+
 def _handle_manager_routes(
     event: Mapping[str, Any],
     method: str,
@@ -637,19 +669,11 @@ def _handle_manager_routes(
         /v1/manager/activities - CRUD for activities in managed organizations
         /v1/manager/pricing - CRUD for pricing in managed organizations
         /v1/manager/schedules - CRUD for schedules in managed organizations
-        /v1/manager/access-request - Request access to an organization
     """
     # Check if user is in manager group (or admin group - admins can do everything)
     if not _is_manager(event) and not _is_admin(event):
         logger.warning("Unauthorized manager access attempt")
         return json_response(403, {"error": "Forbidden"}, event=event)
-
-    # Access request (doesn't require management)
-    if resource == "access-request":
-        return _safe_handler(
-            lambda: _handle_manager_access_request(event, method),
-            event,
-        )
 
     # Resources that can be managed by managers
     manager_resources = {
@@ -713,11 +737,13 @@ def _update_organization_for_manager(
     return entity
 
 
-def _handle_manager_access_request(
+def _handle_user_access_request(
     event: Mapping[str, Any],
     method: str,
 ) -> dict[str, Any]:
-    """Handle manager access request operations.
+    """Handle user access request operations.
+
+    Any logged-in user can request to become a manager of an organization.
 
     GET: Check if user has a pending access request
     POST: Submit a new access request (if none pending)

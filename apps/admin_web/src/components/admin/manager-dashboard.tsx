@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 
 import {
   ApiError,
-  getManagerStatus,
+  getUserAccessStatus,
   type AccessRequest,
   type ManagerStatusResponse,
 } from '../../lib/api-client';
@@ -41,7 +41,7 @@ export function ManagerDashboard() {
     setIsLoading(true);
     setError('');
     try {
-      const status = await getManagerStatus();
+      const status = await getUserAccessStatus();
       setManagerStatus(status);
 
       if (status.organizations_count > 0) {
