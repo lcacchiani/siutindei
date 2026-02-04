@@ -16,31 +16,9 @@ import * as path from "path";
 export const STANDARD_LOG_RETENTION = logs.RetentionDays.THREE_MONTHS;
 
 /**
- * Select appropriate private subnets from a VPC.
- *
- * This function handles both VPC configurations:
- * - Existing VPCs with NAT Gateway: Uses PRIVATE_WITH_EGRESS subnets
- * - Cost-optimized VPCs with VPC Endpoints: Uses PRIVATE_ISOLATED subnets
- *
- * @param vpc The VPC to select subnets from
- * @returns SubnetSelection for the appropriate private subnet type
+ * Select private subnets from a VPC.
  */
-export function selectPrivateSubnets(vpc: ec2.IVpc): ec2.SubnetSelection {
-  // Try to find private subnets with egress (NAT Gateway) first
-  // This handles existing VPCs that have NAT Gateway configured
-  try {
-    const privateSubnets = vpc.selectSubnets({
-      subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
-    });
-    if (privateSubnets.subnets.length > 0) {
-      return { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS };
-    }
-  } catch {
-    // No PRIVATE_WITH_EGRESS subnets available
-  }
-
-  // Fall back to isolated subnets (VPC Endpoints, no NAT)
-  // This is for cost-optimized VPCs created without NAT Gateway
+export function selectPrivateSubnets(_vpc: ec2.IVpc): ec2.SubnetSelection {
   return { subnetType: ec2.SubnetType.PRIVATE_ISOLATED };
 }
 

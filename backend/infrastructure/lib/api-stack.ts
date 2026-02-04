@@ -135,47 +135,30 @@ export class ApiStack extends cdk.Stack {
         process.env.SKIP_DB_CLUSTER_IMMUTABLE_UPDATES
       ) ?? false;
 
-    // COST OPTIMIZATION FLAG: Set to 'true' for new deployments to eliminate NAT Gateway
-    // This saves ~$32/month base cost + data processing fees
-    // WARNING: Cannot be changed for existing deployments - requires VPC migration
-    const costOptimizedVpc =
-      parseOptionalBoolean(process.env.COST_OPTIMIZED_VPC) ?? false;
-
     // ---------------------------------------------------------------------
     // VPC and Security Groups
     // ---------------------------------------------------------------------
-    // Two VPC configurations available:
-    // 1. Standard (costOptimizedVpc=false): NAT Gateway + Private subnets (default)
-    // 2. Cost-optimized (costOptimizedVpc=true): VPC Endpoints + Isolated subnets
     const vpc = existingVpcId
       ? ec2.Vpc.fromLookup(this, "ExistingVpc", { vpcId: existingVpcId })
-      : costOptimizedVpc
-        ? new ec2.Vpc(this, "SiutindeiVpc", {
-            vpcName: name("vpc"),
-            maxAzs: 2,
-            // COST OPTIMIZATION: No NAT Gateway - use VPC Endpoints instead
-            natGateways: 0,
-            subnetConfiguration: [
-              {
-                name: "Public",
-                subnetType: ec2.SubnetType.PUBLIC,
-                cidrMask: 24,
-              },
-              {
-                name: "Private",
-                subnetType: ec2.SubnetType.PRIVATE_ISOLATED,
-                cidrMask: 24,
-              },
-            ],
-          })
-        : new ec2.Vpc(this, "SiutindeiVpc", {
-            vpcName: name("vpc"),
-            maxAzs: 2,
-            natGateways: 1, // Standard configuration with NAT Gateway
-          });
+      : new ec2.Vpc(this, "SiutindeiVpc", {
+          vpcName: name("vpc"),
+          maxAzs: 2,
+          natGateways: 0,
+          subnetConfiguration: [
+            {
+              name: "Public",
+              subnetType: ec2.SubnetType.PUBLIC,
+              cidrMask: 24,
+            },
+            {
+              name: "Private",
+              subnetType: ec2.SubnetType.PRIVATE_ISOLATED,
+              cidrMask: 24,
+            },
+          ],
+        });
 
-    // VPC Endpoints for AWS services - reduces/eliminates NAT Gateway traffic
-    // Gateway endpoints are FREE and handle high-throughput S3/DynamoDB traffic
+    // VPC Endpoints for AWS services
     vpc.addGatewayEndpoint("S3Endpoint", {
       service: ec2.GatewayVpcEndpointAwsService.S3,
     });
@@ -184,8 +167,6 @@ export class ApiStack extends cdk.Stack {
       service: ec2.GatewayVpcEndpointAwsService.DYNAMODB,
     });
 
-    // Interface endpoints for AWS services
-    // Required for cost-optimized VPC (no NAT), optional for standard VPC (reduces NAT traffic)
     if (!existingVpcId) {
       const endpointSecurityGroup = new ec2.SecurityGroup(
         this,
@@ -202,19 +183,16 @@ export class ApiStack extends cdk.Stack {
         "Allow HTTPS from VPC"
       );
 
-      // Secrets Manager endpoint - for Lambda to access secrets
       vpc.addInterfaceEndpoint("SecretsManagerEndpoint", {
         service: ec2.InterfaceVpcEndpointAwsService.SECRETS_MANAGER,
         securityGroups: [endpointSecurityGroup],
       });
 
-      // STS endpoint - for IAM authentication
       vpc.addInterfaceEndpoint("StsEndpoint", {
         service: ec2.InterfaceVpcEndpointAwsService.STS,
         securityGroups: [endpointSecurityGroup],
       });
 
-      // CloudWatch Logs endpoint - for Lambda logging
       vpc.addInterfaceEndpoint("CloudWatchLogsEndpoint", {
         service: ec2.InterfaceVpcEndpointAwsService.CLOUDWATCH_LOGS,
         securityGroups: [endpointSecurityGroup],

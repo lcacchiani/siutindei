@@ -8,8 +8,14 @@ function assertExistingResources(): void {
   const stack = new cdk.Stack(app, "ExistingResourcesStack", {
     env: { account: "111111111111", region: "us-east-1" },
   });
-  // Standard VPC with NAT Gateway (matches existing production deployments)
-  const vpc = new ec2.Vpc(stack, "Vpc", { maxAzs: 2 });
+  const vpc = new ec2.Vpc(stack, "Vpc", {
+    maxAzs: 2,
+    natGateways: 0,
+    subnetConfiguration: [
+      { name: "Public", subnetType: ec2.SubnetType.PUBLIC, cidrMask: 24 },
+      { name: "Private", subnetType: ec2.SubnetType.PRIVATE_ISOLATED, cidrMask: 24 },
+    ],
+  });
   const secretName = "example-000000";
   const secretArn = stack.formatArn({
     service: "secretsmanager",
@@ -71,8 +77,14 @@ function assertNewResources(): void {
   const stack = new cdk.Stack(app, "NewResourcesStack", {
     env: { account: "111111111111", region: "us-east-1" },
   });
-  // Standard VPC with NAT Gateway (matches existing production deployments)
-  const vpc = new ec2.Vpc(stack, "Vpc", { maxAzs: 2 });
+  const vpc = new ec2.Vpc(stack, "Vpc", {
+    maxAzs: 2,
+    natGateways: 0,
+    subnetConfiguration: [
+      { name: "Public", subnetType: ec2.SubnetType.PUBLIC, cidrMask: 24 },
+      { name: "Private", subnetType: ec2.SubnetType.PRIVATE_ISOLATED, cidrMask: 24 },
+    ],
+  });
 
   new DatabaseConstruct(stack, "Database", {
     resourcePrefix: "test",
