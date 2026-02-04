@@ -109,10 +109,12 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
 
     result = {
         "statusCode": 200,
-        "body": json.dumps({
-            "processed": processed,
-            "skipped": skipped,
-        }),
+        "body": json.dumps(
+            {
+                "processed": processed,
+                "skipped": skipped,
+            }
+        ),
     }
     logger.info(f"Processing complete: {result}")
     return result

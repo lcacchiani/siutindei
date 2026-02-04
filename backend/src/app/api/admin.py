@@ -791,12 +791,14 @@ def _handle_user_access_request(
         body = _parse_body(event)
 
         # Validate request fields first (before any DB or SNS operations)
+        # organization_name is required, so _validate_string_length will raise if None
         organization_name = _validate_string_length(
             body.get("organization_name"),
             "organization_name",
             MAX_NAME_LENGTH,
             required=True,
         )
+        assert organization_name is not None  # required=True guarantees this
         request_message = _validate_string_length(
             body.get("request_message"),
             "request_message",
@@ -877,14 +879,16 @@ def _publish_manager_request_to_sns(
     try:
         sns_client.publish(
             TopicArn=topic_arn,
-            Message=json.dumps({
-                "event_type": "manager_request.submitted",
-                "ticket_id": ticket_id,
-                "requester_id": user_sub,
-                "requester_email": user_email,
-                "organization_name": organization_name,
-                "request_message": request_message,
-            }),
+            Message=json.dumps(
+                {
+                    "event_type": "manager_request.submitted",
+                    "ticket_id": ticket_id,
+                    "requester_id": user_sub,
+                    "requester_email": user_email,
+                    "organization_name": organization_name,
+                    "request_message": request_message,
+                }
+            ),
             MessageAttributes={
                 "event_type": {
                     "DataType": "String",
