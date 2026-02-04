@@ -920,16 +920,23 @@ export class ApiStack extends cdk.Stack {
     // Decouples manager request submission from processing for reliability
     // -------------------------------------------------------------------------
 
+    // KMS key for SQS queue encryption (Checkov CKV_AWS_27)
+    const sqsEncryptionKey = new kms.Key(this, "SqsEncryptionKey", {
+      enableKeyRotation: true,
+      description: "KMS key for SQS queue encryption",
+    });
+
     // Dead Letter Queue for failed message processing
-    // SECURITY: Use KMS encryption (Checkov CKV_AWS_27)
+    // SECURITY: Use customer-managed KMS key (Checkov CKV_AWS_27)
     const managerRequestDLQ = new sqs.Queue(this, "ManagerRequestDLQ", {
       queueName: name("manager-request-dlq"),
       retentionPeriod: cdk.Duration.days(14),
-      encryption: sqs.QueueEncryption.KMS_MANAGED,
+      encryption: sqs.QueueEncryption.KMS,
+      encryptionMasterKey: sqsEncryptionKey,
     });
 
     // Main processing queue with DLQ
-    // SECURITY: Use KMS encryption (Checkov CKV_AWS_27)
+    // SECURITY: Use customer-managed KMS key (Checkov CKV_AWS_27)
     const managerRequestQueue = new sqs.Queue(this, "ManagerRequestQueue", {
       queueName: name("manager-request-queue"),
       visibilityTimeout: cdk.Duration.seconds(60), // 6x Lambda timeout
@@ -937,15 +944,23 @@ export class ApiStack extends cdk.Stack {
         queue: managerRequestDLQ,
         maxReceiveCount: 3, // Retry 3 times before DLQ
       },
-      encryption: sqs.QueueEncryption.KMS_MANAGED,
+      encryption: sqs.QueueEncryption.KMS,
+      encryptionMasterKey: sqsEncryptionKey,
     });
 
     // SNS Topic for manager request events
-    // SECURITY: Enable server-side encryption with AWS managed key
+    // SECURITY: Enable server-side encryption with customer-managed KMS key
     const managerRequestTopic = new sns.Topic(this, "ManagerRequestTopic", {
       topicName: name("manager-request-events"),
-      masterKey: kms.Alias.fromAliasName(this, "SnsKmsKey", "alias/aws/sns"),
+      masterKey: sqsEncryptionKey,
     });
+
+    // Grant SNS service permission to use the KMS key for SQS encryption
+    sqsEncryptionKey.grant(
+      new iam.ServicePrincipal("sns.amazonaws.com"),
+      "kms:GenerateDataKey*",
+      "kms:Decrypt"
+    );
 
     // Subscribe SQS queue to SNS topic
     managerRequestTopic.addSubscription(
