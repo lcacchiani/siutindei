@@ -645,11 +645,17 @@ export interface ListAccessRequestsResponse {
 export interface ReviewAccessRequestPayload {
   action: 'approve' | 'reject';
   message?: string;
+  /** ID of existing organization to assign (for approval) */
+  organization_id?: string;
+  /** Create a new organization with the requested name (for approval) */
+  create_organization?: boolean;
 }
 
 export interface ReviewAccessRequestResponse {
   message: string;
   request: AccessRequest;
+  /** The organization that was assigned or created (only for approval) */
+  organization?: import('../types/admin').Organization;
 }
 
 function buildAccessRequestsUrl(id?: string) {

@@ -1018,7 +1018,15 @@ def _handle_review_access_request(
     event: Mapping[str, Any],
     request_id: str,
 ) -> dict[str, Any]:
-    """Approve or reject an access request."""
+    """Approve or reject an access request.
+
+    When approving, the admin can either:
+    - Assign an existing organization (organization_id)
+    - Create a new organization (create_organization=True)
+
+    In both cases, the requester becomes the manager of the organization
+    and is added to the 'manager' Cognito group.
+    """
     from datetime import datetime, timezone
     from app.db.models import AccessRequestStatus
 
@@ -1036,6 +1044,23 @@ def _handle_review_access_request(
     if not reviewer_sub:
         return json_response(401, {"error": "User identity not found"}, event=event)
 
+    # For approval, validate organization options
+    organization_id = body.get("organization_id")
+    create_organization = body.get("create_organization", False)
+
+    if action == "approve":
+        if not organization_id and not create_organization:
+            raise ValidationError(
+                "When approving, you must either provide organization_id "
+                "or set create_organization to true",
+                field="organization_id",
+            )
+        if organization_id and create_organization:
+            raise ValidationError(
+                "Cannot both select an existing organization and create a new one",
+                field="organization_id",
+            )
+
     with Session(get_engine()) as session:
         repo = OrganizationAccessRequestRepository(session)
         request = repo.get_by_id(_parse_uuid(request_id))
@@ -1049,6 +1074,42 @@ def _handle_review_access_request(
                 {"error": f"Request has already been {request.status.value}"},
                 event=event,
             )
+
+        organization = None
+
+        # Handle organization assignment/creation for approval
+        if action == "approve":
+            org_repo = OrganizationRepository(session)
+
+            if organization_id:
+                # Assign existing organization to the requester
+                organization = org_repo.get_by_id(_parse_uuid(organization_id))
+                if organization is None:
+                    raise NotFoundError("organization", organization_id)
+
+                # Update the manager to be the requester
+                organization.manager_id = request.requester_id
+                org_repo.update(organization)
+                logger.info(
+                    f"Assigned organization {organization_id} to user {request.requester_id}"
+                )
+
+            elif create_organization:
+                # Create a new organization with the requested name
+                organization = Organization(
+                    name=request.organization_name,
+                    description=None,
+                    manager_id=request.requester_id,
+                    media_urls=[],
+                )
+                org_repo.create(organization)
+                logger.info(
+                    f"Created organization '{request.organization_name}' "
+                    f"for user {request.requester_id}"
+                )
+
+            # Add the user to the 'manager' Cognito group
+            _add_user_to_manager_group(request.requester_id)
 
         # Update the request status
         new_status = (
@@ -1064,19 +1125,23 @@ def _handle_review_access_request(
         session.commit()
         session.refresh(request)
 
+        if organization:
+            session.refresh(organization)
+
         logger.info(f"Access request {request_id} {action}d by {reviewer_sub}")
 
         # Send notification email to the requester
         _send_request_decision_email(request, action, admin_message)
 
-        return json_response(
-            200,
-            {
-                "message": f"Request has been {action}d",
-                "request": _serialize_access_request(request),
-            },
-            event=event,
-        )
+        response_data: dict[str, Any] = {
+            "message": f"Request has been {action}d",
+            "request": _serialize_access_request(request),
+        }
+
+        if organization:
+            response_data["organization"] = _serialize_organization(organization)
+
+        return json_response(200, response_data, event=event)
 
 
 def _send_request_decision_email(
@@ -1208,6 +1273,66 @@ def _invalidate_user_session(
         # Log but don't fail the operation if sign-out fails
         # The user may not have an active session
         logger.warning(f"Failed to invalidate session for user {username}: {exc}")
+
+
+def _add_user_to_manager_group(user_sub: str) -> None:
+    """Add a user to the 'manager' Cognito group.
+
+    This is called when an access request is approved to grant the user
+    manager permissions.
+
+    Args:
+        user_sub: The Cognito user's sub (subject) identifier.
+    """
+    try:
+        client = boto3.client("cognito-idp")
+        user_pool_id = _require_env("COGNITO_USER_POOL_ID")
+        manager_group = os.getenv("MANAGER_GROUP", "manager")
+
+        # First, we need to find the username from the sub
+        # List users filtered by sub attribute
+        response = client.list_users(
+            UserPoolId=user_pool_id,
+            Filter=f'sub = "{user_sub}"',
+            Limit=1,
+        )
+
+        users = response.get("Users", [])
+        if not users:
+            logger.warning(f"Could not find Cognito user with sub: {user_sub}")
+            return
+
+        username = users[0].get("Username")
+        if not username:
+            logger.warning(f"User with sub {user_sub} has no username")
+            return
+
+        # Check if user is already in the manager group
+        groups_response = client.admin_list_groups_for_user(
+            UserPoolId=user_pool_id,
+            Username=username,
+        )
+        existing_groups = [g["GroupName"] for g in groups_response.get("Groups", [])]
+
+        if manager_group in existing_groups:
+            logger.info(f"User {username} is already in group {manager_group}")
+            return
+
+        # Add user to the manager group
+        client.admin_add_user_to_group(
+            UserPoolId=user_pool_id,
+            Username=username,
+            GroupName=manager_group,
+        )
+
+        # Invalidate user's session to force re-authentication with new permissions
+        _invalidate_user_session(client, user_pool_id, username)
+
+        logger.info(f"Added user {username} to group {manager_group}")
+
+    except Exception as exc:
+        # Log but don't fail the request if group assignment fails
+        logger.error(f"Failed to add user {user_sub} to manager group: {exc}")
 
 
 def _handle_list_cognito_users(event: Mapping[str, Any]) -> dict[str, Any]:
