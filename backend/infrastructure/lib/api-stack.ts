@@ -673,6 +673,9 @@ export class ApiStack extends cdk.Stack {
             physicalResourceId: customresources.PhysicalResourceId.of(
               `${userPool.userPoolId}-${group.name}`
             ),
+            // Ignore if group doesn't exist yet (happens during rename when
+            // physical resource ID changes and triggers replacement)
+            ignoreErrorCodesMatching: "ResourceNotFoundException",
           },
           onDelete: {
             service: "CognitoIdentityServiceProvider",
