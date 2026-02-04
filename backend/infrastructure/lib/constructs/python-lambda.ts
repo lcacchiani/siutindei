@@ -16,17 +16,9 @@ import * as path from "path";
 export const STANDARD_LOG_RETENTION = logs.RetentionDays.THREE_MONTHS;
 
 /**
- * Select private isolated subnets from a VPC.
- *
- * COST OPTIMIZATION: All VPCs use PRIVATE_ISOLATED subnets with VPC Endpoints
- * instead of NAT Gateway. This saves ~$30-40/month per VPC.
- *
- * @param vpc The VPC to select subnets from (unused, kept for API compatibility)
- * @returns SubnetSelection for isolated private subnets
+ * Select private subnets from a VPC.
  */
 export function selectPrivateSubnets(_vpc: ec2.IVpc): ec2.SubnetSelection {
-  // COST OPTIMIZATION: Use isolated subnets with VPC Endpoints (no NAT Gateway)
-  // This eliminates NAT Gateway costs (~$32/month + data processing fees)
   return { subnetType: ec2.SubnetType.PRIVATE_ISOLATED };
 }
 

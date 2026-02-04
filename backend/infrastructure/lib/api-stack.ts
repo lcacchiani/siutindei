@@ -138,15 +138,11 @@ export class ApiStack extends cdk.Stack {
     // ---------------------------------------------------------------------
     // VPC and Security Groups
     // ---------------------------------------------------------------------
-    // COST OPTIMIZATION: Use VPC Endpoints instead of NAT Gateway
-    // This saves ~$30-40/month by eliminating NAT Gateway hourly charges
-    // and data processing fees for AWS service traffic
     const vpc = existingVpcId
       ? ec2.Vpc.fromLookup(this, "ExistingVpc", { vpcId: existingVpcId })
       : new ec2.Vpc(this, "SiutindeiVpc", {
           vpcName: name("vpc"),
           maxAzs: 2,
-          // Remove NAT Gateway - use VPC Endpoints for AWS services
           natGateways: 0,
           subnetConfiguration: [
             {
@@ -162,63 +158,46 @@ export class ApiStack extends cdk.Stack {
           ],
         });
 
-    // VPC Endpoints for AWS services (Gateway endpoints are free)
-    // S3 Gateway Endpoint - free, high throughput
+    // VPC Endpoints for AWS services
     vpc.addGatewayEndpoint("S3Endpoint", {
       service: ec2.GatewayVpcEndpointAwsService.S3,
     });
 
-    // DynamoDB Gateway Endpoint - free (if used in future)
     vpc.addGatewayEndpoint("DynamoDBEndpoint", {
       service: ec2.GatewayVpcEndpointAwsService.DYNAMODB,
     });
 
-    // Interface endpoints for services that need them
-    // These have hourly costs but are cheaper than NAT Gateway for typical usage
-    const endpointSecurityGroup = new ec2.SecurityGroup(
-      this,
-      "VpcEndpointSecurityGroup",
-      {
-        vpc,
-        description: "Security group for VPC endpoints",
-        allowAllOutbound: false,
-      }
-    );
-    endpointSecurityGroup.addIngressRule(
-      ec2.Peer.ipv4(vpc.vpcCidrBlock),
-      ec2.Port.tcp(443),
-      "Allow HTTPS from VPC"
-    );
+    if (!existingVpcId) {
+      const endpointSecurityGroup = new ec2.SecurityGroup(
+        this,
+        "VpcEndpointSecurityGroup",
+        {
+          vpc,
+          description: "Security group for VPC endpoints",
+          allowAllOutbound: false,
+        }
+      );
+      endpointSecurityGroup.addIngressRule(
+        ec2.Peer.ipv4(vpc.vpcCidrBlock),
+        ec2.Port.tcp(443),
+        "Allow HTTPS from VPC"
+      );
 
-    // Secrets Manager endpoint - required for Lambda to access secrets
-    vpc.addInterfaceEndpoint("SecretsManagerEndpoint", {
-      service: ec2.InterfaceVpcEndpointAwsService.SECRETS_MANAGER,
-      securityGroups: [endpointSecurityGroup],
-    });
+      vpc.addInterfaceEndpoint("SecretsManagerEndpoint", {
+        service: ec2.InterfaceVpcEndpointAwsService.SECRETS_MANAGER,
+        securityGroups: [endpointSecurityGroup],
+      });
 
-    // STS endpoint - required for IAM authentication
-    vpc.addInterfaceEndpoint("StsEndpoint", {
-      service: ec2.InterfaceVpcEndpointAwsService.STS,
-      securityGroups: [endpointSecurityGroup],
-    });
+      vpc.addInterfaceEndpoint("StsEndpoint", {
+        service: ec2.InterfaceVpcEndpointAwsService.STS,
+        securityGroups: [endpointSecurityGroup],
+      });
 
-    // RDS endpoint - required for RDS Proxy connections
-    vpc.addInterfaceEndpoint("RdsEndpoint", {
-      service: ec2.InterfaceVpcEndpointAwsService.RDS,
-      securityGroups: [endpointSecurityGroup],
-    });
-
-    // CloudWatch Logs endpoint - required for Lambda logging
-    vpc.addInterfaceEndpoint("CloudWatchLogsEndpoint", {
-      service: ec2.InterfaceVpcEndpointAwsService.CLOUDWATCH_LOGS,
-      securityGroups: [endpointSecurityGroup],
-    });
-
-    // Lambda endpoint - required for Lambda invocations
-    vpc.addInterfaceEndpoint("LambdaEndpoint", {
-      service: ec2.InterfaceVpcEndpointAwsService.LAMBDA,
-      securityGroups: [endpointSecurityGroup],
-    });
+      vpc.addInterfaceEndpoint("CloudWatchLogsEndpoint", {
+        service: ec2.InterfaceVpcEndpointAwsService.CLOUDWATCH_LOGS,
+        securityGroups: [endpointSecurityGroup],
+      });
+    }
 
     const lambdaSecurityGroup = existingLambdaSecurityGroupId
       ? ec2.SecurityGroup.fromSecurityGroupId(

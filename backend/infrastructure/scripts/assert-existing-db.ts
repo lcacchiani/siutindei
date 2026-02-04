@@ -8,7 +8,6 @@ function assertExistingResources(): void {
   const stack = new cdk.Stack(app, "ExistingResourcesStack", {
     env: { account: "111111111111", region: "us-east-1" },
   });
-  // COST OPTIMIZATION: Use VPC without NAT Gateway
   const vpc = new ec2.Vpc(stack, "Vpc", {
     maxAzs: 2,
     natGateways: 0,
@@ -78,7 +77,6 @@ function assertNewResources(): void {
   const stack = new cdk.Stack(app, "NewResourcesStack", {
     env: { account: "111111111111", region: "us-east-1" },
   });
-  // COST OPTIMIZATION: Use VPC without NAT Gateway
   const vpc = new ec2.Vpc(stack, "Vpc", {
     maxAzs: 2,
     natGateways: 0,
