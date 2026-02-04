@@ -16,6 +16,7 @@ export interface UserProfile {
   email?: string;
   groups: string[];
   subject?: string;
+  lastAuthTime?: string;
 }
 
 interface TokenResponse {
@@ -140,7 +141,20 @@ export function getUserProfile(tokens: StoredTokens): UserProfile {
   const groups = Array.isArray(groupsValue)
     ? groupsValue.filter((item): item is string => typeof item === 'string')
     : [];
-  return { email, groups, subject };
+
+  // Extract auth_time (epoch timestamp in seconds) from the token
+  // This is a standard OIDC claim set by Cognito
+  let lastAuthTime: string | undefined;
+  const authTime = payload.auth_time;
+  if (typeof authTime === 'number') {
+    try {
+      lastAuthTime = new Date(authTime * 1000).toISOString();
+    } catch {
+      // Invalid timestamp, leave undefined
+    }
+  }
+
+  return { email, groups, subject, lastAuthTime };
 }
 
 export async function startLogin() {

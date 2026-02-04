@@ -16,6 +16,7 @@ export interface AppShellProps {
   onSelect: (key: string) => void;
   onLogout: () => void;
   userEmail?: string;
+  lastAuthTime?: string;
   children: ReactNode;
 }
 
@@ -55,15 +56,42 @@ function CloseIcon({ className }: { className?: string }) {
   );
 }
 
+/**
+ * Format a datetime string for display.
+ * Uses the browser's timezone, falling back to UTC if unavailable.
+ */
+function formatLastLogin(dateStr: string | undefined): string | null {
+  if (!dateStr) return null;
+  try {
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return null;
+
+    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+
+    return date.toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZone,
+      timeZoneName: 'short',
+    });
+  } catch {
+    return null;
+  }
+}
+
 export function AppShell({
   sections,
   activeKey,
   onSelect,
   onLogout,
   userEmail,
+  lastAuthTime,
   children,
 }: AppShellProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const formattedLastLogin = formatLastLogin(lastAuthTime);
 
   // Close mobile menu on escape key
   useEffect(() => {
@@ -130,9 +158,14 @@ export function AppShell({
           </div>
           <div className='flex items-center gap-2 sm:gap-3'>
             {userEmail && (
-              <span className='hidden text-sm text-slate-600 sm:inline'>
-                {userEmail}
-              </span>
+              <div className='hidden text-right sm:block'>
+                <span className='text-sm text-slate-600'>{userEmail}</span>
+                {formattedLastLogin && (
+                  <p className='text-xs text-slate-400'>
+                    Last login: {formattedLastLogin}
+                  </p>
+                )}
+              </div>
             )}
             <Button
               variant='secondary'
@@ -176,6 +209,11 @@ export function AppShell({
           {userEmail && (
             <div className='border-b border-slate-200 px-4 py-3'>
               <p className='truncate text-sm text-slate-600'>{userEmail}</p>
+              {formattedLastLogin && (
+                <p className='mt-0.5 text-xs text-slate-400'>
+                  Last login: {formattedLastLogin}
+                </p>
+              )}
             </div>
           )}
           <nav className='flex-1 overflow-y-auto p-4'>

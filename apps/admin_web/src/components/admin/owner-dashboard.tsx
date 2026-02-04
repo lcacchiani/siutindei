@@ -125,6 +125,7 @@ export function OwnerDashboard() {
         onSelect={() => {}}
         onLogout={logout}
         userEmail={user?.email}
+        lastAuthTime={user?.lastAuthTime}
       >
         <StatusBanner variant='error' title='Error'>
           {error}
@@ -145,6 +146,7 @@ export function OwnerDashboard() {
         onSelect={() => {}}
         onLogout={logout}
         userEmail={user?.email}
+        lastAuthTime={user?.lastAuthTime}
       >
         {authError && (
           <StatusBanner variant='error' title='Session'>
@@ -165,6 +167,7 @@ export function OwnerDashboard() {
         onSelect={() => {}}
         onLogout={logout}
         userEmail={user?.email}
+        lastAuthTime={user?.lastAuthTime}
       >
         {authError && (
           <StatusBanner variant='error' title='Session'>
@@ -184,6 +187,7 @@ export function OwnerDashboard() {
       onSelect={setActiveSection}
       onLogout={logout}
       userEmail={user?.email}
+      lastAuthTime={user?.lastAuthTime}
     >
       {authError && (
         <StatusBanner variant='error' title='Session'>
