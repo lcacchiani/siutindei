@@ -195,6 +195,10 @@ node_modules/
 apps/admin_web/.next/
 apps/admin_web/out/
 
+# Playwright
+apps/admin_web/playwright-report/
+apps/admin_web/test-results/
+
 # TypeScript build info
 *.tsbuildinfo
 
