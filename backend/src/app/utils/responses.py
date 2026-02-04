@@ -11,6 +11,72 @@ from typing import Optional
 
 from pydantic import BaseModel
 
+from app.exceptions import ValidationError
+
+
+def validate_content_type(
+    event: Mapping[str, Any],
+    required_methods: tuple[str, ...] = ("POST", "PUT", "PATCH"),
+) -> None:
+    """Validate Content-Type header for requests that require a body.
+
+    SECURITY: This prevents content-type confusion attacks and ensures
+    the server only processes requests with the expected content type.
+
+    Args:
+        event: The Lambda event containing headers and method.
+        required_methods: HTTP methods that require Content-Type validation.
+
+    Raises:
+        ValidationError: If Content-Type is missing or not application/json.
+    """
+    method = event.get("httpMethod", "")
+    if method not in required_methods:
+        return
+
+    headers = event.get("headers") or {}
+
+    # Get Content-Type header case-insensitively
+    content_type = None
+    for key, value in headers.items():
+        if key.lower() == "content-type":
+            content_type = str(value).lower().strip()
+            break
+
+    if not content_type:
+        raise ValidationError(
+            "Content-Type header is required for requests with a body",
+            field="Content-Type",
+        )
+
+    # Check if it's JSON (allowing for charset parameters like "application/json; charset=utf-8")
+    if not content_type.startswith("application/json"):
+        raise ValidationError(
+            "Content-Type must be application/json",
+            field="Content-Type",
+        )
+
+
+def get_security_headers() -> dict[str, str]:
+    """Get security headers for all responses.
+
+    SECURITY: These headers protect against common web vulnerabilities:
+    - X-Content-Type-Options: Prevents MIME type sniffing
+    - X-Frame-Options: Prevents clickjacking
+    - X-XSS-Protection: Enables browser XSS filter (legacy)
+    - Cache-Control: Prevents caching of sensitive data
+
+    Returns:
+        Dictionary of security headers.
+    """
+    return {
+        "X-Content-Type-Options": "nosniff",
+        "X-Frame-Options": "DENY",
+        "X-XSS-Protection": "1; mode=block",
+        "Cache-Control": "no-store, no-cache, must-revalidate",
+        "Pragma": "no-cache",
+    }
+
 
 # Default CORS origins for local development
 _DEFAULT_CORS_ORIGINS = [
@@ -92,8 +158,10 @@ def json_response(
     """
     response_headers = {
         "Content-Type": "application/json",
-        "X-Content-Type-Options": "nosniff",
     }
+
+    # Add security headers
+    response_headers.update(get_security_headers())
 
     # Add CORS headers
     response_headers.update(get_cors_headers(event))

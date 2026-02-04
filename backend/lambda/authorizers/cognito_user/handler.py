@@ -1,72 +1,29 @@
 """API Gateway request authorizer for any authenticated Cognito user.
 
-This Lambda validates JWT tokens and allows access to any authenticated user,
-regardless of their Cognito group membership. Use this for endpoints that
-require authentication but not specific role-based permissions.
+This Lambda validates JWT tokens with proper signature verification and allows
+access to any authenticated user, regardless of their Cognito group membership.
 
-Environment Variables:
-    COGNITO_USER_POOL_ID: The Cognito User Pool ID for token validation
-    COGNITO_CLIENT_ID: The Cognito App Client ID for audience validation
+SECURITY NOTES:
+- JWT signatures are verified using Cognito's JWKS endpoint
+- Token expiration is validated to prevent replay attacks
+- Issuer is verified to prevent token confusion attacks
+
+Use this for endpoints that require authentication but not specific role-based
+permissions.
 """
 
 from __future__ import annotations
 
-import base64
-import json
-import time
-import urllib.request
 from typing import Any
 
+from app.auth.jwt_validator import (
+    JWTValidationError,
+    decode_and_verify_token,
+)
 from app.utils.logging import configure_logging, get_logger
 
 configure_logging()
 logger = get_logger(__name__)
-
-# Cache for JWKS to avoid fetching on every request
-_jwks_cache: dict[str, Any] = {}
-_jwks_cache_time: float = 0
-JWKS_CACHE_TTL = 3600  # 1 hour
-
-
-def _get_jwks(user_pool_id: str, region: str) -> dict[str, Any]:
-    """Fetch and cache the JWKS from Cognito."""
-    global _jwks_cache, _jwks_cache_time
-
-    now = time.time()
-    cache_key = f"{region}:{user_pool_id}"
-
-    if cache_key in _jwks_cache and (now - _jwks_cache_time) < JWKS_CACHE_TTL:
-        return _jwks_cache[cache_key]
-
-    jwks_url = f"https://cognito-idp.{region}.amazonaws.com/{user_pool_id}/.well-known/jwks.json"
-
-    with urllib.request.urlopen(jwks_url, timeout=5) as response:  # noqa: S310
-        jwks = json.loads(response.read().decode("utf-8"))
-
-    _jwks_cache[cache_key] = jwks
-    _jwks_cache_time = now
-    return jwks
-
-
-def _decode_jwt_unverified(token: str) -> dict[str, Any]:
-    """Decode JWT without verification to extract claims.
-
-    Note: This is safe because API Gateway's Cognito authorizer already
-    validates the token signature. We just need to read the claims.
-    """
-    parts = token.split(".")
-    if len(parts) != 3:
-        raise ValueError("Invalid JWT format")
-
-    # Decode payload (second part)
-    payload = parts[1]
-    # Add padding if needed
-    padding = 4 - len(payload) % 4
-    if padding != 4:
-        payload += "=" * padding
-
-    decoded = base64.urlsafe_b64decode(payload)
-    return json.loads(decoded)
 
 
 def _get_header(headers: dict[str, Any], name: str) -> str:
@@ -133,8 +90,11 @@ def _policy(
 def lambda_handler(event: dict[str, Any], _context: Any) -> dict[str, Any]:
     """Authorize requests for any authenticated Cognito user.
 
-    This authorizer validates the JWT token and allows access to any
-    authenticated user, regardless of their group membership.
+    This authorizer:
+    1. Extracts the JWT token from the Authorization header
+    2. Verifies the token signature using Cognito's JWKS
+    3. Validates token expiration and issuer
+    4. Grants access to any valid authenticated user
 
     Args:
         event: API Gateway authorizer event containing headers and methodArn
@@ -153,28 +113,12 @@ def lambda_handler(event: dict[str, Any], _context: Any) -> dict[str, Any]:
         return _policy("Deny", method_arn, "anonymous", {"reason": "missing_token"})
 
     try:
-        # Decode the JWT to get claims
-        # Note: Token signature is already validated by Cognito
-        claims = _decode_jwt_unverified(token)
+        # Verify and decode the JWT token with signature validation
+        claims = decode_and_verify_token(token)
 
-        # Validate token expiration
-        exp = claims.get("exp")
-        if exp and time.time() > exp:
-            logger.warning("Token has expired")
-            return _policy("Deny", method_arn, "expired", {"reason": "token_expired"})
-
-        # Get user info
-        user_sub = claims.get("sub", "unknown")
-        email = claims.get("email", "")
-
-        # Get user's groups from the cognito:groups claim (for context, not authorization)
-        user_groups_claim = claims.get("cognito:groups", [])
-        if isinstance(user_groups_claim, str):
-            user_groups = [g.strip() for g in user_groups_claim.split(",") if g.strip()]
-        elif isinstance(user_groups_claim, list):
-            user_groups = list(user_groups_claim)
-        else:
-            user_groups = []
+        user_sub = claims.sub
+        email = claims.email
+        user_groups = claims.groups
 
         logger.info(
             f"Access granted for authenticated user {user_sub[:8]}*** "
@@ -192,6 +136,10 @@ def lambda_handler(event: dict[str, Any], _context: Any) -> dict[str, Any]:
             },
         )
 
+    except JWTValidationError as exc:
+        logger.warning(f"JWT validation failed: {exc.message} (reason: {exc.reason})")
+        return _policy("Deny", method_arn, "invalid", {"reason": exc.reason})
     except Exception as exc:
-        logger.warning(f"Token validation failed: {type(exc).__name__}: {exc}")
+        # SECURITY: Don't expose internal error details
+        logger.warning(f"Token validation failed: {type(exc).__name__}")
         return _policy("Deny", method_arn, "invalid", {"reason": "invalid_token"})

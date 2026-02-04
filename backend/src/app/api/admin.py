@@ -48,6 +48,7 @@ from app.db.repositories import (
 from app.exceptions import NotFoundError, ValidationError
 from app.utils import json_response, parse_datetime, parse_int
 from app.utils.logging import configure_logging, get_logger, set_request_context
+from app.utils.responses import validate_content_type
 
 
 class RepositoryProtocol(Protocol):
@@ -97,6 +98,13 @@ def lambda_handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
     method = event.get("httpMethod", "")
     path = event.get("path", "")
     base_path, resource, resource_id, sub_resource = _parse_path(path)
+
+    # SECURITY: Validate Content-Type for requests with bodies
+    try:
+        validate_content_type(event)
+    except ValidationError as exc:
+        logger.warning(f"Content-Type validation failed: {exc.message}")
+        return json_response(exc.status_code, exc.to_dict(), event=event)
 
     logger.info(
         f"Admin request: {method} {path}",

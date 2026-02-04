@@ -7,12 +7,13 @@ import * as iam from "aws-cdk-lib/aws-iam";
 import * as kms from "aws-cdk-lib/aws-kms";
 import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as lambdaEventSources from "aws-cdk-lib/aws-lambda-event-sources";
+import * as logs from "aws-cdk-lib/aws-logs";
 import * as s3 from "aws-cdk-lib/aws-s3";
+import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
 import * as sns from "aws-cdk-lib/aws-sns";
 import * as snsSubscriptions from "aws-cdk-lib/aws-sns-subscriptions";
 import * as sqs from "aws-cdk-lib/aws-sqs";
 import * as customresources from "aws-cdk-lib/custom-resources";
-import * as logs from "aws-cdk-lib/aws-logs";
 import { Construct, IConstruct } from "constructs";
 import * as crypto from "crypto";
 import * as fs from "fs";
@@ -919,14 +920,23 @@ export class ApiStack extends cdk.Stack {
     // Decouples manager request submission from processing for reliability
     // -------------------------------------------------------------------------
 
+    // KMS key for SQS queue encryption (Checkov CKV_AWS_27)
+    const sqsEncryptionKey = new kms.Key(this, "SqsEncryptionKey", {
+      enableKeyRotation: true,
+      description: "KMS key for SQS queue encryption",
+    });
+
     // Dead Letter Queue for failed message processing
+    // SECURITY: Use customer-managed KMS key (Checkov CKV_AWS_27)
     const managerRequestDLQ = new sqs.Queue(this, "ManagerRequestDLQ", {
       queueName: name("manager-request-dlq"),
       retentionPeriod: cdk.Duration.days(14),
-      encryption: sqs.QueueEncryption.SQS_MANAGED,
+      encryption: sqs.QueueEncryption.KMS,
+      encryptionMasterKey: sqsEncryptionKey,
     });
 
     // Main processing queue with DLQ
+    // SECURITY: Use customer-managed KMS key (Checkov CKV_AWS_27)
     const managerRequestQueue = new sqs.Queue(this, "ManagerRequestQueue", {
       queueName: name("manager-request-queue"),
       visibilityTimeout: cdk.Duration.seconds(60), // 6x Lambda timeout
@@ -934,13 +944,23 @@ export class ApiStack extends cdk.Stack {
         queue: managerRequestDLQ,
         maxReceiveCount: 3, // Retry 3 times before DLQ
       },
-      encryption: sqs.QueueEncryption.SQS_MANAGED,
+      encryption: sqs.QueueEncryption.KMS,
+      encryptionMasterKey: sqsEncryptionKey,
     });
 
     // SNS Topic for manager request events
+    // SECURITY: Enable server-side encryption with customer-managed KMS key
     const managerRequestTopic = new sns.Topic(this, "ManagerRequestTopic", {
       topicName: name("manager-request-events"),
+      masterKey: sqsEncryptionKey,
     });
+
+    // Grant SNS service permission to use the KMS key for SQS encryption
+    sqsEncryptionKey.grant(
+      new iam.ServicePrincipal("sns.amazonaws.com"),
+      "kms:GenerateDataKey*",
+      "kms:Decrypt"
+    );
 
     // Subscribe SQS queue to SNS topic
     managerRequestTopic.addSubscription(
@@ -1452,6 +1472,66 @@ export class ApiStack extends cdk.Stack {
     });
     mobileUsagePlan.addApiKey(mobileApiKey);
     mobileUsagePlan.addApiStage({ stage: api.deploymentStage });
+
+    // -------------------------------------------------------------------------
+    // API Key Rotation
+    // SECURITY: Rotate API keys every 90 days to limit exposure from compromise
+    // -------------------------------------------------------------------------
+
+    // Secret to store the current API key (for rotation tracking)
+    const apiKeySecret = new secretsmanager.Secret(this, "ApiKeySecret", {
+      secretName: name("api-key"),
+      description: "Current mobile API key for rotation tracking",
+    });
+
+    // API Key rotation Lambda
+    const apiKeyRotationFunction = createPythonFunction("ApiKeyRotationFunction", {
+      handler: "lambda/api_key_rotation/handler.lambda_handler",
+      memorySize: 256,
+      timeout: cdk.Duration.seconds(60),
+      environment: {
+        API_GATEWAY_REST_API_ID: api.restApiId,
+        API_GATEWAY_USAGE_PLAN_ID: mobileUsagePlan.usagePlanId,
+        API_KEY_SECRET_ARN: apiKeySecret.secretArn,
+        API_KEY_NAME_PREFIX: name("mobile-search-key"),
+        GRACE_PERIOD_HOURS: "24",
+      },
+    });
+
+    // Grant permissions to manage API keys
+    apiKeyRotationFunction.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: [
+          "apigateway:GET",
+          "apigateway:POST",
+          "apigateway:PUT",
+          "apigateway:DELETE",
+        ],
+        resources: [
+          `arn:aws:apigateway:${cdk.Stack.of(this).region}::/apikeys`,
+          `arn:aws:apigateway:${cdk.Stack.of(this).region}::/apikeys/*`,
+          `arn:aws:apigateway:${cdk.Stack.of(this).region}::/usageplans/${mobileUsagePlan.usagePlanId}`,
+          `arn:aws:apigateway:${cdk.Stack.of(this).region}::/usageplans/${mobileUsagePlan.usagePlanId}/keys`,
+          `arn:aws:apigateway:${cdk.Stack.of(this).region}::/usageplans/${mobileUsagePlan.usagePlanId}/keys/*`,
+        ],
+      })
+    );
+
+    // Grant permissions to manage the secret
+    apiKeySecret.grantRead(apiKeyRotationFunction);
+    apiKeySecret.grantWrite(apiKeyRotationFunction);
+
+    // Schedule API key rotation every 90 days
+    const apiKeyRotationRule = new cdk.aws_events.Rule(this, "ApiKeyRotationSchedule", {
+      ruleName: name("api-key-rotation"),
+      description: "Rotate mobile API key every 90 days",
+      schedule: cdk.aws_events.Schedule.rate(cdk.Duration.days(90)),
+    });
+    apiKeyRotationRule.addTarget(
+      new cdk.aws_events_targets.LambdaFunction(apiKeyRotationFunction, {
+        retryAttempts: 2,
+      })
+    );
 
     // ---------------------------------------------------------------------
     // API Routes
