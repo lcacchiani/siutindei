@@ -84,6 +84,7 @@ export function AdminDashboard() {
         onSelect={() => {}}
         onLogout={logout}
         userEmail={user?.email}
+        lastAuthTime={user?.lastAuthTime}
       >
         <StatusBanner variant='error' title='Access denied'>
           Your account is not authorized to access this system. Please contact
@@ -101,6 +102,7 @@ export function AdminDashboard() {
       onSelect={setActiveSection}
       onLogout={logout}
       userEmail={user?.email}
+      lastAuthTime={user?.lastAuthTime}
     >
       {error && (
         <StatusBanner variant='error' title='Session'>
