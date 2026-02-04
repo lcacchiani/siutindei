@@ -634,13 +634,13 @@ export class ApiStack extends cdk.Stack {
     userPoolClient.addDependency(microsoftProvider);
 
     // Create Cognito user pool groups using AwsCustomResource
-    // This approach handles groups that already exist gracefully (ignores GroupExistsException)
+    // Using createGroup for both onCreate and onUpdate ensures groups are always created
+    // even if they were previously deleted. GroupExistsException is ignored so this is safe.
     // Using group name in logical ID for stability (not array index)
     const groupPolicy = customresources.AwsCustomResourcePolicy.fromStatements([
       new iam.PolicyStatement({
         actions: [
           "cognito-idp:CreateGroup",
-          "cognito-idp:UpdateGroup",
           "cognito-idp:DeleteGroup",
         ],
         resources: [userPool.userPoolArn],
@@ -664,9 +664,12 @@ export class ApiStack extends cdk.Stack {
           // Skip if group already exists
           ignoreErrorCodesMatching: "GroupExistsException",
         },
+        // Use createGroup for onUpdate as well to ensure group exists
+        // This handles the case where a group was manually deleted or
+        // deleted by a previous deployment's cleanup
         onUpdate: {
           service: "CognitoIdentityServiceProvider",
-          action: "updateGroup",
+          action: "createGroup",
           parameters: {
             UserPoolId: userPool.userPoolId,
             GroupName: group.name,
@@ -675,8 +678,8 @@ export class ApiStack extends cdk.Stack {
           physicalResourceId: customresources.PhysicalResourceId.of(
             `${userPool.userPoolId}-${group.name}`
           ),
-          // Skip if group doesn't exist (shouldn't happen, but be safe)
-          ignoreErrorCodesMatching: "ResourceNotFoundException",
+          // Skip if group already exists (expected on normal updates)
+          ignoreErrorCodesMatching: "GroupExistsException",
         },
         onDelete: {
           service: "CognitoIdentityServiceProvider",
