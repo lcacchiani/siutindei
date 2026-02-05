@@ -501,6 +501,8 @@ export class ApiStack extends cdk.Stack {
       autoVerify: { email: true },
       selfSignUpEnabled: true,
       accountRecovery: cognito.AccountRecovery.EMAIL_ONLY,
+      // Ensure User Pool is deleted on stack deletion/rollback
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
     const adminGroupName = "admin";
     const userPoolGroups = [
