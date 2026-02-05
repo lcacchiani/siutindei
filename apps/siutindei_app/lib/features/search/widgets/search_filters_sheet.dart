@@ -3,9 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../config/constants.dart';
 import '../../../config/tokens/tokens.dart';
-import '../../../models/activity_models.dart';
+import '../../../domain/entities/entities.dart';
 
 /// Advanced search filters bottom sheet using leaf tokens.
+///
+/// Uses domain entities (SearchFilters) for type safety.
 class SearchFiltersSheet extends ConsumerStatefulWidget {
   const SearchFiltersSheet({
     super.key,
@@ -13,13 +15,13 @@ class SearchFiltersSheet extends ConsumerStatefulWidget {
     required this.onApply,
   });
 
-  final ActivitySearchFilters initialFilters;
-  final ValueChanged<ActivitySearchFilters> onApply;
+  final SearchFilters initialFilters;
+  final ValueChanged<SearchFilters> onApply;
 
   static Future<void> show({
     required BuildContext context,
-    required ActivitySearchFilters initialFilters,
-    required ValueChanged<ActivitySearchFilters> onApply,
+    required SearchFilters initialFilters,
+    required ValueChanged<SearchFilters> onApply,
   }) {
     return showModalBottomSheet(
       context: context,
@@ -37,7 +39,7 @@ class SearchFiltersSheet extends ConsumerStatefulWidget {
 }
 
 class _SearchFiltersSheetState extends ConsumerState<SearchFiltersSheet> {
-  late ActivitySearchFilters _filters;
+  late SearchFilters _filters;
   final _ageController = TextEditingController();
   final _priceMinController = TextEditingController();
   final _priceMaxController = TextEditingController();
@@ -59,14 +61,13 @@ class _SearchFiltersSheetState extends ConsumerState<SearchFiltersSheet> {
     super.dispose();
   }
 
-  void _updateFilters(
-      ActivitySearchFilters Function(ActivitySearchFilters) updater) {
+  void _updateFilters(SearchFilters Function(SearchFilters) updater) {
     setState(() => _filters = updater(_filters));
   }
 
   void _clearAll() {
     setState(() {
-      _filters = ActivitySearchFilters();
+      _filters = SearchFilters.empty;
       _ageController.clear();
       _priceMinController.clear();
       _priceMaxController.clear();
@@ -245,13 +246,13 @@ class _SearchFiltersSheetState extends ConsumerState<SearchFiltersSheet> {
       spacing: 8,
       runSpacing: 8,
       children: AppConstants.pricingTypes.entries.map((entry) {
-        final isSelected = _filters.pricingType == entry.key;
+        final isSelected = _filters.pricingType?.toApiString() == entry.key;
         return FilterChip(
           label: Text(entry.value),
           selected: isSelected,
           onSelected: (selected) {
             _updateFilters((f) => f.copyWith(
-                  pricingType: selected ? entry.key : null,
+                  pricingType: selected ? PricingType.fromString(entry.key) : null,
                   clearPricingType: !selected,
                 ));
           },

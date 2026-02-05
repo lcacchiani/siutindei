@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../config/constants.dart';
 import '../../../config/tokens/tokens.dart';
-import '../../../models/activity_models.dart';
+import '../../../domain/entities/entities.dart';
 import '../../../viewmodels/activities_viewmodel.dart';
 import '../../../viewmodels/auth_viewmodel.dart';
 import '../../activity_detail/screens/activity_detail_screen.dart';
@@ -13,13 +13,20 @@ import '../widgets/activity_card.dart';
 import '../widgets/filter_chip_bar.dart';
 import '../widgets/search_filters_sheet.dart';
 
-/// Main search screen using the design token system.
+/// Main search screen using the design token system and layered architecture.
+///
+/// Architecture:
+/// - Uses domain entities (SearchFilters, ActivitySearchResultEntity)
+/// - Consumes state from ActivitiesViewModel via Riverpod
+/// - Delegates business logic to use cases via the ViewModel
 ///
 /// Performance optimizations:
 /// - Uses `select` for granular Riverpod watching
 /// - Extracts static content to separate widgets
 /// - Uses RepaintBoundary for expensive static content
 /// - Avoids unnecessary object allocations in build
+///
+/// See: https://docs.flutter.dev/app-architecture/guide
 class SearchScreen extends ConsumerStatefulWidget {
   const SearchScreen({super.key});
 
@@ -30,7 +37,6 @@ class SearchScreen extends ConsumerStatefulWidget {
 class _SearchScreenState extends ConsumerState<SearchScreen> {
   final _searchController = TextEditingController();
   final _scrollController = ScrollController();
-  ActivitySearchFilters _filters = ActivitySearchFilters();
 
   @override
   void initState() {
@@ -50,7 +56,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     if (_scrollController.position.pixels >=
         _scrollController.position.maxScrollExtent - 200) {
       final state = ref.read(activitiesViewModelProvider);
-      if (!state.isLoading && state.nextCursor != null) {
+      if (!state.isLoading && !state.isLoadingMore && state.hasMore) {
         _loadMore();
       }
     }
@@ -58,46 +64,52 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   void _performSearch() {
     final searchQuery = _searchController.text.trim();
-    final filters = _filters.copyWith(
+    final currentFilters = ref.read(activitiesFiltersProvider);
+    final filters = currentFilters.copyWith(
       searchQuery: searchQuery.isEmpty ? null : searchQuery,
       clearSearchQuery: searchQuery.isEmpty,
-      clearCursor: true,
     );
-    setState(() => _filters = filters);
     ref.read(activitiesViewModelProvider.notifier).search(filters);
   }
 
   void _loadMore() {
-    ref.read(activitiesViewModelProvider.notifier).loadMore(_filters);
+    ref.read(activitiesViewModelProvider.notifier).loadMore();
   }
 
-  void _updateFilters(ActivitySearchFilters filters) {
-    setState(() => _filters = filters.copyWith(clearCursor: true));
-    ref.read(activitiesViewModelProvider.notifier).search(_filters);
+  void _updateFilters(SearchFilters filters) {
+    ref.read(activitiesViewModelProvider.notifier).search(filters);
   }
 
   void _showFiltersSheet() {
+    final currentFilters = ref.read(activitiesFiltersProvider);
     SearchFiltersSheet.show(
       context: context,
-      initialFilters: _filters,
+      initialFilters: currentFilters,
       onApply: _updateFilters,
     );
   }
 
   void _toggleDayFilter(int dayOfWeek) {
-    if (_filters.dayOfWeekUtc == dayOfWeek) {
-      _updateFilters(_filters.copyWith(clearDayOfWeekUtc: true));
+    final currentFilters = ref.read(activitiesFiltersProvider);
+    if (currentFilters.dayOfWeekUtc == dayOfWeek) {
+      _updateFilters(currentFilters.copyWith(clearDayOfWeekUtc: true));
     } else {
-      _updateFilters(_filters.copyWith(dayOfWeekUtc: dayOfWeek));
+      _updateFilters(currentFilters.copyWith(dayOfWeekUtc: dayOfWeek));
     }
   }
 
   void _toggleDistrictFilter(String? district) {
-    if (_filters.district == district || district == null) {
-      _updateFilters(_filters.copyWith(clearDistrict: true));
+    final currentFilters = ref.read(activitiesFiltersProvider);
+    if (currentFilters.district == district || district == null) {
+      _updateFilters(currentFilters.copyWith(clearDistrict: true));
     } else {
-      _updateFilters(_filters.copyWith(district: district));
+      _updateFilters(currentFilters.copyWith(district: district));
     }
+  }
+
+  void _clearFilters() {
+    _searchController.clear();
+    ref.read(activitiesViewModelProvider.notifier).search(SearchFilters.empty);
   }
 
   @override
@@ -124,22 +136,27 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               onSearch: _performSearch,
             ),
             _QuickFilters(
-              filters: _filters,
               onFilterBadgeTap: _showFiltersSheet,
               onDayTap: _toggleDayFilter,
               onDistrictChanged: _toggleDistrictFilter,
               onPricingTypeChanged: (value) {
+                final currentFilters = ref.read(activitiesFiltersProvider);
                 if (value == null) {
-                  _updateFilters(_filters.copyWith(clearPricingType: true));
+                  _updateFilters(currentFilters.copyWith(clearPricingType: true));
                 } else {
-                  _updateFilters(_filters.copyWith(pricingType: value));
+                  _updateFilters(currentFilters.copyWith(
+                    pricingType: PricingType.fromString(value),
+                  ));
                 }
               },
               onScheduleTypeChanged: (value) {
+                final currentFilters = ref.read(activitiesFiltersProvider);
                 if (value == null) {
-                  _updateFilters(_filters.copyWith(clearScheduleType: true));
+                  _updateFilters(currentFilters.copyWith(clearScheduleType: true));
                 } else {
-                  _updateFilters(_filters.copyWith(scheduleType: value));
+                  _updateFilters(currentFilters.copyWith(
+                    scheduleType: ScheduleType.fromString(value),
+                  ));
                 }
               },
             ),
@@ -147,13 +164,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               child: _ResultsList(
                 scrollController: _scrollController,
                 onRefresh: _performSearch,
-                onClearFilters: () {
-                  setState(() {
-                    _filters = ActivitySearchFilters();
-                    _searchController.clear();
-                  });
-                  _performSearch();
-                },
+                onClearFilters: _clearFilters,
               ),
             ),
           ],
@@ -295,7 +306,6 @@ class _SearchBar extends ConsumerWidget {
 /// Extracted quick filters widget.
 class _QuickFilters extends ConsumerWidget {
   const _QuickFilters({
-    required this.filters,
     required this.onFilterBadgeTap,
     required this.onDayTap,
     required this.onDistrictChanged,
@@ -303,7 +313,6 @@ class _QuickFilters extends ConsumerWidget {
     required this.onScheduleTypeChanged,
   });
 
-  final ActivitySearchFilters filters;
   final VoidCallback onFilterBadgeTap;
   final ValueChanged<int> onDayTap;
   final ValueChanged<String?> onDistrictChanged;
@@ -313,6 +322,7 @@ class _QuickFilters extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final spacing = ref.watch(semanticTokensProvider.select((s) => s.spacing));
+    final filters = ref.watch(activitiesFiltersProvider);
 
     return Padding(
       padding: EdgeInsets.only(bottom: spacing.sm),
@@ -345,14 +355,14 @@ class _QuickFilters extends ConsumerWidget {
               ),
               DropdownFilterChip(
                 label: 'Pricing',
-                value: filters.pricingType,
+                value: filters.pricingType?.toApiString(),
                 options: AppConstants.pricingTypes.keys.toList(),
                 displayNameBuilder: AppConstants.getPricingTypeName,
                 onChanged: onPricingTypeChanged,
               ),
               DropdownFilterChip(
                 label: 'Schedule',
-                value: filters.scheduleType,
+                value: filters.scheduleType?.toApiString(),
                 options: AppConstants.scheduleTypes.keys.toList(),
                 displayNameBuilder: AppConstants.getScheduleTypeName,
                 onChanged: onScheduleTypeChanged,
@@ -382,7 +392,6 @@ class _ResultsList extends ConsumerWidget {
     final state = ref.watch(activitiesViewModelProvider);
     final colors = ref.watch(semanticTokensProvider.select((s) => s.color));
     final spacing = ref.watch(semanticTokensProvider.select((s) => s.spacing));
-    final textStyles = ref.watch(semanticTokensProvider.select((s) => s.text));
 
     if (state.isLoading && state.items.isEmpty) {
       return Center(
@@ -411,14 +420,14 @@ class _ResultsList extends ConsumerWidget {
         padding: EdgeInsets.only(top: spacing.sm),
         // Use cacheExtent to pre-build items off-screen
         cacheExtent: 200,
-        itemCount: state.items.length + (state.nextCursor != null ? 1 : 0),
+        itemCount: state.items.length + (state.hasMore ? 1 : 0),
         itemBuilder: (context, index) {
           if (index >= state.items.length) {
-            return _LoadMoreIndicator(isLoading: state.isLoading);
+            return _LoadMoreIndicator(isLoading: state.isLoadingMore);
           }
           final result = state.items[index];
           return ActivityCard(
-            key: ValueKey(result.activity.id),
+            key: ValueKey(result.id),
             result: result,
             onTap: () => _navigateToDetail(context, result),
             onOrganizationTap: () => _navigateToOrg(context, result),
@@ -428,7 +437,7 @@ class _ResultsList extends ConsumerWidget {
     );
   }
 
-  void _navigateToDetail(BuildContext context, ActivitySearchResult result) {
+  void _navigateToDetail(BuildContext context, ActivitySearchResultEntity result) {
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -437,7 +446,7 @@ class _ResultsList extends ConsumerWidget {
     );
   }
 
-  void _navigateToOrg(BuildContext context, ActivitySearchResult result) {
+  void _navigateToOrg(BuildContext context, ActivitySearchResultEntity result) {
     Navigator.push(
       context,
       MaterialPageRoute(

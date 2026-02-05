@@ -4,14 +4,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../config/constants.dart';
 import '../../../config/tokens/tokens.dart';
 import '../../../core/core.dart';
-import '../../../models/activity_models.dart';
+import '../../../domain/entities/entities.dart';
 import '../../organization/screens/organization_screen.dart';
 
-/// Activity detail screen using design tokens.
+/// Activity detail screen using design tokens and domain entities.
+///
+/// Architecture:
+/// - Uses domain entities (ActivitySearchResultEntity)
+/// - Follows Flutter architecture guidelines
+///
+/// See: https://docs.flutter.dev/app-architecture/guide
 class ActivityDetailScreen extends ConsumerWidget {
   const ActivityDetailScreen({super.key, required this.result});
 
-  final ActivitySearchResult result;
+  final ActivitySearchResultEntity result;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -127,12 +133,13 @@ class ActivityDetailScreen extends ConsumerWidget {
 
   Widget _buildActivityHeader(SemanticTokens semantic, ComponentTokens tokens) {
     final activityTokens = tokens.activityCard;
+    final ageRange = result.activity.ageRangeDisplay;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(result.activity.name, style: semantic.text.headlineMedium),
-        if (result.activity.ageMin != null || result.activity.ageMax != null)
+        if (ageRange != null)
           Padding(
             padding: const EdgeInsets.only(top: 8),
             child: Container(
@@ -147,7 +154,7 @@ class ActivityDetailScreen extends ConsumerWidget {
                   Icon(Icons.child_care, size: 16, color: activityTokens.ageForeground),
                   const SizedBox(width: 4),
                   Text(
-                    _formatAgeRange(),
+                    ageRange,
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
@@ -200,6 +207,8 @@ class ActivityDetailScreen extends ConsumerWidget {
   }
 
   Widget _buildScheduleSection(SemanticTokens semantic, ComponentTokens tokens) {
+    final schedule = result.schedule;
+
     return SectionCard(
       title: 'Schedule',
       icon: Icons.schedule,
@@ -207,19 +216,19 @@ class ActivityDetailScreen extends ConsumerWidget {
         children: [
           _DetailRow(
             label: 'Type',
-            value: AppConstants.getScheduleTypeName(result.schedule.scheduleType),
+            value: _getScheduleTypeLabel(schedule.type),
             semantic: semantic,
           ),
-          if (result.schedule.dayOfWeekUtc != null)
+          if (schedule.dayOfWeekName != null)
             _DetailRow(
               label: 'Day',
-              value: AppConstants.getDayName(result.schedule.dayOfWeekUtc!),
+              value: schedule.dayOfWeekName!,
               semantic: semantic,
             ),
-          if (result.schedule.startMinutesUtc != null)
+          if (schedule.formattedTime != null)
             _DetailRow(
               label: 'Time',
-              value: _formatTimeRange(),
+              value: schedule.formattedTime!,
               semantic: semantic,
             ),
         ],
@@ -227,8 +236,18 @@ class ActivityDetailScreen extends ConsumerWidget {
     );
   }
 
+  String _getScheduleTypeLabel(ScheduleType type) {
+    return switch (type) {
+      ScheduleType.weekly => 'Weekly',
+      ScheduleType.monthly => 'Monthly',
+      ScheduleType.oneTime => 'One-time',
+      ScheduleType.flexible => 'Flexible',
+    };
+  }
+
   Widget _buildPricingSection(SemanticTokens semantic, ComponentTokens tokens) {
     final priceTokens = tokens.priceTag;
+    final pricing = result.pricing;
 
     return SectionCard(
       title: 'Pricing',
@@ -240,27 +259,19 @@ class ActivityDetailScreen extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                '${result.pricing.currency} ${result.pricing.amount.toStringAsFixed(0)}',
+                pricing.formattedPrice,
                 style: TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.bold,
                   color: priceTokens.foreground,
                 ),
               ),
-              const SizedBox(width: 8),
-              Padding(
-                padding: const EdgeInsets.only(bottom: 4),
-                child: Text(
-                  AppConstants.getPricingTypeName(result.pricing.pricingType).toLowerCase(),
-                  style: semantic.text.bodyMedium,
-                ),
-              ),
             ],
           ),
-          if (result.pricing.sessionsCount != null) ...[
+          if (pricing.sessionsCount != null) ...[
             SizedBox(height: semantic.spacing.sm),
             Text(
-              '${result.pricing.sessionsCount} sessions included',
+              '${pricing.sessionsCount} sessions included',
               style: semantic.text.bodySmall,
             ),
           ],
@@ -270,16 +281,18 @@ class ActivityDetailScreen extends ConsumerWidget {
   }
 
   Widget _buildLocationSection(BuildContext context, SemanticTokens semantic, ComponentTokens tokens) {
+    final location = result.location;
+
     return SectionCard(
       title: 'Location',
       icon: Icons.location_on_outlined,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _DetailRow(label: 'District', value: result.location.district, semantic: semantic),
-          if (result.location.address != null)
-            _DetailRow(label: 'Address', value: result.location.address!, semantic: semantic),
-          if (result.location.lat != null && result.location.lng != null)
+          _DetailRow(label: 'District', value: location.district, semantic: semantic),
+          if (location.address != null)
+            _DetailRow(label: 'Address', value: location.address!, semantic: semantic),
+          if (location.hasCoordinates)
             Padding(
               padding: EdgeInsets.only(top: semantic.spacing.sm),
               child: OutlinedButton.icon(
@@ -323,6 +336,7 @@ class ActivityDetailScreen extends ConsumerWidget {
 
   Widget _buildBottomBar(BuildContext context, SemanticTokens semantic, ComponentTokens tokens) {
     final priceTokens = tokens.priceTag;
+    final pricing = result.pricing;
 
     return Container(
       padding: EdgeInsets.all(semantic.spacing.md),
@@ -338,16 +352,12 @@ class ActivityDetailScreen extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '${result.pricing.currency} ${result.pricing.amount.toStringAsFixed(0)}',
+                  pricing.formattedPrice,
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
                     color: priceTokens.foreground,
                   ),
-                ),
-                Text(
-                  AppConstants.getPricingTypeName(result.pricing.pricingType).toLowerCase(),
-                  style: semantic.text.caption,
                 ),
               ],
             ),
@@ -367,25 +377,6 @@ class ActivityDetailScreen extends ConsumerWidget {
         ),
       ),
     );
-  }
-
-  String _formatAgeRange() {
-    if (result.activity.ageMin != null && result.activity.ageMax != null) {
-      return 'Ages ${result.activity.ageMin}-${result.activity.ageMax}';
-    } else if (result.activity.ageMin != null) {
-      return 'Ages ${result.activity.ageMin}+';
-    } else if (result.activity.ageMax != null) {
-      return 'Up to age ${result.activity.ageMax}';
-    }
-    return 'All ages';
-  }
-
-  String _formatTimeRange() {
-    final start = AppConstants.minutesToTimeString(result.schedule.startMinutesUtc!);
-    if (result.schedule.endMinutesUtc != null) {
-      return '$start - ${AppConstants.minutesToTimeString(result.schedule.endMinutesUtc!)}';
-    }
-    return start;
   }
 }
 

@@ -3,16 +3,22 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../config/tokens/tokens.dart';
 import '../../../core/core.dart';
-import '../../../models/activity_models.dart';
+import '../../../domain/entities/entities.dart';
 import '../../../viewmodels/activities_viewmodel.dart';
 import '../../activity_detail/screens/activity_detail_screen.dart';
 import '../../search/widgets/activity_card.dart';
 
-/// Organization detail screen using design tokens.
+/// Organization detail screen using design tokens and domain entities.
+///
+/// Architecture:
+/// - Uses domain entities (OrganizationEntity)
+/// - Follows Flutter architecture guidelines
+///
+/// See: https://docs.flutter.dev/app-architecture/guide
 class OrganizationScreen extends ConsumerWidget {
   const OrganizationScreen({super.key, required this.organization});
 
-  final Organization organization;
+  final OrganizationEntity organization;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {

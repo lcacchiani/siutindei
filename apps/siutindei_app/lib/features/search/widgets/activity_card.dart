@@ -4,15 +4,21 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../config/constants.dart';
 import '../../../config/tokens/tokens.dart';
 import '../../../core/core.dart';
-import '../../../models/activity_models.dart';
+import '../../../domain/entities/entities.dart';
 
-/// Activity card widget using leaf tokens.
+/// Activity card widget using leaf tokens and domain entities.
+///
+/// Architecture:
+/// - Uses domain entities (ActivitySearchResultEntity) for type safety
+/// - Follows Flutter architecture guidelines
 ///
 /// Performance optimizations applied:
 /// - Uses `select` for granular provider watching
 /// - Extracts child widgets to separate classes to minimize rebuilds
 /// - Caches computed values where possible
 /// - Uses const constructors where possible
+///
+/// See: https://docs.flutter.dev/app-architecture/guide
 class ActivityCard extends ConsumerWidget {
   const ActivityCard({
     super.key,
@@ -21,7 +27,7 @@ class ActivityCard extends ConsumerWidget {
     this.onOrganizationTap,
   });
 
-  final ActivitySearchResult result;
+  final ActivitySearchResultEntity result;
   final VoidCallback? onTap;
   final VoidCallback? onOrganizationTap;
 
@@ -89,7 +95,7 @@ class _ActivityCardContent extends StatelessWidget {
     this.onOrganizationTap,
   });
 
-  final ActivitySearchResult result;
+  final ActivitySearchResultEntity result;
   final ActivityCardTokens tokens;
   final PriceTagTokens priceTokens;
   final SemanticSpacing spacing;
@@ -140,7 +146,7 @@ class _ActivityCardHeader extends StatelessWidget {
     this.onOrganizationTap,
   });
 
-  final ActivitySearchResult result;
+  final ActivitySearchResultEntity result;
   final ActivityCardTokens tokens;
   final VoidCallback? onOrganizationTap;
 
@@ -208,12 +214,12 @@ class _ActivityCardInfo extends StatelessWidget {
     required this.tokens,
   });
 
-  final ActivitySearchResult result;
+  final ActivitySearchResultEntity result;
   final ActivityCardTokens tokens;
 
   @override
   Widget build(BuildContext context) {
-    final hasAge = result.activity.ageMin != null || result.activity.ageMax != null;
+    final ageRange = result.activity.ageRangeDisplay;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -229,12 +235,11 @@ class _ActivityCardInfo extends StatelessWidget {
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
         ),
-        if (hasAge)
+        if (ageRange != null)
           Padding(
             padding: const EdgeInsets.only(top: 4),
             child: _AgeTag(
-              ageMin: result.activity.ageMin,
-              ageMax: result.activity.ageMax,
+              ageRange: ageRange,
               tokens: tokens,
             ),
           ),
@@ -252,7 +257,7 @@ class _ActivityCardSchedulePrice extends StatelessWidget {
     required this.spacing,
   });
 
-  final ActivitySearchResult result;
+  final ActivitySearchResultEntity result;
   final ActivityCardTokens tokens;
   final PriceTagTokens priceTokens;
   final SemanticSpacing spacing;
@@ -281,7 +286,7 @@ class _ActivityCardSchedulePrice extends StatelessWidget {
 class _ActivityCardTags extends StatelessWidget {
   const _ActivityCardTags({required this.result});
 
-  final ActivitySearchResult result;
+  final ActivitySearchResultEntity result;
 
   @override
   Widget build(BuildContext context) {
@@ -292,24 +297,32 @@ class _ActivityCardTags extends StatelessWidget {
         for (final lang in result.schedule.languages.take(3))
           BaseBadge(label: lang.toUpperCase()),
         BaseBadge(
-          label: AppConstants.getPricingTypeName(result.pricing.pricingType),
+          label: _getPricingTypeLabel(result.pricing.type),
           variant: BadgeVariant.success,
         ),
       ],
     );
+  }
+
+  String _getPricingTypeLabel(PricingType type) {
+    return switch (type) {
+      PricingType.perSession => 'Per Session',
+      PricingType.perMonth => 'Monthly',
+      PricingType.perYear => 'Yearly',
+      PricingType.oneTime => 'One Time',
+      PricingType.free => 'Free',
+    };
   }
 }
 
 /// Age display tag - extracted as StatelessWidget.
 class _AgeTag extends StatelessWidget {
   const _AgeTag({
-    required this.ageMin,
-    required this.ageMax,
+    required this.ageRange,
     required this.tokens,
   });
 
-  final int? ageMin;
-  final int? ageMax;
+  final String ageRange;
   final ActivityCardTokens tokens;
 
   @override
@@ -324,7 +337,7 @@ class _AgeTag extends StatelessWidget {
         ),
         const SizedBox(width: 4),
         Text(
-          _formatAgeRange(),
+          ageRange,
           style: TextStyle(
             fontSize: tokens.ageFontSize,
             color: tokens.ageForeground,
@@ -332,13 +345,6 @@ class _AgeTag extends StatelessWidget {
         ),
       ],
     );
-  }
-
-  String _formatAgeRange() {
-    if (ageMin != null && ageMax != null) return 'Ages $ageMin-$ageMax';
-    if (ageMin != null) return 'Ages $ageMin+';
-    if (ageMax != null) return 'Up to age $ageMax';
-    return 'All ages';
   }
 }
 
@@ -349,7 +355,7 @@ class _ScheduleInfo extends StatelessWidget {
     required this.tokens,
   });
 
-  final Schedule schedule;
+  final ScheduleEntity schedule;
   final ActivityCardTokens tokens;
 
   @override
@@ -380,23 +386,26 @@ class _ScheduleInfo extends StatelessWidget {
   String _formatSchedule() {
     final parts = <String>[];
 
-    if (schedule.dayOfWeekUtc != null) {
-      parts.add(AppConstants.getDayNameShort(schedule.dayOfWeekUtc!));
+    // Day of week or month
+    final dayName = schedule.dayOfWeekName;
+    if (dayName != null) {
+      parts.add(dayName.substring(0, 3)); // Short name
     } else if (schedule.dayOfMonth != null) {
       parts.add('Day ${schedule.dayOfMonth}');
     }
 
-    if (schedule.startMinutesUtc != null) {
-      final timeStr = AppConstants.minutesToTimeString(schedule.startMinutesUtc!);
-      if (schedule.endMinutesUtc != null) {
-        parts.add('$timeStr - ${AppConstants.minutesToTimeString(schedule.endMinutesUtc!)}');
-      } else {
-        parts.add(timeStr);
-      }
+    // Time
+    final timeStr = schedule.formattedTime;
+    if (timeStr != null) {
+      parts.add(timeStr);
     }
 
     if (parts.isEmpty) {
-      return schedule.scheduleType == 'date_specific' ? 'One-time event' : 'See details';
+      return switch (schedule.type) {
+        ScheduleType.oneTime => 'One-time event',
+        ScheduleType.flexible => 'Flexible schedule',
+        _ => 'See details',
+      };
     }
 
     return parts.join(' • ');
@@ -410,7 +419,7 @@ class _PriceTag extends StatelessWidget {
     required this.tokens,
   });
 
-  final Pricing pricing;
+  final PricingEntity pricing;
   final PriceTagTokens tokens;
 
   @override
@@ -429,7 +438,7 @@ class _PriceTag extends StatelessWidget {
           vertical: tokens.paddingVertical,
         ),
         child: Text(
-          '${pricing.currency} ${pricing.amount.toStringAsFixed(0)}',
+          pricing.formattedPrice,
           style: TextStyle(
             fontSize: tokens.fontSize,
             fontWeight: tokens.fontWeight,
