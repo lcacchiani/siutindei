@@ -51,6 +51,14 @@ class AccessRequestStatus(str, enum.Enum):
     REJECTED = "rejected"
 
 
+class SuggestionStatus(str, enum.Enum):
+    """Status for organization suggestions from public users."""
+
+    PENDING = "pending"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+
+
 class Organization(Base):
     """Organization that provides activities."""
 
@@ -495,3 +503,120 @@ class AuditLog(Base):
         nullable=True,
         comment="Client user agent if available",
     )
+
+
+class OrganizationSuggestion(Base):
+    """Suggestion for a new organization from a public user.
+
+    Unlike access requests, users submitting suggestions don't become managers.
+    They simply inform admins about new places that could be added.
+    """
+
+    __tablename__ = "organization_suggestions"
+
+    id: Mapped[str] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        server_default=text("gen_random_uuid()"),
+    )
+    ticket_id: Mapped[str] = mapped_column(
+        Text(),
+        nullable=False,
+        unique=True,
+        comment="Unique progressive ticket ID (format: S + 5 digits)",
+    )
+    suggester_id: Mapped[str] = mapped_column(
+        Text(),
+        nullable=False,
+        comment="Cognito user sub of the person suggesting",
+    )
+    suggester_email: Mapped[str] = mapped_column(
+        Text(),
+        nullable=False,
+        comment="Email of the suggester for notifications",
+    )
+    organization_name: Mapped[str] = mapped_column(
+        Text(),
+        nullable=False,
+        comment="Suggested name for the organization",
+    )
+    description: Mapped[Optional[str]] = mapped_column(
+        Text(),
+        nullable=True,
+        comment="Description of the organization/place",
+    )
+    suggested_district: Mapped[Optional[str]] = mapped_column(
+        Text(),
+        nullable=True,
+        comment="District where the place is located",
+    )
+    suggested_address: Mapped[Optional[str]] = mapped_column(
+        Text(),
+        nullable=True,
+        comment="Full address of the place",
+    )
+    suggested_lat: Mapped[Optional[Decimal]] = mapped_column(
+        Numeric(9, 6),
+        nullable=True,
+        comment="Latitude coordinate",
+    )
+    suggested_lng: Mapped[Optional[Decimal]] = mapped_column(
+        Numeric(9, 6),
+        nullable=True,
+        comment="Longitude coordinate",
+    )
+    media_urls: Mapped[List[str]] = mapped_column(
+        ARRAY(Text()),
+        nullable=False,
+        server_default=text("'{}'::text[]"),
+        comment="URLs of uploaded pictures",
+    )
+    additional_notes: Mapped[Optional[str]] = mapped_column(
+        Text(),
+        nullable=True,
+        comment="Any additional information from the suggester",
+    )
+    status: Mapped[SuggestionStatus] = mapped_column(
+        sa.Enum(
+            SuggestionStatus,
+            name="suggestion_status",
+            values_callable=lambda x: [e.value for e in x],
+            create_type=False,
+        ),
+        nullable=False,
+        server_default=text("'pending'"),
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True),
+        nullable=False,
+        server_default=text("now()"),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True),
+        nullable=False,
+        server_default=text("now()"),
+    )
+    reviewed_at: Mapped[Optional[datetime]] = mapped_column(
+        TIMESTAMP(timezone=True),
+        nullable=True,
+        comment="When the suggestion was reviewed",
+    )
+    reviewed_by: Mapped[Optional[str]] = mapped_column(
+        Text(),
+        nullable=True,
+        comment="Cognito user sub of the admin who reviewed",
+    )
+    admin_notes: Mapped[Optional[str]] = mapped_column(
+        Text(),
+        nullable=True,
+        comment="Notes from the reviewing admin",
+    )
+    created_organization_id: Mapped[Optional[str]] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("organizations.id", ondelete="SET NULL"),
+        nullable=True,
+        comment="ID of organization created from this suggestion (if approved)",
+    )
+
+    # Relationship to the created organization (if approved)
+    created_organization: Mapped[Optional["Organization"]] = relationship()
