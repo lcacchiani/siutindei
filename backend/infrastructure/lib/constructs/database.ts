@@ -397,6 +397,23 @@ export class DatabaseConstruct extends Construct {
         securityGroups: [this.dbSecurityGroup],
       });
       this.cluster = cluster;
+
+      // Checkov suppression: IAM auth is disabled on the cluster intentionally
+      // to allow password-based connections for database migrations.
+      // IAM authentication is still enforced on the RDS Proxy for Lambda app connections.
+      // Architecture: Lambda -> Proxy (IAM auth) -> Cluster (password auth)
+      const clusterCfn = cluster.node.defaultChild as rds.CfnDBCluster;
+      clusterCfn.addMetadata("checkov", {
+        skip: [
+          {
+            id: "CKV_AWS_162",
+            comment:
+              "IAM auth disabled on cluster to allow password-based migrations. " +
+              "IAM auth is enforced on RDS Proxy for app connections.",
+          },
+        ],
+      });
+
       for (const child of cluster.node.findAll()) {
         if (child instanceof rds.CfnDBInstance) {
           child.monitoringInterval = 60;
