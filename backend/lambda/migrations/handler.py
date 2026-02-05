@@ -35,7 +35,15 @@ _ALLOWED_PROXY_USERS = {"siutindei_app", "siutindei_admin"}
 
 
 def lambda_handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
-    """Handle CloudFormation custom resource events for migrations."""
+    """Handle CloudFormation custom resource events or direct invocations.
+
+    Supports two modes:
+    1. CloudFormation custom resource (has RequestType) - runs migrations
+    2. Direct invocation with {"action": "seed"} - runs seeding only
+    """
+    # Check if this is a direct invocation for seeding
+    if event.get("action") == "seed":
+        return _handle_seed_only(event, context)
 
     request_type = event.get("RequestType")
     physical_id = str(event.get("PhysicalResourceId") or "migrations")
@@ -96,6 +104,40 @@ def lambda_handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
             reason,
         )
         return {"PhysicalResourceId": physical_id, "Data": data}
+
+
+def _handle_seed_only(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
+    """Handle direct invocation for seeding only (not via CloudFormation).
+
+    This allows seeding to be run as a separate step after CloudFormation
+    deployment completes, so seeding failures don't roll back the stack.
+    """
+    logger.info("Running seed-only mode (direct invocation)")
+
+    try:
+        database_url = get_database_url()
+
+        seed_path = os.getenv(
+            "SEED_FILE_PATH",
+            "/var/task/db/seed/seed_data.sql",
+        )
+
+        # Create or get seed manager user for demo data
+        seed_manager_sub = _get_or_create_seed_manager()
+        _run_with_retry(_run_seed, database_url, seed_path, seed_manager_sub)
+
+        logger.info("Seeding completed successfully")
+        return {"status": "ok", "action": "seed"}
+
+    except Exception as exc:
+        error_type = type(exc).__name__
+        error_msg = str(exc)
+        logger.error(
+            "Seeding failed",
+            extra={"error_type": error_type, "error_message": error_msg},
+            exc_info=True,
+        )
+        return {"status": "failed", "action": "seed", "error": str(exc)}
 
 
 def _run_migrations(database_url: str) -> None:

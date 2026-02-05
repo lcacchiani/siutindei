@@ -13,6 +13,11 @@ on:
         required: false
         default: false
         type: boolean
+      run_seed_data:
+        description: "Run database seed data (creates test manager user and demo organizations)"
+        required: false
+        default: false
+        type: boolean
       cdk_stacks:
         description: "CDK stacks to deploy"
         required: false
@@ -158,6 +163,7 @@ jobs:
           android_app_id = os.getenv("FIREBASE_ANDROID_APP_ID", "").strip()
           ios_app_id = os.getenv("FIREBASE_IOS_APP_ID", "").strip()
           apple_team_id = os.getenv("APPLE_TEAM_ID", "").strip()
+          run_seed_data = os.getenv("RUN_SEED_DATA", "false").strip().lower()
 
           params = {}
 
@@ -663,3 +669,30 @@ jobs:
           MIGRATIONS_FORCE_RUN_ID: >-
             ${{ github.event.inputs.force_migration_run == 'true' &&
             github.run_id || '' }}
+
+      - name: Run database seeding
+        if: github.event.inputs.run_seed_data == 'true' && steps.region.outputs.is_waf != 'true'
+        run: |
+          echo "Running database seeding after successful deployment..."
+          FUNCTION_NAME="lxsoftware-siutindei-SiutindeiMigrationFunction"
+
+          # Invoke the Lambda with seed-only action
+          RESPONSE=$(aws lambda invoke \
+            --function-name "$FUNCTION_NAME" \
+            --payload '{"action": "seed"}' \
+            --cli-binary-format raw-in-base64-out \
+            /tmp/seed-response.json 2>&1)
+
+          echo "Lambda invocation response: $RESPONSE"
+          echo "Lambda output:"
+          cat /tmp/seed-response.json
+
+          # Check if seeding was successful
+          STATUS=$(cat /tmp/seed-response.json | python3 -c "import sys, json; print(json.load(sys.stdin).get('status', 'unknown'))")
+          if [ "$STATUS" != "ok" ]; then
+            echo "Seeding failed with status: $STATUS"
+            cat /tmp/seed-response.json
+            exit 1
+          fi
+
+          echo "Database seeding completed successfully!"

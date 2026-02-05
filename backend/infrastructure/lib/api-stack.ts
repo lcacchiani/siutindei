@@ -163,10 +163,6 @@ export class ApiStack extends cdk.Stack {
       service: ec2.GatewayVpcEndpointAwsService.S3,
     });
 
-    vpc.addGatewayEndpoint("DynamoDBEndpoint", {
-      service: ec2.GatewayVpcEndpointAwsService.DYNAMODB,
-    });
-
     if (!existingVpcId) {
       const endpointSecurityGroup = new ec2.SecurityGroup(
         this,
@@ -195,6 +191,42 @@ export class ApiStack extends cdk.Stack {
 
       vpc.addInterfaceEndpoint("CloudWatchLogsEndpoint", {
         service: ec2.InterfaceVpcEndpointAwsService.CLOUDWATCH_LOGS,
+        securityGroups: [endpointSecurityGroup],
+      });
+
+      // Cognito endpoint for migration Lambda to create seed manager user
+      vpc.addInterfaceEndpoint("CognitoIdpEndpoint", {
+        service: ec2.InterfaceVpcEndpointAwsService.COGNITO_IDP,
+        securityGroups: [endpointSecurityGroup],
+      });
+
+      // SES endpoint for sending emails (manager requests, passwordless auth)
+      vpc.addInterfaceEndpoint("SesEndpoint", {
+        service: ec2.InterfaceVpcEndpointAwsService.SES,
+        securityGroups: [endpointSecurityGroup],
+      });
+
+      // SNS endpoint for notifications (manager access requests)
+      vpc.addInterfaceEndpoint("SnsEndpoint", {
+        service: ec2.InterfaceVpcEndpointAwsService.SNS,
+        securityGroups: [endpointSecurityGroup],
+      });
+
+      // RDS endpoint for IAM authentication token generation
+      vpc.addInterfaceEndpoint("RdsEndpoint", {
+        service: ec2.InterfaceVpcEndpointAwsService.RDS,
+        securityGroups: [endpointSecurityGroup],
+      });
+
+      // API Gateway endpoint for API key rotation Lambda
+      vpc.addInterfaceEndpoint("ApiGatewayEndpoint", {
+        service: ec2.InterfaceVpcEndpointAwsService.APIGATEWAY,
+        securityGroups: [endpointSecurityGroup],
+      });
+
+      // SQS endpoint for manager request processing queue
+      vpc.addInterfaceEndpoint("SqsEndpoint", {
+        service: ec2.InterfaceVpcEndpointAwsService.SQS,
         securityGroups: [endpointSecurityGroup],
       });
     }
@@ -435,6 +467,16 @@ export class ApiStack extends cdk.Stack {
     // ---------------------------------------------------------------------
     // Migration Parameters
     // ---------------------------------------------------------------------
+    const runSeedData = new cdk.CfnParameter(this, "RunSeedData", {
+      type: "String",
+      default: "false",
+      allowedValues: ["true", "false"],
+      description:
+        "Run database seed data after migrations. Default false to allow " +
+        "deployment to succeed even if seeding fails. Set to true and update " +
+        "stack to seed after initial deployment.",
+    });
+
     const fallbackManagerEmail = new cdk.CfnParameter(
       this,
       "FallbackManagerEmail",
@@ -1943,7 +1985,7 @@ export class ApiStack extends cdk.Stack {
         SeedHash: seedHash,
         ProxyUserSecretHash: proxyUserSecretHash,
         MigrationsForceRunId: migrationsForceRunId,
-        RunSeed: true,
+        RunSeed: runSeedData.valueAsString,
       },
     });
     migrateResource.node.addDependency(database.cluster);
