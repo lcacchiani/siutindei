@@ -467,6 +467,16 @@ export class ApiStack extends cdk.Stack {
     // ---------------------------------------------------------------------
     // Migration Parameters
     // ---------------------------------------------------------------------
+    const runSeedData = new cdk.CfnParameter(this, "RunSeedData", {
+      type: "String",
+      default: "false",
+      allowedValues: ["true", "false"],
+      description:
+        "Run database seed data after migrations. Default false to allow " +
+        "deployment to succeed even if seeding fails. Set to true and update " +
+        "stack to seed after initial deployment.",
+    });
+
     const fallbackManagerEmail = new cdk.CfnParameter(
       this,
       "FallbackManagerEmail",
@@ -1975,7 +1985,7 @@ export class ApiStack extends cdk.Stack {
         SeedHash: seedHash,
         ProxyUserSecretHash: proxyUserSecretHash,
         MigrationsForceRunId: migrationsForceRunId,
-        RunSeed: true,
+        RunSeed: runSeedData.valueAsString,
       },
     });
     migrateResource.node.addDependency(database.cluster);
