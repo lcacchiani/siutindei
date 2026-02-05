@@ -276,7 +276,11 @@ def _get_or_create_seed_manager() -> str:
 
     client = boto3.client("cognito-idp")
     seed_email = "test@lx-software.com"
-    seed_password = "TestPassword123!"  # Meets Cognito default password policy
+    # Generate a random password - user can reset via forgot password flow
+    import secrets
+    import string
+    alphabet = string.ascii_letters + string.digits + "!@#$%"
+    seed_password = "".join(secrets.choice(alphabet) for _ in range(16))
 
     # Check if user already exists
     try:
