@@ -474,7 +474,7 @@ jobs:
           log_bucket=$(normalize_value "$log_bucket")
           if [ -n "$log_bucket" ]; then
             echo "Found existing log bucket: $log_bucket"
-            echo "EXISTING_ORG_IMAGES_LOG_BUCKET_NAME=$log_bucket" \
+            echo "EXISTING_ORG_MEDIA_LOG_BUCKET_NAME=$log_bucket" \
               >> "$GITHUB_ENV"
           fi
 
@@ -484,7 +484,7 @@ jobs:
           images_bucket=$(normalize_value "$images_bucket")
           if [ -n "$images_bucket" ]; then
             echo "Found existing images bucket: $images_bucket"
-            echo "EXISTING_ORG_IMAGES_BUCKET_NAME=$images_bucket" \
+            echo "EXISTING_ORG_MEDIA_BUCKET_NAME=$images_bucket" \
               >> "$GITHUB_ENV"
           fi
 
@@ -624,8 +624,8 @@ jobs:
               unset EXISTING_DB_PROXY_ARN
               unset EXISTING_DB_PROXY_ENDPOINT
               unset EXISTING_VPC_ID
-              unset EXISTING_ORG_IMAGES_LOG_BUCKET_NAME
-              unset EXISTING_ORG_IMAGES_BUCKET_NAME
+              unset EXISTING_ORG_MEDIA_LOG_BUCKET_NAME
+              unset EXISTING_ORG_MEDIA_BUCKET_NAME
             fi
             if [ ${#STACK_ARGS[@]} -gt 0 ]; then
               npx cdk deploy --no-notices --require-approval never "${QUALIFIER_ARGS[@]}" "${PARAM_ARGS[@]}" "${STACK_ARGS[@]}"
@@ -658,8 +658,8 @@ jobs:
           EXISTING_DB_PROXY_ARN: ${{ env.EXISTING_DB_PROXY_ARN }}
           EXISTING_DB_PROXY_ENDPOINT: ${{ env.EXISTING_DB_PROXY_ENDPOINT }}
           EXISTING_VPC_ID: ${{ env.EXISTING_VPC_ID }}
-          EXISTING_ORG_IMAGES_LOG_BUCKET_NAME: ${{ env.EXISTING_ORG_IMAGES_LOG_BUCKET_NAME }}
-          EXISTING_ORG_IMAGES_BUCKET_NAME: ${{ env.EXISTING_ORG_IMAGES_BUCKET_NAME }}
+          EXISTING_ORG_MEDIA_LOG_BUCKET_NAME: ${{ env.EXISTING_ORG_MEDIA_LOG_BUCKET_NAME }}
+          EXISTING_ORG_MEDIA_BUCKET_NAME: ${{ env.EXISTING_ORG_MEDIA_BUCKET_NAME }}
           MIGRATIONS_FORCE_RUN_ID: >-
             ${{ github.event.inputs.force_migration_run == 'true' &&
             github.run_id || '' }}

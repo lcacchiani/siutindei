@@ -124,10 +124,10 @@ export class ApiStack extends cdk.Stack {
       process.env.EXISTING_LAMBDA_SECURITY_GROUP_ID;
     const existingMigrationSecurityGroupId =
       process.env.EXISTING_MIGRATION_SECURITY_GROUP_ID;
-    const existingOrgImagesLogBucketName =
-      process.env.EXISTING_ORG_IMAGES_LOG_BUCKET_NAME?.trim() || undefined;
-    const existingOrgImagesBucketName =
-      process.env.EXISTING_ORG_IMAGES_BUCKET_NAME?.trim() || undefined;
+    const existingOrgMediaLogBucketName =
+      process.env.EXISTING_ORG_MEDIA_LOG_BUCKET_NAME?.trim() || undefined;
+    const existingOrgMediaBucketName =
+      process.env.EXISTING_ORG_MEDIA_BUCKET_NAME?.trim() || undefined;
     const manageDbSecurityGroupRules =
       !existingDbSecurityGroupId && !existingProxySecurityGroupId;
     const skipImmutableDbUpdates =
@@ -797,7 +797,7 @@ export class ApiStack extends cdk.Stack {
     const corsAllowedOrigins = resolveCorsAllowedOrigins(this);
 
     // Import existing log bucket or create a new one.
-    // Use EXISTING_ORG_IMAGES_LOG_BUCKET_NAME to reuse a bucket that persists
+    // Use EXISTING_ORG_MEDIA_LOG_BUCKET_NAME to reuse a bucket that persists
     // after stack deletion (due to RETAIN removal policy).
     const imagesLogBucketName = [
       name("org-media-logs"),
@@ -805,11 +805,11 @@ export class ApiStack extends cdk.Stack {
       cdk.Aws.REGION,
     ].join("-");
 
-    const organizationImagesLogBucket = existingOrgImagesLogBucketName
+    const organizationImagesLogBucket = existingOrgMediaLogBucketName
       ? s3.Bucket.fromBucketName(
           this,
           "OrganizationImagesLogBucket",
-          existingOrgImagesLogBucketName
+          existingOrgMediaLogBucketName
         )
       : new s3.Bucket(this, "OrganizationImagesLogBucket", {
           bucketName: imagesLogBucketName,
@@ -847,7 +847,7 @@ export class ApiStack extends cdk.Stack {
     }
 
     const imagesBucketName =
-      existingOrgImagesBucketName ??
+      existingOrgMediaBucketName ??
       [name("org-media"), cdk.Aws.ACCOUNT_ID, cdk.Aws.REGION].join("-");
 
     // SECURITY NOTE: This bucket is intentionally public to serve organization images
@@ -855,13 +855,13 @@ export class ApiStack extends cdk.Stack {
     // allowing bucket policy based public read. Access is logged to the logging bucket.
     // Future improvement: Consider using CloudFront with OAC for better security and caching.
     // Import existing bucket or create a new one.
-    // Use EXISTING_ORG_IMAGES_BUCKET_NAME to reuse a bucket that persists
+    // Use EXISTING_ORG_MEDIA_BUCKET_NAME to reuse a bucket that persists
     // after stack deletion (due to RETAIN removal policy).
-    const organizationImagesBucket = existingOrgImagesBucketName
+    const organizationImagesBucket = existingOrgMediaBucketName
       ? s3.Bucket.fromBucketName(
           this,
           "OrganizationImagesBucket",
-          existingOrgImagesBucketName
+          existingOrgMediaBucketName
         )
       : new s3.Bucket(this, "OrganizationImagesBucket", {
           bucketName: imagesBucketName,
