@@ -1938,8 +1938,6 @@ export class ApiStack extends cdk.Stack {
         SeedHash: seedHash,
         ProxyUserSecretHash: proxyUserSecretHash,
         MigrationsForceRunId: migrationsForceRunId,
-        // Disabled: seed data doesn't include manager_id which is now required
-        // TODO: Update seed_data.sql to include manager_id or make it optional
         RunSeed: false,
       },
     });
