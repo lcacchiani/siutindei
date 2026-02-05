@@ -35,29 +35,32 @@ import '../cache/cache_manager.dart';
 class ServiceLocator {
   ServiceLocator._();
 
-  /// Creates overrides for testing with mocks.
+  /// Creates a ProviderContainer with test overrides.
   ///
-  /// Returns a list that can be passed to ProviderContainer or ProviderScope.
   /// Example:
   /// ```dart
-  /// final container = ProviderContainer(
-  ///   overrides: ServiceLocator.testOverrides(
-  ///     activityRepository: MockActivityRepository(),
-  ///   ),
+  /// final container = ServiceLocator.createTestContainer(
+  ///   activityRepository: MockActivityRepository(),
   /// );
   /// ```
-  static List<ProviderOrFamily> testOverrideProviders({
+  static ProviderContainer createTestContainer({
     ActivityRepository? activityRepository,
     OrganizationRepository? organizationRepository,
     SearchActivitiesUseCase? searchUseCase,
     LoadMoreActivitiesUseCase? loadMoreUseCase,
   }) {
-    return [
-      if (activityRepository != null) activityRepositoryProvider,
-      if (organizationRepository != null) organizationRepositoryProvider,
-      if (searchUseCase != null) searchActivitiesUseCaseProvider,
-      if (loadMoreUseCase != null) loadMoreActivitiesUseCaseProvider,
-    ];
+    return ProviderContainer(
+      overrides: [
+        if (activityRepository != null)
+          activityRepositoryProvider.overrideWithValue(activityRepository),
+        if (organizationRepository != null)
+          organizationRepositoryProvider.overrideWithValue(organizationRepository),
+        if (searchUseCase != null)
+          searchActivitiesUseCaseProvider.overrideWithValue(searchUseCase),
+        if (loadMoreUseCase != null)
+          loadMoreActivitiesUseCaseProvider.overrideWithValue(loadMoreUseCase),
+      ],
+    );
   }
 }
 
