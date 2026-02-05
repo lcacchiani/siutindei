@@ -800,7 +800,7 @@ export class ApiStack extends cdk.Stack {
     // Use EXISTING_ORG_IMAGES_LOG_BUCKET_NAME to reuse a bucket that persists
     // after stack deletion (due to RETAIN removal policy).
     const imagesLogBucketName = [
-      name("org-images-logs"),
+      name("org-media-logs"),
       cdk.Aws.ACCOUNT_ID,
       cdk.Aws.REGION,
     ].join("-");
@@ -848,7 +848,7 @@ export class ApiStack extends cdk.Stack {
 
     const imagesBucketName =
       existingOrgImagesBucketName ??
-      [name("org-images"), cdk.Aws.ACCOUNT_ID, cdk.Aws.REGION].join("-");
+      [name("org-media"), cdk.Aws.ACCOUNT_ID, cdk.Aws.REGION].join("-");
 
     // SECURITY NOTE: This bucket is intentionally public to serve organization images
     // (logos, photos). It uses BLOCK_ACLS to prevent ACL-based public access while
