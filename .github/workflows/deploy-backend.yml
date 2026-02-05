@@ -675,18 +675,18 @@ jobs:
         run: |
           echo "Running database seeding after successful deployment..."
           FUNCTION_NAME="lxsoftware-siutindei-SiutindeiMigrationFunction"
-          
+
           # Invoke the Lambda with seed-only action
           RESPONSE=$(aws lambda invoke \
             --function-name "$FUNCTION_NAME" \
             --payload '{"action": "seed"}' \
             --cli-binary-format raw-in-base64-out \
             /tmp/seed-response.json 2>&1)
-          
+
           echo "Lambda invocation response: $RESPONSE"
           echo "Lambda output:"
           cat /tmp/seed-response.json
-          
+
           # Check if seeding was successful
           STATUS=$(cat /tmp/seed-response.json | python3 -c "import sys, json; print(json.load(sys.stdin).get('status', 'unknown'))")
           if [ "$STATUS" != "ok" ]; then
@@ -694,5 +694,5 @@ jobs:
             cat /tmp/seed-response.json
             exit 1
           fi
-          
+
           echo "Database seeding completed successfully!"
