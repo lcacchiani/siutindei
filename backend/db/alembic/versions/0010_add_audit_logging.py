@@ -240,7 +240,9 @@ def downgrade() -> None:
 
     # Drop triggers from all tables
     for table_name in AUDITED_TABLES:
-        op.execute(f"DROP TRIGGER IF EXISTS {table_name}_audit_trigger ON {table_name};")
+        op.execute(
+            f"DROP TRIGGER IF EXISTS {table_name}_audit_trigger ON {table_name};"
+        )
 
     # Drop the trigger function
     op.execute("DROP FUNCTION IF EXISTS audit_trigger_func();")

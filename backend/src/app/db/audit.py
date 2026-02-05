@@ -71,12 +71,17 @@ def set_audit_context(
     # Use SET LOCAL so the settings are transaction-scoped
     # This ensures cleanup on commit/rollback
     if user_id:
-        session.execute(text("SET LOCAL app.current_user_id = :user_id"), {"user_id": user_id})
+        session.execute(
+            text("SET LOCAL app.current_user_id = :user_id"), {"user_id": user_id}
+        )
     else:
         session.execute(text("SET LOCAL app.current_user_id = ''"))
 
     if request_id:
-        session.execute(text("SET LOCAL app.current_request_id = :request_id"), {"request_id": request_id})
+        session.execute(
+            text("SET LOCAL app.current_request_id = :request_id"),
+            {"request_id": request_id},
+        )
     else:
         session.execute(text("SET LOCAL app.current_request_id = ''"))
 
@@ -175,7 +180,8 @@ class AuditService:
         # Auto-detect changed fields if not provided
         if changed_fields is None and old_values and new_values:
             changed_fields = [
-                key for key in new_values
+                key
+                for key in new_values
                 if key in old_values and old_values[key] != new_values[key]
             ]
 
@@ -449,7 +455,9 @@ class AuditLogRepository:
         return {action: count for action, count in results}
 
 
-def serialize_for_audit(entity: Any, exclude_fields: Optional[set[str]] = None) -> dict[str, Any]:
+def serialize_for_audit(
+    entity: Any, exclude_fields: Optional[set[str]] = None
+) -> dict[str, Any]:
     """Serialize a SQLAlchemy entity for audit logging.
 
     Converts an entity to a dictionary suitable for storing in audit logs,
@@ -467,7 +475,7 @@ def serialize_for_audit(entity: Any, exclude_fields: Optional[set[str]] = None) 
     from uuid import UUID as UUIDType
 
     exclude = exclude_fields or set()
-    result = {}
+    result: dict[str, Any] = {}
 
     # Get all mapped columns
     for column in entity.__table__.columns:
