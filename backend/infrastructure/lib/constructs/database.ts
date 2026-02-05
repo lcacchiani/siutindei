@@ -386,7 +386,10 @@ export class DatabaseConstruct extends Construct {
         // RDS Proxy for Lambda app connections. Setting this to true causes
         // "PAM authentication failed" errors for direct password connections.
         iamAuthentication: false,
-        storageEncrypted: applyImmutableSettings ? true : undefined,
+        // Always set storageEncrypted: true - encryption cannot be disabled
+        // after cluster creation, and setting to undefined on subsequent
+        // deployments would cause CloudFormation to attempt replacement.
+        storageEncrypted: true,
         serverlessV2MinCapacity: props.minCapacity ?? 0.5,
         serverlessV2MaxCapacity: props.maxCapacity ?? 2,
         writer: writerInstance,
