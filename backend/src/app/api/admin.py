@@ -37,7 +37,8 @@ from app.db.models import Organization
 from app.db.models import OrganizationAccessRequest
 from app.db.models import PricingType
 from app.db.models import ScheduleType
-from app.db.audit import set_audit_context
+from app.db.audit import AuditLogRepository, set_audit_context
+from app.db.models import AuditLog
 from app.db.repositories import (
     ActivityPricingRepository,
     ActivityRepository,
@@ -146,6 +147,8 @@ def lambda_handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
         )
     if resource == "access-requests":
         return _handle_admin_access_requests(event, method, resource_id)
+    if resource == "audit-logs" and method == "GET":
+        return _safe_handler(lambda: _handle_audit_logs(event, resource_id), event)
 
     # Standard admin CRUD routes (no ownership filtering)
     config = _RESOURCE_CONFIG.get(resource)
@@ -1262,6 +1265,240 @@ def _send_request_decision_email(
         logger.error(f"Failed to send request decision email: {exc}")
 
 
+# --- Audit log management ---
+
+
+# Fields to redact from audit log old_values/new_values for security
+AUDIT_REDACTED_FIELDS: frozenset[str] = frozenset(
+    [
+        "password",
+        "secret",
+        "token",
+        "api_key",
+    ]
+)
+
+# Valid table names that can be queried via the audit logs endpoint
+AUDITABLE_TABLES: frozenset[str] = frozenset(
+    [
+        "organizations",
+        "locations",
+        "activities",
+        "activity_locations",
+        "activity_pricing",
+        "activity_schedule",
+        "organization_access_requests",
+    ]
+)
+
+
+def _handle_audit_logs(
+    event: Mapping[str, Any],
+    audit_id: Optional[str],
+) -> dict[str, Any]:
+    """Handle audit log queries.
+
+    Query parameters:
+        - table: Filter by table name (required if record_id is provided)
+        - record_id: Filter by specific record ID
+        - user_id: Filter by user who made the change
+        - action: Filter by action type (INSERT, UPDATE, DELETE)
+        - since: Filter by timestamp (ISO 8601 format)
+        - limit: Maximum entries to return (default 50, max 200)
+        - cursor: Pagination cursor
+
+    If audit_id is provided, returns a single audit log entry.
+    """
+    # Single audit log entry by ID
+    if audit_id:
+        return _get_audit_log_by_id(event, audit_id)
+
+    # List/filter audit logs
+    return _list_audit_logs(event)
+
+
+def _get_audit_log_by_id(
+    event: Mapping[str, Any],
+    audit_id: str,
+) -> dict[str, Any]:
+    """Get a single audit log entry by ID."""
+    with Session(get_engine()) as session:
+        _set_session_audit_context(session, event)
+        repo = AuditLogRepository(session)
+
+        try:
+            entry = repo.get_by_id(_parse_uuid(audit_id))
+        except ValidationError:
+            raise NotFoundError("audit_log", audit_id)
+
+        if entry is None:
+            raise NotFoundError("audit_log", audit_id)
+
+        return json_response(200, _serialize_audit_log(entry), event=event)
+
+
+def _list_audit_logs(event: Mapping[str, Any]) -> dict[str, Any]:
+    """List audit logs with optional filtering."""
+    # Parse and validate query parameters
+    limit = parse_int(_query_param(event, "limit")) or 50
+    if limit < 1 or limit > 200:
+        raise ValidationError("limit must be between 1 and 200", field="limit")
+
+    table_name = _query_param(event, "table")
+    record_id = _query_param(event, "record_id")
+    user_id = _query_param(event, "user_id")
+    action = _query_param(event, "action")
+    since_str = _query_param(event, "since")
+
+    # Validate table name if provided
+    if table_name and table_name not in AUDITABLE_TABLES:
+        raise ValidationError(
+            f"Invalid table: {table_name}. Must be one of: {', '.join(sorted(AUDITABLE_TABLES))}",
+            field="table",
+        )
+
+    # record_id requires table
+    if record_id and not table_name:
+        raise ValidationError(
+            "table parameter is required when filtering by record_id",
+            field="table",
+        )
+
+    # Validate action if provided
+    valid_actions = {"INSERT", "UPDATE", "DELETE"}
+    if action and action.upper() not in valid_actions:
+        raise ValidationError(
+            f"Invalid action: {action}. Must be one of: INSERT, UPDATE, DELETE",
+            field="action",
+        )
+
+    # Parse since timestamp
+    since = None
+    if since_str:
+        since = parse_datetime(since_str)
+        if since is None:
+            raise ValidationError(
+                "Invalid since format. Use ISO 8601 format (e.g., 2024-01-01T00:00:00Z)",
+                field="since",
+            )
+
+    with Session(get_engine()) as session:
+        _set_session_audit_context(session, event)
+        repo = AuditLogRepository(session)
+        cursor = _parse_cursor(_query_param(event, "cursor"))
+
+        # Choose the appropriate query method based on filters
+        if record_id and table_name:
+            # Get history for a specific record
+            rows = repo.get_record_history(
+                table_name=table_name,
+                record_id=record_id,
+                limit=limit + 1,
+            )
+        elif user_id:
+            # Get activity for a specific user
+            rows = repo.get_user_activity(
+                user_id=user_id,
+                limit=limit + 1,
+                since=since,
+            )
+        elif table_name:
+            # Get activity for a specific table
+            rows = repo.get_table_activity(
+                table_name=table_name,
+                limit=limit + 1,
+                since=since,
+                action=action.upper() if action else None,
+            )
+        else:
+            # Get recent activity across all tables
+            rows = repo.get_recent_activity(
+                limit=limit + 1,
+                since=since,
+                cursor=cursor,
+            )
+
+        has_more = len(rows) > limit
+        trimmed = list(rows)[:limit]
+        next_cursor = _encode_cursor(trimmed[-1].id) if has_more and trimmed else None
+
+        return json_response(
+            200,
+            {
+                "items": [_serialize_audit_log(row) for row in trimmed],
+                "next_cursor": next_cursor,
+            },
+            event=event,
+        )
+
+
+def _serialize_audit_log(
+    entry: AuditLog,
+    redact_sensitive: bool = True,
+) -> dict[str, Any]:
+    """Serialize an audit log entry for the API response.
+
+    Args:
+        entry: The AuditLog model instance.
+        redact_sensitive: Whether to redact sensitive fields from values.
+
+    Returns:
+        Serialized audit log entry.
+    """
+    result: dict[str, Any] = {
+        "id": str(entry.id),
+        "timestamp": entry.timestamp.isoformat() if entry.timestamp else None,
+        "table_name": entry.table_name,
+        "record_id": entry.record_id,
+        "action": entry.action,
+        "user_id": entry.user_id,
+        "request_id": entry.request_id,
+        "changed_fields": entry.changed_fields,
+        "source": entry.source,
+    }
+
+    # Include old/new values with optional redaction
+    if entry.old_values:
+        result["old_values"] = (
+            _redact_sensitive_fields(entry.old_values)
+            if redact_sensitive
+            else entry.old_values
+        )
+    else:
+        result["old_values"] = None
+
+    if entry.new_values:
+        result["new_values"] = (
+            _redact_sensitive_fields(entry.new_values)
+            if redact_sensitive
+            else entry.new_values
+        )
+    else:
+        result["new_values"] = None
+
+    return result
+
+
+def _redact_sensitive_fields(values: dict[str, Any]) -> dict[str, Any]:
+    """Redact sensitive fields from a dictionary.
+
+    Args:
+        values: Dictionary of field values.
+
+    Returns:
+        Dictionary with sensitive fields redacted.
+    """
+    result: dict[str, Any] = {}
+    for key, value in values.items():
+        key_lower = key.lower()
+        # Check if any sensitive term is in the field name
+        if any(term in key_lower for term in AUDIT_REDACTED_FIELDS):
+            result[key] = "[REDACTED]"
+        else:
+            result[key] = value
+    return result
+
+
 # --- User group management ---
 
 
@@ -1728,7 +1965,7 @@ def _build_media_key(organization_id: str, file_name: str) -> str:
     trimmed_base = base[:40].strip("_") or "image"
     suffix = extension.lower() if extension else ""
     unique = uuid4().hex
-    return f"organizations/{organization_id}/{unique}-" f"{trimmed_base}{suffix}"
+    return f"organizations/{organization_id}/{unique}-{trimmed_base}{suffix}"
 
 
 def _sanitize_media_filename(file_name: str) -> str:

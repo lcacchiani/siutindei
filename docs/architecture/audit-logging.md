@@ -194,6 +194,77 @@ This implementation supports:
 - **GDPR**: Data processing audit trail
 - **Internal policies**: Who changed what, when
 
+## Admin API Endpoint
+
+The audit logs can be queried via the admin API:
+
+### GET /v1/admin/audit-logs
+
+List audit log entries with optional filtering.
+
+**Query Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `table` | string | Filter by table name |
+| `record_id` | string | Filter by record ID (requires `table`) |
+| `user_id` | string | Filter by Cognito user sub |
+| `action` | string | Filter by action: INSERT, UPDATE, DELETE |
+| `since` | string | ISO 8601 timestamp to filter from |
+| `limit` | integer | Max results (1-200, default 50) |
+| `cursor` | string | Pagination cursor |
+
+**Example Requests:**
+
+```bash
+# Get recent audit logs
+curl -H "Authorization: Bearer $TOKEN" \
+  "https://api.example.com/v1/admin/audit-logs"
+
+# Get history for a specific organization
+curl -H "Authorization: Bearer $TOKEN" \
+  "https://api.example.com/v1/admin/audit-logs?table=organizations&record_id=123e4567-e89b-12d3-a456-426614174000"
+
+# Get a user's activity
+curl -H "Authorization: Bearer $TOKEN" \
+  "https://api.example.com/v1/admin/audit-logs?user_id=abc123-def456"
+
+# Get recent deletes in the last 7 days
+curl -H "Authorization: Bearer $TOKEN" \
+  "https://api.example.com/v1/admin/audit-logs?action=DELETE&since=2024-01-01T00:00:00Z"
+```
+
+**Response:**
+
+```json
+{
+  "items": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "timestamp": "2024-01-15T10:30:00Z",
+      "table_name": "organizations",
+      "record_id": "123e4567-e89b-12d3-a456-426614174000",
+      "action": "UPDATE",
+      "user_id": "abc123-def456",
+      "request_id": "req-789",
+      "old_values": {"name": "Old Name"},
+      "new_values": {"name": "New Name"},
+      "changed_fields": ["name"],
+      "source": "trigger"
+    }
+  ],
+  "next_cursor": "eyJpZCI6Ii..."
+}
+```
+
+### GET /v1/admin/audit-logs/{id}
+
+Get a single audit log entry by ID.
+
+**Note:** Sensitive fields (password, secret, token, api_key) are automatically redacted from `old_values` and `new_values`.
+
+---
+
 ## Migration
 
 The audit logging is added via Alembic migration `0010_add_audit_logging.py`.
