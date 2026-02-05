@@ -1147,10 +1147,15 @@ export class ApiStack extends cdk.Stack {
     database.grantAdminUserSecretRead(migrationFunction);
     database.grantConnect(migrationFunction, "postgres");
     migrationFunction.node.addDependency(database.cluster);
-    // Grant permission to list Cognito users (needed for manager migration)
+    // Grant permission to manage Cognito users (needed for manager migration and seed data)
     migrationFunction.addToRolePolicy(
       new iam.PolicyStatement({
-        actions: ["cognito-idp:ListUsers"],
+        actions: [
+          "cognito-idp:ListUsers",
+          "cognito-idp:AdminCreateUser",
+          "cognito-idp:AdminSetUserPassword",
+          "cognito-idp:AdminAddUserToGroup",
+        ],
         resources: [userPool.userPoolArn],
       })
     );
@@ -1938,7 +1943,7 @@ export class ApiStack extends cdk.Stack {
         SeedHash: seedHash,
         ProxyUserSecretHash: proxyUserSecretHash,
         MigrationsForceRunId: migrationsForceRunId,
-        RunSeed: false,
+        RunSeed: true,
       },
     });
     migrateResource.node.addDependency(database.cluster);
