@@ -37,6 +37,7 @@ from app.db.models import Organization
 from app.db.models import OrganizationAccessRequest
 from app.db.models import PricingType
 from app.db.models import ScheduleType
+from app.db.audit import set_audit_context
 from app.db.repositories import (
     ActivityPricingRepository,
     ActivityRepository,
@@ -216,6 +217,9 @@ def _handle_crud(
         API Gateway response.
     """
     with Session(get_engine()) as session:
+        # Set audit context for trigger-based audit logging
+        _set_session_audit_context(session, event)
+
         if method == "GET":
             return _crud_get(event, session, config, resource_id, managed_org_ids)
         if method == "POST":
@@ -534,6 +538,21 @@ def _get_user_email(event: Mapping[str, Any]) -> Optional[str]:
     return ctx.get("email") or None
 
 
+def _set_session_audit_context(session: Session, event: Mapping[str, Any]) -> None:
+    """Set audit context on the database session for trigger-based logging.
+
+    This sets PostgreSQL session variables that the audit trigger function
+    reads to populate user_id and request_id fields in audit_log entries.
+
+    Args:
+        session: SQLAlchemy database session.
+        event: Lambda event containing user and request context.
+    """
+    user_sub = _get_user_sub(event)
+    request_id = event.get("requestContext", {}).get("requestId", "")
+    set_audit_context(session, user_id=user_sub, request_id=request_id)
+
+
 def _get_managed_organization_ids(event: Mapping[str, Any]) -> set[str]:
     """Get the IDs of organizations managed by the current user.
 
@@ -545,6 +564,8 @@ def _get_managed_organization_ids(event: Mapping[str, Any]) -> set[str]:
         return set()
 
     with Session(get_engine()) as session:
+        # Read-only query, but set context for consistency
+        _set_session_audit_context(session, event)
         repo = OrganizationRepository(session)
         orgs = repo.find_by_manager(user_sub)
         return {str(org.id) for org in orgs}
@@ -773,6 +794,7 @@ def _handle_user_access_request(
     if method == "GET":
         # Check if user has a pending request and return their organizations count
         with Session(get_engine()) as session:
+            _set_session_audit_context(session, event)
             org_repo = OrganizationRepository(session)
             request_repo = OrganizationAccessRequestRepository(session)
 
@@ -830,6 +852,7 @@ def _handle_user_access_request(
             )
 
         with Session(get_engine()) as session:
+            _set_session_audit_context(session, event)
             request_repo = OrganizationAccessRequestRepository(session)
 
             # Check if user already has a pending request
@@ -1030,6 +1053,7 @@ def _handle_list_access_requests(event: Mapping[str, Any]) -> dict[str, Any]:
             )
 
     with Session(get_engine()) as session:
+        _set_session_audit_context(session, event)
         repo = OrganizationAccessRequestRepository(session)
         cursor = _parse_cursor(_query_param(event, "cursor"))
         rows = repo.find_all(status=status, limit=limit + 1, cursor=cursor)
@@ -1095,6 +1119,7 @@ def _handle_review_access_request(
             )
 
     with Session(get_engine()) as session:
+        _set_session_audit_context(session, event)
         repo = OrganizationAccessRequestRepository(session)
         request = repo.get_by_id(_parse_uuid(request_id))
 
@@ -1542,6 +1567,7 @@ def _handle_delete_cognito_user(
         # Transfer organizations to the fallback manager
         transferred_count = 0
         with Session(get_engine()) as session:
+            _set_session_audit_context(session, event)
             org_repo = OrganizationRepository(session)
             orgs = org_repo.find_by_manager(user_sub, limit=1000)
 
