@@ -2,5 +2,5 @@ alembic==1.18.3
 boto3==1.42.36
 pyjwt[crypto]==2.11.0
 pydantic==2.12.5
-psycopg[binary]==3.3.2
+psycopg[binary]==3.2.13
 sqlalchemy==2.0.46
