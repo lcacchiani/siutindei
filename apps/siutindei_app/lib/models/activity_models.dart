@@ -15,6 +15,7 @@ class ActivitySearchFilters {
     this.languages = const [],
     this.cursor,
     this.limit = 50,
+    this.searchQuery,
   });
 
   final int? age;
@@ -32,6 +33,98 @@ class ActivitySearchFilters {
   final List<String> languages;
   final String? cursor;
   final int limit;
+  final String? searchQuery;
+
+  /// Creates a copy of this filters with the given fields replaced.
+  ActivitySearchFilters copyWith({
+    int? age,
+    String? district,
+    String? pricingType,
+    double? priceMin,
+    double? priceMax,
+    String? scheduleType,
+    int? dayOfWeekUtc,
+    int? dayOfMonth,
+    int? startMinutesUtc,
+    int? endMinutesUtc,
+    String? startAtUtc,
+    String? endAtUtc,
+    List<String>? languages,
+    String? cursor,
+    int? limit,
+    String? searchQuery,
+    bool clearAge = false,
+    bool clearDistrict = false,
+    bool clearPricingType = false,
+    bool clearPriceMin = false,
+    bool clearPriceMax = false,
+    bool clearScheduleType = false,
+    bool clearDayOfWeekUtc = false,
+    bool clearDayOfMonth = false,
+    bool clearStartMinutesUtc = false,
+    bool clearEndMinutesUtc = false,
+    bool clearStartAtUtc = false,
+    bool clearEndAtUtc = false,
+    bool clearCursor = false,
+    bool clearSearchQuery = false,
+  }) {
+    return ActivitySearchFilters(
+      age: clearAge ? null : (age ?? this.age),
+      district: clearDistrict ? null : (district ?? this.district),
+      pricingType: clearPricingType ? null : (pricingType ?? this.pricingType),
+      priceMin: clearPriceMin ? null : (priceMin ?? this.priceMin),
+      priceMax: clearPriceMax ? null : (priceMax ?? this.priceMax),
+      scheduleType:
+          clearScheduleType ? null : (scheduleType ?? this.scheduleType),
+      dayOfWeekUtc:
+          clearDayOfWeekUtc ? null : (dayOfWeekUtc ?? this.dayOfWeekUtc),
+      dayOfMonth: clearDayOfMonth ? null : (dayOfMonth ?? this.dayOfMonth),
+      startMinutesUtc:
+          clearStartMinutesUtc ? null : (startMinutesUtc ?? this.startMinutesUtc),
+      endMinutesUtc:
+          clearEndMinutesUtc ? null : (endMinutesUtc ?? this.endMinutesUtc),
+      startAtUtc: clearStartAtUtc ? null : (startAtUtc ?? this.startAtUtc),
+      endAtUtc: clearEndAtUtc ? null : (endAtUtc ?? this.endAtUtc),
+      languages: languages ?? this.languages,
+      cursor: clearCursor ? null : (cursor ?? this.cursor),
+      limit: limit ?? this.limit,
+      searchQuery: clearSearchQuery ? null : (searchQuery ?? this.searchQuery),
+    );
+  }
+
+  /// Returns true if any filter is active.
+  bool get hasActiveFilters =>
+      age != null ||
+      district != null ||
+      pricingType != null ||
+      priceMin != null ||
+      priceMax != null ||
+      scheduleType != null ||
+      dayOfWeekUtc != null ||
+      dayOfMonth != null ||
+      startMinutesUtc != null ||
+      endMinutesUtc != null ||
+      startAtUtc != null ||
+      endAtUtc != null ||
+      languages.isNotEmpty;
+
+  /// Returns the number of active filters.
+  int get activeFilterCount {
+    int count = 0;
+    if (age != null) count++;
+    if (district != null) count++;
+    if (pricingType != null) count++;
+    if (priceMin != null || priceMax != null) count++;
+    if (scheduleType != null) count++;
+    if (dayOfWeekUtc != null) count++;
+    if (dayOfMonth != null) count++;
+    if (startMinutesUtc != null || endMinutesUtc != null) count++;
+    if (languages.isNotEmpty) count++;
+    return count;
+  }
+
+  /// Creates a fresh filters instance with no cursor (for new searches).
+  ActivitySearchFilters withoutCursor() => copyWith(clearCursor: true);
 
   Map<String, String> toQueryParameters() {
     final params = <String, String>{};
@@ -60,6 +153,12 @@ class ActivitySearchFilters {
     setParam('cursor', cursor);
     setParam('limit', limit);
     return params;
+  }
+
+  @override
+  String toString() {
+    return 'ActivitySearchFilters(age: $age, district: $district, '
+        'pricingType: $pricingType, languages: $languages)';
   }
 }
 
@@ -127,19 +226,31 @@ class Activity {
 }
 
 class Organization {
-  Organization({required this.id, required this.name, this.description});
+  Organization({
+    required this.id,
+    required this.name,
+    this.description,
+    this.pictureUrls = const [],
+  });
 
   final String id;
   final String name;
   final String? description;
+  final List<String> pictureUrls;
 
   factory Organization.fromJson(Map<String, dynamic> json) {
+    final pictureUrlsJson = json['picture_urls'] as List<dynamic>? ?? [];
     return Organization(
       id: json['id'] as String,
       name: json['name'] as String,
       description: json['description'] as String?,
+      pictureUrls: pictureUrlsJson.map((e) => e as String).toList(),
     );
   }
+
+  /// Returns the first picture URL or null if none available.
+  String? get primaryPictureUrl =>
+      pictureUrls.isNotEmpty ? pictureUrls.first : null;
 }
 
 class Location {
