@@ -13,6 +13,11 @@ on:
         required: false
         default: false
         type: boolean
+      run_seed_data:
+        description: "Run database seed data (creates test manager user and demo organizations)"
+        required: false
+        default: false
+        type: boolean
       cdk_stacks:
         description: "CDK stacks to deploy"
         required: false
@@ -158,6 +163,7 @@ jobs:
           android_app_id = os.getenv("FIREBASE_ANDROID_APP_ID", "").strip()
           ios_app_id = os.getenv("FIREBASE_IOS_APP_ID", "").strip()
           apple_team_id = os.getenv("APPLE_TEAM_ID", "").strip()
+          run_seed_data = os.getenv("RUN_SEED_DATA", "false").strip().lower()
 
           params = {}
 
@@ -170,6 +176,10 @@ jobs:
                   f"projects/{project_number}/apps/{android_app_id}"
               )
               params["DeviceAttestationAudience"] = audience
+
+          # RunSeedData parameter from workflow input
+          if run_seed_data == "true":
+              params["RunSeedData"] = "true"
 
           if not params:
               raise SystemExit(0)
@@ -184,6 +194,7 @@ jobs:
           FIREBASE_MESSAGING_SENDER_ID: ${{ vars.FIREBASE_MESSAGING_SENDER_ID }}
           FIREBASE_ANDROID_APP_ID: ${{ vars.FIREBASE_ANDROID_APP_ID }}
           FIREBASE_IOS_APP_ID: ${{ vars.FIREBASE_IOS_APP_ID }}
+          RUN_SEED_DATA: ${{ github.event.inputs.run_seed_data || 'false' }}
 
       - name: Detect existing database resources
         if: steps.region.outputs.is_waf != 'true'
