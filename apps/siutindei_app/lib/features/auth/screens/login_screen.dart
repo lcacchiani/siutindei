@@ -28,7 +28,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Widget build(BuildContext context) {
     final authState = ref.watch(authViewModelProvider);
     final semantic = ref.watch(semanticTokensProvider);
-    final tokens = ref.watch(componentTokensProvider);
 
     // Navigate back on successful sign in
     ref.listen(authViewModelProvider, (previous, next) {

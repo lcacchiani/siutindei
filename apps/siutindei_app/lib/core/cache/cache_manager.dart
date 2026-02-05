@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import '../exceptions/app_exceptions.dart';
 import '../utils/result.dart';
 
 /// Cache entry with value and metadata.

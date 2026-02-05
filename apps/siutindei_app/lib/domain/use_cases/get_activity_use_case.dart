@@ -1,3 +1,4 @@
+import '../../core/exceptions/app_exceptions.dart';
 import '../../core/utils/result.dart';
 import '../entities/entities.dart';
 import '../repositories/repositories.dart';
@@ -17,7 +18,9 @@ class GetActivityUseCase {
   /// Returns [ActivitySearchResultEntity] on success.
   Future<Result<ActivitySearchResultEntity>> execute(String activityId) async {
     if (activityId.isEmpty) {
-      return Result.error(ArgumentError('Activity ID cannot be empty'));
+      return Result.error(
+        ValidationException.field('Activity ID', 'cannot be empty'),
+      );
     }
 
     return _repository.getActivity(activityId);
@@ -37,7 +40,9 @@ class GetOrganizationUseCase {
   /// Returns [OrganizationEntity] on success.
   Future<Result<OrganizationEntity>> execute(String organizationId) async {
     if (organizationId.isEmpty) {
-      return Result.error(ArgumentError('Organization ID cannot be empty'));
+      return Result.error(
+        ValidationException.field('Organization ID', 'cannot be empty'),
+      );
     }
 
     return _repository.getOrganization(organizationId);
@@ -59,7 +64,9 @@ class GetOrganizationActivitiesUseCase {
     String organizationId,
   ) async {
     if (organizationId.isEmpty) {
-      return Result.error(ArgumentError('Organization ID cannot be empty'));
+      return Result.error(
+        ValidationException.field('Organization ID', 'cannot be empty'),
+      );
     }
 
     return _repository.getOrganizationActivities(organizationId);

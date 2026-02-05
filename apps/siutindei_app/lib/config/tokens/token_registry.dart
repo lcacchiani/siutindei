@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 
 import 'component_tokens.dart';
 import 'primitive_tokens.dart';
@@ -160,7 +161,7 @@ class DesignTokens {
           color: c.appBar.foreground,
         ),
       ),
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         color: c.card.background,
         elevation: 0,
         shape: RoundedRectangleBorder(

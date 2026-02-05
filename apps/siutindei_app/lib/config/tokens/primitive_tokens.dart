@@ -252,7 +252,10 @@ class PrimitiveColors {
   }
 
   Map<String, String> toJson() {
-    String colorToHex(Color c) => '#${c.value.toRadixString(16).substring(2)}';
+    String colorToHex(Color c) {
+      final argb = c.toARGB32();
+      return '#${argb.toRadixString(16).padLeft(8, '0').substring(2)}';
+    }
     return {
       'indigo50': colorToHex(indigo50),
       'indigo500': colorToHex(indigo500),

@@ -3,8 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/providers.dart';
 import '../../domain/repositories/repositories.dart';
 import '../../domain/use_cases/use_cases.dart';
-import '../../services/service_providers.dart';
 import '../cache/cache_manager.dart';
+
+/// Type alias for provider overrides.
+typedef ProviderOverride = Override;
 
 /// Service locator for centralized dependency management.
 ///
@@ -39,10 +41,10 @@ class ServiceLocator {
   /// All provider overrides for dependency injection.
   ///
   /// Use this when creating ProviderScope to inject custom dependencies.
-  static List<Override> get defaultOverrides => [];
+  static List<ProviderOverride> get defaultOverrides => [];
 
   /// Creates overrides for testing with mocks.
-  static List<Override> testOverrides({
+  static List<ProviderOverride> testOverrides({
     ActivityRepository? activityRepository,
     OrganizationRepository? organizationRepository,
     SearchActivitiesUseCase? searchUseCase,

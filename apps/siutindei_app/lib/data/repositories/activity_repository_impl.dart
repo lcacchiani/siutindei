@@ -57,7 +57,7 @@ class ActivityRepositoryImpl implements ActivityRepository {
       return Result.ok(results);
     } on SocketException catch (e) {
       return Result.error(NetworkException.fromError(e));
-    } on HttpException catch (e) {
+    } on HttpException {
       return Result.error(NetworkException.serverError());
     } on FormatException catch (e) {
       return Result.error(DataException.invalidFormat(e.message));
@@ -111,6 +111,7 @@ class OrganizationRepositoryImpl implements OrganizationRepository {
     CacheManager? cacheManager,
   }) : _cache = cacheManager ?? CacheManager.instance;
 
+  // ignore: unused_field - will be used when endpoints are implemented
   final ApiService _apiService;
   final CacheManager _cache;
 

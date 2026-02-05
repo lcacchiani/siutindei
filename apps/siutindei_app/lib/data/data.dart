@@ -13,7 +13,7 @@
 ///
 /// 1. Repository implementations handle API calls and caching
 /// 2. Mappers transform between API models and domain entities
-/// 3. All operations return Result<T> for type-safe error handling
+/// 3. All operations return `Result<T>` for type-safe error handling
 /// 4. Use dependency injection for testability
 ///
 /// See: https://docs.flutter.dev/app-architecture/guide

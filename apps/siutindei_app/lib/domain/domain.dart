@@ -14,7 +14,7 @@
 /// 1. Entities should be immutable and contain no framework dependencies
 /// 2. Repository interfaces define the contract, not the implementation
 /// 3. Use cases orchestrate business logic and validate inputs
-/// 4. All async operations return Result<T> for type-safe error handling
+/// 4. All async operations return `Result<T>` for type-safe error handling
 ///
 /// See: https://docs.flutter.dev/app-architecture/guide
 library;

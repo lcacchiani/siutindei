@@ -103,7 +103,7 @@ class ActivityDetailScreen extends ConsumerWidget {
       return Image.network(
         imageUrl,
         fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) => _buildPlaceholderImage(semantic),
+        errorBuilder: (context, error, stackTrace) => _buildPlaceholderImage(semantic),
       );
     }
     return _buildPlaceholderImage(semantic);

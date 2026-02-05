@@ -1,3 +1,4 @@
+import '../../core/exceptions/app_exceptions.dart';
 import '../../core/utils/result.dart';
 import '../entities/entities.dart';
 import '../repositories/repositories.dart';
@@ -36,47 +37,50 @@ class SearchActivitiesUseCase {
   Exception? _validateFilters(SearchFilters filters) {
     // Age validation
     if (filters.age != null && (filters.age! < 0 || filters.age! > 100)) {
-      return ArgumentError('Age must be between 0 and 100');
+      return ValidationException.outOfRange('Age', min: 0, max: 100);
     }
 
     // Price validation
     if (filters.priceMin != null && filters.priceMin! < 0) {
-      return ArgumentError('Minimum price cannot be negative');
+      return ValidationException.field('Minimum price', 'cannot be negative');
     }
     if (filters.priceMax != null && filters.priceMax! < 0) {
-      return ArgumentError('Maximum price cannot be negative');
+      return ValidationException.field('Maximum price', 'cannot be negative');
     }
     if (filters.priceMin != null &&
         filters.priceMax != null &&
         filters.priceMin! > filters.priceMax!) {
-      return ArgumentError('Minimum price cannot exceed maximum price');
+      return ValidationException.field(
+        'Price range',
+        'minimum cannot exceed maximum',
+      );
     }
 
     // Time validation
     if (filters.startMinutesUtc != null &&
         (filters.startMinutesUtc! < 0 || filters.startMinutesUtc! > 1440)) {
-      return ArgumentError('Start time must be between 0 and 1440 minutes');
+      return ValidationException.outOfRange('Start time', min: 0, max: 1440);
     }
     if (filters.endMinutesUtc != null &&
         (filters.endMinutesUtc! < 0 || filters.endMinutesUtc! > 1440)) {
-      return ArgumentError('End time must be between 0 and 1440 minutes');
+      return ValidationException.outOfRange('End time', min: 0, max: 1440);
     }
 
     // Day of week validation
     if (filters.dayOfWeekUtc != null &&
         (filters.dayOfWeekUtc! < 0 || filters.dayOfWeekUtc! > 6)) {
-      return ArgumentError('Day of week must be between 0 (Monday) and 6 (Sunday)');
+      return ValidationException.outOfRange('Day of week', min: 0, max: 6);
     }
 
     // Day of month validation
     if (filters.dayOfMonth != null &&
         (filters.dayOfMonth! < 1 || filters.dayOfMonth! > 31)) {
-      return ArgumentError('Day of month must be between 1 and 31');
+      return ValidationException.outOfRange('Day of month', min: 1, max: 31);
     }
 
     // Limit validation
     if (filters.limit < 1 || filters.limit > 100) {
-      return ArgumentError('Limit must be between 1 and 100');
+      return ValidationException.outOfRange('Limit', min: 1, max: 100);
     }
 
     return null;
@@ -100,7 +104,7 @@ class LoadMoreActivitiesUseCase {
     SearchResultsEntity existingResults,
   ) async {
     if (currentFilters.cursor == null) {
-      return Result.error(StateError('No more results to load'));
+      return Result.error(InvalidStateException.noMoreItems());
     }
 
     final result = await _repository.searchActivities(currentFilters);

@@ -60,7 +60,7 @@ class BaseAvatar extends ConsumerWidget {
           // Use cacheWidth/cacheHeight for memory optimization
           cacheWidth: (dimension * MediaQuery.devicePixelRatioOf(context)).toInt(),
           cacheHeight: (dimension * MediaQuery.devicePixelRatioOf(context)).toInt(),
-          errorBuilder: (_, __, ___) => _InitialsAvatar(
+          errorBuilder: (context, error, stackTrace) => _InitialsAvatar(
             name: name,
             dimension: dimension,
             borderRadius: borderRadius,

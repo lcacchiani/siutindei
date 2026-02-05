@@ -118,9 +118,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     final isSignedIn = ref.watch(
       authViewModelProvider.select((s) => s.isSignedIn),
     );
-    final spacing = ref.watch(
-      semanticTokensProvider.select((s) => s.spacing),
-    );
 
     return Scaffold(
       body: SafeArea(

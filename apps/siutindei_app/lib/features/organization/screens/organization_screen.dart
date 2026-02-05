@@ -88,7 +88,7 @@ class OrganizationScreen extends ConsumerWidget {
       return Image.network(
         imageUrl,
         fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) => _buildPlaceholderImage(semantic),
+        errorBuilder: (context, error, stackTrace) => _buildPlaceholderImage(semantic),
       );
     }
     return _buildPlaceholderImage(semantic);
@@ -189,7 +189,7 @@ class OrganizationScreen extends ConsumerWidget {
                     width: 160,
                     height: 120,
                     fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Container(
+                    errorBuilder: (context, error, stackTrace) => Container(
                       width: 160,
                       height: 120,
                       color: semantic.color.backgroundMuted,

@@ -149,6 +149,47 @@ final class BusinessException extends AppException {
   }
 }
 
+/// Exception for validation errors.
+///
+/// Thrown when input validation fails.
+final class ValidationException extends AppException {
+  const ValidationException(super.message, [super.originalError]);
+
+  /// Field validation failed.
+  factory ValidationException.field(String fieldName, String reason) {
+    return ValidationException('$fieldName: $reason');
+  }
+
+  /// Range validation failed.
+  factory ValidationException.outOfRange(String fieldName, {num? min, num? max}) {
+    if (min != null && max != null) {
+      return ValidationException('$fieldName must be between $min and $max');
+    } else if (min != null) {
+      return ValidationException('$fieldName must be at least $min');
+    } else if (max != null) {
+      return ValidationException('$fieldName must be at most $max');
+    }
+    return ValidationException('$fieldName is out of valid range');
+  }
+}
+
+/// Exception for invalid state errors.
+///
+/// Thrown when an operation is attempted in an invalid state.
+final class InvalidStateException extends AppException {
+  const InvalidStateException(super.message, [super.originalError]);
+
+  /// No more items available.
+  factory InvalidStateException.noMoreItems() {
+    return const InvalidStateException('No more items to load');
+  }
+
+  /// Operation not ready.
+  factory InvalidStateException.notReady(String operation) {
+    return InvalidStateException('Cannot $operation: not ready');
+  }
+}
+
 /// Extension for formatting exceptions for UI display.
 extension AppExceptionDisplay on AppException {
   /// Returns a user-friendly message for display.
@@ -159,6 +200,8 @@ extension AppExceptionDisplay on AppException {
       DataException() => 'Something went wrong. Please try again.',
       CacheException() => 'Unable to load cached data.',
       BusinessException() => message,
+      ValidationException() => message,
+      InvalidStateException() => message,
     };
   }
 
@@ -180,6 +223,8 @@ extension AppExceptionDisplay on AppException {
       DataException() => false,
       CacheException() => true,
       BusinessException() => false,
+      ValidationException() => false,
+      InvalidStateException() => false,
     };
   }
 }
