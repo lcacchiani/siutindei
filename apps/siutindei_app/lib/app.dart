@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'config/tokens/tokens.dart';
+import 'features/search/search.dart';
 import 'viewmodels/auth_viewmodel.dart';
-import 'views/screens/home_screen.dart';
 
 /// Main application widget.
 ///
@@ -21,7 +21,7 @@ import 'views/screens/home_screen.dart';
 ///
 /// ## Ingesting Custom Tokens
 ///
-/// To apply a custom design, you can:
+/// To apply a custom design:
 ///
 /// 1. **Override at runtime**:
 /// ```dart
@@ -36,22 +36,16 @@ import 'views/screens/home_screen.dart';
 /// 3. **Override provider** (at startup):
 /// ```dart
 /// ProviderScope(
-///   overrides: [
-///     designTokensProvider.overrideWithValue(customTokens),
-///   ],
+///   overrides: [designTokensProvider.overrideWithValue(customTokens)],
 ///   child: App(),
 /// )
 /// ```
-///
-/// The current design uses [DesignTokens.defaults()] which is a placeholder
-/// test design. Replace it with your brand tokens when ready.
 class App extends ConsumerWidget {
   const App({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authViewModelProvider);
-    // Generate ThemeData from design tokens
     final themeData = ref.watch(tokenThemeDataProvider);
 
     return MaterialApp(
@@ -59,10 +53,8 @@ class App extends ConsumerWidget {
       theme: themeData,
       debugShowCheckedModeBanner: false,
       home: authState.isLoading
-          ? const Scaffold(
-              body: Center(child: CircularProgressIndicator()),
-            )
-          : const HomeScreen(),
+          ? const Scaffold(body: Center(child: CircularProgressIndicator()))
+          : const SearchScreen(),
     );
   }
 }

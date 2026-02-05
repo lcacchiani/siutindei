@@ -1,40 +1,35 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../config/app_theme.dart';
-import '../../models/activity_models.dart';
-import '../../viewmodels/activities_viewmodel.dart';
-import '../../viewmodels/auth_viewmodel.dart';
+import '../../../config/constants.dart';
+import '../../../config/tokens/tokens.dart';
+import '../../../models/activity_models.dart';
+import '../../../viewmodels/activities_viewmodel.dart';
+import '../../../viewmodels/auth_viewmodel.dart';
+import '../../activity_detail/screens/activity_detail_screen.dart';
+import '../../auth/screens/login_screen.dart';
+import '../../organization/screens/organization_screen.dart';
 import '../widgets/activity_card.dart';
-import '../widgets/filter_chips.dart';
+import '../widgets/filter_chip_bar.dart';
 import '../widgets/search_filters_sheet.dart';
-import 'activity_detail_screen.dart';
-import 'login_screen.dart';
-import 'organization_detail_screen.dart';
 
-/// Main home screen with search and activity browsing.
-class HomeScreen extends ConsumerStatefulWidget {
-  const HomeScreen({super.key});
+/// Main search screen using the design token system.
+class SearchScreen extends ConsumerStatefulWidget {
+  const SearchScreen({super.key});
 
   @override
-  ConsumerState<HomeScreen> createState() => _HomeScreenState();
+  ConsumerState<SearchScreen> createState() => _SearchScreenState();
 }
 
-class _HomeScreenState extends ConsumerState<HomeScreen> {
+class _SearchScreenState extends ConsumerState<SearchScreen> {
   final _searchController = TextEditingController();
   final _scrollController = ScrollController();
-
   ActivitySearchFilters _filters = ActivitySearchFilters();
 
   @override
   void initState() {
     super.initState();
-    // Initial search on load
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _performSearch();
-    });
-
-    // Add scroll listener for infinite scrolling
+    WidgetsBinding.instance.addPostFrameCallback((_) => _performSearch());
     _scrollController.addListener(_onScroll);
   }
 
@@ -62,9 +57,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       clearSearchQuery: searchQuery.isEmpty,
       clearCursor: true,
     );
-    setState(() {
-      _filters = filters;
-    });
+    setState(() => _filters = filters);
     ref.read(activitiesViewModelProvider.notifier).search(filters);
   }
 
@@ -73,9 +66,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   void _updateFilters(ActivitySearchFilters filters) {
-    setState(() {
-      _filters = filters.copyWith(clearCursor: true);
-    });
+    setState(() => _filters = filters.copyWith(clearCursor: true));
     ref.read(activitiesViewModelProvider.notifier).search(_filters);
   }
 
@@ -103,74 +94,45 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
   }
 
-  void _navigateToActivityDetail(ActivitySearchResult result) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => ActivityDetailScreen(result: result),
-      ),
-    );
-  }
-
-  void _navigateToOrganizationDetail(ActivitySearchResult result) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => OrganizationDetailScreen(
-          organization: result.organization,
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final activitiesState = ref.watch(activitiesViewModelProvider);
     final authState = ref.watch(authViewModelProvider);
+    final semantic = ref.watch(semanticTokensProvider);
+    final tokens = ref.watch(componentTokensProvider);
 
     return Scaffold(
       body: SafeArea(
         child: Column(
           children: [
-            _buildHeader(authState),
-            _buildSearchBar(),
-            _buildQuickFilters(),
-            Expanded(
-              child: _buildResultsList(activitiesState),
-            ),
+            _buildHeader(authState, semantic),
+            _buildSearchBar(tokens, semantic),
+            _buildQuickFilters(semantic),
+            Expanded(child: _buildResultsList(activitiesState, semantic)),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildHeader(AuthState authState) {
+  Widget _buildHeader(AuthState authState, SemanticTokens semantic) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        AppTheme.spacingMd,
-        AppTheme.spacingMd,
-        AppTheme.spacingMd,
-        AppTheme.spacingSm,
+      padding: EdgeInsets.fromLTRB(
+        semantic.spacing.md,
+        semantic.spacing.md,
+        semantic.spacing.md,
+        semantic.spacing.sm,
       ),
       child: Row(
         children: [
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Find Activities',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.textPrimary,
-                    ),
-              ),
+              Text('Find Activities', style: semantic.text.headlineMedium),
               const SizedBox(height: 2),
-              const Text(
+              Text(
                 'Discover classes and events for kids',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: AppTheme.textSecondary,
-                ),
+                style: semantic.text.bodySmall,
               ),
             ],
           ),
@@ -195,47 +157,62 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Widget _buildSearchBar() {
+  Widget _buildSearchBar(ComponentTokens tokens, SemanticTokens semantic) {
+    final searchTokens = tokens.searchBar;
+
     return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppTheme.spacingMd,
-        vertical: AppTheme.spacingSm,
+      padding: EdgeInsets.symmetric(
+        horizontal: semantic.spacing.md,
+        vertical: semantic.spacing.sm,
       ),
-      child: TextField(
-        controller: _searchController,
-        decoration: InputDecoration(
-          hintText: 'Search activities, organizations...',
-          prefixIcon: const Icon(Icons.search),
-          suffixIcon: _searchController.text.isNotEmpty
-              ? IconButton(
-                  onPressed: () {
-                    _searchController.clear();
-                    _performSearch();
-                  },
-                  icon: const Icon(Icons.clear),
-                )
-              : null,
+      child: Container(
+        height: searchTokens.height,
+        decoration: BoxDecoration(
+          color: searchTokens.background,
+          borderRadius: BorderRadius.circular(searchTokens.borderRadius),
+          border: Border.all(color: searchTokens.border),
         ),
-        onSubmitted: (_) => _performSearch(),
-        textInputAction: TextInputAction.search,
+        child: TextField(
+          controller: _searchController,
+          decoration: InputDecoration(
+            hintText: 'Search activities, organizations...',
+            hintStyle: TextStyle(color: searchTokens.placeholder),
+            prefixIcon: Icon(Icons.search, color: searchTokens.icon),
+            suffixIcon: _searchController.text.isNotEmpty
+                ? IconButton(
+                    onPressed: () {
+                      _searchController.clear();
+                      _performSearch();
+                    },
+                    icon: Icon(Icons.clear, color: searchTokens.clearIcon),
+                  )
+                : null,
+            border: InputBorder.none,
+            contentPadding: EdgeInsets.symmetric(
+              horizontal: searchTokens.padding,
+              vertical: 12,
+            ),
+          ),
+          onSubmitted: (_) => _performSearch(),
+          textInputAction: TextInputAction.search,
+        ),
       ),
     );
   }
 
-  Widget _buildQuickFilters() {
+  Widget _buildQuickFilters(SemanticTokens semantic) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: AppTheme.spacingSm),
+      padding: EdgeInsets.only(bottom: semantic.spacing.sm),
       child: Column(
         children: [
-          // First row: Filter badge and day of week chips
-          FilterChipRow(
+          FilterChipBar(
             children: [
-              ActiveFiltersBadge(
+              FilterBadge(
                 count: _filters.activeFilterCount,
                 onTap: _showFiltersSheet,
               ),
               ...List.generate(7, (index) {
-                return AppFilterChip(
+                return TokenFilterChip(
                   label: AppConstants.daysOfWeekShort[index],
                   selected: _filters.dayOfWeekUtc == index,
                   onSelected: (_) => _toggleDayFilter(index),
@@ -243,9 +220,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               }),
             ],
           ),
-          const SizedBox(height: AppTheme.spacingSm),
-          // Second row: District dropdown and other quick filters
-          FilterChipRow(
+          SizedBox(height: semantic.spacing.sm),
+          FilterChipBar(
             children: [
               DropdownFilterChip(
                 label: 'District',
@@ -257,8 +233,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 label: 'Pricing',
                 value: _filters.pricingType,
                 options: AppConstants.pricingTypes.keys.toList(),
-                displayNameBuilder: (key) =>
-                    AppConstants.pricingTypes[key] ?? key,
+                displayNameBuilder: AppConstants.getPricingTypeName,
                 onChanged: (value) {
                   if (value == null) {
                     _updateFilters(_filters.copyWith(clearPricingType: true));
@@ -271,8 +246,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 label: 'Schedule',
                 value: _filters.scheduleType,
                 options: AppConstants.scheduleTypes.keys.toList(),
-                displayNameBuilder: (key) =>
-                    AppConstants.scheduleTypes[key] ?? key,
+                displayNameBuilder: AppConstants.getScheduleTypeName,
                 onChanged: (value) {
                   if (value == null) {
                     _updateFilters(_filters.copyWith(clearScheduleType: true));
@@ -288,98 +262,89 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Widget _buildResultsList(ActivitiesState state) {
+  Widget _buildResultsList(ActivitiesState state, SemanticTokens semantic) {
     if (state.isLoading && state.items.isEmpty) {
-      return const Center(
-        child: CircularProgressIndicator(),
+      return Center(
+        child: CircularProgressIndicator(color: semantic.color.primary),
       );
     }
 
     if (state.errorMessage != null && state.items.isEmpty) {
-      return _buildErrorState(state.errorMessage!);
+      return _buildErrorState(state.errorMessage!, semantic);
     }
 
     if (state.items.isEmpty) {
-      return _buildEmptyState();
+      return _buildEmptyState(semantic);
     }
 
     return RefreshIndicator(
       onRefresh: () async {
         _performSearch();
-        // Wait a bit for the search to complete
         await Future.delayed(const Duration(milliseconds: 500));
       },
-      child: CustomScrollView(
+      child: ListView.builder(
         controller: _scrollController,
-        slivers: [
-          SliverPadding(
-            padding: const EdgeInsets.only(top: AppTheme.spacingSm),
-            sliver: SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (context, index) {
-                  if (index >= state.items.length) {
-                    return _buildLoadMoreIndicator(state);
-                  }
-                  final result = state.items[index];
-                  return ActivityCard(
-                    result: result,
-                    onTap: () => _navigateToActivityDetail(result),
-                    onOrganizationTap: () => _navigateToOrganizationDetail(result),
-                  );
-                },
-                childCount: state.items.length + (state.nextCursor != null ? 1 : 0),
+        padding: EdgeInsets.only(top: semantic.spacing.sm),
+        itemCount: state.items.length + (state.nextCursor != null ? 1 : 0),
+        itemBuilder: (context, index) {
+          if (index >= state.items.length) {
+            return _buildLoadMoreIndicator(state, semantic);
+          }
+          final result = state.items[index];
+          return ActivityCard(
+            result: result,
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => ActivityDetailScreen(result: result),
               ),
             ),
-          ),
-        ],
+            onOrganizationTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => OrganizationScreen(
+                  organization: result.organization,
+                ),
+              ),
+            ),
+          );
+        },
       ),
     );
   }
 
-  Widget _buildLoadMoreIndicator(ActivitiesState state) {
+  Widget _buildLoadMoreIndicator(ActivitiesState state, SemanticTokens semantic) {
     return Padding(
-      padding: const EdgeInsets.all(AppTheme.spacingMd),
+      padding: EdgeInsets.all(semantic.spacing.md),
       child: Center(
         child: state.isLoading
-            ? const CircularProgressIndicator()
-            : TextButton(
-                onPressed: _loadMore,
-                child: const Text('Load more'),
-              ),
+            ? CircularProgressIndicator(color: semantic.color.primary)
+            : TextButton(onPressed: _loadMore, child: const Text('Load more')),
       ),
     );
   }
 
-  Widget _buildEmptyState() {
+  Widget _buildEmptyState(SemanticTokens semantic) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(AppTheme.spacingXl),
+        padding: EdgeInsets.all(semantic.spacing.xl),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
               Icons.search_off,
               size: 64,
-              color: AppTheme.textTertiary.withValues(alpha: 0.5),
+              color: semantic.color.textTertiary.withValues(alpha: 0.5),
             ),
-            const SizedBox(height: AppTheme.spacingMd),
-            const Text(
-              'No activities found',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: AppTheme.textSecondary,
-              ),
-            ),
-            const SizedBox(height: AppTheme.spacingSm),
-            const Text(
+            SizedBox(height: semantic.spacing.md),
+            Text('No activities found', style: semantic.text.titleMedium),
+            SizedBox(height: semantic.spacing.sm),
+            Text(
               'Try adjusting your filters or search terms',
-              style: TextStyle(
-                color: AppTheme.textTertiary,
-              ),
+              style: semantic.text.bodySmall,
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: AppTheme.spacingLg),
+            SizedBox(height: semantic.spacing.lg),
             OutlinedButton(
               onPressed: () {
                 setState(() {
@@ -396,39 +361,29 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Widget _buildErrorState(String message) {
+  Widget _buildErrorState(String message, SemanticTokens semantic) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(AppTheme.spacingXl),
+        padding: EdgeInsets.all(semantic.spacing.xl),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
               Icons.error_outline,
               size: 64,
-              color: AppTheme.errorColor.withValues(alpha: 0.7),
+              color: semantic.color.error.withValues(alpha: 0.7),
             ),
-            const SizedBox(height: AppTheme.spacingMd),
-            const Text(
-              'Something went wrong',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: AppTheme.textSecondary,
-              ),
-            ),
-            const SizedBox(height: AppTheme.spacingSm),
+            SizedBox(height: semantic.spacing.md),
+            Text('Something went wrong', style: semantic.text.titleMedium),
+            SizedBox(height: semantic.spacing.sm),
             Text(
               message,
-              style: const TextStyle(
-                color: AppTheme.textTertiary,
-                fontSize: 13,
-              ),
+              style: semantic.text.caption,
               textAlign: TextAlign.center,
               maxLines: 3,
               overflow: TextOverflow.ellipsis,
             ),
-            const SizedBox(height: AppTheme.spacingLg),
+            SizedBox(height: semantic.spacing.lg),
             ElevatedButton(
               onPressed: _performSearch,
               child: const Text('Try again'),
