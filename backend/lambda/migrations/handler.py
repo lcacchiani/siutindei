@@ -107,9 +107,11 @@ def _run_migrations(database_url: str) -> None:
     command.upgrade(config, "head")
 
 
-def _run_seed(database_url: str, seed_path: str, manager_sub: str | None = None) -> None:
+def _run_seed(
+    database_url: str, seed_path: str, manager_sub: str | None = None
+) -> None:
     """Run seed SQL if the file exists.
-    
+
     Args:
         database_url: Database connection URL
         seed_path: Path to the seed SQL file
@@ -262,11 +264,11 @@ def _validate_db_username(username: str) -> None:
 
 def _get_or_create_seed_manager() -> str:
     """Get or create a test manager user for seed data.
-    
+
     Creates a Cognito user 'test@lx-software.com' in the 'manager' group if it
     doesn't exist, and returns their sub (user ID) for use as manager_id
     in seed data.
-    
+
     Returns:
         The Cognito user sub (UUID string).
     """
@@ -279,6 +281,7 @@ def _get_or_create_seed_manager() -> str:
     # Generate a random password - user can reset via forgot password flow
     import secrets
     import string
+
     alphabet = string.ascii_letters + string.digits + "!@#$%"
     seed_password = "".join(secrets.choice(alphabet) for _ in range(16))
 
@@ -290,11 +293,13 @@ def _get_or_create_seed_manager() -> str:
             Limit=1,
         )
         users = response.get("Users", [])
-        
+
         if users:
             # User exists, get their sub
             user = users[0]
-            attributes = {attr["Name"]: attr["Value"] for attr in user.get("Attributes", [])}
+            attributes = {
+                attr["Name"]: attr["Value"] for attr in user.get("Attributes", [])
+            }
             sub = attributes.get("sub")
             if sub:
                 logger.info(f"Found existing seed manager user: {seed_email}")
@@ -314,7 +319,7 @@ def _get_or_create_seed_manager() -> str:
                 {"Name": "email_verified", "Value": "true"},
             ],
         )
-        
+
         # Set permanent password
         client.admin_set_user_password(
             UserPoolId=user_pool_id,
@@ -322,7 +327,7 @@ def _get_or_create_seed_manager() -> str:
             Password=seed_password,
             Permanent=True,
         )
-        
+
         # Add to manager group
         try:
             client.admin_add_user_to_group(
@@ -332,18 +337,20 @@ def _get_or_create_seed_manager() -> str:
             )
         except client.exceptions.ResourceNotFoundException:
             logger.warning("Manager group not found, skipping group assignment")
-        
+
         # Get the sub from the created user
         user = response.get("User", {})
-        attributes = {attr["Name"]: attr["Value"] for attr in user.get("Attributes", [])}
+        attributes = {
+            attr["Name"]: attr["Value"] for attr in user.get("Attributes", [])
+        }
         sub = attributes.get("sub")
-        
+
         if not sub:
             raise RuntimeError("Created user does not have a sub attribute")
-        
+
         logger.info(f"Created seed manager user: {seed_email} with sub: {sub}")
         return sub
-        
+
     except client.exceptions.UsernameExistsException:
         # Race condition - user was created between check and create
         # Fetch the user's sub
@@ -354,7 +361,9 @@ def _get_or_create_seed_manager() -> str:
         )
         users = response.get("Users", [])
         if users:
-            attributes = {attr["Name"]: attr["Value"] for attr in users[0].get("Attributes", [])}
+            attributes = {
+                attr["Name"]: attr["Value"] for attr in users[0].get("Attributes", [])
+            }
             sub = attributes.get("sub")
             if sub:
                 return sub
