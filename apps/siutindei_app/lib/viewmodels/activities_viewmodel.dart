@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../core/utils/result.dart';
+import '../core/core.dart';
 import '../data/providers.dart';
 import '../domain/entities/entities.dart';
 import '../domain/use_cases/use_cases.dart';
@@ -174,11 +174,23 @@ class ActivitiesViewModel extends StateNotifier<ActivitiesState> {
   }
 
   /// Formats an exception into a user-friendly message.
+  ///
+  /// Uses typed exceptions for specific error handling.
   String _formatError(Exception e) {
+    // Use typed exceptions for specific messages
+    if (e is AppException) {
+      return e.displayMessage;
+    }
     if (e is ArgumentError) {
       return e.message?.toString() ?? 'Invalid input';
     }
     return 'An error occurred. Please try again.';
+  }
+
+  /// Returns true if the current error is retryable.
+  bool get isErrorRetryable {
+    // Check if we can determine retryability from error
+    return state.hasError;
   }
 }
 

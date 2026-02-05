@@ -14,7 +14,9 @@ A Flutter mobile application for searching and discovering activities for childr
 
 ## Architecture Overview
 
-This app follows the [Flutter App Architecture Guide](https://docs.flutter.dev/app-architecture/guide) with a layered architecture that separates concerns and promotes testability.
+This app follows the [Flutter App Architecture Guide](https://docs.flutter.dev/app-architecture/guide) and [Architecture Recommendations](https://docs.flutter.dev/app-architecture/recommendations) with a layered architecture that separates concerns and promotes testability.
+
+See **[Architecture Recommendations Compliance](docs/architecture-recommendations.md)** for detailed implementation notes.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -49,6 +51,9 @@ This app follows the [Flutter App Architecture Guide](https://docs.flutter.dev/a
 3. **Dependency Inversion**: Higher layers depend on abstractions, not implementations
 4. **Immutable State**: All state objects are immutable
 5. **Type-Safe Error Handling**: Using `Result<T>` for all async operations
+6. **Single Source of Truth**: ViewModels for UI state, Repositories for data
+7. **Offline-First**: Caching with stale-while-revalidate pattern
+8. **Typed Exceptions**: Custom exception hierarchy for specific error handling
 
 ## Project Structure
 
@@ -68,6 +73,12 @@ lib/
 │       └── token_registry.dart
 │
 ├── core/                     # Shared utilities
+│   ├── cache/
+│   │   └── cache_manager.dart # Caching with policies
+│   ├── di/
+│   │   └── service_locator.dart # Dependency injection
+│   ├── exceptions/
+│   │   └── app_exceptions.dart # Typed exceptions
 │   ├── utils/
 │   │   ├── result.dart       # Result<T> type
 │   │   └── command.dart      # Command pattern
@@ -162,6 +173,9 @@ The core layer provides foundational utilities used across all other layers.
 - **[Result Type](docs/core/result.md)**: Type-safe error handling
 - **[Command Pattern](docs/core/command.md)**: Async operation management
 - **[Base Widgets](docs/core/widgets.md)**: Token-aware UI components
+- **[Cache Manager](docs/core/cache.md)**: Offline-first caching
+- **[Exceptions](docs/core/exceptions.md)**: Typed exception hierarchy
+- **[Service Locator](docs/core/di.md)**: Dependency injection
 
 ### Domain Layer
 
