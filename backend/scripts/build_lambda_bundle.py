@@ -84,7 +84,7 @@ def build_bundle(source_root: Path, output_dir: Path) -> None:
             # Use Lambda-compatible wheels (Amazon Linux 2023 / manylinux)
             # ARM64 architecture (Graviton2) - matches Lambda config
             "--platform",
-            "manylinux2014_aarch64",
+            "manylinux_2_17_aarch64",
             "--only-binary=:all:",
             "--implementation",
             "cp",
