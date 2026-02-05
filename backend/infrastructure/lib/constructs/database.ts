@@ -381,7 +381,11 @@ export class DatabaseConstruct extends Construct {
         cloudwatchLogsRetention: STANDARD_LOG_RETENTION,
         credentials: rds.Credentials.fromSecret(dbCredentialsSecret),
         defaultDatabaseName: props.databaseName ?? "siutindei",
-        iamAuthentication: applyImmutableSettings ? true : undefined,
+        // IMPORTANT: iamAuthentication must be false on the cluster to allow
+        // password-based connections for migrations. IAM auth is handled by
+        // RDS Proxy for Lambda app connections. Setting this to true causes
+        // "PAM authentication failed" errors for direct password connections.
+        iamAuthentication: false,
         storageEncrypted: applyImmutableSettings ? true : undefined,
         serverlessV2MinCapacity: props.minCapacity ?? 0.5,
         serverlessV2MaxCapacity: props.maxCapacity ?? 2,
