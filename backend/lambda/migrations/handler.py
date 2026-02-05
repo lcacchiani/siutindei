@@ -263,7 +263,7 @@ def _validate_db_username(username: str) -> None:
 def _get_or_create_seed_manager() -> str:
     """Get or create a test manager user for seed data.
     
-    Creates a Cognito user 'test@test.com' in the 'manager' group if it
+    Creates a Cognito user 'test@lx-software.com' in the 'manager' group if it
     doesn't exist, and returns their sub (user ID) for use as manager_id
     in seed data.
     
