@@ -3,8 +3,8 @@
   "SesSenderEmail": "no-reply@lx-software.com",
   "FallbackManagerEmail": "luca.cacchiani@gmail.com",
   "CognitoDomainPrefix": "lxsoftware-siutindei-prod",
-  "CognitoCustomDomainName": "siutindei-auth.lx-software.com",
-  "CognitoCustomDomainCertificateArn": "arn:aws:acm:us-east-1:588024549699:certificate/ea553e5a-e7af-43ba-bdd4-d46e2f8458aa",
+  "CognitoCustomDomainName": "",
+  "CognitoCustomDomainCertificateArn": "",
   "CognitoCallbackUrls": "com.lxsoftware.siutindei://callback,https://siutindei.lx-software.com/auth/callback,http://localhost:3000/auth/callback",
   "CognitoLogoutUrls": "com.lxsoftware.siutindei://logout,https://siutindei.lx-software.com/,http://localhost:3000/",
   "GoogleClientId": "640961587388-b7qm2408gcnh31shppd4r60rkfr1mqnr.apps.googleusercontent.com",
@@ -28,6 +28,6 @@
   "AdminWebDomainName": "siutindei.lx-software.com",
   "AdminWebCertificateArn": "arn:aws:acm:us-east-1:588024549699:certificate/ea553e5a-e7af-43ba-bdd4-d46e2f8458aa",
   "WafWebAclArn": "arn:aws:wafv2:us-east-1:588024549699:global/webacl/lxsoftware-siutindei-cloudfront-waf/100ec25a-0688-43fc-bc1f-6bb531af0355",
-  "ApiCustomDomainName": "siutindei-api.lx-software.com",
-  "ApiCustomDomainCertificateArn": "arn:aws:acm:ap-southeast-1:588024549699:certificate/af726e1f-444b-47e6-906e-ce9e0925bde4"
+  "ApiCustomDomainName": "",
+  "ApiCustomDomainCertificateArn": ""
 }

@@ -501,6 +501,8 @@ export class ApiStack extends cdk.Stack {
       autoVerify: { email: true },
       selfSignUpEnabled: true,
       accountRecovery: cognito.AccountRecovery.EMAIL_ONLY,
+      // Ensure User Pool is deleted on stack deletion/rollback
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
     const adminGroupName = "admin";
     const userPoolGroups = [
@@ -797,6 +799,12 @@ export class ApiStack extends cdk.Stack {
     // Import existing log bucket or create a new one.
     // Use EXISTING_ORG_IMAGES_LOG_BUCKET_NAME to reuse a bucket that persists
     // after stack deletion (due to RETAIN removal policy).
+    const imagesLogBucketName = [
+      name("org-images-logs"),
+      cdk.Aws.ACCOUNT_ID,
+      cdk.Aws.REGION,
+    ].join("-");
+
     const organizationImagesLogBucket = existingOrgImagesLogBucketName
       ? s3.Bucket.fromBucketName(
           this,
@@ -804,11 +812,14 @@ export class ApiStack extends cdk.Stack {
           existingOrgImagesLogBucketName
         )
       : new s3.Bucket(this, "OrganizationImagesLogBucket", {
+          bucketName: imagesLogBucketName,
           blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
           encryption: s3.BucketEncryption.S3_MANAGED,
           enforceSSL: true,
           versioned: true,
           removalPolicy: cdk.RemovalPolicy.RETAIN,
+          // Enable object ownership for S3 access log delivery
+          objectOwnership: s3.ObjectOwnership.BUCKET_OWNER_PREFERRED,
           lifecycleRules: [
             {
               id: "ExpireOldLogs",
@@ -837,7 +848,7 @@ export class ApiStack extends cdk.Stack {
 
     const imagesBucketName =
       existingOrgImagesBucketName ??
-      buildBucketName([name("org-images"), cdk.Aws.ACCOUNT_ID, cdk.Aws.REGION]);
+      [name("org-images"), cdk.Aws.ACCOUNT_ID, cdk.Aws.REGION].join("-");
 
     // SECURITY NOTE: This bucket is intentionally public to serve organization images
     // (logos, photos). It uses BLOCK_ACLS to prevent ACL-based public access while
@@ -2150,35 +2161,4 @@ function hashDirectory(dirPath: string): string {
   }
 
   return crypto.createHash("sha256").update(files.sort().join("")).digest("hex");
-}
-
-function buildBucketName(parts: string[]): string {
-  const joined = parts.filter(Boolean).join("-");
-  let normalized = joined
-    .toLowerCase()
-    .replace(/[^a-z0-9-]/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "");
-
-  if (!normalized) {
-    normalized = "bucket";
-  }
-  if (normalized.length < 3) {
-    normalized = normalized.padEnd(3, "0");
-  }
-  if (normalized.length <= 63) {
-    return normalized;
-  }
-
-  const hash = crypto
-    .createHash("sha256")
-    .update(normalized)
-    .digest("hex")
-    .slice(0, 8);
-  const maxBaseLength = 63 - hash.length - 1;
-  let trimmed = normalized.slice(0, maxBaseLength).replace(/-+$/g, "");
-  if (trimmed.length < 3) {
-    trimmed = trimmed.padEnd(3, "0");
-  }
-  return `${trimmed}-${hash}`;
 }
