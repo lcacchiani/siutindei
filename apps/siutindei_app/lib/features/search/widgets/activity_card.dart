@@ -8,10 +8,11 @@ import '../../../models/activity_models.dart';
 
 /// Activity card widget using leaf tokens.
 ///
-/// This widget demonstrates the token consumption pattern:
-/// - Uses [ActivityCardTokens] for all styling decisions
-/// - Easy to restyle by changing token values
-/// - Consistent with other cards via shared token structure
+/// Performance optimizations applied:
+/// - Uses `select` for granular provider watching
+/// - Extracts child widgets to separate classes to minimize rebuilds
+/// - Caches computed values where possible
+/// - Uses const constructors where possible
 class ActivityCard extends ConsumerWidget {
   const ActivityCard({
     super.key,
@@ -26,51 +27,125 @@ class ActivityCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Get leaf tokens for this specific component
-    final tokens = ref.watch(componentTokensProvider).activityCard;
-    final priceTokens = ref.watch(componentTokensProvider).priceTag;
-    final semantic = ref.watch(semanticTokensProvider);
+    // Use select to only rebuild when specific tokens change
+    final tokens = ref.watch(
+      componentTokensProvider.select((t) => t.activityCard),
+    );
+    final priceTokens = ref.watch(
+      componentTokensProvider.select((t) => t.priceTag),
+    );
+    final spacing = ref.watch(
+      semanticTokensProvider.select((s) => s.spacing),
+    );
+    final textStyles = ref.watch(
+      semanticTokensProvider.select((s) => s.text),
+    );
 
-    return Container(
-      margin: EdgeInsets.symmetric(
-        horizontal: semantic.spacing.md,
-        vertical: semantic.spacing.sm,
+    // Cache border radius to avoid recreating
+    final borderRadius = BorderRadius.circular(tokens.borderRadius);
+
+    return Padding(
+      padding: EdgeInsets.symmetric(
+        horizontal: spacing.md,
+        vertical: spacing.sm,
       ),
-      decoration: BoxDecoration(
-        color: tokens.background,
-        borderRadius: BorderRadius.circular(tokens.borderRadius),
-        border: Border.all(color: tokens.border),
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(tokens.borderRadius),
-          child: Padding(
-            padding: EdgeInsets.all(tokens.padding),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildHeader(tokens),
-                SizedBox(height: tokens.gap),
-                _buildActivityInfo(tokens),
-                SizedBox(height: tokens.gap),
-                _buildScheduleAndPrice(tokens, priceTokens, semantic),
-                if (result.activity.description != null) ...[
-                  SizedBox(height: tokens.gap),
-                  _buildDescription(semantic),
-                ],
-                SizedBox(height: tokens.gap),
-                _buildTags(semantic),
-              ],
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: tokens.background,
+          borderRadius: borderRadius,
+          border: Border.all(color: tokens.border),
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: borderRadius,
+            child: Padding(
+              padding: EdgeInsets.all(tokens.padding),
+              child: _ActivityCardContent(
+                result: result,
+                tokens: tokens,
+                priceTokens: priceTokens,
+                spacing: spacing,
+                textStyles: textStyles,
+                onOrganizationTap: onOrganizationTap,
+              ),
             ),
           ),
         ),
       ),
     );
   }
+}
 
-  Widget _buildHeader(ActivityCardTokens tokens) {
+/// Extracted content widget to isolate rebuilds.
+class _ActivityCardContent extends StatelessWidget {
+  const _ActivityCardContent({
+    required this.result,
+    required this.tokens,
+    required this.priceTokens,
+    required this.spacing,
+    required this.textStyles,
+    this.onOrganizationTap,
+  });
+
+  final ActivitySearchResult result;
+  final ActivityCardTokens tokens;
+  final PriceTagTokens priceTokens;
+  final SemanticSpacing spacing;
+  final SemanticText textStyles;
+  final VoidCallback? onOrganizationTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _ActivityCardHeader(
+          result: result,
+          tokens: tokens,
+          onOrganizationTap: onOrganizationTap,
+        ),
+        SizedBox(height: tokens.gap),
+        _ActivityCardInfo(result: result, tokens: tokens),
+        SizedBox(height: tokens.gap),
+        _ActivityCardSchedulePrice(
+          result: result,
+          tokens: tokens,
+          priceTokens: priceTokens,
+          spacing: spacing,
+        ),
+        if (result.activity.description != null) ...[
+          SizedBox(height: tokens.gap),
+          Text(
+            result.activity.description!,
+            style: textStyles.bodySmall.copyWith(height: 1.4),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+        SizedBox(height: tokens.gap),
+        _ActivityCardTags(result: result),
+      ],
+    );
+  }
+}
+
+/// Header with avatar and organization info.
+class _ActivityCardHeader extends StatelessWidget {
+  const _ActivityCardHeader({
+    required this.result,
+    required this.tokens,
+    this.onOrganizationTap,
+  });
+
+  final ActivitySearchResult result;
+  final ActivityCardTokens tokens;
+  final VoidCallback? onOrganizationTap;
+
+  @override
+  Widget build(BuildContext context) {
     return Row(
       children: [
         BaseAvatar(
@@ -82,6 +157,7 @@ class ActivityCard extends ConsumerWidget {
         Expanded(
           child: GestureDetector(
             onTap: onOrganizationTap,
+            behavior: HitTestBehavior.opaque,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -123,10 +199,25 @@ class ActivityCard extends ConsumerWidget {
       ],
     );
   }
+}
 
-  Widget _buildActivityInfo(ActivityCardTokens tokens) {
+/// Activity name and age info.
+class _ActivityCardInfo extends StatelessWidget {
+  const _ActivityCardInfo({
+    required this.result,
+    required this.tokens,
+  });
+
+  final ActivitySearchResult result;
+  final ActivityCardTokens tokens;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasAge = result.activity.ageMin != null || result.activity.ageMax != null;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
       children: [
         Text(
           result.activity.name,
@@ -138,7 +229,7 @@ class ActivityCard extends ConsumerWidget {
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
         ),
-        if (result.activity.ageMin != null || result.activity.ageMax != null)
+        if (hasAge)
           Padding(
             padding: const EdgeInsets.only(top: 4),
             child: _AgeTag(
@@ -150,12 +241,24 @@ class ActivityCard extends ConsumerWidget {
       ],
     );
   }
+}
 
-  Widget _buildScheduleAndPrice(
-    ActivityCardTokens tokens,
-    PriceTagTokens priceTokens,
-    SemanticTokens semantic,
-  ) {
+/// Schedule and price row.
+class _ActivityCardSchedulePrice extends StatelessWidget {
+  const _ActivityCardSchedulePrice({
+    required this.result,
+    required this.tokens,
+    required this.priceTokens,
+    required this.spacing,
+  });
+
+  final ActivitySearchResult result;
+  final ActivityCardTokens tokens;
+  final PriceTagTokens priceTokens;
+  final SemanticSpacing spacing;
+
+  @override
+  Widget build(BuildContext context) {
     return Row(
       children: [
         Expanded(
@@ -164,7 +267,7 @@ class ActivityCard extends ConsumerWidget {
             tokens: tokens,
           ),
         ),
-        SizedBox(width: semantic.spacing.md),
+        SizedBox(width: spacing.md),
         _PriceTag(
           pricing: result.pricing,
           tokens: priceTokens,
@@ -172,26 +275,22 @@ class ActivityCard extends ConsumerWidget {
       ],
     );
   }
+}
 
-  Widget _buildDescription(SemanticTokens semantic) {
-    return Text(
-      result.activity.description!,
-      style: semantic.text.bodySmall.copyWith(height: 1.4),
-      maxLines: 2,
-      overflow: TextOverflow.ellipsis,
-    );
-  }
+/// Language and pricing type tags.
+class _ActivityCardTags extends StatelessWidget {
+  const _ActivityCardTags({required this.result});
 
-  Widget _buildTags(SemanticTokens semantic) {
+  final ActivitySearchResult result;
+
+  @override
+  Widget build(BuildContext context) {
     return Wrap(
       spacing: 6,
       runSpacing: 6,
       children: [
-        // Language tags
-        ...result.schedule.languages.take(3).map(
-              (lang) => BaseBadge(label: lang.toUpperCase()),
-            ),
-        // Pricing type tag
+        for (final lang in result.schedule.languages.take(3))
+          BaseBadge(label: lang.toUpperCase()),
         BaseBadge(
           label: AppConstants.getPricingTypeName(result.pricing.pricingType),
           variant: BadgeVariant.success,
@@ -201,6 +300,7 @@ class ActivityCard extends ConsumerWidget {
   }
 }
 
+/// Age display tag - extracted as StatelessWidget.
 class _AgeTag extends StatelessWidget {
   const _AgeTag({
     required this.ageMin,
@@ -235,17 +335,14 @@ class _AgeTag extends StatelessWidget {
   }
 
   String _formatAgeRange() {
-    if (ageMin != null && ageMax != null) {
-      return 'Ages $ageMin-$ageMax';
-    } else if (ageMin != null) {
-      return 'Ages $ageMin+';
-    } else if (ageMax != null) {
-      return 'Up to age $ageMax';
-    }
+    if (ageMin != null && ageMax != null) return 'Ages $ageMin-$ageMax';
+    if (ageMin != null) return 'Ages $ageMin+';
+    if (ageMax != null) return 'Up to age $ageMax';
     return 'All ages';
   }
 }
 
+/// Schedule info display - extracted as StatelessWidget.
 class _ScheduleInfo extends StatelessWidget {
   const _ScheduleInfo({
     required this.schedule,
@@ -299,15 +396,14 @@ class _ScheduleInfo extends StatelessWidget {
     }
 
     if (parts.isEmpty) {
-      return schedule.scheduleType == 'date_specific'
-          ? 'One-time event'
-          : 'See details';
+      return schedule.scheduleType == 'date_specific' ? 'One-time event' : 'See details';
     }
 
     return parts.join(' • ');
   }
 }
 
+/// Price tag display - extracted as StatelessWidget.
 class _PriceTag extends StatelessWidget {
   const _PriceTag({
     required this.pricing,
@@ -319,21 +415,26 @@ class _PriceTag extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: tokens.paddingHorizontal,
-        vertical: tokens.paddingVertical,
-      ),
+    // Cache border radius
+    final borderRadius = BorderRadius.circular(tokens.borderRadius);
+
+    return DecoratedBox(
       decoration: BoxDecoration(
         color: tokens.background,
-        borderRadius: BorderRadius.circular(tokens.borderRadius),
+        borderRadius: borderRadius,
       ),
-      child: Text(
-        '${pricing.currency} ${pricing.amount.toStringAsFixed(0)}',
-        style: TextStyle(
-          fontSize: tokens.fontSize,
-          fontWeight: tokens.fontWeight,
-          color: tokens.foreground,
+      child: Padding(
+        padding: EdgeInsets.symmetric(
+          horizontal: tokens.paddingHorizontal,
+          vertical: tokens.paddingVertical,
+        ),
+        child: Text(
+          '${pricing.currency} ${pricing.amount.toStringAsFixed(0)}',
+          style: TextStyle(
+            fontSize: tokens.fontSize,
+            fontWeight: tokens.fontWeight,
+            color: tokens.foreground,
+          ),
         ),
       ),
     );

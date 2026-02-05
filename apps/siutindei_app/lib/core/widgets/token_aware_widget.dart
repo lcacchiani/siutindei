@@ -5,27 +5,12 @@ import '../../config/tokens/tokens.dart';
 
 /// Base class for widgets that consume design tokens.
 ///
-/// Provides convenient access to the token system with a cleaner API.
+/// Performance note: Consider using `select` directly in build methods
+/// for more granular rebuilds instead of watching full ComponentTokens.
 ///
-/// ## Usage
-///
+/// Example with select (more performant):
 /// ```dart
-/// class MyButton extends TokenAwareWidget {
-///   const MyButton({super.key, required this.label});
-///   final String label;
-///
-///   @override
-///   Widget buildWithTokens(BuildContext context, WidgetRef ref, ComponentTokens tokens) {
-///     return Container(
-///       color: tokens.button.primaryBackground,
-///       padding: EdgeInsets.symmetric(
-///         horizontal: tokens.button.paddingHorizontal,
-///         vertical: tokens.button.paddingVertical,
-///       ),
-///       child: Text(label),
-///     );
-///   }
-/// }
+/// final cardTokens = ref.watch(componentTokensProvider.select((t) => t.card));
 /// ```
 abstract class TokenAwareWidget extends ConsumerWidget {
   const TokenAwareWidget({super.key});
@@ -50,6 +35,11 @@ abstract class TokenAwareStatefulWidget extends ConsumerStatefulWidget {
 }
 
 /// State mixin for easy token access in stateful widgets.
+///
+/// Performance tip: Use `select` for granular watching:
+/// ```dart
+/// final cardTokens = ref.watch(componentTokensProvider.select((t) => t.card));
+/// ```
 mixin TokenAwareStateMixin<T extends ConsumerStatefulWidget>
     on ConsumerState<T> {
   /// Get component (leaf) tokens.
@@ -63,22 +53,16 @@ mixin TokenAwareStateMixin<T extends ConsumerStatefulWidget>
 }
 
 /// Extension providing shortcuts for token access.
+///
+/// Performance note: These watch full providers. For better performance,
+/// use `select` directly:
+/// ```dart
+/// ref.watch(componentTokensProvider.select((t) => t.button))
+/// ```
 extension TokenWidgetRefExtension on WidgetRef {
   /// Shortcut to component tokens.
   ComponentTokens get tokens => watch(componentTokensProvider);
 
-  /// Shortcut to button tokens.
-  ButtonTokens get buttonTokens => tokens.button;
-
-  /// Shortcut to card tokens.
-  CardTokens get cardTokens => tokens.card;
-
-  /// Shortcut to input tokens.
-  InputTokens get inputTokens => tokens.input;
-
-  /// Shortcut to activity card tokens.
-  ActivityCardTokens get activityCardTokens => tokens.activityCard;
-
-  /// Shortcut to filter chip tokens.
-  FilterChipTokens get filterChipTokens => tokens.filterChip;
+  /// Shortcut to semantic tokens.
+  SemanticTokens get semantic => watch(semanticTokensProvider);
 }

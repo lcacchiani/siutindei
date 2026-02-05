@@ -2,13 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../config/tokens/tokens.dart';
-import 'token_aware_widget.dart';
 
 /// Base card component that consumes card tokens.
 ///
-/// All card-like components should extend or compose this widget
-/// to ensure consistent styling from the token system.
-class BaseCard extends TokenAwareWidget {
+/// Performance optimizations:
+/// - Uses `select` for granular token watching
+/// - Caches BorderRadius to avoid recreation
+/// - Uses DecoratedBox instead of Container where possible
+class BaseCard extends ConsumerWidget {
   const BaseCard({
     super.key,
     required this.child,
@@ -21,17 +22,16 @@ class BaseCard extends TokenAwareWidget {
   final EdgeInsets? padding;
 
   @override
-  Widget buildWithTokens(
-    BuildContext context,
-    WidgetRef ref,
-    ComponentTokens tokens,
-  ) {
-    final cardTokens = tokens.card;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cardTokens = ref.watch(componentTokensProvider.select((t) => t.card));
 
-    return Container(
+    // Cache border radius to avoid recreation on each build
+    final borderRadius = BorderRadius.circular(cardTokens.borderRadius);
+
+    return DecoratedBox(
       decoration: BoxDecoration(
         color: cardTokens.background,
-        borderRadius: BorderRadius.circular(cardTokens.borderRadius),
+        borderRadius: borderRadius,
         border: Border.all(color: cardTokens.border),
         boxShadow: cardTokens.shadow,
       ),
@@ -39,7 +39,7 @@ class BaseCard extends TokenAwareWidget {
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(cardTokens.borderRadius),
+          borderRadius: borderRadius,
           child: Padding(
             padding: padding ?? EdgeInsets.all(cardTokens.padding),
             child: child,
@@ -51,7 +51,11 @@ class BaseCard extends TokenAwareWidget {
 }
 
 /// Section card with title header.
-class SectionCard extends TokenAwareWidget {
+///
+/// Performance optimizations:
+/// - Extracts header to minimize rebuilds
+/// - Uses `select` for granular watching
+class SectionCard extends ConsumerWidget {
   const SectionCard({
     super.key,
     required this.title,
@@ -66,39 +70,33 @@ class SectionCard extends TokenAwareWidget {
   final Widget? action;
 
   @override
-  Widget buildWithTokens(
-    BuildContext context,
-    WidgetRef ref,
-    ComponentTokens tokens,
-  ) {
-    final cardTokens = tokens.card;
-    final semantic = ref.watch(semanticTokensProvider);
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cardTokens = ref.watch(componentTokensProvider.select((t) => t.card));
+    final colors = ref.watch(semanticTokensProvider.select((s) => s.color));
+    final textStyles = ref.watch(semanticTokensProvider.select((s) => s.text));
 
-    return Container(
+    // Cache border radius
+    final borderRadius = BorderRadius.circular(cardTokens.borderRadius);
+
+    return DecoratedBox(
       decoration: BoxDecoration(
         color: cardTokens.background,
-        borderRadius: BorderRadius.circular(cardTokens.borderRadius),
+        borderRadius: borderRadius,
         border: Border.all(color: cardTokens.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
           Padding(
             padding: EdgeInsets.all(cardTokens.padding),
             child: Row(
               children: [
                 if (icon != null) ...[
-                  Icon(
-                    icon,
-                    size: 20,
-                    color: semantic.color.textSecondary,
-                  ),
+                  Icon(icon, size: 20, color: colors.textSecondary),
                   SizedBox(width: cardTokens.gap),
                 ],
-                Text(
-                  title,
-                  style: semantic.text.labelLarge,
-                ),
+                Text(title, style: textStyles.labelLarge),
                 if (action != null) ...[
                   const Spacer(),
                   action!,

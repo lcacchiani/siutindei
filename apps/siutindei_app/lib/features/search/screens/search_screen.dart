@@ -14,6 +14,12 @@ import '../widgets/filter_chip_bar.dart';
 import '../widgets/search_filters_sheet.dart';
 
 /// Main search screen using the design token system.
+///
+/// Performance optimizations:
+/// - Uses `select` for granular Riverpod watching
+/// - Extracts static content to separate widgets
+/// - Uses RepaintBoundary for expensive static content
+/// - Avoids unnecessary object allocations in build
 class SearchScreen extends ConsumerStatefulWidget {
   const SearchScreen({super.key});
 
@@ -96,164 +102,260 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final activitiesState = ref.watch(activitiesViewModelProvider);
-    final authState = ref.watch(authViewModelProvider);
-    final semantic = ref.watch(semanticTokensProvider);
-    final tokens = ref.watch(componentTokensProvider);
+    // Watch only what's needed using select
+    final isSignedIn = ref.watch(
+      authViewModelProvider.select((s) => s.isSignedIn),
+    );
+    final spacing = ref.watch(
+      semanticTokensProvider.select((s) => s.spacing),
+    );
 
     return Scaffold(
       body: SafeArea(
         child: Column(
           children: [
-            _buildHeader(authState, semantic),
-            _buildSearchBar(tokens, semantic),
-            _buildQuickFilters(semantic),
-            Expanded(child: _buildResultsList(activitiesState, semantic)),
+            // Header is static except for auth state
+            _SearchHeader(
+              isSignedIn: isSignedIn,
+              onAuthTap: _handleAuthTap,
+            ),
+            _SearchBar(
+              controller: _searchController,
+              onSearch: _performSearch,
+            ),
+            _QuickFilters(
+              filters: _filters,
+              onFilterBadgeTap: _showFiltersSheet,
+              onDayTap: _toggleDayFilter,
+              onDistrictChanged: _toggleDistrictFilter,
+              onPricingTypeChanged: (value) {
+                if (value == null) {
+                  _updateFilters(_filters.copyWith(clearPricingType: true));
+                } else {
+                  _updateFilters(_filters.copyWith(pricingType: value));
+                }
+              },
+              onScheduleTypeChanged: (value) {
+                if (value == null) {
+                  _updateFilters(_filters.copyWith(clearScheduleType: true));
+                } else {
+                  _updateFilters(_filters.copyWith(scheduleType: value));
+                }
+              },
+            ),
+            Expanded(
+              child: _ResultsList(
+                scrollController: _scrollController,
+                onRefresh: _performSearch,
+                onClearFilters: () {
+                  setState(() {
+                    _filters = ActivitySearchFilters();
+                    _searchController.clear();
+                  });
+                  _performSearch();
+                },
+              ),
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildHeader(AuthState authState, SemanticTokens semantic) {
+  void _handleAuthTap() {
+    final isSignedIn = ref.read(authViewModelProvider).isSignedIn;
+    if (isSignedIn) {
+      ref.read(authViewModelProvider.notifier).signOut();
+    } else {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
+      );
+    }
+  }
+}
+
+/// Extracted header widget - rebuilds only when auth state changes.
+class _SearchHeader extends ConsumerWidget {
+  const _SearchHeader({
+    required this.isSignedIn,
+    required this.onAuthTap,
+  });
+
+  final bool isSignedIn;
+  final VoidCallback onAuthTap;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final spacing = ref.watch(semanticTokensProvider.select((s) => s.spacing));
+    final textStyles = ref.watch(semanticTokensProvider.select((s) => s.text));
+
     return Padding(
       padding: EdgeInsets.fromLTRB(
-        semantic.spacing.md,
-        semantic.spacing.md,
-        semantic.spacing.md,
-        semantic.spacing.sm,
+        spacing.md,
+        spacing.md,
+        spacing.md,
+        spacing.sm,
       ),
       child: Row(
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Find Activities', style: semantic.text.headlineMedium),
-              const SizedBox(height: 2),
-              Text(
-                'Discover classes and events for kids',
-                style: semantic.text.bodySmall,
+          // Static content wrapped in RepaintBoundary
+          Expanded(
+            child: RepaintBoundary(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Find Activities', style: textStyles.headlineMedium),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Discover classes and events for kids',
+                    style: textStyles.bodySmall,
+                  ),
+                ],
               ),
-            ],
-          ),
-          const Spacer(),
-          IconButton(
-            onPressed: () {
-              if (authState.isSignedIn) {
-                ref.read(authViewModelProvider.notifier).signOut();
-              } else {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const LoginScreen()),
-                );
-              }
-            },
-            icon: Icon(
-              authState.isSignedIn ? Icons.logout : Icons.person_outline,
             ),
+          ),
+          IconButton(
+            onPressed: onAuthTap,
+            icon: Icon(isSignedIn ? Icons.logout : Icons.person_outline),
           ),
         ],
       ),
     );
   }
+}
 
-  Widget _buildSearchBar(ComponentTokens tokens, SemanticTokens semantic) {
-    final searchTokens = tokens.searchBar;
+/// Extracted search bar widget.
+class _SearchBar extends ConsumerWidget {
+  const _SearchBar({
+    required this.controller,
+    required this.onSearch,
+  });
+
+  final TextEditingController controller;
+  final VoidCallback onSearch;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final searchTokens = ref.watch(
+      componentTokensProvider.select((t) => t.searchBar),
+    );
+    final spacing = ref.watch(semanticTokensProvider.select((s) => s.spacing));
+
+    // Cache border radius
+    final borderRadius = BorderRadius.circular(searchTokens.borderRadius);
 
     return Padding(
       padding: EdgeInsets.symmetric(
-        horizontal: semantic.spacing.md,
-        vertical: semantic.spacing.sm,
+        horizontal: spacing.md,
+        vertical: spacing.sm,
       ),
-      child: Container(
+      child: SizedBox(
         height: searchTokens.height,
-        decoration: BoxDecoration(
-          color: searchTokens.background,
-          borderRadius: BorderRadius.circular(searchTokens.borderRadius),
-          border: Border.all(color: searchTokens.border),
-        ),
-        child: TextField(
-          controller: _searchController,
-          decoration: InputDecoration(
-            hintText: 'Search activities, organizations...',
-            hintStyle: TextStyle(color: searchTokens.placeholder),
-            prefixIcon: Icon(Icons.search, color: searchTokens.icon),
-            suffixIcon: _searchController.text.isNotEmpty
-                ? IconButton(
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: searchTokens.background,
+            borderRadius: borderRadius,
+            border: Border.all(color: searchTokens.border),
+          ),
+          child: TextField(
+            controller: controller,
+            decoration: InputDecoration(
+              hintText: 'Search activities, organizations...',
+              hintStyle: TextStyle(color: searchTokens.placeholder),
+              prefixIcon: Icon(Icons.search, color: searchTokens.icon),
+              suffixIcon: ValueListenableBuilder<TextEditingValue>(
+                valueListenable: controller,
+                builder: (context, value, _) {
+                  if (value.text.isEmpty) return const SizedBox.shrink();
+                  return IconButton(
                     onPressed: () {
-                      _searchController.clear();
-                      _performSearch();
+                      controller.clear();
+                      onSearch();
                     },
                     icon: Icon(Icons.clear, color: searchTokens.clearIcon),
-                  )
-                : null,
-            border: InputBorder.none,
-            contentPadding: EdgeInsets.symmetric(
-              horizontal: searchTokens.padding,
-              vertical: 12,
+                  );
+                },
+              ),
+              border: InputBorder.none,
+              contentPadding: EdgeInsets.symmetric(
+                horizontal: searchTokens.padding,
+                vertical: 12,
+              ),
             ),
+            onSubmitted: (_) => onSearch(),
+            textInputAction: TextInputAction.search,
           ),
-          onSubmitted: (_) => _performSearch(),
-          textInputAction: TextInputAction.search,
         ),
       ),
     );
   }
+}
 
-  Widget _buildQuickFilters(SemanticTokens semantic) {
+/// Extracted quick filters widget.
+class _QuickFilters extends ConsumerWidget {
+  const _QuickFilters({
+    required this.filters,
+    required this.onFilterBadgeTap,
+    required this.onDayTap,
+    required this.onDistrictChanged,
+    required this.onPricingTypeChanged,
+    required this.onScheduleTypeChanged,
+  });
+
+  final ActivitySearchFilters filters;
+  final VoidCallback onFilterBadgeTap;
+  final ValueChanged<int> onDayTap;
+  final ValueChanged<String?> onDistrictChanged;
+  final ValueChanged<String?> onPricingTypeChanged;
+  final ValueChanged<String?> onScheduleTypeChanged;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final spacing = ref.watch(semanticTokensProvider.select((s) => s.spacing));
+
     return Padding(
-      padding: EdgeInsets.only(bottom: semantic.spacing.sm),
+      padding: EdgeInsets.only(bottom: spacing.sm),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
           FilterChipBar(
             children: [
               FilterBadge(
-                count: _filters.activeFilterCount,
-                onTap: _showFiltersSheet,
+                count: filters.activeFilterCount,
+                onTap: onFilterBadgeTap,
               ),
-              ...List.generate(7, (index) {
-                return TokenFilterChip(
+              // Use const list generation for better performance
+              for (int index = 0; index < 7; index++)
+                TokenFilterChip(
                   label: AppConstants.daysOfWeekShort[index],
-                  selected: _filters.dayOfWeekUtc == index,
-                  onSelected: (_) => _toggleDayFilter(index),
-                );
-              }),
+                  selected: filters.dayOfWeekUtc == index,
+                  onSelected: (_) => onDayTap(index),
+                ),
             ],
           ),
-          SizedBox(height: semantic.spacing.sm),
+          SizedBox(height: spacing.sm),
           FilterChipBar(
             children: [
               DropdownFilterChip(
                 label: 'District',
-                value: _filters.district,
+                value: filters.district,
                 options: AppConstants.districts,
-                onChanged: _toggleDistrictFilter,
+                onChanged: onDistrictChanged,
               ),
               DropdownFilterChip(
                 label: 'Pricing',
-                value: _filters.pricingType,
+                value: filters.pricingType,
                 options: AppConstants.pricingTypes.keys.toList(),
                 displayNameBuilder: AppConstants.getPricingTypeName,
-                onChanged: (value) {
-                  if (value == null) {
-                    _updateFilters(_filters.copyWith(clearPricingType: true));
-                  } else {
-                    _updateFilters(_filters.copyWith(pricingType: value));
-                  }
-                },
+                onChanged: onPricingTypeChanged,
               ),
               DropdownFilterChip(
                 label: 'Schedule',
-                value: _filters.scheduleType,
+                value: filters.scheduleType,
                 options: AppConstants.scheduleTypes.keys.toList(),
                 displayNameBuilder: AppConstants.getScheduleTypeName,
-                onChanged: (value) {
-                  if (value == null) {
-                    _updateFilters(_filters.copyWith(clearScheduleType: true));
-                  } else {
-                    _updateFilters(_filters.copyWith(scheduleType: value));
-                  }
-                },
+                onChanged: onScheduleTypeChanged,
               ),
             ],
           ),
@@ -261,98 +363,146 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       ),
     );
   }
+}
 
-  Widget _buildResultsList(ActivitiesState state, SemanticTokens semantic) {
+/// Extracted results list widget.
+class _ResultsList extends ConsumerWidget {
+  const _ResultsList({
+    required this.scrollController,
+    required this.onRefresh,
+    required this.onClearFilters,
+  });
+
+  final ScrollController scrollController;
+  final VoidCallback onRefresh;
+  final VoidCallback onClearFilters;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(activitiesViewModelProvider);
+    final colors = ref.watch(semanticTokensProvider.select((s) => s.color));
+    final spacing = ref.watch(semanticTokensProvider.select((s) => s.spacing));
+    final textStyles = ref.watch(semanticTokensProvider.select((s) => s.text));
+
     if (state.isLoading && state.items.isEmpty) {
       return Center(
-        child: CircularProgressIndicator(color: semantic.color.primary),
+        child: CircularProgressIndicator(color: colors.primary),
       );
     }
 
     if (state.errorMessage != null && state.items.isEmpty) {
-      return _buildErrorState(state.errorMessage!, semantic);
+      return _ErrorState(
+        message: state.errorMessage!,
+        onRetry: onRefresh,
+      );
     }
 
     if (state.items.isEmpty) {
-      return _buildEmptyState(semantic);
+      return _EmptyState(onClearFilters: onClearFilters);
     }
 
     return RefreshIndicator(
       onRefresh: () async {
-        _performSearch();
+        onRefresh();
         await Future.delayed(const Duration(milliseconds: 500));
       },
       child: ListView.builder(
-        controller: _scrollController,
-        padding: EdgeInsets.only(top: semantic.spacing.sm),
+        controller: scrollController,
+        padding: EdgeInsets.only(top: spacing.sm),
+        // Use cacheExtent to pre-build items off-screen
+        cacheExtent: 200,
         itemCount: state.items.length + (state.nextCursor != null ? 1 : 0),
         itemBuilder: (context, index) {
           if (index >= state.items.length) {
-            return _buildLoadMoreIndicator(state, semantic);
+            return _LoadMoreIndicator(isLoading: state.isLoading);
           }
           final result = state.items[index];
           return ActivityCard(
+            key: ValueKey(result.activity.id),
             result: result,
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => ActivityDetailScreen(result: result),
-              ),
-            ),
-            onOrganizationTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => OrganizationScreen(
-                  organization: result.organization,
-                ),
-              ),
-            ),
+            onTap: () => _navigateToDetail(context, result),
+            onOrganizationTap: () => _navigateToOrg(context, result),
           );
         },
       ),
     );
   }
 
-  Widget _buildLoadMoreIndicator(ActivitiesState state, SemanticTokens semantic) {
-    return Padding(
-      padding: EdgeInsets.all(semantic.spacing.md),
-      child: Center(
-        child: state.isLoading
-            ? CircularProgressIndicator(color: semantic.color.primary)
-            : TextButton(onPressed: _loadMore, child: const Text('Load more')),
+  void _navigateToDetail(BuildContext context, ActivitySearchResult result) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ActivityDetailScreen(result: result),
       ),
     );
   }
 
-  Widget _buildEmptyState(SemanticTokens semantic) {
+  void _navigateToOrg(BuildContext context, ActivitySearchResult result) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => OrganizationScreen(organization: result.organization),
+      ),
+    );
+  }
+}
+
+/// Load more indicator.
+class _LoadMoreIndicator extends ConsumerWidget {
+  const _LoadMoreIndicator({required this.isLoading});
+
+  final bool isLoading;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final spacing = ref.watch(semanticTokensProvider.select((s) => s.spacing));
+    final colors = ref.watch(semanticTokensProvider.select((s) => s.color));
+
+    return Padding(
+      padding: EdgeInsets.all(spacing.md),
+      child: Center(
+        child: isLoading
+            ? CircularProgressIndicator(color: colors.primary)
+            : const Text('Scroll for more'),
+      ),
+    );
+  }
+}
+
+/// Empty state widget.
+class _EmptyState extends ConsumerWidget {
+  const _EmptyState({required this.onClearFilters});
+
+  final VoidCallback onClearFilters;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final spacing = ref.watch(semanticTokensProvider.select((s) => s.spacing));
+    final colors = ref.watch(semanticTokensProvider.select((s) => s.color));
+    final textStyles = ref.watch(semanticTokensProvider.select((s) => s.text));
+
     return Center(
       child: Padding(
-        padding: EdgeInsets.all(semantic.spacing.xl),
+        padding: EdgeInsets.all(spacing.xl),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
               Icons.search_off,
               size: 64,
-              color: semantic.color.textTertiary.withValues(alpha: 0.5),
+              color: colors.textTertiary.withValues(alpha: 0.5),
             ),
-            SizedBox(height: semantic.spacing.md),
-            Text('No activities found', style: semantic.text.titleMedium),
-            SizedBox(height: semantic.spacing.sm),
+            SizedBox(height: spacing.md),
+            Text('No activities found', style: textStyles.titleMedium),
+            SizedBox(height: spacing.sm),
             Text(
               'Try adjusting your filters or search terms',
-              style: semantic.text.bodySmall,
+              style: textStyles.bodySmall,
               textAlign: TextAlign.center,
             ),
-            SizedBox(height: semantic.spacing.lg),
+            SizedBox(height: spacing.lg),
             OutlinedButton(
-              onPressed: () {
-                setState(() {
-                  _filters = ActivitySearchFilters();
-                  _searchController.clear();
-                });
-                _performSearch();
-              },
+              onPressed: onClearFilters,
               child: const Text('Clear filters'),
             ),
           ],
@@ -360,32 +510,48 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       ),
     );
   }
+}
 
-  Widget _buildErrorState(String message, SemanticTokens semantic) {
+/// Error state widget.
+class _ErrorState extends ConsumerWidget {
+  const _ErrorState({
+    required this.message,
+    required this.onRetry,
+  });
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final spacing = ref.watch(semanticTokensProvider.select((s) => s.spacing));
+    final colors = ref.watch(semanticTokensProvider.select((s) => s.color));
+    final textStyles = ref.watch(semanticTokensProvider.select((s) => s.text));
+
     return Center(
       child: Padding(
-        padding: EdgeInsets.all(semantic.spacing.xl),
+        padding: EdgeInsets.all(spacing.xl),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
               Icons.error_outline,
               size: 64,
-              color: semantic.color.error.withValues(alpha: 0.7),
+              color: colors.error.withValues(alpha: 0.7),
             ),
-            SizedBox(height: semantic.spacing.md),
-            Text('Something went wrong', style: semantic.text.titleMedium),
-            SizedBox(height: semantic.spacing.sm),
+            SizedBox(height: spacing.md),
+            Text('Something went wrong', style: textStyles.titleMedium),
+            SizedBox(height: spacing.sm),
             Text(
               message,
-              style: semantic.text.caption,
+              style: textStyles.caption,
               textAlign: TextAlign.center,
               maxLines: 3,
               overflow: TextOverflow.ellipsis,
             ),
-            SizedBox(height: semantic.spacing.lg),
+            SizedBox(height: spacing.lg),
             ElevatedButton(
-              onPressed: _performSearch,
+              onPressed: onRetry,
               child: const Text('Try again'),
             ),
           ],
