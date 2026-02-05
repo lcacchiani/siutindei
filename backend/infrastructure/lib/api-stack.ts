@@ -197,6 +197,12 @@ export class ApiStack extends cdk.Stack {
         service: ec2.InterfaceVpcEndpointAwsService.CLOUDWATCH_LOGS,
         securityGroups: [endpointSecurityGroup],
       });
+
+      // Cognito endpoint for migration Lambda to create seed manager user
+      vpc.addInterfaceEndpoint("CognitoIdpEndpoint", {
+        service: ec2.InterfaceVpcEndpointAwsService.COGNITO_IDP,
+        securityGroups: [endpointSecurityGroup],
+      });
     }
 
     const lambdaSecurityGroup = existingLambdaSecurityGroupId
