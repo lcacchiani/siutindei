@@ -386,7 +386,10 @@ export class DatabaseConstruct extends Construct {
         // RDS Proxy for Lambda app connections. Setting this to true causes
         // "PAM authentication failed" errors for direct password connections.
         iamAuthentication: false,
-        storageEncrypted: applyImmutableSettings ? true : undefined,
+        // Always set storageEncrypted: true - encryption cannot be disabled
+        // after cluster creation, and setting to undefined on subsequent
+        // deployments would cause CloudFormation to attempt replacement.
+        storageEncrypted: true,
         serverlessV2MinCapacity: props.minCapacity ?? 0.5,
         serverlessV2MaxCapacity: props.maxCapacity ?? 2,
         writer: writerInstance,
@@ -397,22 +400,6 @@ export class DatabaseConstruct extends Construct {
         securityGroups: [this.dbSecurityGroup],
       });
       this.cluster = cluster;
-
-      // Checkov suppression: IAM auth is disabled on the cluster intentionally
-      // to allow password-based connections for database migrations.
-      // IAM authentication is still enforced on the RDS Proxy for Lambda app connections.
-      // Architecture: Lambda -> Proxy (IAM auth) -> Cluster (password auth)
-      const clusterCfn = cluster.node.defaultChild as rds.CfnDBCluster;
-      clusterCfn.addMetadata("checkov", {
-        skip: [
-          {
-            id: "CKV_AWS_162",
-            comment:
-              "IAM auth disabled on cluster to allow password-based migrations. " +
-              "IAM auth is enforced on RDS Proxy for app connections.",
-          },
-        ],
-      });
 
       for (const child of cluster.node.findAll()) {
         if (child instanceof rds.CfnDBInstance) {
