@@ -203,6 +203,30 @@ export class ApiStack extends cdk.Stack {
         service: ec2.InterfaceVpcEndpointAwsService.COGNITO_IDP,
         securityGroups: [endpointSecurityGroup],
       });
+
+      // SES endpoint for sending emails (manager requests, passwordless auth)
+      vpc.addInterfaceEndpoint("SesEndpoint", {
+        service: ec2.InterfaceVpcEndpointAwsService.SES,
+        securityGroups: [endpointSecurityGroup],
+      });
+
+      // SNS endpoint for notifications (manager access requests)
+      vpc.addInterfaceEndpoint("SnsEndpoint", {
+        service: ec2.InterfaceVpcEndpointAwsService.SNS,
+        securityGroups: [endpointSecurityGroup],
+      });
+
+      // RDS endpoint for IAM authentication token generation
+      vpc.addInterfaceEndpoint("RdsEndpoint", {
+        service: ec2.InterfaceVpcEndpointAwsService.RDS,
+        securityGroups: [endpointSecurityGroup],
+      });
+
+      // API Gateway endpoint for API key rotation Lambda
+      vpc.addInterfaceEndpoint("ApiGatewayEndpoint", {
+        service: ec2.InterfaceVpcEndpointAwsService.APIGATEWAY,
+        securityGroups: [endpointSecurityGroup],
+      });
     }
 
     const lambdaSecurityGroup = existingLambdaSecurityGroupId
