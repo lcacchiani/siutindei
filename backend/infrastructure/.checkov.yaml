@@ -54,3 +54,10 @@ skip-check:
   # The LogRetention Lambda requires write access to CloudWatch Logs to manage
   # log group retention policies. This is a CDK-internal construct.
   - CKV_AWS_111  # Write access without constraints
+
+  # RDS IAM authentication - ONLY affects Aurora cluster (not RDS Proxy)
+  # IAM authentication is intentionally disabled on the Aurora cluster to allow
+  # password-based connections for database migrations (Alembic). IAM auth is
+  # enforced on the RDS Proxy for all Lambda application connections.
+  # Architecture: Lambda -> RDS Proxy (IAM auth) -> Aurora Cluster (password auth)
+  - CKV_AWS_162  # IAM authentication enabled
