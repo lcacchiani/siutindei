@@ -227,6 +227,12 @@ export class ApiStack extends cdk.Stack {
         service: ec2.InterfaceVpcEndpointAwsService.APIGATEWAY,
         securityGroups: [endpointSecurityGroup],
       });
+
+      // SQS endpoint for manager request processing queue
+      vpc.addInterfaceEndpoint("SqsEndpoint", {
+        service: ec2.InterfaceVpcEndpointAwsService.SQS,
+        securityGroups: [endpointSecurityGroup],
+      });
     }
 
     const lambdaSecurityGroup = existingLambdaSecurityGroupId
