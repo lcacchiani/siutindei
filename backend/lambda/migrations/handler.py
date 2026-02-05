@@ -275,7 +275,7 @@ def _get_or_create_seed_manager() -> str:
         raise RuntimeError("COGNITO_USER_POOL_ID environment variable is required")
 
     client = boto3.client("cognito-idp")
-    seed_email = "test@test.com"
+    seed_email = "test@lx-software.com"
     seed_password = "TestPassword123!"  # Meets Cognito default password policy
 
     # Check if user already exists
