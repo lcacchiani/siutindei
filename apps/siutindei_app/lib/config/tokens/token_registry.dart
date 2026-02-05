@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_riverpod/legacy.dart';
 
 import 'component_tokens.dart';
 import 'primitive_tokens.dart';
@@ -349,8 +348,9 @@ final tokenThemeDataProvider = Provider<ThemeData>((ref) {
 /// ```dart
 /// ref.read(designTokensNotifierProvider.notifier).loadFromJson(json);
 /// ```
-class DesignTokensNotifier extends StateNotifier<DesignTokens> {
-  DesignTokensNotifier() : super(DesignTokens.defaults());
+class DesignTokensNotifier extends Notifier<DesignTokens> {
+  @override
+  DesignTokens build() => DesignTokens.defaults();
 
   /// Load tokens from JSON map.
   void loadFromJson(Map<String, dynamic> json) {
@@ -373,11 +373,11 @@ class DesignTokensNotifier extends StateNotifier<DesignTokens> {
   }
 }
 
-/// StateNotifier provider for dynamic token management.
+/// Notifier provider for dynamic token management.
 final designTokensNotifierProvider =
-    StateNotifierProvider<DesignTokensNotifier, DesignTokens>((ref) {
-  return DesignTokensNotifier();
-});
+    NotifierProvider<DesignTokensNotifier, DesignTokens>(
+  DesignTokensNotifier.new,
+);
 
 // ============================================================
 // CONVENIENCE EXTENSIONS

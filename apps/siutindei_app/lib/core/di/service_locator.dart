@@ -5,9 +5,6 @@ import '../../domain/repositories/repositories.dart';
 import '../../domain/use_cases/use_cases.dart';
 import '../cache/cache_manager.dart';
 
-/// Type alias for provider overrides.
-typedef ProviderOverride = Override;
-
 /// Service locator for centralized dependency management.
 ///
 /// Follows Flutter architecture recommendations for dependency injection:
@@ -38,27 +35,28 @@ typedef ProviderOverride = Override;
 class ServiceLocator {
   ServiceLocator._();
 
-  /// All provider overrides for dependency injection.
-  ///
-  /// Use this when creating ProviderScope to inject custom dependencies.
-  static List<ProviderOverride> get defaultOverrides => [];
-
   /// Creates overrides for testing with mocks.
-  static List<ProviderOverride> testOverrides({
+  ///
+  /// Returns a list that can be passed to ProviderContainer or ProviderScope.
+  /// Example:
+  /// ```dart
+  /// final container = ProviderContainer(
+  ///   overrides: ServiceLocator.testOverrides(
+  ///     activityRepository: MockActivityRepository(),
+  ///   ),
+  /// );
+  /// ```
+  static List<ProviderOrFamily> testOverrideProviders({
     ActivityRepository? activityRepository,
     OrganizationRepository? organizationRepository,
     SearchActivitiesUseCase? searchUseCase,
     LoadMoreActivitiesUseCase? loadMoreUseCase,
   }) {
     return [
-      if (activityRepository != null)
-        activityRepositoryProvider.overrideWithValue(activityRepository),
-      if (organizationRepository != null)
-        organizationRepositoryProvider.overrideWithValue(organizationRepository),
-      if (searchUseCase != null)
-        searchActivitiesUseCaseProvider.overrideWithValue(searchUseCase),
-      if (loadMoreUseCase != null)
-        loadMoreActivitiesUseCaseProvider.overrideWithValue(loadMoreUseCase),
+      if (activityRepository != null) activityRepositoryProvider,
+      if (organizationRepository != null) organizationRepositoryProvider,
+      if (searchUseCase != null) searchActivitiesUseCaseProvider,
+      if (loadMoreUseCase != null) loadMoreActivitiesUseCaseProvider,
     ];
   }
 }

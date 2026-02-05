@@ -1,5 +1,5 @@
 import 'package:flutter/foundation.dart';
-import 'package:flutter_riverpod/legacy.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/core.dart';
 import '../data/providers.dart';
@@ -78,16 +78,16 @@ class ActivitiesState {
 /// - Separates concerns (no direct API calls)
 ///
 /// See: https://docs.flutter.dev/app-architecture/guide
-class ActivitiesViewModel extends StateNotifier<ActivitiesState> {
-  ActivitiesViewModel({
-    required SearchActivitiesUseCase searchUseCase,
-    required LoadMoreActivitiesUseCase loadMoreUseCase,
-  })  : _searchUseCase = searchUseCase,
-        _loadMoreUseCase = loadMoreUseCase,
-        super(ActivitiesState.initial);
+class ActivitiesViewModel extends Notifier<ActivitiesState> {
+  late final SearchActivitiesUseCase _searchUseCase;
+  late final LoadMoreActivitiesUseCase _loadMoreUseCase;
 
-  final SearchActivitiesUseCase _searchUseCase;
-  final LoadMoreActivitiesUseCase _loadMoreUseCase;
+  @override
+  ActivitiesState build() {
+    _searchUseCase = ref.watch(searchActivitiesUseCaseProvider);
+    _loadMoreUseCase = ref.watch(loadMoreActivitiesUseCaseProvider);
+    return ActivitiesState.initial;
+  }
 
   /// Performs a new search with the given filters.
   ///
@@ -181,9 +181,6 @@ class ActivitiesViewModel extends StateNotifier<ActivitiesState> {
     if (e is AppException) {
       return e.displayMessage;
     }
-    if (e is ArgumentError) {
-      return e.message?.toString() ?? 'Invalid input';
-    }
     return 'An error occurred. Please try again.';
   }
 
@@ -199,12 +196,9 @@ class ActivitiesViewModel extends StateNotifier<ActivitiesState> {
 /// Uses dependency injection for testability.
 /// Override providers in tests to mock dependencies.
 final activitiesViewModelProvider =
-    StateNotifierProvider<ActivitiesViewModel, ActivitiesState>((ref) {
-  return ActivitiesViewModel(
-    searchUseCase: ref.watch(searchActivitiesUseCaseProvider),
-    loadMoreUseCase: ref.watch(loadMoreActivitiesUseCaseProvider),
-  );
-});
+    NotifierProvider<ActivitiesViewModel, ActivitiesState>(
+  ActivitiesViewModel.new,
+);
 
 /// Selector for items only - minimizes rebuilds.
 final activitiesItemsProvider = Provider<List<ActivitySearchResultEntity>>((ref) {
