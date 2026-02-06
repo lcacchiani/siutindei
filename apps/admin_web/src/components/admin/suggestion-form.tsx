@@ -58,7 +58,26 @@ export function SuggestionForm({ onSuggestionSubmitted }: SuggestionFormProps) {
       }
 
       const response = await submitOrganizationSuggestion(payload);
-      onSuggestionSubmitted(response.suggestion);
+      // Backend returns { message, ticket_id } for async processing.
+      // Construct a partial OrganizationSuggestion from known data for the pending notice.
+      onSuggestionSubmitted({
+        id: '',
+        ticket_id: response.ticket_id,
+        organization_name: organizationName.trim(),
+        description: description.trim() || null,
+        suggested_district: district.trim() || null,
+        suggested_address: address.trim() || null,
+        suggested_lat: null,
+        suggested_lng: null,
+        media_urls: [],
+        additional_notes: additionalNotes.trim() || null,
+        status: 'pending',
+        suggester_id: '',
+        suggester_email: '',
+        created_at: new Date().toISOString(),
+        reviewed_at: null,
+        reviewed_by: null,
+      });
     } catch (err) {
       const errorMessage =
         err instanceof ApiError
