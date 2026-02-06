@@ -289,7 +289,7 @@ export interface SubmitAccessRequestPayload {
 
 export interface SubmitAccessRequestResponse {
   message: string;
-  request: AccessRequest;
+  ticket_id: string;
 }
 
 function buildManagerUrl(resource: string, id?: string) {
@@ -352,7 +352,7 @@ export interface SubmitSuggestionPayload {
 
 export interface SubmitSuggestionResponse {
   message: string;
-  suggestion: import('../types/admin').OrganizationSuggestion;
+  ticket_id: string;
 }
 
 /**

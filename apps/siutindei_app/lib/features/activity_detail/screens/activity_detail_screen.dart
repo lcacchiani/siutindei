@@ -98,7 +98,7 @@ class ActivityDetailScreen extends ConsumerWidget {
   }
 
   Widget _buildHeaderImage(SemanticTokens semantic) {
-    final imageUrl = result.organization.primaryPictureUrl;
+    final imageUrl = result.organization.primaryMediaUrl;
     if (imageUrl != null) {
       return Image.network(
         imageUrl,
@@ -181,7 +181,7 @@ class ActivityDetailScreen extends ConsumerWidget {
         children: [
           BaseAvatar(
             name: result.organization.name,
-            imageUrl: result.organization.primaryPictureUrl,
+            imageUrl: result.organization.primaryMediaUrl,
             size: AvatarSize.lg,
           ),
           SizedBox(width: semantic.spacing.md),
@@ -240,8 +240,7 @@ class ActivityDetailScreen extends ConsumerWidget {
     return switch (type) {
       ScheduleType.weekly => 'Weekly',
       ScheduleType.monthly => 'Monthly',
-      ScheduleType.oneTime => 'One-time',
-      ScheduleType.flexible => 'Flexible',
+      ScheduleType.dateSpecific => 'One-time',
     };
   }
 

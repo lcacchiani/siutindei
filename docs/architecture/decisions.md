@@ -66,7 +66,7 @@ Flutter mobile app, Next.js admin console, and AWS serverless backend.
 - OpenAPI contracts live under `docs/api/` and are the single source
   of truth for all API endpoint details (paths, methods, parameters,
   request/response schemas, authentication requirements).
-- Activities search contract: [`docs/api/activities-search.yaml`](../api/activities-search.yaml).
+- Activities search contract: [`docs/api/search.yaml`](../api/search.yaml).
 - Admin, manager, user, and health contracts: [`docs/api/admin.yaml`](../api/admin.yaml).
 - Search responses are cursor-paginated (schedule time + type ordering).
 - Admin and manager list endpoints return `next_cursor` for pagination.

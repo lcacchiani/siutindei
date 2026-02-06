@@ -40,7 +40,20 @@ export function AccessRequestForm({ onRequestSubmitted }: AccessRequestFormProps
         organization_name: organizationName.trim(),
         request_message: requestMessage.trim() || undefined,
       });
-      onRequestSubmitted(response.request);
+      // Backend returns { message, ticket_id } for async processing.
+      // Construct a partial AccessRequest from known data for the pending notice.
+      onRequestSubmitted({
+        id: '',
+        ticket_id: response.ticket_id,
+        organization_name: organizationName.trim(),
+        request_message: requestMessage.trim() || null,
+        status: 'pending',
+        requester_email: '',
+        requester_id: '',
+        created_at: new Date().toISOString(),
+        reviewed_at: null,
+        reviewed_by: null,
+      });
     } catch (err) {
       const message =
         err instanceof ApiError

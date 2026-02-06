@@ -17,12 +17,12 @@ info:
     | description | 5,000 characters |
     | district | 100 characters |
     | address | 500 characters |
-    | picture_urls (each) | 2,048 characters |
+    | media_urls (each) | 2,048 characters |
 
     ### Array Limits
     | Field | Max Items |
     |-------|----------|
-    | picture_urls | 20 |
+    | media_urls | 20 |
     | languages | 20 |
 
     ### Numeric Ranges
@@ -153,34 +153,34 @@ paths:
           type: string
           format: uuid
     post:
-      summary: Create organization picture upload URL
-      description: Generate a presigned URL for uploading an organization picture.
+      summary: Create organization media upload URL
+      description: Generate a presigned URL for uploading organization media.
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/PictureUploadRequest'
+              $ref: '#/components/schemas/MediaUploadRequest'
       responses:
         "200":
           description: Upload URL generated
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PictureUploadResponse'
+                $ref: '#/components/schemas/MediaUploadResponse'
         "400":
           description: Validation error
     delete:
-      summary: Delete organization picture
+      summary: Delete organization media
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/PictureDeleteRequest'
+              $ref: '#/components/schemas/MediaDeleteRequest'
       responses:
         "204":
-          description: Picture deleted
+          description: Media deleted
 
   /v1/admin/locations:
     get:
@@ -597,11 +597,21 @@ paths:
               schema:
                 type: object
                 properties:
-                  message:
+                  status:
                     type: string
-                  transferred_organizations:
+                    description: Deletion status (e.g., "deleted")
+                  username:
+                    type: string
+                    description: Username of the deleted user
+                  user_sub:
+                    type: string
+                    description: Cognito sub of the deleted user
+                  transferred_organizations_count:
                     type: integer
                     description: Number of organizations transferred to the admin
+                  fallback_manager_id:
+                    type: string
+                    description: Cognito sub of the admin who received the transferred organizations
         "400":
           description: Cannot delete yourself
         "404":
@@ -671,7 +681,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AccessRequest'
+                $ref: '#/components/schemas/AccessRequestReviewResponse'
         "400":
           description: Validation error
         "404":
@@ -822,7 +832,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/OrganizationSuggestion'
+                $ref: '#/components/schemas/OrganizationSuggestionReviewResponse'
         "400":
           description: Validation error
         "404":
@@ -1417,6 +1427,7 @@ components:
   schemas:
     ValidationError:
       type: object
+      required: [error]
       properties:
         error:
           type: string
@@ -1430,6 +1441,7 @@ components:
       type: object
       required:
         - name
+        - manager_id
       properties:
         name:
           type: string
@@ -1439,7 +1451,10 @@ components:
           type: string
           maxLength: 5000
           description: Organization description (optional, max 5,000 characters)
-        picture_urls:
+        manager_id:
+          type: string
+          description: Cognito user sub of the organization manager (required)
+        media_urls:
           type: array
           maxItems: 20
           items:
@@ -1447,7 +1462,7 @@ components:
             format: uri
             maxLength: 2048
           description: |
-            List of picture URLs (optional, max 20 URLs).
+            List of media URLs (optional, max 20 URLs).
             Each URL must use http or https scheme and be max 2,048 characters.
 
     OrganizationUpdate:
@@ -1461,7 +1476,10 @@ components:
           type: string
           maxLength: 5000
           description: Organization description (max 5,000 characters)
-        picture_urls:
+        manager_id:
+          type: string
+          description: Cognito user sub of the organization manager
+        media_urls:
           type: array
           maxItems: 20
           items:
@@ -1471,6 +1489,7 @@ components:
 
     Organization:
       type: object
+      required: [id, name, manager_id, media_urls, created_at, updated_at]
       properties:
         id:
           type: string
@@ -1480,7 +1499,10 @@ components:
         description:
           type: string
           nullable: true
-        picture_urls:
+        manager_id:
+          type: string
+          description: Cognito user sub of the organization manager
+        media_urls:
           type: array
           items:
             type: string
@@ -1493,6 +1515,7 @@ components:
 
     OrganizationListResponse:
       type: object
+      required: [items]
       properties:
         items:
           type: array
@@ -1556,6 +1579,7 @@ components:
 
     Location:
       type: object
+      required: [id, org_id, district, created_at, updated_at]
       properties:
         id:
           type: string
@@ -1583,6 +1607,7 @@ components:
 
     LocationListResponse:
       type: object
+      required: [items]
       properties:
         items:
           type: array
@@ -1648,6 +1673,7 @@ components:
 
     Activity:
       type: object
+      required: [id, org_id, name, age_min, age_max, created_at, updated_at]
       properties:
         id:
           type: string
@@ -1673,6 +1699,7 @@ components:
 
     ActivityListResponse:
       type: object
+      required: [items]
       properties:
         items:
           type: array
@@ -1741,6 +1768,7 @@ components:
 
     Pricing:
       type: object
+      required: [id, activity_id, location_id, pricing_type, amount, currency]
       properties:
         id:
           type: string
@@ -1763,6 +1791,7 @@ components:
 
     PricingListResponse:
       type: object
+      required: [items]
       properties:
         items:
           type: array
@@ -1883,6 +1912,7 @@ components:
 
     Schedule:
       type: object
+      required: [id, activity_id, location_id, schedule_type, languages]
       properties:
         id:
           type: string
@@ -1922,6 +1952,7 @@ components:
 
     ScheduleListResponse:
       type: object
+      required: [items]
       properties:
         items:
           type: array
@@ -1931,8 +1962,8 @@ components:
           type: string
           nullable: true
 
-    # Picture upload schemas
-    PictureUploadRequest:
+    # Media upload schemas
+    MediaUploadRequest:
       type: object
       required:
         - file_name
@@ -1946,15 +1977,16 @@ components:
           pattern: '^image/'
           description: MIME type (must start with 'image/')
 
-    PictureUploadResponse:
+    MediaUploadResponse:
       type: object
+      required: [upload_url, media_url, object_key, expires_in]
       properties:
         upload_url:
           type: string
           description: Presigned S3 upload URL (expires in 15 minutes)
-        picture_url:
+        media_url:
           type: string
-          description: Final public URL of the picture
+          description: Final public URL of the media file
         object_key:
           type: string
           description: S3 object key
@@ -1962,19 +1994,20 @@ components:
           type: integer
           description: URL expiration time in seconds
 
-    PictureDeleteRequest:
+    MediaDeleteRequest:
       type: object
       properties:
         object_key:
           type: string
           description: S3 object key to delete
-        picture_url:
+        media_url:
           type: string
-          description: Picture URL to delete (alternative to object_key)
+          description: Media URL to delete (alternative to object_key)
 
     # Cognito User schemas
     CognitoUser:
       type: object
+      required: [sub, email, email_verified, username, status, enabled, groups, created_at, updated_at]
       properties:
         sub:
           type: string
@@ -2017,6 +2050,7 @@ components:
 
     CognitoUserListResponse:
       type: object
+      required: [items]
       properties:
         items:
           type: array
@@ -2030,6 +2064,7 @@ components:
     # Access Request schemas
     AccessRequest:
       type: object
+      required: [id, ticket_id, organization_name, status, requester_email, requester_id, created_at]
       properties:
         id:
           type: string
@@ -2094,8 +2129,23 @@ components:
           type: boolean
           description: Create a new organization from request (for approval)
 
+    AccessRequestReviewResponse:
+      type: object
+      required: [message, request]
+      properties:
+        message:
+          type: string
+          description: Human-readable result message
+        request:
+          $ref: '#/components/schemas/AccessRequest'
+        organization:
+          $ref: '#/components/schemas/Organization'
+          nullable: true
+          description: The organization assigned or created (only for approval)
+
     AccessRequestListResponse:
       type: object
+      required: [items]
       properties:
         items:
           type: array
@@ -2108,6 +2158,7 @@ components:
     # Audit Log schemas
     AuditLogEntry:
       type: object
+      required: [id, timestamp, table_name, record_id, action, source]
       properties:
         id:
           type: string
@@ -2135,18 +2186,29 @@ components:
           nullable: true
         old_values:
           type: object
+          additionalProperties: true
           nullable: true
           description: Previous field values (sensitive fields redacted)
         new_values:
           type: object
+          additionalProperties: true
           nullable: true
           description: New field values (sensitive fields redacted)
         source:
           type: string
+          description: Source of the audit entry (trigger or application)
+        ip_address:
+          type: string
           nullable: true
+          description: Client IP address if available
+        user_agent:
+          type: string
+          nullable: true
+          description: Client user agent if available
 
     AuditLogListResponse:
       type: object
+      required: [items]
       properties:
         items:
           type: array
@@ -2159,6 +2221,7 @@ components:
     # Organization Suggestion schemas
     OrganizationSuggestion:
       type: object
+      required: [id, ticket_id, organization_name, media_urls, status, suggester_id, suggester_email, created_at]
       properties:
         id:
           type: string
@@ -2207,6 +2270,15 @@ components:
         reviewed_by:
           type: string
           nullable: true
+        admin_notes:
+          type: string
+          nullable: true
+          description: Notes from the reviewing admin
+        created_organization_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: ID of organization created from this suggestion (if approved)
 
     OrganizationSuggestionCreate:
       type: object
@@ -2229,6 +2301,24 @@ components:
           type: string
           maxLength: 500
           description: Suggested address
+        suggested_lat:
+          type: number
+          minimum: -90
+          maximum: 90
+          description: Latitude of the suggested location (-90 to 90)
+        suggested_lng:
+          type: number
+          minimum: -180
+          maximum: 180
+          description: Longitude of the suggested location (-180 to 180)
+        media_urls:
+          type: array
+          maxItems: 20
+          items:
+            type: string
+            format: uri
+            maxLength: 2048
+          description: Optional media URLs for the suggestion
         additional_notes:
           type: string
           maxLength: 5000
@@ -2249,8 +2339,23 @@ components:
           type: boolean
           description: Create organization from suggestion (for approval)
 
+    OrganizationSuggestionReviewResponse:
+      type: object
+      required: [message, suggestion]
+      properties:
+        message:
+          type: string
+          description: Human-readable result message
+        suggestion:
+          $ref: '#/components/schemas/OrganizationSuggestion'
+        organization:
+          $ref: '#/components/schemas/Organization'
+          nullable: true
+          description: The organization created from suggestion (only for approval with create_organization=true)
+
     OrganizationSuggestionListResponse:
       type: object
+      required: [items, pending_count]
       properties:
         items:
           type: array
@@ -2266,6 +2371,7 @@ components:
     # Health Check schemas
     HealthStatus:
       type: object
+      required: [healthy]
       properties:
         healthy:
           type: boolean
@@ -2280,6 +2386,7 @@ components:
 
     HealthCheckResult:
       type: object
+      required: [name, healthy]
       properties:
         name:
           type: string

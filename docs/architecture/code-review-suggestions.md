@@ -806,7 +806,7 @@ void main() {
 **Recommendation**: Add examples, error responses, and more detailed descriptions.
 
 ```yaml
-# docs/api/activities-search.yaml additions
+# docs/api/search.yaml additions
 paths:
   /v1/activities/search:
     get:

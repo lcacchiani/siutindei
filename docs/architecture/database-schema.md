@@ -22,7 +22,8 @@ Columns:
 - `id` (UUID, PK, default `gen_random_uuid()`)
 - `name` (text, required)
 - `description` (text, optional)
-- `picture_urls` (text[], default empty array)
+- `manager_id` (text, required) — Cognito user sub of the organization manager
+- `media_urls` (text[], default empty array)
 - `created_at` (timestamptz, default `now()`)
 - `updated_at` (timestamptz, default `now()`)
 
@@ -137,12 +138,12 @@ Indexes:
 - `activity_schedule_date_idx` on `start_at_utc`, `end_at_utc`
 - `activity_schedule_languages_gin` on `languages` (GIN)
 
-## Table: organizations (additional columns)
+## Table: organizations (migration notes)
 
-The following columns were added after the initial schema:
+The following columns were added/renamed after the initial schema:
 
-- `media_urls` (text[], default empty array) — replaces `picture_urls`
-- `manager_id` (text, optional) — Cognito user sub of the organization manager
+- `media_urls` was originally named `picture_urls` (renamed in migration 0006)
+- `manager_id` was originally named `owner_id` (renamed in migration 0009)
 
 ## Table: organization_access_requests
 

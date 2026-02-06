@@ -71,14 +71,14 @@ function ActionBadge({ action }: { action: AuditLog['action'] }) {
 }
 
 function SourceBadge({ source }: { source: AuditLog['source'] }) {
-  const colors = {
+  const colors: Record<string, string> = {
     trigger: 'bg-slate-100 text-slate-700',
     application: 'bg-purple-100 text-purple-700',
   };
 
   return (
     <span
-      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${colors[source]}`}
+      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${colors[source] ?? 'bg-gray-100 text-gray-700'}`}
     >
       {source}
     </span>

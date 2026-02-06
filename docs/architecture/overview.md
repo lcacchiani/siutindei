@@ -41,7 +41,7 @@ Flutter Mobile / Next.js Admin
   manager CRUD, and user self-service operations.
 - For the full list of API routes, request/response schemas, and
   authentication requirements, see the OpenAPI specs:
-  - [`docs/api/activities-search.yaml`](../api/activities-search.yaml) — public activity search
+  - [`docs/api/search.yaml`](../api/search.yaml) — public activity search
   - [`docs/api/admin.yaml`](../api/admin.yaml) — admin, manager, user, and health endpoints
 - Lambda functions in `backend/lambda/` call into shared code in
   `backend/src/app`.

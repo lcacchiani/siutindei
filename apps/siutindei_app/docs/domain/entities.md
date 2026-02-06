@@ -71,17 +71,17 @@ class OrganizationEntity {
     required this.id,
     required this.name,
     this.description,
-    this.pictureUrls = const [],
+    this.mediaUrls = const [],
   });
 
   final String id;
   final String name;
   final String? description;
-  final List<String> pictureUrls;
+  final List<String> mediaUrls;
 
-  /// Returns the primary picture URL
-  String? get primaryPictureUrl =>
-      pictureUrls.isNotEmpty ? pictureUrls.first : null;
+  /// Returns the primary media URL
+  String? get primaryMediaUrl =>
+      mediaUrls.isNotEmpty ? mediaUrls.first : null;
 }
 ```
 
