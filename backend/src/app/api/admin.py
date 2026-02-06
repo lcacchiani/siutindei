@@ -43,6 +43,9 @@ from app.db.models import OrganizationSuggestion
 from app.db.models import PricingType
 from app.db.models import ScheduleType
 from app.db.models import SuggestionStatus
+from app.db.models import Ticket
+from app.db.models import TicketStatus
+from app.db.models import TicketType
 from app.db.audit import AuditLogRepository, set_audit_context
 from app.db.repositories import (
     ActivityPricingRepository,
@@ -52,6 +55,7 @@ from app.db.repositories import (
     OrganizationRepository,
     OrganizationAccessRequestRepository,
     OrganizationSuggestionRepository,
+    TicketRepository,
 )
 from app.exceptions import NotFoundError, ValidationError
 from app.utils import json_response, parse_datetime, parse_int
@@ -153,12 +157,15 @@ def lambda_handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
             lambda: _handle_delete_cognito_user(event, resource_id),
             event,
         )
+    if resource == "tickets":
+        return _handle_admin_tickets(event, method, resource_id)
+    # Legacy routes redirect to unified tickets handler
     if resource == "access-requests":
-        return _handle_admin_access_requests(event, method, resource_id)
+        return _handle_admin_tickets(event, method, resource_id)
+    if resource == "organization-suggestions":
+        return _handle_admin_tickets(event, method, resource_id)
     if resource == "audit-logs" and method == "GET":
         return _safe_handler(lambda: _handle_audit_logs(event, resource_id), event)
-    if resource == "organization-suggestions":
-        return _handle_admin_organization_suggestions(event, method, resource_id)
 
     # Standard admin CRUD routes (no ownership filtering)
     config = _RESOURCE_CONFIG.get(resource)
@@ -817,20 +824,22 @@ def _handle_user_access_request(
         with Session(get_engine()) as session:
             _set_session_audit_context(session, event)
             org_repo = OrganizationRepository(session)
-            request_repo = OrganizationAccessRequestRepository(session)
+            ticket_repo = TicketRepository(session)
 
             # Get user's organizations
             user_orgs = org_repo.find_by_manager(user_sub)
 
             # Check for pending request
-            pending_request = request_repo.find_pending_by_requester(user_sub)
+            pending_ticket = ticket_repo.find_pending_by_submitter(
+                user_sub, TicketType.ACCESS_REQUEST
+            )
 
             return json_response(
                 200,
                 {
-                    "has_pending_request": pending_request is not None,
-                    "pending_request": _serialize_access_request(pending_request)
-                    if pending_request
+                    "has_pending_request": pending_ticket is not None,
+                    "pending_request": _serialize_ticket(pending_ticket)
+                    if pending_ticket
                     else None,
                     "organizations_count": len(user_orgs),
                 },
@@ -842,14 +851,12 @@ def _handle_user_access_request(
         body = _parse_body(event)
 
         # Validate request fields first (before any DB or SNS operations)
-        # organization_name is required, so _validate_string_length will raise if None
         organization_name_validated = _validate_string_length(
             body.get("organization_name"),
             "organization_name",
             MAX_NAME_LENGTH,
             required=True,
         )
-        # required=True guarantees non-None return, but mypy doesn't know this
         if organization_name_validated is None:
             raise ValidationError(
                 "organization_name is required", field="organization_name"
@@ -874,16 +881,18 @@ def _handle_user_access_request(
 
         with Session(get_engine()) as session:
             _set_session_audit_context(session, event)
-            request_repo = OrganizationAccessRequestRepository(session)
+            ticket_repo = TicketRepository(session)
 
             # Check if user already has a pending request
-            existing = request_repo.find_pending_by_requester(user_sub)
+            existing = ticket_repo.find_pending_by_submitter(
+                user_sub, TicketType.ACCESS_REQUEST
+            )
             if existing:
                 return json_response(
                     409,
                     {
                         "error": "You already have a pending access request",
-                        "request": _serialize_access_request(existing),
+                        "request": _serialize_ticket(existing),
                     },
                     event=event,
                 )
@@ -977,8 +986,8 @@ def _publish_manager_request_to_sns(
 def _generate_ticket_id(session: Session) -> str:
     """Generate a unique progressive ticket ID in format R + 5 digits.
 
-    Queries the database for the highest existing ticket number and
-    increments it by 1. Thread-safe due to database unique constraint.
+    Queries the unified tickets table for the highest existing R-prefix
+    ticket number and increments it by 1.
 
     Args:
         session: SQLAlchemy database session for querying existing tickets.
@@ -986,61 +995,110 @@ def _generate_ticket_id(session: Session) -> str:
     Returns:
         A new ticket ID like R00001, R00002, etc.
     """
-    from sqlalchemy import text
+    from sqlalchemy import text as sa_text
 
-    # Query the highest ticket number from existing requests
     result = session.execute(
-        text(
+        sa_text(
             "SELECT MAX(CAST(SUBSTRING(ticket_id FROM 2) AS BIGINT)) "
-            "FROM organization_access_requests "
+            "FROM tickets "
             "WHERE ticket_id LIKE 'R%'"
         )
     ).scalar()
 
-    # Start from 1 if no existing tickets, otherwise increment
     next_number = (result or 0) + 1
-
     return f"R{next_number:05d}"
 
 
-def _serialize_access_request(
-    request: Optional[OrganizationAccessRequest],
+def _serialize_ticket(
+    ticket: Optional[Ticket],
 ) -> Optional[dict[str, Any]]:
-    """Serialize an access request for the API response."""
-    if request is None:
+    """Serialize a ticket for the API response.
+
+    Returns a unified shape that includes all fields. Consumers can check
+    ticket_type to know which optional fields are relevant.
+    """
+    if ticket is None:
         return None
     return {
-        "id": str(request.id),
-        "ticket_id": request.ticket_id,
-        "organization_name": request.organization_name,
-        "request_message": request.request_message,
-        "status": request.status.value,
-        "requester_email": request.requester_email,
-        "requester_id": request.requester_id,
-        "created_at": request.created_at.isoformat() if request.created_at else None,
-        "reviewed_at": request.reviewed_at.isoformat() if request.reviewed_at else None,
-        "reviewed_by": request.reviewed_by,
+        "id": str(ticket.id),
+        "ticket_id": ticket.ticket_id,
+        "ticket_type": ticket.ticket_type.value,
+        "organization_name": ticket.organization_name,
+        "message": ticket.message,
+        "status": ticket.status.value,
+        "submitter_email": ticket.submitter_email,
+        "submitter_id": ticket.submitter_id,
+        "created_at": (
+            ticket.created_at.isoformat() if ticket.created_at else None
+        ),
+        "reviewed_at": (
+            ticket.reviewed_at.isoformat() if ticket.reviewed_at else None
+        ),
+        "reviewed_by": ticket.reviewed_by,
+        "admin_notes": ticket.admin_notes,
+        # Suggestion-specific fields (null for access_request type)
+        "description": ticket.description,
+        "suggested_district": ticket.suggested_district,
+        "suggested_address": ticket.suggested_address,
+        "suggested_lat": (
+            float(ticket.suggested_lat) if ticket.suggested_lat else None
+        ),
+        "suggested_lng": (
+            float(ticket.suggested_lng) if ticket.suggested_lng else None
+        ),
+        "media_urls": ticket.media_urls or [],
+        "created_organization_id": (
+            str(ticket.created_organization_id)
+            if ticket.created_organization_id
+            else None
+        ),
     }
 
 
-# --- Admin access request management ---
+# --- Backward-compat serializer for user access-request GET endpoint ---
+
+def _serialize_access_request_from_ticket(
+    ticket: Optional[Ticket],
+) -> Optional[dict[str, Any]]:
+    """Serialize a ticket as the legacy access-request shape."""
+    if ticket is None:
+        return None
+    return {
+        "id": str(ticket.id),
+        "ticket_id": ticket.ticket_id,
+        "organization_name": ticket.organization_name,
+        "request_message": ticket.message,
+        "status": ticket.status.value,
+        "requester_email": ticket.submitter_email,
+        "requester_id": ticket.submitter_id,
+        "created_at": (
+            ticket.created_at.isoformat() if ticket.created_at else None
+        ),
+        "reviewed_at": (
+            ticket.reviewed_at.isoformat() if ticket.reviewed_at else None
+        ),
+        "reviewed_by": ticket.reviewed_by,
+    }
 
 
-def _handle_admin_access_requests(
+# --- Admin unified tickets management ---
+
+
+def _handle_admin_tickets(
     event: Mapping[str, Any],
     method: str,
-    request_id: Optional[str],
+    ticket_id_param: Optional[str],
 ) -> dict[str, Any]:
-    """Handle admin access request management.
+    """Handle admin ticket management (unified access requests + suggestions).
 
-    GET: List all access requests (optionally filtered by status)
-    PUT /{id}: Approve or reject an access request
+    GET: List all tickets (optionally filtered by type and/or status)
+    PUT /{id}: Approve or reject a ticket
     """
     try:
         if method == "GET":
-            return _handle_list_access_requests(event)
-        if method == "PUT" and request_id:
-            return _handle_review_access_request(event, request_id)
+            return _list_admin_tickets(event)
+        if method == "PUT" and ticket_id_param:
+            return _review_ticket(event, ticket_id_param)
         return json_response(405, {"error": "Method not allowed"}, event=event)
     except ValidationError as exc:
         logger.warning(f"Validation error: {exc.message}")
@@ -1048,69 +1106,92 @@ def _handle_admin_access_requests(
     except NotFoundError as exc:
         return json_response(exc.status_code, exc.to_dict(), event=event)
     except Exception as exc:
-        logger.exception("Unexpected error in admin access requests handler")
+        logger.exception("Unexpected error in admin tickets handler")
         return json_response(
             500, {"error": "Internal server error", "detail": str(exc)}, event=event
         )
 
 
-def _handle_list_access_requests(event: Mapping[str, Any]) -> dict[str, Any]:
-    """List all access requests for admin review."""
-    from app.db.models import AccessRequestStatus
-
+def _list_admin_tickets(event: Mapping[str, Any]) -> dict[str, Any]:
+    """List all tickets for admin review."""
     limit = parse_int(_query_param(event, "limit")) or 50
     if limit < 1 or limit > 200:
         raise ValidationError("limit must be between 1 and 200", field="limit")
 
+    # Parse status filter
     status_filter = _query_param(event, "status")
     status = None
     if status_filter:
         try:
-            status = AccessRequestStatus(status_filter)
+            status = TicketStatus(status_filter)
         except ValueError:
             raise ValidationError(
-                f"Invalid status: {status_filter}. Must be pending, approved, or rejected",
+                f"Invalid status: {status_filter}. "
+                "Must be pending, approved, or rejected",
                 field="status",
+            )
+
+    # Parse ticket_type filter
+    type_filter = _query_param(event, "ticket_type")
+    ticket_type = None
+    if type_filter:
+        try:
+            ticket_type = TicketType(type_filter)
+        except ValueError:
+            raise ValidationError(
+                f"Invalid ticket_type: {type_filter}. "
+                "Must be access_request or organization_suggestion",
+                field="ticket_type",
             )
 
     with Session(get_engine()) as session:
         _set_session_audit_context(session, event)
-        repo = OrganizationAccessRequestRepository(session)
+        repo = TicketRepository(session)
         cursor = _parse_cursor(_query_param(event, "cursor"))
-        rows = repo.find_all(status=status, limit=limit + 1, cursor=cursor)
+        rows = repo.find_all(
+            ticket_type=ticket_type,
+            status=status,
+            limit=limit + 1,
+            cursor=cursor,
+        )
         has_more = len(rows) > limit
         trimmed = list(rows)[:limit]
-        next_cursor = _encode_cursor(trimmed[-1].id) if has_more and trimmed else None
+        next_cursor = (
+            _encode_cursor(trimmed[-1].id) if has_more and trimmed else None
+        )
+
+        pending_count = repo.count_pending(ticket_type=ticket_type)
 
         return json_response(
             200,
             {
-                "items": [_serialize_access_request(row) for row in trimmed],
+                "items": [_serialize_ticket(row) for row in trimmed],
                 "next_cursor": next_cursor,
+                "pending_count": pending_count,
             },
             event=event,
         )
 
 
-def _handle_review_access_request(
+def _review_ticket(
     event: Mapping[str, Any],
-    request_id: str,
+    ticket_id_param: str,
 ) -> dict[str, Any]:
-    """Approve or reject an access request.
+    """Approve or reject a ticket (access request or suggestion).
 
-    When approving, the admin can either:
+    For access requests, approving can:
     - Assign an existing organization (organization_id)
     - Create a new organization (create_organization=True)
+    The submitter becomes manager and is added to the 'manager' group.
 
-    In both cases, the requester becomes the manager of the organization
-    and is added to the 'manager' Cognito group.
+    For suggestions, approving can optionally create an organization
+    from the suggestion data (create_organization=True).
     """
     from datetime import datetime, timezone
-    from app.db.models import AccessRequestStatus
 
     body = _parse_body(event)
     action = body.get("action")
-    admin_message = body.get("message", "")
+    admin_notes = body.get("admin_notes") or body.get("message", "")
 
     if action not in ("approve", "reject"):
         raise ValidationError(
@@ -1122,165 +1203,255 @@ def _handle_review_access_request(
     if not reviewer_sub:
         return json_response(401, {"error": "User identity not found"}, event=event)
 
-    # For approval, validate organization options
     organization_id = body.get("organization_id")
     create_organization = body.get("create_organization", False)
 
-    if action == "approve":
-        if not organization_id and not create_organization:
-            raise ValidationError(
-                "When approving, you must either provide organization_id "
-                "or set create_organization to true",
-                field="organization_id",
-            )
-        if organization_id and create_organization:
-            raise ValidationError(
-                "Cannot both select an existing organization and create a new one",
-                field="organization_id",
-            )
-
     with Session(get_engine()) as session:
         _set_session_audit_context(session, event)
-        repo = OrganizationAccessRequestRepository(session)
-        request = repo.get_by_id(_parse_uuid(request_id))
+        repo = TicketRepository(session)
+        ticket = repo.get_by_id(_parse_uuid(ticket_id_param))
 
-        if request is None:
-            raise NotFoundError("access_request", request_id)
+        if ticket is None:
+            raise NotFoundError("ticket", ticket_id_param)
 
-        if request.status != AccessRequestStatus.PENDING:
+        if ticket.status != TicketStatus.PENDING:
             return json_response(
                 409,
-                {"error": f"Request has already been {request.status.value}"},
+                {"error": f"Ticket has already been {ticket.status.value}"},
                 event=event,
             )
 
         organization = None
 
-        # Handle organization assignment/creation for approval
-        if action == "approve":
+        # --- Access request approval logic ---
+        if (
+            ticket.ticket_type == TicketType.ACCESS_REQUEST
+            and action == "approve"
+        ):
+            if not organization_id and not create_organization:
+                raise ValidationError(
+                    "When approving an access request, you must either "
+                    "provide organization_id or set create_organization to true",
+                    field="organization_id",
+                )
+            if organization_id and create_organization:
+                raise ValidationError(
+                    "Cannot both select an existing organization and create a new one",
+                    field="organization_id",
+                )
+
             org_repo = OrganizationRepository(session)
 
             if organization_id:
-                # Assign existing organization to the requester
-                organization = org_repo.get_by_id(_parse_uuid(organization_id))
+                organization = org_repo.get_by_id(
+                    _parse_uuid(organization_id)
+                )
                 if organization is None:
                     raise NotFoundError("organization", organization_id)
-
-                # Update the manager to be the requester
-                organization.manager_id = request.requester_id
+                organization.manager_id = ticket.submitter_id
                 org_repo.update(organization)
                 logger.info(
-                    f"Assigned organization {organization_id} to user {request.requester_id}"
+                    f"Assigned organization {organization_id} "
+                    f"to user {ticket.submitter_id}"
                 )
-
             elif create_organization:
-                # Create a new organization with the requested name
                 organization = Organization(
-                    name=request.organization_name,
+                    name=ticket.organization_name,
                     description=None,
-                    manager_id=request.requester_id,
+                    manager_id=ticket.submitter_id,
                     media_urls=[],
                 )
                 org_repo.create(organization)
                 logger.info(
-                    f"Created organization '{request.organization_name}' "
-                    f"for user {request.requester_id}"
+                    f"Created organization '{ticket.organization_name}' "
+                    f"for user {ticket.submitter_id}"
                 )
 
             # Add the user to the 'manager' Cognito group
-            _add_user_to_manager_group(request.requester_id)
+            _add_user_to_manager_group(ticket.submitter_id)
 
-        # Update the request status
+        # --- Suggestion approval logic ---
+        if (
+            ticket.ticket_type == TicketType.ORGANIZATION_SUGGESTION
+            and action == "approve"
+            and create_organization
+        ):
+            org_repo = OrganizationRepository(session)
+            location_repo = LocationRepository(session)
+
+            organization = Organization(
+                name=ticket.organization_name,
+                description=ticket.description,
+                manager_id=reviewer_sub,  # Admin becomes temporary manager
+                media_urls=ticket.media_urls or [],
+            )
+            org_repo.create(organization)
+
+            if ticket.suggested_district:
+                location = Location(
+                    org_id=organization.id,
+                    district=ticket.suggested_district,
+                    address=ticket.suggested_address,
+                    lat=ticket.suggested_lat,
+                    lng=ticket.suggested_lng,
+                )
+                location_repo.create(location)
+
+            ticket.created_organization_id = organization.id
+            logger.info(
+                f"Created organization '{ticket.organization_name}' "
+                f"from suggestion {ticket.ticket_id}"
+            )
+
+        # Update the ticket status
         new_status = (
-            AccessRequestStatus.APPROVED
+            TicketStatus.APPROVED
             if action == "approve"
-            else AccessRequestStatus.REJECTED
+            else TicketStatus.REJECTED
         )
-        request.status = new_status
-        request.reviewed_at = datetime.now(timezone.utc)
-        request.reviewed_by = reviewer_sub
+        ticket.status = new_status
+        ticket.reviewed_at = datetime.now(timezone.utc)
+        ticket.reviewed_by = reviewer_sub
+        ticket.admin_notes = admin_notes
 
-        repo.update(request)
+        repo.update(ticket)
         session.commit()
-        session.refresh(request)
+        session.refresh(ticket)
 
         if organization:
             session.refresh(organization)
 
-        logger.info(f"Access request {request_id} {action}d by {reviewer_sub}")
+        logger.info(
+            f"Ticket {ticket_id_param} {action}d by {reviewer_sub}"
+        )
 
-        # Send notification email to the requester
-        _send_request_decision_email(request, action, admin_message)
+        # Send notification email to the submitter
+        _send_ticket_decision_email(ticket, action, admin_notes)
 
         response_data: dict[str, Any] = {
-            "message": f"Request has been {action}d",
-            "request": _serialize_access_request(request),
+            "message": f"Ticket has been {action}d",
+            "ticket": _serialize_ticket(ticket),
         }
 
         if organization:
-            response_data["organization"] = _serialize_organization(organization)
+            response_data["organization"] = _serialize_organization(
+                organization
+            )
 
         return json_response(200, response_data, event=event)
 
 
-def _send_request_decision_email(
-    request: OrganizationAccessRequest,
+def _send_ticket_decision_email(
+    ticket: Ticket,
     action: str,
-    admin_message: str,
+    admin_notes: str,
 ) -> None:
-    """Send email notification to requester about their request decision.
+    """Send email notification to submitter about their ticket decision.
 
-    Email template is defined in app/templates/email_templates.py
-
-    Args:
-        request: The access request that was reviewed.
-        action: Either 'approve' or 'reject'.
-        admin_message: Optional message from the admin.
+    For access requests, uses the formal approve/reject template.
+    For suggestions, uses the informal suggestion outcome email.
     """
-    from app.templates import render_request_decision_email
-
     sender_email = os.getenv("SES_SENDER_EMAIL")
 
     if not sender_email:
         logger.warning("Email notification skipped: SES_SENDER_EMAIL not configured")
         return
 
-    if not request.requester_email or request.requester_email == "unknown":
+    if not ticket.submitter_email or ticket.submitter_email == "unknown":
         logger.warning(
-            f"Email notification skipped: No valid email for request {request.ticket_id}"
+            f"Email notification skipped: No valid email for "
+            f"ticket {ticket.ticket_id}"
         )
         return
 
     try:
         ses_client = boto3.client("ses")
 
-        email_content = render_request_decision_email(
-            ticket_id=request.ticket_id,
-            organization_name=request.organization_name,
-            reviewed_at=request.reviewed_at.isoformat()
-            if request.reviewed_at
-            else "Unknown",
-            action=action,
-            admin_message=admin_message if admin_message else None,
-        )
+        if ticket.ticket_type == TicketType.ACCESS_REQUEST:
+            from app.templates import render_request_decision_email
 
-        ses_client.send_email(
-            Source=sender_email,
-            Destination={"ToAddresses": [request.requester_email]},
-            Message={
-                "Subject": {"Data": email_content.subject, "Charset": "UTF-8"},
-                "Body": {
-                    "Text": {"Data": email_content.body_text, "Charset": "UTF-8"},
-                    "Html": {"Data": email_content.body_html, "Charset": "UTF-8"},
+            email_content = render_request_decision_email(
+                ticket_id=ticket.ticket_id,
+                organization_name=ticket.organization_name,
+                reviewed_at=(
+                    ticket.reviewed_at.isoformat()
+                    if ticket.reviewed_at
+                    else "Unknown"
+                ),
+                action=action,
+                admin_message=admin_notes if admin_notes else None,
+            )
+
+            ses_client.send_email(
+                Source=sender_email,
+                Destination={"ToAddresses": [ticket.submitter_email]},
+                Message={
+                    "Subject": {
+                        "Data": email_content.subject,
+                        "Charset": "UTF-8",
+                    },
+                    "Body": {
+                        "Text": {
+                            "Data": email_content.body_text,
+                            "Charset": "UTF-8",
+                        },
+                        "Html": {
+                            "Data": email_content.body_html,
+                            "Charset": "UTF-8",
+                        },
+                    },
                 },
-            },
-        )
+            )
+        else:
+            # Suggestion decision - inline email (same as before)
+            if action == "approve":
+                subject = (
+                    f"Your place suggestion {ticket.ticket_id} "
+                    f"has been approved!"
+                )
+                body_text = (
+                    f"Great news! Your suggestion for "
+                    f"'{ticket.organization_name}' has been approved "
+                    f"and added to our platform.\n\n"
+                    f"Thank you for helping us grow our community!\n\n"
+                )
+                if admin_notes:
+                    body_text += f"Note from admin: {admin_notes}\n"
+            else:
+                subject = (
+                    f"Update on your place suggestion {ticket.ticket_id}"
+                )
+                body_text = (
+                    f"Thank you for suggesting "
+                    f"'{ticket.organization_name}'.\n\n"
+                    f"Unfortunately, we were unable to add this place "
+                    f"to our platform at this time.\n\n"
+                )
+                if admin_notes:
+                    body_text += f"Reason: {admin_notes}\n"
+                body_text += (
+                    "\nWe appreciate your contribution and encourage "
+                    "you to submit other suggestions in the future!"
+                )
+
+            ses_client.send_email(
+                Source=sender_email,
+                Destination={"ToAddresses": [ticket.submitter_email]},
+                Message={
+                    "Subject": {"Data": subject, "Charset": "UTF-8"},
+                    "Body": {
+                        "Text": {"Data": body_text, "Charset": "UTF-8"},
+                    },
+                },
+            )
+
         logger.info(
-            f"Request decision email sent to {request.requester_email} for {request.ticket_id}"
+            f"Ticket decision email sent to {ticket.submitter_email} "
+            f"for {ticket.ticket_id}"
         )
     except Exception as exc:
         # Don't fail the request if email fails
-        logger.error(f"Failed to send request decision email: {exc}")
+        logger.error(f"Failed to send ticket decision email: {exc}")
 
 
 # --- Organization suggestion management (user routes) ---
@@ -1321,19 +1492,23 @@ def _get_user_suggestions(
     """Get the current user's suggestion history."""
     with Session(get_engine()) as session:
         _set_session_audit_context(session, event)
-        repo = OrganizationSuggestionRepository(session)
+        repo = TicketRepository(session)
 
         # Get user's suggestions
-        suggestions = repo.find_by_suggester(user_sub, limit=50)
+        suggestions = repo.find_by_submitter(
+            user_sub, ticket_type=TicketType.ORGANIZATION_SUGGESTION, limit=50
+        )
 
         # Check for pending suggestion
-        pending = repo.find_pending_by_suggester(user_sub)
+        pending = repo.find_pending_by_submitter(
+            user_sub, TicketType.ORGANIZATION_SUGGESTION
+        )
 
         return json_response(
             200,
             {
                 "has_pending_suggestion": pending is not None,
-                "suggestions": [_serialize_suggestion(s) for s in suggestions],
+                "suggestions": [_serialize_ticket(s) for s in suggestions],
             },
             event=event,
         )
@@ -1402,15 +1577,17 @@ def _submit_organization_suggestion(
     # Check for existing pending suggestion
     with Session(get_engine()) as session:
         _set_session_audit_context(session, event)
-        repo = OrganizationSuggestionRepository(session)
+        repo = TicketRepository(session)
 
-        existing = repo.find_pending_by_suggester(user_sub)
+        existing = repo.find_pending_by_submitter(
+            user_sub, TicketType.ORGANIZATION_SUGGESTION
+        )
         if existing:
             return json_response(
                 409,
                 {
                     "error": "You already have a pending suggestion",
-                    "suggestion": _serialize_suggestion(existing),
+                    "suggestion": _serialize_ticket(existing),
                 },
                 event=event,
             )
@@ -1518,12 +1695,12 @@ def _generate_suggestion_ticket_id(session: Session) -> str:
 
     Format: S + 5 digits (e.g., S00001, S00002)
     """
-    from sqlalchemy import text
+    from sqlalchemy import text as sa_text
 
     result = session.execute(
-        text(
+        sa_text(
             "SELECT MAX(CAST(SUBSTRING(ticket_id FROM 2) AS BIGINT)) "
-            "FROM organization_suggestions "
+            "FROM tickets "
             "WHERE ticket_id LIKE 'S%'"
         )
     ).scalar()
@@ -1532,286 +1709,14 @@ def _generate_suggestion_ticket_id(session: Session) -> str:
     return f"S{next_number:05d}"
 
 
-def _serialize_suggestion(
-    suggestion: Optional[OrganizationSuggestion],
-) -> Optional[dict[str, Any]]:
-    """Serialize an organization suggestion for the API response."""
-    if suggestion is None:
-        return None
-    return {
-        "id": str(suggestion.id),
-        "ticket_id": suggestion.ticket_id,
-        "organization_name": suggestion.organization_name,
-        "description": suggestion.description,
-        "suggested_district": suggestion.suggested_district,
-        "suggested_address": suggestion.suggested_address,
-        "suggested_lat": (
-            float(suggestion.suggested_lat) if suggestion.suggested_lat else None
-        ),
-        "suggested_lng": (
-            float(suggestion.suggested_lng) if suggestion.suggested_lng else None
-        ),
-        "media_urls": suggestion.media_urls or [],
-        "additional_notes": suggestion.additional_notes,
-        "status": suggestion.status.value,
-        "suggester_id": suggestion.suggester_id,
-        "suggester_email": suggestion.suggester_email,
-        "created_at": (
-            suggestion.created_at.isoformat() if suggestion.created_at else None
-        ),
-        "reviewed_at": (
-            suggestion.reviewed_at.isoformat() if suggestion.reviewed_at else None
-        ),
-        "reviewed_by": suggestion.reviewed_by,
-        "admin_notes": suggestion.admin_notes,
-        "created_organization_id": (
-            str(suggestion.created_organization_id)
-            if suggestion.created_organization_id
-            else None
-        ),
-    }
+
+# (Old _serialize_suggestion, _handle_admin_organization_suggestions,
+# _list_admin_suggestions removed — replaced by unified ticket handlers above)
 
 
-# --- Admin organization suggestion management ---
 
-
-def _handle_admin_organization_suggestions(
-    event: Mapping[str, Any],
-    method: str,
-    suggestion_id: Optional[str],
-) -> dict[str, Any]:
-    """Handle admin organization suggestion management.
-
-    GET: List all suggestions (optionally filtered by status)
-    PUT /{id}: Approve or reject a suggestion
-    """
-    try:
-        if method == "GET":
-            return _list_admin_suggestions(event)
-        if method == "PUT" and suggestion_id:
-            return _review_suggestion(event, suggestion_id)
-        return json_response(405, {"error": "Method not allowed"}, event=event)
-    except ValidationError as exc:
-        logger.warning(f"Validation error: {exc.message}")
-        return json_response(exc.status_code, exc.to_dict(), event=event)
-    except NotFoundError as exc:
-        return json_response(exc.status_code, exc.to_dict(), event=event)
-    except Exception as exc:
-        logger.exception("Unexpected error in admin suggestions handler")
-        return json_response(
-            500, {"error": "Internal server error", "detail": str(exc)}, event=event
-        )
-
-
-def _list_admin_suggestions(event: Mapping[str, Any]) -> dict[str, Any]:
-    """List all organization suggestions for admin review."""
-    limit = parse_int(_query_param(event, "limit")) or 50
-    if limit < 1 or limit > 200:
-        raise ValidationError("limit must be between 1 and 200", field="limit")
-
-    status_filter = _query_param(event, "status")
-    status = None
-    if status_filter:
-        try:
-            status = SuggestionStatus(status_filter)
-        except ValueError:
-            raise ValidationError(
-                f"Invalid status: {status_filter}. Must be pending, approved, or rejected",
-                field="status",
-            )
-
-    with Session(get_engine()) as session:
-        _set_session_audit_context(session, event)
-        repo = OrganizationSuggestionRepository(session)
-        cursor = _parse_cursor(_query_param(event, "cursor"))
-        rows = repo.find_all(status=status, limit=limit + 1, cursor=cursor)
-        has_more = len(rows) > limit
-        trimmed = list(rows)[:limit]
-        next_cursor = _encode_cursor(trimmed[-1].id) if has_more and trimmed else None
-
-        # Also return count of pending suggestions
-        pending_count = repo.count_pending()
-
-        return json_response(
-            200,
-            {
-                "items": [_serialize_suggestion(row) for row in trimmed],
-                "next_cursor": next_cursor,
-                "pending_count": pending_count,
-            },
-            event=event,
-        )
-
-
-def _review_suggestion(
-    event: Mapping[str, Any],
-    suggestion_id: str,
-) -> dict[str, Any]:
-    """Approve or reject an organization suggestion.
-
-    When approving, the admin can optionally create an organization
-    from the suggestion data.
-    """
-    from datetime import datetime, timezone
-
-    body = _parse_body(event)
-    action = body.get("action")
-    admin_notes = body.get("admin_notes", "")
-    create_organization = body.get("create_organization", False)
-
-    if action not in ("approve", "reject"):
-        raise ValidationError(
-            "action must be 'approve' or 'reject'",
-            field="action",
-        )
-
-    reviewer_sub = _get_user_sub(event)
-    if not reviewer_sub:
-        return json_response(401, {"error": "User identity not found"}, event=event)
-
-    with Session(get_engine()) as session:
-        _set_session_audit_context(session, event)
-        repo = OrganizationSuggestionRepository(session)
-        suggestion = repo.get_by_id(_parse_uuid(suggestion_id))
-
-        if suggestion is None:
-            raise NotFoundError("organization_suggestion", suggestion_id)
-
-        if suggestion.status != SuggestionStatus.PENDING:
-            return json_response(
-                409,
-                {"error": f"Suggestion has already been {suggestion.status.value}"},
-                event=event,
-            )
-
-        created_org = None
-
-        # If approving and create_organization is True, create the organization
-        if action == "approve" and create_organization:
-            org_repo = OrganizationRepository(session)
-            location_repo = LocationRepository(session)
-
-            # Create the organization (without a manager - it's a public suggestion)
-            # Admin will need to assign a manager later or manage it themselves
-            created_org = Organization(
-                name=suggestion.organization_name,
-                description=suggestion.description,
-                manager_id=reviewer_sub,  # Admin who approved becomes temporary manager
-                media_urls=suggestion.media_urls or [],
-            )
-            org_repo.create(created_org)
-
-            # Create location if district was provided
-            if suggestion.suggested_district:
-                location = Location(
-                    org_id=created_org.id,
-                    district=suggestion.suggested_district,
-                    address=suggestion.suggested_address,
-                    lat=suggestion.suggested_lat,
-                    lng=suggestion.suggested_lng,
-                )
-                location_repo.create(location)
-
-            suggestion.created_organization_id = created_org.id
-            logger.info(
-                f"Created organization '{suggestion.organization_name}' "
-                f"from suggestion {suggestion.ticket_id}"
-            )
-
-        # Update the suggestion status
-        new_status = (
-            SuggestionStatus.APPROVED
-            if action == "approve"
-            else SuggestionStatus.REJECTED
-        )
-        suggestion.status = new_status
-        suggestion.reviewed_at = datetime.now(timezone.utc)
-        suggestion.reviewed_by = reviewer_sub
-        suggestion.admin_notes = admin_notes
-
-        repo.update(suggestion)
-        session.commit()
-        session.refresh(suggestion)
-
-        if created_org:
-            session.refresh(created_org)
-
-        logger.info(f"Suggestion {suggestion_id} {action}d by {reviewer_sub}")
-
-        # Send notification email to the suggester
-        _send_suggestion_decision_email(suggestion, action, admin_notes)
-
-        response_data: dict[str, Any] = {
-            "message": f"Suggestion has been {action}d",
-            "suggestion": _serialize_suggestion(suggestion),
-        }
-
-        if created_org:
-            response_data["organization"] = _serialize_organization(created_org)
-
-        return json_response(200, response_data, event=event)
-
-
-def _send_suggestion_decision_email(
-    suggestion: OrganizationSuggestion,
-    action: str,
-    admin_notes: str,
-) -> None:
-    """Send email notification to suggester about their suggestion decision."""
-    sender_email = os.getenv("SES_SENDER_EMAIL")
-
-    if not sender_email:
-        logger.warning("Email notification skipped: SES_SENDER_EMAIL not configured")
-        return
-
-    if not suggestion.suggester_email or suggestion.suggester_email == "unknown":
-        logger.warning(
-            f"Email notification skipped: No valid email for suggestion "
-            f"{suggestion.ticket_id}"
-        )
-        return
-
-    try:
-        ses_client = boto3.client("ses")
-
-        if action == "approve":
-            subject = f"Your place suggestion {suggestion.ticket_id} has been approved!"
-            body_text = (
-                f"Great news! Your suggestion for '{suggestion.organization_name}' "
-                f"has been approved and added to our platform.\n\n"
-                f"Thank you for helping us grow our community!\n\n"
-            )
-            if admin_notes:
-                body_text += f"Note from admin: {admin_notes}\n"
-        else:
-            subject = f"Update on your place suggestion {suggestion.ticket_id}"
-            body_text = (
-                f"Thank you for suggesting '{suggestion.organization_name}'.\n\n"
-                f"Unfortunately, we were unable to add this place to our platform "
-                f"at this time.\n\n"
-            )
-            if admin_notes:
-                body_text += f"Reason: {admin_notes}\n"
-            body_text += (
-                "\nWe appreciate your contribution and encourage you to "
-                "submit other suggestions in the future!"
-            )
-
-        ses_client.send_email(
-            Source=sender_email,
-            Destination={"ToAddresses": [suggestion.suggester_email]},
-            Message={
-                "Subject": {"Data": subject, "Charset": "UTF-8"},
-                "Body": {"Text": {"Data": body_text, "Charset": "UTF-8"}},
-            },
-        )
-        logger.info(
-            f"Suggestion decision email sent to {suggestion.suggester_email} "
-            f"for {suggestion.ticket_id}"
-        )
-    except Exception as exc:
-        # Don't fail the request if email fails
-        logger.error(f"Failed to send suggestion decision email: {exc}")
+# (Old _review_suggestion and _send_suggestion_decision_email removed —
+# replaced by unified _review_ticket and _send_ticket_decision_email above)
 
 
 # --- Audit log management ---
@@ -1836,8 +1741,7 @@ AUDITABLE_TABLES: frozenset[str] = frozenset(
         "activity_locations",
         "activity_pricing",
         "activity_schedule",
-        "organization_access_requests",
-        "organization_suggestions",
+        "tickets",
     ]
 )
 
