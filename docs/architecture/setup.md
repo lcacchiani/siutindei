@@ -133,11 +133,35 @@ Optional env vars used by CDK:
 - `EXISTING_LAMBDA_SECURITY_GROUP_ID`
 - `EXISTING_MIGRATION_SECURITY_GROUP_ID`
 - `MIGRATIONS_FORCE_RUN_ID`
+- `ENABLE_DATA_API`
 
 If any existing DB secrets use a customer-managed KMS key, provide the
 matching `*_SECRET_KMS_KEY_ARN` value so Lambda roles can decrypt the
 secret. The deploy workflow attempts to auto-detect KMS key ARNs for
 existing secrets when possible.
+
+### Enable RDS Data API (Query Editor)
+
+Aurora PostgreSQL Serverless v2 supports the RDS Data API (HTTP
+endpoint), which powers the AWS Query Editor. It is disabled by default
+in this project.
+
+To enable it on a new cluster:
+- Set `ENABLE_DATA_API=true` when deploying the backend stack.
+- Redeploy the backend (CDK deploy).
+
+If you are importing an existing cluster, enable the HTTP endpoint
+directly:
+
+```bash
+aws rds modify-db-cluster \
+  --db-cluster-identifier <cluster-id> \
+  --enable-http-endpoint
+```
+
+Ensure your IAM principal has permissions for:
+- `rds-data:ExecuteStatement` (and related actions)
+- `secretsmanager:GetSecretValue` on the database secret
 
 ## How to obtain provider values
 

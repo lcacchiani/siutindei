@@ -60,6 +60,8 @@ export interface DatabaseConstructProps {
   dbProxyEndpoint?: string;
   /** Manage ingress rules on security groups (optional). */
   manageSecurityGroupRules?: boolean;
+  /** Enable Aurora Data API (HTTP endpoint). */
+  enableDataApi?: boolean;
   /** Apply immutable DB settings like encryption and IAM auth. */
   applyImmutableSettings?: boolean;
 }
@@ -123,6 +125,7 @@ export class DatabaseConstruct extends Construct {
     const dbProxyArn = props.dbProxyArn?.trim();
     const dbProxyEndpoint = props.dbProxyEndpoint?.trim();
     this.manageSecurityGroupRules = props.manageSecurityGroupRules ?? true;
+    const enableDataApi = props.enableDataApi ?? false;
     const applyImmutableSettings = props.applyImmutableSettings ?? true;
 
     const useExistingCluster = Boolean(
@@ -400,6 +403,12 @@ export class DatabaseConstruct extends Construct {
         securityGroups: [this.dbSecurityGroup],
       });
       this.cluster = cluster;
+
+      const clusterResource =
+        cluster.node.defaultChild as rds.CfnDBCluster | undefined;
+      if (clusterResource) {
+        clusterResource.enableHttpEndpoint = enableDataApi;
+      }
 
       for (const child of cluster.node.findAll()) {
         if (child instanceof rds.CfnDBInstance) {
