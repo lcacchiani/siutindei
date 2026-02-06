@@ -2004,6 +2004,18 @@ export class ApiStack extends cdk.Stack {
       authorizer: userAuthorizer,
     });
 
+    // Organization suggestion (suggest a new place/organization)
+    // Any logged-in user can suggest places for the platform
+    const userOrgSuggestion = user.addResource("organization-suggestion");
+    userOrgSuggestion.addMethod("GET", adminIntegration, {
+      authorizationType: apigateway.AuthorizationType.CUSTOM,
+      authorizer: userAuthorizer,
+    });
+    userOrgSuggestion.addMethod("POST", adminIntegration, {
+      authorizationType: apigateway.AuthorizationType.CUSTOM,
+      authorizer: userAuthorizer,
+    });
+
     // ---------------------------------------------------------------------
     // Admin Bootstrap (Conditional)
     // ---------------------------------------------------------------------
