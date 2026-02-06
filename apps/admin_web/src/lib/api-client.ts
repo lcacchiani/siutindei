@@ -763,3 +763,72 @@ export async function getAuditLog(
 ): Promise<import('../types/admin').AuditLog> {
   return request<import('../types/admin').AuditLog>(buildAuditLogsUrl(id));
 }
+
+// --- Admin Organization Suggestions ---
+
+export interface OrganizationSuggestionsResponse {
+  items: import('../types/admin').OrganizationSuggestion[];
+  next_cursor?: string | null;
+  pending_count: number;
+}
+
+export interface ReviewSuggestionPayload {
+  action: 'approve' | 'reject';
+  admin_notes?: string;
+  /** Create organization from suggestion data (for approval) */
+  create_organization?: boolean;
+}
+
+export interface ReviewSuggestionResponse {
+  message: string;
+  suggestion: import('../types/admin').OrganizationSuggestion;
+  /** The organization that was created (only for approval with create_organization=true) */
+  organization?: import('../types/admin').Organization;
+}
+
+function buildOrganizationSuggestionsUrl(id?: string) {
+  const base = getApiBaseUrl();
+  const normalized = base.endsWith('/') ? base : `${base}/`;
+  const suffix = id
+    ? `v1/admin/organization-suggestions/${id}`
+    : 'v1/admin/organization-suggestions';
+  return new URL(suffix, normalized).toString();
+}
+
+/**
+ * List organization suggestions for admin review.
+ */
+export async function listOrganizationSuggestions(
+  status?: 'pending' | 'approved' | 'rejected',
+  cursor?: string,
+  limit = 50
+): Promise<OrganizationSuggestionsResponse> {
+  const url = new URL(buildOrganizationSuggestionsUrl());
+  url.searchParams.set('limit', `${limit}`);
+  if (status) {
+    url.searchParams.set('status', status);
+  }
+  if (cursor) {
+    url.searchParams.set('cursor', cursor);
+  }
+  return request<OrganizationSuggestionsResponse>(url.toString());
+}
+
+/**
+ * Approve or reject an organization suggestion.
+ */
+export async function reviewOrganizationSuggestion(
+  id: string,
+  payload: ReviewSuggestionPayload
+): Promise<ReviewSuggestionResponse> {
+  return request<ReviewSuggestionResponse>(
+    buildOrganizationSuggestionsUrl(id),
+    {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    }
+  );
+}
