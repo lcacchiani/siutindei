@@ -809,6 +809,10 @@ export class ApiStack extends cdk.Stack {
       securityGroups: [lambdaSecurityGroup],
     });
 
+    // Factory for Lambda functions that run outside VPC (for authorizers that
+    // need to fetch JWKS from public Cognito endpoints)
+    const noVpcLambdaFactory = new PythonLambdaFactory(this, {});
+
     // Helper to create Lambda functions using the factory
     // Function names use the standard prefix for consistent naming and
     // to ensure log groups follow the /aws/lambda/{functionName} convention.
@@ -821,15 +825,19 @@ export class ApiStack extends cdk.Stack {
         extraCopyPaths?: string[];
         securityGroups?: ec2.ISecurityGroup[];
         memorySize?: number;
+        // Set to true for functions that need internet access but not database
+        // access (e.g., authorizers that fetch JWKS from Cognito)
+        noVpc?: boolean;
       }
     ) => {
-      const pythonLambda = lambdaFactory.create(id, {
+      const factory = props.noVpc ? noVpcLambdaFactory : lambdaFactory;
+      const pythonLambda = factory.create(id, {
         functionName: name(id),
         handler: props.handler,
         environment: props.environment,
         timeout: props.timeout,
         extraCopyPaths: props.extraCopyPaths,
-        securityGroups: props.securityGroups ?? [lambdaSecurityGroup],
+        securityGroups: props.noVpc ? undefined : (props.securityGroups ?? [lambdaSecurityGroup]),
         memorySize: props.memorySize,
       });
       return pythonLambda.function;
@@ -1278,12 +1286,14 @@ export class ApiStack extends cdk.Stack {
     );
 
     // Device attestation authorizer
+    // NOTE: Runs outside VPC to fetch JWKS from Firebase's public endpoint
     const deviceAttestationFunction = createPythonFunction(
       "DeviceAttestationAuthorizer",
       {
         handler: "lambda/authorizers/device_attestation/handler.lambda_handler",
         memorySize: 256,
         timeout: cdk.Duration.seconds(5),
+        noVpc: true,
         environment: {
           ATTESTATION_JWKS_URL: deviceAttestationJwksUrl.valueAsString,
           ATTESTATION_ISSUER: deviceAttestationIssuer.valueAsString,
@@ -1307,12 +1317,14 @@ export class ApiStack extends cdk.Stack {
     );
 
     // Cognito group-based authorizer for admin-only endpoints
+    // NOTE: Runs outside VPC to fetch JWKS from Cognito's public endpoint
     const adminGroupAuthorizerFunction = createPythonFunction(
       "AdminGroupAuthorizerFunction",
       {
         handler: "lambda/authorizers/cognito_group/handler.lambda_handler",
         memorySize: 256,
         timeout: cdk.Duration.seconds(5),
+        noVpc: true,
         environment: {
           ALLOWED_GROUPS: adminGroupName,
         },
@@ -1330,12 +1342,14 @@ export class ApiStack extends cdk.Stack {
     );
 
     // Cognito group-based authorizer for manager endpoints (admin OR manager)
+    // NOTE: Runs outside VPC to fetch JWKS from Cognito's public endpoint
     const managerGroupAuthorizerFunction = createPythonFunction(
       "ManagerGroupAuthorizerFunction",
       {
         handler: "lambda/authorizers/cognito_group/handler.lambda_handler",
         memorySize: 256,
         timeout: cdk.Duration.seconds(5),
+        noVpc: true,
         environment: {
           ALLOWED_GROUPS: `${adminGroupName},${managerGroupName}`,
         },
@@ -1353,12 +1367,14 @@ export class ApiStack extends cdk.Stack {
     );
 
     // Cognito authorizer for any logged-in user (no group requirement)
+    // NOTE: Runs outside VPC to fetch JWKS from Cognito's public endpoint
     const userAuthorizerFunction = createPythonFunction(
       "UserAuthorizerFunction",
       {
         handler: "lambda/authorizers/cognito_user/handler.lambda_handler",
         memorySize: 256,
         timeout: cdk.Duration.seconds(5),
+        noVpc: true,
       }
     );
 
