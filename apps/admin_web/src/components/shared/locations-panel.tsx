@@ -6,6 +6,10 @@ import { useResourcePanel } from '../../hooks/use-resource-panel';
 import { listResource, listManagerOrganizations } from '../../lib/api-client';
 import type { ApiMode } from '../../lib/resource-api';
 import type { Location, Organization } from '../../types/admin';
+import {
+  AddressAutocomplete,
+  type AddressSelection,
+} from '../ui/address-autocomplete';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
 import { Input } from '../ui/input';
@@ -136,6 +140,17 @@ export function LocationsPanel({ mode }: LocationsPanelProps) {
     loadOrganizations();
   }, [isAdmin, setFormState]);
 
+  const handleAddressSelect = (selection: AddressSelection) => {
+    panel.setFormState((prev) => ({
+      ...prev,
+      address: selection.displayName,
+      lat: `${selection.lat}`,
+      lng: `${selection.lng}`,
+      // Only auto-fill district if it's currently empty.
+      district: prev.district.trim() ? prev.district : selection.district,
+    }));
+  };
+
   const validate = () => {
     if (!panel.formState.org_id || !panel.formState.district.trim()) {
       return 'Organization and district are required.';
@@ -212,15 +227,17 @@ export function LocationsPanel({ mode }: LocationsPanelProps) {
           </div>
           <div className='md:col-span-2'>
             <Label htmlFor='location-address'>Address</Label>
-            <Input
+            <AddressAutocomplete
               id='location-address'
               value={panel.formState.address}
-              onChange={(e) =>
+              onChange={(val) =>
                 panel.setFormState((prev) => ({
                   ...prev,
-                  address: e.target.value,
+                  address: val,
                 }))
               }
+              onSelect={handleAddressSelect}
+              placeholder='Start typing an address...'
             />
           </div>
           <div>

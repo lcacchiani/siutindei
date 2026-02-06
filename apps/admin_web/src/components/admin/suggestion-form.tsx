@@ -8,6 +8,10 @@ import {
   type SubmitSuggestionPayload,
   type Ticket,
 } from '../../lib/api-client';
+import {
+  AddressAutocomplete,
+  type AddressSelection,
+} from '../ui/address-autocomplete';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
 import { Input } from '../ui/input';
@@ -25,8 +29,20 @@ export function SuggestionForm({ onSuggestionSubmitted }: SuggestionFormProps) {
   const [district, setDistrict] = useState('');
   const [address, setAddress] = useState('');
   const [additionalNotes, setAdditionalNotes] = useState('');
+  const [selectedLat, setSelectedLat] = useState<number | null>(null);
+  const [selectedLng, setSelectedLng] = useState<number | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+
+  const handleAddressSelect = (selection: AddressSelection) => {
+    setAddress(selection.displayName);
+    setSelectedLat(selection.lat);
+    setSelectedLng(selection.lng);
+    // Auto-fill district if empty.
+    if (!district.trim()) {
+      setDistrict(selection.district);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,6 +69,10 @@ export function SuggestionForm({ onSuggestionSubmitted }: SuggestionFormProps) {
       if (address.trim()) {
         payload.suggested_address = address.trim();
       }
+      if (selectedLat !== null && selectedLng !== null) {
+        payload.suggested_lat = selectedLat;
+        payload.suggested_lng = selectedLng;
+      }
       if (additionalNotes.trim()) {
         payload.additional_notes = additionalNotes.trim();
       }
@@ -69,8 +89,8 @@ export function SuggestionForm({ onSuggestionSubmitted }: SuggestionFormProps) {
         description: description.trim() || null,
         suggested_district: district.trim() || null,
         suggested_address: address.trim() || null,
-        suggested_lat: null,
-        suggested_lng: null,
+        suggested_lat: selectedLat,
+        suggested_lng: selectedLng,
         media_urls: [],
         status: 'pending',
         submitter_id: '',
@@ -145,12 +165,12 @@ export function SuggestionForm({ onSuggestionSubmitted }: SuggestionFormProps) {
 
         <div>
           <Label htmlFor='address'>Address</Label>
-          <Input
+          <AddressAutocomplete
             id='address'
-            type='text'
             value={address}
-            onChange={(e) => setAddress(e.target.value)}
-            placeholder='Full address if you know it'
+            onChange={setAddress}
+            onSelect={handleAddressSelect}
+            placeholder='Start typing the address...'
             maxLength={500}
           />
         </div>
