@@ -81,6 +81,11 @@ repo root
 - DB connections enforce TLS and Lambda-tuned pool settings.
 - Migrations use password auth against the cluster endpoint.
 - Admin routes use Cognito auth; public search requires API key + device attestation.
+- Cognito PrivateLink is blocked by ManagedLogin; use the AWS/HTTP proxy instead.
+- AWS/HTTP proxy Lambda runs outside VPC with allow-listed actions/URLs.
+- In-VPC Lambdas call Cognito via `app.services.aws_proxy.invoke()`.
+- In-VPC Lambdas call external HTTP APIs via `app.services.aws_proxy.http_invoke()`.
+- Never call boto3 cognito-idp directly from in-VPC Lambdas; always use the proxy.
 - Search responses use cursor pagination.
 - Flutter uses Amplify config passed via dart-define.
 - API Gateway caching enabled for search.

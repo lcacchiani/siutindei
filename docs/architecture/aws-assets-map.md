@@ -33,16 +33,13 @@ Created once per account/region when `cdk bootstrap` runs. Not part of the main 
 
 | Resource Type | Logical ID | Physical Name/ID | Notes |
 |--------------|------------|------------------|-------|
-| VPC | `SiutindeiVpc` | `lxsoftware-siutindei-vpc` | 2 AZs, CIDR auto-assigned |
+| VPC | `SiutindeiVpc` | `lxsoftware-siutindei-vpc` | 2 AZs, no NAT Gateway |
 | Internet Gateway | `SiutindeiVpcIGW*` | Auto-generated | Attached to VPC |
 | Public Subnet | `SiutindeiVpcPublicSubnet*` | Auto-generated | 2 subnets (1 per AZ) |
-| Private Subnet | `SiutindeiVpcPrivateSubnet*` | Auto-generated | 2 subnets (1 per AZ) |
-| NAT Gateway | `SiutindeiVpcNATGateway*` | Auto-generated | 1 NAT gateway (shared across AZs) |
-| Elastic IP | `SiutindeiVpcNATGatewayEIP*` | Auto-generated | For NAT gateway |
+| Private Subnet | `SiutindeiVpcPrivateSubnet*` | Auto-generated | 2 isolated subnets (1 per AZ) |
 | Route Table | `SiutindeiVpcPublicSubnet*RouteTable*` | Auto-generated | Public route table |
 | Route Table | `SiutindeiVpcPrivateSubnet*RouteTable*` | Auto-generated | Private route table |
 | Route | `SiutindeiVpcPublicSubnet*DefaultRoute*` | Auto-generated | 0.0.0.0/0 → IGW |
-| Route | `SiutindeiVpcPrivateSubnet*DefaultRoute*` | Auto-generated | 0.0.0.0/0 → NAT |
 | VPC Gateway Attachment | `SiutindeiVpcVPCGW*` | Auto-generated | IGW attachment |
 
 ---
@@ -65,6 +62,29 @@ Created once per account/region when `cdk bootstrap` runs. Not part of the main 
 | `ProxySecurityGroup` | `DatabaseSecurityGroup` | 5432 | RDS Proxy → Aurora |
 | `LambdaSecurityGroup` | `ProxySecurityGroup` | 5432 | Lambda → RDS Proxy |
 | `MigrationSecurityGroup` | `DatabaseSecurityGroup` | 5432 | Migration Lambda → Aurora (direct) |
+
+---
+
+## VPC Endpoints
+
+**Created only when a new VPC is created (not when `EXISTING_VPC_ID` is used).**
+
+| Resource Type | Logical ID | Service | Notes |
+|--------------|------------|---------|-------|
+| Gateway Endpoint | `S3Endpoint` | S3 | Gateway endpoint (no cost) |
+| Interface Endpoint | `SecretsManagerEndpoint` | Secrets Manager | For DB secret access |
+| Interface Endpoint | `StsEndpoint` | STS | For IAM auth token generation |
+| Interface Endpoint | `CloudWatchLogsEndpoint` | CloudWatch Logs | For Lambda logging |
+| Interface Endpoint | `SesEndpoint` | SES | For email sending |
+| Interface Endpoint | `SnsEndpoint` | SNS | For notifications |
+| Interface Endpoint | `RdsEndpoint` | RDS | For IAM authentication tokens |
+| Interface Endpoint | `ApiGatewayEndpoint` | API Gateway | For API key rotation |
+| Interface Endpoint | `SqsEndpoint` | SQS | For manager request queue |
+| Interface Endpoint | `LambdaEndpoint` | Lambda | For invoking the AWS API proxy from in-VPC Lambdas |
+
+**Note:** Cognito IDP VPC endpoint is **not** included because Cognito
+disables PrivateLink when ManagedLogin is configured on the User Pool.
+Cognito operations are proxied through `AwsApiProxyFunction` instead.
 
 ---
 
@@ -181,6 +201,7 @@ Each Lambda function created by `PythonLambda` construct includes:
 |---------------------|---------|--------|---------|-----|-------|
 | `DeviceAttestationAuthorizer` | `lambda/authorizers/device_attestation/handler.lambda_handler` | 256 MB | 5s | No | API Gateway authorizer |
 | `AdminBootstrapFunction` | `lambda/admin_bootstrap/handler.lambda_handler` | 256 MB | 30s | No | Custom resource handler |
+| `AwsApiProxyFunction` | `lambda/aws_proxy/handler.lambda_handler` | 256 MB | 15s | No | AWS/HTTP proxy for in-VPC Lambdas |
 
 ### Lambda Resources Per Function
 
@@ -208,7 +229,8 @@ For each function above, the following resources are created:
 | Function | Additional Permissions |
 |----------|------------------------|
 | `SiutindeiSearchFunction` | Read DB secret, connect to RDS Proxy as `siutindei_app` |
-| `SiutindeiAdminFunction` | Read DB secret, connect to RDS Proxy as `siutindei_admin`, Cognito admin group management |
+| `SiutindeiAdminFunction` | Read DB secret, connect to RDS Proxy as `siutindei_admin`, invoke `AwsApiProxyFunction` |
+| `AwsApiProxyFunction` | Cognito admin operations (`ListUsers`, `AdminGetUser`, `AdminDeleteUser`, `AdminAddUserToGroup`, `AdminRemoveUserFromGroup`, `AdminListGroupsForUser`, `AdminUserGlobalSignOut`) |
 | `SiutindeiMigrationFunction` | Read DB secret, direct connect to Aurora as `postgres`, CloudFormation invoke permission |
 | `HealthCheckFunction` | Read DB secret, connect to RDS Proxy as `siutindei_app` |
 | `AuthCreateChallengeFunction` | SES `SendEmail`, `SendRawEmail` for the configured email address |
@@ -261,6 +283,16 @@ For each function above, the following resources are created:
 | `/v1/admin/schedules` | GET, POST | Cognito | `SiutindeiAdminFunction` | Admin CRUD |
 | `/v1/admin/schedules/{id}` | GET, PUT, DELETE | Cognito | `SiutindeiAdminFunction` | Admin CRUD |
 | `/v1/admin/users/{username}/groups` | POST, DELETE | Cognito | `SiutindeiAdminFunction` | User group management |
+
+### API Gateway Gateway Responses
+
+CORS headers are added to API Gateway error responses so the browser can
+read error status codes instead of silently blocking them.
+
+| Response Type | Headers Added |
+|--------------|---------------|
+| `DEFAULT_4XX` | `Access-Control-Allow-Origin`, `Access-Control-Allow-Headers`, `Access-Control-Allow-Methods` |
+| `DEFAULT_5XX` | `Access-Control-Allow-Origin`, `Access-Control-Allow-Headers`, `Access-Control-Allow-Methods` |
 
 ### API Gateway Authorizers
 

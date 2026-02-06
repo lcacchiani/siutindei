@@ -99,6 +99,36 @@ Flutter mobile app, Next.js admin console, and AWS serverless backend.
   parameters.
 - API Gateway method caching enabled for search responses (5-minute TTL).
 
+## AWS / HTTP Proxy
+
+**Decision:** Use a generic proxy Lambda outside the VPC instead of per-service
+Lambdas or NAT Gateway.
+
+**Why:**
+- Cognito disables PrivateLink when ManagedLogin is configured on the User Pool,
+  so a `cognito-idp` VPC endpoint cannot be used.
+- A NAT Gateway is expensive (~$45/month per AZ) for occasional API calls.
+- A per-service Lambda (e.g. dedicated Cognito Lambda) duplicates routing,
+  auth, and business logic.
+
+**How:**
+- `AwsApiProxyFunction` runs outside the VPC and accepts two request types:
+  - `type: "aws"` – executes a boto3 call (e.g. `cognito-idp:list_users`)
+  - `type: "http"` – makes an outbound HTTP request to an external API
+- Requests are validated against environment-variable allow-lists:
+  - `ALLOWED_ACTIONS` for AWS API calls (`service:action` pairs)
+  - `ALLOWED_HTTP_URLS` for HTTP requests (URL prefixes)
+- In-VPC Lambdas invoke the proxy via Lambda-to-Lambda (requires a Lambda VPC
+  endpoint).
+- Client helpers in `backend/src/app/services/aws_proxy.py`:
+  - `invoke(service, action, params)` for AWS calls
+  - `http_invoke(method, url, headers, body, timeout)` for HTTP calls
+
+**Security:**
+- IAM role scoped to specific AWS actions on specific resources.
+- Allow-lists prevent the proxy from being used for unintended operations.
+- Only Lambdas explicitly granted `lambda:InvokeFunction` can call the proxy.
+
 ## Flutter Amplify Configuration
 
 **Decisions:**

@@ -82,3 +82,24 @@ their primary responsibilities.
 - Handler: backend/lambda/admin_bootstrap/handler.py
 - Trigger: CloudFormation custom resource (optional)
 - Purpose: create a bootstrap admin user and add to admin group
+
+### AWS / HTTP proxy
+- Function: AwsApiProxyFunction
+- Handler: backend/lambda/aws_proxy/handler.py
+- Trigger: Lambda-to-Lambda invocation (from in-VPC Lambdas)
+- Purpose: generic proxy for AWS API calls and outbound HTTP requests
+  that cannot be made from inside the VPC
+- VPC: **No** (runs outside VPC for internet access)
+- Allow-lists:
+  - `ALLOWED_ACTIONS`: comma-separated `service:action` pairs for AWS
+    API calls (e.g. `cognito-idp:list_users`)
+  - `ALLOWED_HTTP_URLS`: comma-separated URL prefixes for outbound HTTP
+    requests (e.g. `https://api.example.com/v1/`)
+- Security: only invocable by Lambdas granted `lambda:InvokeFunction`;
+  IAM role scoped to specific AWS actions; all requests validated
+  against the allow-lists before execution
+- Why: Cognito disables PrivateLink when ManagedLogin is configured on
+  the User Pool, so a VPC endpoint cannot be used.  This proxy provides
+  a reusable channel for any service that is unreachable via PrivateLink.
+- Client: in-VPC Lambdas import `app.services.aws_proxy.invoke` (for
+  AWS calls) or `app.services.aws_proxy.http_invoke` (for HTTP calls)

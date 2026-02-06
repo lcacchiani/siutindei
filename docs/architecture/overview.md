@@ -47,6 +47,12 @@ Flutter Mobile / Next.js Admin
 - Lambda functions in `backend/lambda/` call into shared code in
   `backend/src/app`.
 - See `docs/architecture/lambdas.md` for a full function inventory.
+- A generic AWS/HTTP proxy Lambda (`AwsApiProxyFunction`) runs outside
+  the VPC and provides a channel for in-VPC Lambdas to call services
+  that are unreachable via PrivateLink (e.g. Cognito with ManagedLogin).
+  Requests are gated by allow-lists (`ALLOWED_ACTIONS` for AWS API
+  calls, `ALLOWED_HTTP_URLS` for outbound HTTP).  See
+  `backend/src/app/services/aws_proxy.py`.
 - SQLAlchemy models map to Aurora PostgreSQL.
 - Alembic manages schema migrations, executed via a custom resource Lambda
   during deploy.
