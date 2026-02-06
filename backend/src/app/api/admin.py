@@ -28,6 +28,9 @@ from psycopg.types.range import Range
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.services.aws_proxy import AwsProxyError
+from app.services.aws_proxy import invoke as aws_proxy
+
 from app.db.engine import get_engine
 from app.db.models import Activity
 from app.db.models import ActivityPricing
@@ -95,10 +98,6 @@ class ResourceConfig:
 
 def lambda_handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
     """Handle admin CRUD requests."""
-
-    # Internal cross-Lambda invocations from the Cognito admin Lambda
-    if event.get("_internal"):
-        return _handle_internal(event)
 
     # Set request context for logging
     request_id = event.get("requestContext", {}).get("requestId", "")
@@ -203,56 +202,6 @@ def _safe_handler(
         return json_response(
             500, {"error": "Internal server error", "detail": str(exc)}, event=event
         )
-
-
-# --- Internal cross-Lambda handlers ---
-
-
-def _handle_internal(event: Mapping[str, Any]) -> dict[str, Any]:
-    """Handle invocations from the Cognito admin Lambda (outside VPC).
-
-    Used for database operations that cannot run outside the VPC.
-    """
-    action = event.get("action", "")
-    logger.info(f"Internal action: {action}")
-
-    if action == "transfer_organizations":
-        return _internal_transfer_organizations(event)
-
-    logger.error(f"Unknown internal action: {action}")
-    return {"error": "Unknown action"}
-
-
-def _internal_transfer_organizations(event: Mapping[str, Any]) -> dict[str, Any]:
-    user_sub = event.get("user_sub", "")
-    fallback_manager_id = event.get("fallback_manager_id", "")
-
-    if not user_sub or not fallback_manager_id:
-        return {"error": "Missing user_sub or fallback_manager_id"}
-
-    try:
-        transferred_count = 0
-        with Session(get_engine()) as session:
-            set_audit_context(
-                session,
-                user_id=fallback_manager_id,
-                request_id=f"internal-transfer-{user_sub[:8]}",
-            )
-            org_repo = OrganizationRepository(session)
-            orgs = org_repo.find_by_manager(user_sub, limit=1000)
-            for org in orgs:
-                org.manager_id = fallback_manager_id
-                org_repo.update(org)
-                transferred_count += 1
-            session.commit()
-        logger.info(
-            f"Transferred {transferred_count} orgs from {user_sub} "
-            f"to {fallback_manager_id}"
-        )
-        return {"transferred_count": transferred_count}
-    except Exception as exc:
-        logger.exception("Failed to transfer organizations")
-        return {"error": str(exc), "transferred_count": 0}
 
 
 # --- Unified CRUD Handlers ---
@@ -2100,6 +2049,14 @@ def _redact_sensitive_fields(values: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
+# --- Cognito proxy helper ---
+
+
+def _cognito(action: str, **params: Any) -> dict[str, Any]:
+    """Call a Cognito IDP action via the AWS API proxy Lambda."""
+    return aws_proxy("cognito-idp", action, params)
+
+
 # --- User group management ---
 
 
@@ -2114,28 +2071,27 @@ def _handle_user_group(
         raise ValidationError("username is required", field="username")
 
     group_name = _parse_group_name(event)
-    client = boto3.client("cognito-idp")
     user_pool_id = _require_env("COGNITO_USER_POOL_ID")
 
     if method == "POST":
-        client.admin_add_user_to_group(
+        _cognito(
+            "admin_add_user_to_group",
             UserPoolId=user_pool_id,
             Username=username,
             GroupName=group_name,
         )
-        # Invalidate user's session to force re-authentication with new permissions
-        _invalidate_user_session(client, user_pool_id, username)
+        _invalidate_user_session(user_pool_id, username)
         logger.info(f"Added user {username} to group {group_name}")
         return json_response(200, {"status": "added", "group": group_name}, event=event)
 
     if method == "DELETE":
-        client.admin_remove_user_from_group(
+        _cognito(
+            "admin_remove_user_from_group",
             UserPoolId=user_pool_id,
             Username=username,
             GroupName=group_name,
         )
-        # Invalidate user's session to force re-authentication with new permissions
-        _invalidate_user_session(client, user_pool_id, username)
+        _invalidate_user_session(user_pool_id, username)
         logger.info(f"Removed user {username} from group {group_name}")
         return json_response(
             200, {"status": "removed", "group": group_name}, event=event
@@ -2144,50 +2100,27 @@ def _handle_user_group(
     return json_response(405, {"error": "Method not allowed"}, event=event)
 
 
-def _invalidate_user_session(
-    client: Any,
-    user_pool_id: str,
-    username: str,
-) -> None:
-    """Invalidate a user's session by signing them out globally.
-
-    This forces the user to re-authenticate and get new tokens with
-    updated permissions (e.g., after group membership changes).
-
-    Args:
-        client: The Cognito IDP client.
-        user_pool_id: The Cognito user pool ID.
-        username: The username of the user to sign out.
-    """
+def _invalidate_user_session(user_pool_id: str, username: str) -> None:
+    """Invalidate a user's session by signing them out globally."""
     try:
-        client.admin_user_global_sign_out(
+        _cognito(
+            "admin_user_global_sign_out",
             UserPoolId=user_pool_id,
             Username=username,
         )
         logger.info(f"Invalidated session for user: {username}")
     except Exception as exc:
-        # Log but don't fail the operation if sign-out fails
-        # The user may not have an active session
         logger.warning(f"Failed to invalidate session for user {username}: {exc}")
 
 
 def _add_user_to_manager_group(user_sub: str) -> None:
-    """Add a user to the 'manager' Cognito group.
-
-    This is called when an access request is approved to grant the user
-    manager permissions.
-
-    Args:
-        user_sub: The Cognito user's sub (subject) identifier.
-    """
+    """Add a user to the 'manager' Cognito group."""
     try:
-        client = boto3.client("cognito-idp")
         user_pool_id = _require_env("COGNITO_USER_POOL_ID")
         manager_group = os.getenv("MANAGER_GROUP", "manager")
 
-        # First, we need to find the username from the sub
-        # List users filtered by sub attribute
-        response = client.list_users(
+        response = _cognito(
+            "list_users",
             UserPoolId=user_pool_id,
             Filter=f'sub = "{user_sub}"',
             Limit=1,
@@ -2203,8 +2136,8 @@ def _add_user_to_manager_group(user_sub: str) -> None:
             logger.warning(f"User with sub {user_sub} has no username")
             return
 
-        # Check if user is already in the manager group
-        groups_response = client.admin_list_groups_for_user(
+        groups_response = _cognito(
+            "admin_list_groups_for_user",
             UserPoolId=user_pool_id,
             Username=username,
         )
@@ -2214,79 +2147,56 @@ def _add_user_to_manager_group(user_sub: str) -> None:
             logger.info(f"User {username} is already in group {manager_group}")
             return
 
-        # Add user to the manager group
-        client.admin_add_user_to_group(
+        _cognito(
+            "admin_add_user_to_group",
             UserPoolId=user_pool_id,
             Username=username,
             GroupName=manager_group,
         )
-
-        # Invalidate user's session to force re-authentication with new permissions
-        _invalidate_user_session(client, user_pool_id, username)
-
+        _invalidate_user_session(user_pool_id, username)
         logger.info(f"Added user {username} to group {manager_group}")
 
     except Exception as exc:
-        # Log but don't fail the request if group assignment fails
         logger.error(f"Failed to add user {user_sub} to manager group: {exc}")
 
 
 def _handle_list_cognito_users(event: Mapping[str, Any]) -> dict[str, Any]:
-    """List Cognito users for manager selection.
-
-    Returns a paginated list of users from the Cognito user pool with their
-    sub (to use as manager_id), email, and other relevant attributes.
-
-    Query parameters:
-        - limit: Maximum number of users to return (default 50, max 60)
-        - pagination_token: Token for fetching the next page of results
-    """
+    """List Cognito users for manager selection."""
     limit = parse_int(_query_param(event, "limit")) or 50
     if limit < 1 or limit > 60:
         raise ValidationError("limit must be between 1 and 60", field="limit")
 
     pagination_token = _query_param(event, "pagination_token")
-
-    client = boto3.client("cognito-idp")
     user_pool_id = _require_env("COGNITO_USER_POOL_ID")
 
-    # Build request parameters
-    list_params: dict[str, Any] = {
-        "UserPoolId": user_pool_id,
-        "Limit": limit,
-    }
+    params: dict[str, Any] = {"UserPoolId": user_pool_id, "Limit": limit}
     if pagination_token:
-        list_params["PaginationToken"] = pagination_token
+        params["PaginationToken"] = pagination_token
 
     try:
-        response = client.list_users(**list_params)
-    except client.exceptions.InvalidParameterException as exc:
-        detail = str(exc)
-        logger.warning(f"Cognito list_users InvalidParameterException: {detail}")
-        if pagination_token:
+        response = _cognito("list_users", **params)
+    except AwsProxyError as exc:
+        logger.warning(f"Cognito list_users error: {exc.code}: {exc.message}")
+        if pagination_token and exc.code == "InvalidParameterException":
             raise ValidationError(
                 "Invalid pagination token", field="pagination_token"
             ) from exc
-        raise ValidationError(f"Cognito error: {detail}") from exc
-    except Exception as exc:
-        logger.error(f"Cognito list_users failed: {type(exc).__name__}: {exc}")
-        raise
+        raise ValidationError(f"Cognito error: {exc.message}") from exc
 
-    # Extract user data and fetch groups for each user
     users = []
     for user in response.get("Users", []):
         user_data = _serialize_cognito_user(user)
         if user_data:
-            # Fetch groups for this user
             username = user.get("Username")
             if username:
                 try:
-                    groups_response = client.admin_list_groups_for_user(
+                    gr = _cognito(
+                        "admin_list_groups_for_user",
                         UserPoolId=user_pool_id,
                         Username=username,
                     )
                     user_data["groups"] = [
-                        g["GroupName"] for g in groups_response.get("Groups", [])
+                        g["GroupName"] for g in gr.get("Groups", [])
                     ]
                 except Exception:
                     user_data["groups"] = []
@@ -2295,8 +2205,6 @@ def _handle_list_cognito_users(event: Mapping[str, Any]) -> dict[str, Any]:
             users.append(user_data)
 
     result: dict[str, Any] = {"items": users}
-
-    # Include pagination token if there are more results
     next_token = response.get("PaginationToken")
     if next_token:
         result["pagination_token"] = next_token
@@ -2357,109 +2265,65 @@ def _handle_delete_cognito_user(
     event: Mapping[str, Any],
     username: str,
 ) -> dict[str, Any]:
-    """Delete a Cognito user and transfer their organizations to a fallback manager.
-
-    This endpoint:
-    1. Gets the user's Cognito sub (subject) from their username
-    2. Finds all organizations managed by this user
-    3. Transfers them to a fallback manager (the admin calling the API)
-    4. Deletes the user from Cognito
-
-    Args:
-        event: The Lambda event.
-        username: The Cognito username of the user to delete.
-
-    Returns:
-        API Gateway response with deletion status and transferred orgs count.
-    """
-    client = boto3.client("cognito-idp")
+    """Delete a Cognito user and transfer their organizations."""
     user_pool_id = _require_env("COGNITO_USER_POOL_ID")
 
-    # Get the admin's sub to use as fallback manager
     fallback_manager_id = _get_user_sub(event)
     if not fallback_manager_id:
         return json_response(401, {"error": "User identity not found"}, event=event)
 
     try:
-        # Get the user to find their sub (subject)
-        user_response = client.admin_get_user(
-            UserPoolId=user_pool_id,
-            Username=username,
+        user_response = _cognito(
+            "admin_get_user", UserPoolId=user_pool_id, Username=username
         )
+    except AwsProxyError as exc:
+        if exc.code == "UserNotFoundException":
+            raise NotFoundError("cognito_user", username)
+        raise
 
-        # Extract the sub from user attributes
-        user_sub = None
-        for attr in user_response.get("UserAttributes", []):
-            if attr["Name"] == "sub":
-                user_sub = attr["Value"]
-                break
+    user_sub = None
+    for attr in user_response.get("UserAttributes", []):
+        if attr["Name"] == "sub":
+            user_sub = attr["Value"]
+            break
 
-        if not user_sub:
-            return json_response(
-                500,
-                {"error": "User has no sub attribute"},
-                event=event,
-            )
+    if not user_sub:
+        return json_response(500, {"error": "User has no sub attribute"}, event=event)
+    if user_sub == fallback_manager_id:
+        return json_response(400, {"error": "Cannot delete yourself"}, event=event)
 
-        # Prevent admin from deleting themselves
-        if user_sub == fallback_manager_id:
-            return json_response(
-                400,
-                {"error": "Cannot delete yourself"},
-                event=event,
-            )
+    # Transfer organisations (DB, stays in VPC)
+    transferred_count = 0
+    with Session(get_engine()) as session:
+        _set_session_audit_context(session, event)
+        org_repo = OrganizationRepository(session)
+        orgs = org_repo.find_by_manager(user_sub, limit=1000)
+        for org in orgs:
+            org.manager_id = fallback_manager_id
+            org_repo.update(org)
+            transferred_count += 1
+        session.commit()
 
-        # Transfer organizations to the fallback manager
-        transferred_count = 0
-        with Session(get_engine()) as session:
-            _set_session_audit_context(session, event)
-            org_repo = OrganizationRepository(session)
-            orgs = org_repo.find_by_manager(user_sub, limit=1000)
+    logger.info(
+        f"Transferred {transferred_count} orgs from {user_sub} "
+        f"to {fallback_manager_id}"
+    )
 
-            for org in orgs:
-                org.manager_id = fallback_manager_id
-                org_repo.update(org)
-                transferred_count += 1
+    _invalidate_user_session(user_pool_id, username)
+    _cognito("admin_delete_user", UserPoolId=user_pool_id, Username=username)
+    logger.info(f"Deleted Cognito user: {username}")
 
-            session.commit()
-
-        logger.info(
-            f"Transferred {transferred_count} organizations from user {user_sub} "
-            f"to fallback manager {fallback_manager_id}"
-        )
-
-        # Invalidate user's session before deletion
-        _invalidate_user_session(client, user_pool_id, username)
-
-        # Delete the user from Cognito
-        client.admin_delete_user(
-            UserPoolId=user_pool_id,
-            Username=username,
-        )
-
-        logger.info(f"Deleted Cognito user: {username}")
-
-        return json_response(
-            200,
-            {
-                "status": "deleted",
-                "username": username,
-                "user_sub": user_sub,
-                "transferred_organizations_count": transferred_count,
-                "fallback_manager_id": fallback_manager_id,
-            },
-            event=event,
-        )
-
-    except client.exceptions.UserNotFoundException:
-        raise NotFoundError("cognito_user", username)
-    except Exception as exc:
-        logger.exception(f"Failed to delete Cognito user: {username}")
-        return json_response(
-            500,
-            {"error": "Failed to delete user", "detail": str(exc)},
-            event=event,
-        )
+    return json_response(
+        200,
+        {
+            "status": "deleted",
+            "username": username,
+            "user_sub": user_sub,
+            "transferred_organizations_count": transferred_count,
+            "fallback_manager_id": fallback_manager_id,
+        },
+        event=event,
+    )
 
 
 def _handle_organization_media(
