@@ -133,6 +133,11 @@ export interface components {
         Location: {
             /** Format: uuid */
             id: string;
+            /**
+             * Format: uuid
+             * @description Geographic area UUID
+             */
+            area_id: string;
             district: string;
             /** @description Country where the location is situated */
             country: string;

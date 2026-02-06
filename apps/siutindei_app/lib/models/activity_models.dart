@@ -256,6 +256,7 @@ class Organization {
 class Location {
   Location({
     required this.id,
+    required this.areaId,
     required this.district,
     required this.country,
     this.address,
@@ -264,6 +265,7 @@ class Location {
   });
 
   final String id;
+  final String areaId;
   final String district;
   final String country;
   final String? address;
@@ -273,6 +275,7 @@ class Location {
   factory Location.fromJson(Map<String, dynamic> json) {
     return Location(
       id: json['id'] as String,
+      areaId: (json['area_id'] as String?) ?? '',
       district: json['district'] as String,
       country: (json['country'] as String?) ?? 'Hong Kong',
       address: json['address'] as String?,

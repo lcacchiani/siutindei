@@ -2,18 +2,20 @@
 
 import { useState } from 'react';
 
+import { useGeographicAreas } from '../../hooks/use-geographic-areas';
 import {
   ApiError,
   submitOrganizationSuggestion,
+  type GeographicAreaNode,
   type SubmitSuggestionPayload,
   type Ticket,
 } from '../../lib/api-client';
 import {
   AddressAutocomplete,
-  type AddressSelection,
 } from '../ui/address-autocomplete';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
+import { CascadingAreaSelect } from '../ui/cascading-area-select';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Textarea } from '../ui/textarea';
@@ -24,9 +26,11 @@ interface SuggestionFormProps {
 }
 
 export function SuggestionForm({ onSuggestionSubmitted }: SuggestionFormProps) {
+  const { tree, countryCodes, matchNominatimResult } = useGeographicAreas();
+
   const [organizationName, setOrganizationName] = useState('');
   const [description, setDescription] = useState('');
-  const [district, setDistrict] = useState('');
+  const [areaId, setAreaId] = useState('');
   const [address, setAddress] = useState('');
   const [additionalNotes, setAdditionalNotes] = useState('');
   const [selectedLat, setSelectedLat] = useState<number | null>(null);
@@ -34,14 +38,19 @@ export function SuggestionForm({ onSuggestionSubmitted }: SuggestionFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
-  const handleAddressSelect = (selection: AddressSelection) => {
+  const handleAddressSelect = (selection: import('../ui/address-autocomplete').AddressSelection) => {
     setAddress(selection.displayName);
     setSelectedLat(selection.lat);
     setSelectedLng(selection.lng);
-    // Auto-fill district if empty.
-    if (!district.trim()) {
-      setDistrict(selection.district);
+    // Try to reverse-match area from Nominatim
+    const match = matchNominatimResult(selection.raw);
+    if (match) {
+      setAreaId(match.areaId);
     }
+  };
+
+  const handleAreaChange = (id: string, _chain: GeographicAreaNode[]) => {
+    setAreaId(id);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -63,8 +72,15 @@ export function SuggestionForm({ onSuggestionSubmitted }: SuggestionFormProps) {
       if (description.trim()) {
         payload.description = description.trim();
       }
-      if (district.trim()) {
-        payload.suggested_district = district.trim();
+      // Derive district name from area tree if an area was selected
+      if (areaId) {
+        const flat = tree.flatMap(function walk(n: GeographicAreaNode): GeographicAreaNode[] {
+          return [n, ...(n.children ?? []).flatMap(walk)];
+        });
+        const area = flat.find((n) => n.id === areaId);
+        if (area) {
+          payload.suggested_district = area.name;
+        }
       }
       if (address.trim()) {
         payload.suggested_address = address.trim();
@@ -87,7 +103,7 @@ export function SuggestionForm({ onSuggestionSubmitted }: SuggestionFormProps) {
         organization_name: organizationName.trim(),
         message: additionalNotes.trim() || null,
         description: description.trim() || null,
-        suggested_district: district.trim() || null,
+        suggested_district: null,
         suggested_address: address.trim() || null,
         suggested_lat: selectedLat,
         suggested_lng: selectedLng,
@@ -152,14 +168,11 @@ export function SuggestionForm({ onSuggestionSubmitted }: SuggestionFormProps) {
         </div>
 
         <div>
-          <Label htmlFor='district'>District/Area</Label>
-          <Input
-            id='district'
-            type='text'
-            value={district}
-            onChange={(e) => setDistrict(e.target.value)}
-            placeholder='e.g., Downtown, North Side'
-            maxLength={100}
+          <Label>Location</Label>
+          <CascadingAreaSelect
+            tree={tree}
+            value={areaId}
+            onChange={handleAreaChange}
           />
         </div>
 
@@ -172,6 +185,7 @@ export function SuggestionForm({ onSuggestionSubmitted }: SuggestionFormProps) {
             onSelect={handleAddressSelect}
             placeholder='Start typing the address...'
             maxLength={500}
+            countryCodes={countryCodes}
           />
         </div>
 

@@ -33,6 +33,7 @@ class ActivityMapper {
   static LocationEntity locationToEntity(Location model) {
     return LocationEntity(
       id: model.id,
+      areaId: model.areaId,
       district: model.district,
       country: model.country,
       address: model.address,

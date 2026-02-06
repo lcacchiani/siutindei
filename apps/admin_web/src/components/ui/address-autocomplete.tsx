@@ -40,7 +40,9 @@ interface NominatimAddress {
   town?: string;
   village?: string;
   state?: string;
+  county?: string;
   country?: string;
+  country_code?: string;
   postcode?: string;
   [key: string]: string | undefined;
 }
@@ -72,6 +74,11 @@ interface AddressAutocompleteProps {
   disabled?: boolean;
   /** Additional CSS classes for the wrapper div. */
   className?: string;
+  /**
+   * Comma-separated ISO 3166-1 alpha-2 country codes to scope Nominatim
+   * results (e.g., "hk,sg").  When empty, no country filtering is applied.
+   */
+  countryCodes?: string;
 }
 
 /** Minimum characters before we query Nominatim. */
@@ -105,6 +112,7 @@ export function AddressAutocomplete({
   maxLength,
   disabled,
   className = '',
+  countryCodes,
 }: AddressAutocompleteProps) {
   const [suggestions, setSuggestions] = useState<NominatimResult[]>([]);
   const [isOpen, setIsOpen] = useState(false);
@@ -142,6 +150,9 @@ export function AddressAutocomplete({
         limit: '5',
         dedupe: '1',
       });
+      if (countryCodes) {
+        params.set('countrycodes', countryCodes);
+      }
       const response = await fetch(
         `https://nominatim.openstreetmap.org/search?${params.toString()}`,
         {
@@ -171,7 +182,7 @@ export function AddressAutocomplete({
         setIsLoading(false);
       }
     }
-  }, []);
+  }, [countryCodes]);
 
   const handleInputChange = (newValue: string) => {
     onChange(newValue);

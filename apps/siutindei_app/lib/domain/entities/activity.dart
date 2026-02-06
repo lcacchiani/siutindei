@@ -79,6 +79,7 @@ class OrganizationEntity {
 class LocationEntity {
   const LocationEntity({
     required this.id,
+    required this.areaId,
     required this.district,
     required this.country,
     this.address,
@@ -87,6 +88,7 @@ class LocationEntity {
   });
 
   final String id;
+  final String areaId;
   final String district;
   final String country;
   final String? address;
