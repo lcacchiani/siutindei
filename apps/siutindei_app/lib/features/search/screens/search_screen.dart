@@ -98,12 +98,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     }
   }
 
-  void _toggleDistrictFilter(String? district) {
+  void _toggleAreaFilter(String? areaId) {
     final currentFilters = ref.read(activitiesFiltersProvider);
-    if (currentFilters.district == district || district == null) {
-      _updateFilters(currentFilters.copyWith(clearDistrict: true));
+    if (currentFilters.areaId == areaId || areaId == null) {
+      _updateFilters(currentFilters.copyWith(clearAreaId: true));
     } else {
-      _updateFilters(currentFilters.copyWith(district: district));
+      _updateFilters(currentFilters.copyWith(areaId: areaId));
     }
   }
 
@@ -135,7 +135,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             _QuickFilters(
               onFilterBadgeTap: _showFiltersSheet,
               onDayTap: _toggleDayFilter,
-              onDistrictChanged: _toggleDistrictFilter,
+              onAreaChanged: _toggleAreaFilter,
               onPricingTypeChanged: (value) {
                 final currentFilters = ref.read(activitiesFiltersProvider);
                 if (value == null) {
@@ -305,14 +305,14 @@ class _QuickFilters extends ConsumerWidget {
   const _QuickFilters({
     required this.onFilterBadgeTap,
     required this.onDayTap,
-    required this.onDistrictChanged,
+    required this.onAreaChanged,
     required this.onPricingTypeChanged,
     required this.onScheduleTypeChanged,
   });
 
   final VoidCallback onFilterBadgeTap;
   final ValueChanged<int> onDayTap;
-  final ValueChanged<String?> onDistrictChanged;
+  final ValueChanged<String?> onAreaChanged;
   final ValueChanged<String?> onPricingTypeChanged;
   final ValueChanged<String?> onScheduleTypeChanged;
 
@@ -344,12 +344,9 @@ class _QuickFilters extends ConsumerWidget {
           SizedBox(height: spacing.sm),
           FilterChipBar(
             children: [
-              DropdownFilterChip(
-                label: 'District',
-                value: filters.district,
-                options: AppConstants.districts,
-                onChanged: onDistrictChanged,
-              ),
+              // TODO: Replace with area-based filter using GET /v1/user/areas tree
+              // DropdownFilterChip for area will be added when the Flutter app
+              // fetches the geographic area tree from the API.
               DropdownFilterChip(
                 label: 'Pricing',
                 value: filters.pricingType?.toApiString(),

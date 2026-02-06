@@ -60,8 +60,6 @@ Columns:
 - `id` (UUID, PK, default `gen_random_uuid()`)
 - `org_id` (UUID, FK -> organizations.id, cascade delete)
 - `area_id` (UUID, FK -> geographic_areas.id, required)
-- `district` (text, required — denormalized from geographic_areas)
-- `country` (text, required, default `'Hong Kong'` — denormalized from geographic_areas)
 - `address` (text, optional)
 - `lat` (numeric(9,6), optional)
 - `lng` (numeric(9,6), optional)

@@ -2,7 +2,6 @@
 ///
 /// This file contains NON-DESIGN constants that define application behavior:
 /// - Language codes and names (API parameters)
-/// - District names (data/geography)
 /// - Pricing types (business logic)
 /// - Schedule types (business logic)
 /// - Day of week mappings (data formatting)
@@ -11,7 +10,6 @@
 ///
 /// This file: FUNCTIONALITY (what the app does)
 /// - Language options for API filters
-/// - District names for location filtering
 /// - Age presets for quick selection
 ///
 /// Theme files: DESIGN (how the app looks)
@@ -107,34 +105,6 @@ class AppConstants {
     'monthly': 'Monthly',
     'date_specific': 'One-time',
   };
-
-  // ============================================================
-  // DISTRICTS
-  // Geographic locations for filtering
-  // ============================================================
-
-  /// Available districts for location filtering.
-  /// Update this list based on actual service areas.
-  static const List<String> districts = [
-    'Central',
-    'Wan Chai',
-    'Eastern',
-    'Southern',
-    'Yau Tsim Mong',
-    'Sham Shui Po',
-    'Kowloon City',
-    'Wong Tai Sin',
-    'Kwun Tong',
-    'Tsuen Wan',
-    'Tuen Mun',
-    'Yuen Long',
-    'North',
-    'Tai Po',
-    'Sha Tin',
-    'Sai Kung',
-    'Islands',
-    'Kwai Tsing',
-  ];
 
   // ============================================================
   // AGE PRESETS

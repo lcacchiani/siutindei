@@ -15,8 +15,6 @@ info:
     |-------|-----------|
     | name | 200 characters |
     | description | 5,000 characters |
-    | district | 100 characters |
-    | country | 100 characters |
     | address | 500 characters |
     | media_urls (each) | 2,048 characters |
 
@@ -1582,7 +1580,7 @@ components:
 
     Location:
       type: object
-      required: [id, org_id, area_id, district, country, created_at, updated_at]
+      required: [id, org_id, area_id, created_at, updated_at]
       properties:
         id:
           type: string
@@ -1593,13 +1591,7 @@ components:
         area_id:
           type: string
           format: uuid
-          description: Geographic area UUID
-        district:
-          type: string
-          description: Denormalized district name from geographic area tree
-        country:
-          type: string
-          description: Denormalized country name from geographic area tree
+          description: Geographic area UUID (leaf node)
         address:
           type: string
           nullable: true

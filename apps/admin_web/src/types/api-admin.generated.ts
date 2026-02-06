@@ -2873,13 +2873,9 @@ export interface components {
             org_id: string;
             /**
              * Format: uuid
-             * @description Geographic area UUID
+             * @description Geographic area UUID (leaf node)
              */
             area_id: string;
-            /** @description Denormalized district name from geographic area tree */
-            district: string;
-            /** @description Denormalized country name from geographic area tree */
-            country: string;
             address?: string | null;
             lat?: number | null;
             lng?: number | null;

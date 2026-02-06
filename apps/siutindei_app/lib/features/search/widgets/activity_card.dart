@@ -186,7 +186,7 @@ class _ActivityCardHeader extends StatelessWidget {
                     const SizedBox(width: 2),
                     Expanded(
                       child: Text(
-                        result.location.district,
+                        result.location.address ?? result.location.areaId,
                         style: TextStyle(
                           fontSize: tokens.locationFontSize,
                           color: tokens.locationColor,

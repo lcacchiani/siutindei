@@ -21,8 +21,8 @@ export interface paths {
                 query?: {
                     /** @description Filter activities suitable for this age (>= 0) */
                     age?: number;
-                    /** @description Filter by district name (exact match) */
-                    district?: string;
+                    /** @description Filter by geographic area UUID */
+                    area_id?: string;
                     /**
                      * @description Filter by pricing type:
                      *     - per_class: Individual class pricing
@@ -135,12 +135,9 @@ export interface components {
             id: string;
             /**
              * Format: uuid
-             * @description Geographic area UUID
+             * @description Geographic area UUID (leaf node)
              */
             area_id: string;
-            district: string;
-            /** @description Country where the location is situated */
-            country: string;
             address?: string | null;
             lat?: number | null;
             lng?: number | null;

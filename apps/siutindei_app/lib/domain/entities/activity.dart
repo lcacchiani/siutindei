@@ -80,8 +80,6 @@ class LocationEntity {
   const LocationEntity({
     required this.id,
     required this.areaId,
-    required this.district,
-    required this.country,
     this.address,
     this.latitude,
     this.longitude,
@@ -89,8 +87,6 @@ class LocationEntity {
 
   final String id;
   final String areaId;
-  final String district;
-  final String country;
   final String? address;
   final double? latitude;
   final double? longitude;
@@ -103,15 +99,14 @@ class LocationEntity {
       identical(this, other) ||
       (other is LocationEntity &&
           other.id == id &&
-          other.district == district &&
-          other.country == country &&
+          other.areaId == areaId &&
           other.address == address);
 
   @override
-  int get hashCode => Object.hash(id, district, country, address);
+  int get hashCode => Object.hash(id, areaId, address);
 
   @override
-  String toString() => 'LocationEntity(id: $id, district: $district)';
+  String toString() => 'LocationEntity(id: $id, areaId: $areaId)';
 }
 
 /// Domain entity representing pricing information.

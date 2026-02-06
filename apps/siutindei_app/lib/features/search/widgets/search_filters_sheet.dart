@@ -191,22 +191,12 @@ class _SearchFiltersSheetState extends ConsumerState<SearchFiltersSheet> {
   }
 
   Widget _buildDistrictSection(ChipTokens chipTokens) {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: AppConstants.districts.map((district) {
-        final isSelected = _filters.district == district;
-        return FilterChip(
-          label: Text(district),
-          selected: isSelected,
-          onSelected: (selected) {
-            _updateFilters((f) => f.copyWith(
-                  district: selected ? district : null,
-                  clearDistrict: !selected,
-                ));
-          },
-        );
-      }).toList(),
+    // TODO: Replace with area-based filter chips using GET /v1/user/areas tree.
+    // The geographic area tree should be fetched from the API and cached,
+    // then used to populate filter chips dynamically.
+    return const Text(
+      'Area filter coming soon',
+      style: TextStyle(color: Colors.grey),
     );
   }
 

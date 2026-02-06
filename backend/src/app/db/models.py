@@ -177,14 +177,6 @@ class Location(Base):
         nullable=False,
         comment="FK to geographic_areas leaf node",
     )
-    district: Mapped[str] = mapped_column(Text(), nullable=False)
-    country: Mapped[str] = mapped_column(
-        Text(),
-        nullable=False,
-        default="Hong Kong",
-        server_default=text("'Hong Kong'"),
-        comment="Denormalized from geographic_areas for query performance",
-    )
     address: Mapped[Optional[str]] = mapped_column(Text(), nullable=True)
     lat: Mapped[Optional[Decimal]] = mapped_column(Numeric(9, 6), nullable=True)
     lng: Mapped[Optional[Decimal]] = mapped_column(Numeric(9, 6), nullable=True)

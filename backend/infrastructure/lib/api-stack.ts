@@ -1793,7 +1793,7 @@ export class ApiStack extends cdk.Stack {
 
     const cacheKeyParameters = [
       "method.request.querystring.age",
-      "method.request.querystring.district",
+      "method.request.querystring.area_id",
       "method.request.querystring.pricing_type",
       "method.request.querystring.price_min",
       "method.request.querystring.price_max",

@@ -87,9 +87,12 @@ def parse_filters(event: Mapping[str, Any]) -> ActivitySearchFilters:
 
     params = collect_query_params(event)
 
+    area_id_str = first_param(params, "area_id")
+    area_id = UUID(area_id_str) if area_id_str else None
+
     return ActivitySearchFilters(
         age=parse_int(first_param(params, "age")),
-        district=first_param(params, "district"),
+        area_id=area_id,
         pricing_type=parse_enum(first_param(params, "pricing_type"), PricingType),
         price_min=parse_decimal(first_param(params, "price_min")),
         price_max=parse_decimal(first_param(params, "price_max")),
@@ -159,8 +162,6 @@ def map_row_to_result(row: Any) -> ActivitySearchResultSchema:
         location=LocationSchema(
             id=str(location.id),
             area_id=str(location.area_id),
-            district=location.district,
-            country=location.country,
             address=location.address,
             lat=location.lat,
             lng=location.lng,

@@ -1258,7 +1258,7 @@ def _review_ticket(
             org_repo.create(organization)
 
             if ticket.suggested_district:
-                # Try to resolve area_id from the suggested district name
+                # Resolve area_id from the suggested district name
                 geo_repo = GeographicAreaRepository(session)
                 all_areas = geo_repo.get_all_flat(active_only=False)
                 matched_area = next(
@@ -1270,7 +1270,6 @@ def _review_ticket(
                     ),
                     None,
                 )
-                # Fall back to the first active district if no match
                 if matched_area is None:
                     matched_area = next(
                         (a for a in all_areas if a.level == "district"),
@@ -1278,14 +1277,9 @@ def _review_ticket(
                     )
 
                 if matched_area is not None:
-                    country, district = geo_repo.resolve_country_and_district(
-                        matched_area.id
-                    )
                     location = Location(
                         org_id=organization.id,
                         area_id=matched_area.id,
-                        district=district,
-                        country=country,
                         address=ticket.suggested_address,
                         lat=ticket.suggested_lat,
                         lng=ticket.suggested_lng,
@@ -2583,8 +2577,10 @@ def _create_location(repo: LocationRepository, body: dict[str, Any]) -> Location
         raise ValidationError("area_id is required", field="area_id")
     area_uuid = _parse_uuid(area_id_raw)
 
-    # Resolve denormalized country+district from the area tree
-    country, district = _resolve_area(repo, area_uuid)
+    # Validate area_id exists
+    geo_repo = GeographicAreaRepository(repo._session)
+    if geo_repo.get_by_id(area_uuid) is None:
+        raise ValidationError("area_id not found", field="area_id")
 
     address = _validate_string_length(
         body.get("address"), "address", MAX_ADDRESS_LENGTH
@@ -2597,8 +2593,6 @@ def _create_location(repo: LocationRepository, body: dict[str, Any]) -> Location
     return Location(
         org_id=_parse_uuid(org_id),
         area_id=area_uuid,
-        district=district,
-        country=country,
         address=address,
         lat=lat,
         lng=lng,
@@ -2614,10 +2608,10 @@ def _update_location(
 
     if "area_id" in body:
         area_uuid = _parse_uuid(body["area_id"])
-        country, district = _resolve_area(repo, area_uuid)
+        geo_repo = GeographicAreaRepository(repo._session)
+        if geo_repo.get_by_id(area_uuid) is None:
+            raise ValidationError("area_id not found", field="area_id")
         entity.area_id = area_uuid  # type: ignore[assignment]
-        entity.district = district  # type: ignore[assignment]
-        entity.country = country  # type: ignore[assignment]
 
     if "address" in body:
         entity.address = _validate_string_length(
@@ -2635,29 +2629,6 @@ def _update_location(
     if "lng" in body:
         entity.lng = body["lng"]
     return entity
-
-
-def _resolve_area(repo: Any, area_uuid: Any) -> Tuple[str, str]:
-    """Resolve country+district from an area_id via the geographic tree.
-
-    Uses the LocationRepository's session to query GeographicAreaRepository.
-
-    Args:
-        repo: A repository whose session we can reuse.
-        area_uuid: UUID of the geographic area.
-
-    Returns:
-        (country_name, district_name) tuple.
-
-    Raises:
-        ValidationError: If the area is not found.
-    """
-    geo_repo = GeographicAreaRepository(repo._session)
-    try:
-        country, district = geo_repo.resolve_country_and_district(area_uuid)
-    except ValueError as exc:
-        raise ValidationError(str(exc), field="area_id") from exc
-    return country, district
 
 
 def _validate_coordinates(lat: Any, lng: Any) -> None:
@@ -2693,8 +2664,6 @@ def _serialize_location(entity: Location) -> dict[str, Any]:
         "id": str(entity.id),
         "org_id": str(entity.org_id),
         "area_id": str(entity.area_id),
-        "district": entity.district,
-        "country": entity.country,
         "address": entity.address,
         "lat": entity.lat,
         "lng": entity.lng,
@@ -2902,9 +2871,6 @@ def _validate_sessions_count(sessions_count: Any) -> None:
 MAX_NAME_LENGTH = 200
 MAX_DESCRIPTION_LENGTH = 5000
 MAX_ADDRESS_LENGTH = 500
-MAX_DISTRICT_LENGTH = 100
-MAX_COUNTRY_LENGTH = 100
-DEFAULT_COUNTRY = "Hong Kong"
 MAX_URL_LENGTH = 2048
 MAX_LANGUAGE_CODE_LENGTH = 10
 MAX_LANGUAGES_COUNT = 20

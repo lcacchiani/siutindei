@@ -62,7 +62,7 @@ class SearchFilters {
   const SearchFilters({
     this.searchQuery,
     this.age,
-    this.district,
+    this.areaId,
     this.pricingType,
     this.priceMin,
     this.priceMax,
@@ -80,7 +80,7 @@ class SearchFilters {
 
   final String? searchQuery;
   final int? age;
-  final String? district;
+  final String? areaId;
   final PricingType? pricingType;
   final double? priceMin;
   final double? priceMax;
@@ -98,7 +98,7 @@ class SearchFilters {
   /// Returns true if any filter is active.
   bool get hasActiveFilters =>
       age != null ||
-      district != null ||
+      areaId != null ||
       pricingType != null ||
       priceMin != null ||
       priceMax != null ||
@@ -115,7 +115,7 @@ class SearchFilters {
   int get activeFilterCount {
     int count = 0;
     if (age != null) count++;
-    if (district != null) count++;
+    if (areaId != null) count++;
     if (pricingType != null) count++;
     if (priceMin != null || priceMax != null) count++;
     if (scheduleType != null) count++;
@@ -130,7 +130,7 @@ class SearchFilters {
   SearchFilters copyWith({
     String? searchQuery,
     int? age,
-    String? district,
+    String? areaId,
     PricingType? pricingType,
     double? priceMin,
     double? priceMax,
@@ -146,7 +146,7 @@ class SearchFilters {
     int? limit,
     bool clearSearchQuery = false,
     bool clearAge = false,
-    bool clearDistrict = false,
+    bool clearAreaId = false,
     bool clearPricingType = false,
     bool clearPriceMin = false,
     bool clearPriceMax = false,
@@ -162,7 +162,7 @@ class SearchFilters {
     return SearchFilters(
       searchQuery: clearSearchQuery ? null : (searchQuery ?? this.searchQuery),
       age: clearAge ? null : (age ?? this.age),
-      district: clearDistrict ? null : (district ?? this.district),
+      areaId: clearAreaId ? null : (areaId ?? this.areaId),
       pricingType: clearPricingType ? null : (pricingType ?? this.pricingType),
       priceMin: clearPriceMin ? null : (priceMin ?? this.priceMin),
       priceMax: clearPriceMax ? null : (priceMax ?? this.priceMax),
@@ -198,7 +198,7 @@ class SearchFilters {
       (other is SearchFilters &&
           other.searchQuery == searchQuery &&
           other.age == age &&
-          other.district == district &&
+          other.areaId == areaId &&
           other.pricingType == pricingType &&
           other.priceMin == priceMin &&
           other.priceMax == priceMax &&
@@ -210,7 +210,7 @@ class SearchFilters {
   int get hashCode => Object.hash(
         searchQuery,
         age,
-        district,
+        areaId,
         pricingType,
         priceMin,
         priceMax,
