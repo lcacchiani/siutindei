@@ -96,11 +96,6 @@ class ResourceConfig:
 def lambda_handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
     """Handle admin CRUD requests."""
 
-    # Handle internal cross-Lambda invocations (e.g. from the Cognito admin
-    # Lambda which runs outside VPC and needs database operations).
-    if event.get("_internal"):
-        return _handle_internal(event)
-
     # Set request context for logging
     request_id = event.get("requestContext", {}).get("requestId", "")
     set_request_context(req_id=request_id)
@@ -142,9 +137,6 @@ def lambda_handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
         return json_response(403, {"error": "Forbidden"}, event=event)
 
     # Special admin routes
-    # NOTE: cognito-users and users/*/groups are now served by the dedicated
-    # Cognito admin Lambda (outside VPC).  The handlers below are kept as
-    # fallbacks wrapped in _safe_handler for proper error handling.
     if resource == "users" and sub_resource == "groups":
         return _safe_handler(
             lambda: _handle_user_group(event, method, resource_id), event
@@ -209,77 +201,6 @@ def _safe_handler(
         return json_response(
             500, {"error": "Internal server error", "detail": str(exc)}, event=event
         )
-
-
-# --- Internal cross-Lambda handlers ---
-
-
-def _handle_internal(event: Mapping[str, Any]) -> dict[str, Any]:
-    """Handle internal Lambda-to-Lambda invocations.
-
-    This is called by the Cognito admin Lambda (running outside VPC) when
-    it needs database access for operations like transferring organizations
-    during user deletion.
-
-    The event contains:
-        _internal: True
-        action: The operation to perform
-        ... action-specific fields
-    """
-    action = event.get("action", "")
-    logger.info(f"Internal action: {action}")
-
-    if action == "transfer_organizations":
-        return _internal_transfer_organizations(event)
-
-    logger.error(f"Unknown internal action: {action}")
-    return {"error": "Unknown action"}
-
-
-def _internal_transfer_organizations(
-    event: Mapping[str, Any],
-) -> dict[str, Any]:
-    """Transfer organizations from one manager to another.
-
-    Expected event fields:
-        user_sub: The Cognito sub of the user whose orgs to transfer.
-        fallback_manager_id: The Cognito sub to transfer orgs to.
-        caller_email: The email of the admin performing the transfer.
-    """
-    user_sub = event.get("user_sub", "")
-    fallback_manager_id = event.get("fallback_manager_id", "")
-    caller_email = event.get("caller_email", "")
-
-    if not user_sub or not fallback_manager_id:
-        return {"error": "Missing user_sub or fallback_manager_id"}
-
-    try:
-        transferred_count = 0
-        with Session(get_engine()) as session:
-            # Set audit context for the transfer
-            set_audit_context(
-                session,
-                user_id=fallback_manager_id,
-                request_id=f"internal-transfer-{user_sub[:8]}",
-            )
-            org_repo = OrganizationRepository(session)
-            orgs = org_repo.find_by_manager(user_sub, limit=1000)
-
-            for org in orgs:
-                org.manager_id = fallback_manager_id
-                org_repo.update(org)
-                transferred_count += 1
-
-            session.commit()
-
-        logger.info(
-            f"Transferred {transferred_count} organizations from "
-            f"user {user_sub} to {fallback_manager_id}"
-        )
-        return {"transferred_count": transferred_count}
-    except Exception as exc:
-        logger.exception("Failed to transfer organizations")
-        return {"error": str(exc), "transferred_count": 0}
 
 
 # --- Unified CRUD Handlers ---

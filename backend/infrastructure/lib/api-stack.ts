@@ -194,10 +194,14 @@ export class ApiStack extends cdk.Stack {
         securityGroups: [endpointSecurityGroup],
       });
 
-      // NOTE: Cognito VPC endpoint is NOT included because Cognito disables
-      // PrivateLink access when ManagedLogin is configured. Cognito admin
-      // operations (AdminCreateUser, etc.) must be performed from outside
-      // the VPC (e.g., GitHub Actions) or via NAT Gateway.
+      // Cognito IDP endpoint for admin operations (ListUsers,
+      // AdminAddUserToGroup, etc.) from Lambdas inside the VPC.
+      // NOTE: If Cognito ManagedLogin is enabled in the future, this
+      // endpoint may need to be replaced with a NAT Gateway.
+      vpc.addInterfaceEndpoint("CognitoIdpEndpoint", {
+        service: ec2.InterfaceVpcEndpointAwsService.COGNITO_IDP,
+        securityGroups: [endpointSecurityGroup],
+      });
 
       // SES endpoint for sending emails (manager requests, passwordless auth)
       vpc.addInterfaceEndpoint("SesEndpoint", {
@@ -1035,9 +1039,6 @@ export class ApiStack extends cdk.Stack {
     database.grantConnect(adminFunction, "siutindei_admin");
     organizationImagesBucket.grantReadWrite(adminFunction);
 
-    // NOTE: The admin Lambda retains Cognito IAM permissions for the
-    // fallback code paths that remain in admin.py.  Primary Cognito user
-    // management is handled by the dedicated Cognito admin Lambda below.
     adminFunction.addToRolePolicy(
       new iam.PolicyStatement({
         actions: [
@@ -1049,54 +1050,6 @@ export class ApiStack extends cdk.Stack {
         resources: [userPool.userPoolArn],
       })
     );
-
-    // -----------------------------------------------------------------
-    // Cognito Admin Lambda (runs OUTSIDE VPC)
-    //
-    // Cognito admin API operations (ListUsers, AdminAddUserToGroup, etc.)
-    // require internet access.  The admin Lambda runs inside a VPC with
-    // no NAT Gateway and no Cognito VPC endpoint, so Cognito calls from
-    // it will time out.  This dedicated Lambda runs outside the VPC and
-    // handles all Cognito user management endpoints.  When it also needs
-    // database access (e.g., transferring organisations during user
-    // deletion) it invokes the admin Lambda via Lambda-to-Lambda.
-    // -----------------------------------------------------------------
-    const cognitoAdminFunction = createPythonFunction(
-      "CognitoAdminFunction",
-      {
-        handler: "lambda/cognito_admin/handler.lambda_handler",
-        memorySize: 256,
-        timeout: cdk.Duration.seconds(30),
-        noVpc: true,
-        environment: {
-          COGNITO_USER_POOL_ID: userPool.userPoolId,
-          ADMIN_GROUP: adminGroupName,
-          MANAGER_GROUP: managerGroupName,
-          ADMIN_FUNCTION_ARN: adminFunction.functionArn,
-          CORS_ALLOWED_ORIGINS: corsAllowedOrigins.join(","),
-        },
-      }
-    );
-
-    // Grant Cognito permissions to the new Lambda
-    cognitoAdminFunction.addToRolePolicy(
-      new iam.PolicyStatement({
-        actions: [
-          "cognito-idp:ListUsers",
-          "cognito-idp:AdminGetUser",
-          "cognito-idp:AdminDeleteUser",
-          "cognito-idp:AdminAddUserToGroup",
-          "cognito-idp:AdminRemoveUserFromGroup",
-          "cognito-idp:AdminListGroupsForUser",
-          "cognito-idp:AdminUserGlobalSignOut",
-        ],
-        resources: [userPool.userPoolArn],
-      })
-    );
-
-    // Grant the Cognito admin Lambda permission to invoke the admin Lambda
-    // (for database operations like transferring organizations)
-    adminFunction.grantInvoke(cognitoAdminFunction);
 
     // Grant SES permissions for sending access request notification emails
     // Uses condition to only grant if SES sender email is configured
@@ -1832,16 +1785,7 @@ export class ApiStack extends cdk.Stack {
       sourceArn: api.arnForExecuteApi(),
     });
 
-    // Cognito admin integration (runs outside VPC for Cognito API access)
-    const cognitoAdminIntegration = new apigateway.Integration({
-      type: apigateway.IntegrationType.AWS_PROXY,
-      integrationHttpMethod: "POST",
-      uri: `arn:aws:apigateway:${cdk.Stack.of(this).region}:lambda:path/2015-03-31/functions/${cognitoAdminFunction.functionArn}/invocations`,
-    });
-    cognitoAdminFunction.addPermission("CognitoAdminApiInvokePermission", {
-      principal: new iam.ServicePrincipal("apigateway.amazonaws.com"),
-      sourceArn: api.arnForExecuteApi(),
-    });
+
 
     // All admin resources - admin only, full access
     const adminResources = [
@@ -1893,26 +1837,18 @@ export class ApiStack extends cdk.Stack {
     const users = admin.addResource("users");
     const userByName = users.addResource("{username}");
     const userGroups = userByName.addResource("groups");
-    // User group management routes use the Cognito admin Lambda (outside VPC)
-    userGroups.addMethod("POST", cognitoAdminIntegration, {
+    userGroups.addMethod("POST", adminIntegration, {
       authorizationType: apigateway.AuthorizationType.CUSTOM,
       authorizer: adminAuthorizer,
     });
-    userGroups.addMethod("DELETE", cognitoAdminIntegration, {
+    userGroups.addMethod("DELETE", adminIntegration, {
       authorizationType: apigateway.AuthorizationType.CUSTOM,
       authorizer: adminAuthorizer,
     });
 
-    // Cognito users listing endpoint - uses Cognito admin Lambda (outside VPC)
+    // Cognito users listing endpoint (for manager selection) - admin only
     const cognitoUsers = admin.addResource("cognito-users");
-    cognitoUsers.addMethod("GET", cognitoAdminIntegration, {
-      authorizationType: apigateway.AuthorizationType.CUSTOM,
-      authorizer: adminAuthorizer,
-    });
-
-    // Cognito user deletion endpoint - uses Cognito admin Lambda (outside VPC)
-    const cognitoUserByName = cognitoUsers.addResource("{username}");
-    cognitoUserByName.addMethod("DELETE", cognitoAdminIntegration, {
+    cognitoUsers.addMethod("GET", adminIntegration, {
       authorizationType: apigateway.AuthorizationType.CUSTOM,
       authorizer: adminAuthorizer,
     });
