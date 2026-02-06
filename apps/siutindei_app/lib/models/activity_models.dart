@@ -230,27 +230,27 @@ class Organization {
     required this.id,
     required this.name,
     this.description,
-    this.pictureUrls = const [],
+    this.mediaUrls = const [],
   });
 
   final String id;
   final String name;
   final String? description;
-  final List<String> pictureUrls;
+  final List<String> mediaUrls;
 
   factory Organization.fromJson(Map<String, dynamic> json) {
-    final pictureUrlsJson = json['picture_urls'] as List<dynamic>? ?? [];
+    final mediaUrlsJson = json['media_urls'] as List<dynamic>? ?? [];
     return Organization(
       id: json['id'] as String,
       name: json['name'] as String,
       description: json['description'] as String?,
-      pictureUrls: pictureUrlsJson.map((e) => e as String).toList(),
+      mediaUrls: mediaUrlsJson.map((e) => e as String).toList(),
     );
   }
 
-  /// Returns the first picture URL or null if none available.
-  String? get primaryPictureUrl =>
-      pictureUrls.isNotEmpty ? pictureUrls.first : null;
+  /// Returns the first media URL or null if none available.
+  String? get primaryMediaUrl =>
+      mediaUrls.isNotEmpty ? mediaUrls.first : null;
 }
 
 class Location {

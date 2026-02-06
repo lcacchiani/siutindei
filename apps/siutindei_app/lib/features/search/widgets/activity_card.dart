@@ -155,7 +155,7 @@ class _ActivityCardHeader extends StatelessWidget {
       children: [
         BaseAvatar(
           name: result.organization.name,
-          imageUrl: result.organization.primaryPictureUrl,
+          imageUrl: result.organization.primaryMediaUrl,
           size: AvatarSize.md,
         ),
         SizedBox(width: tokens.gap),
@@ -305,11 +305,9 @@ class _ActivityCardTags extends StatelessWidget {
 
   String _getPricingTypeLabel(PricingType type) {
     return switch (type) {
-      PricingType.perSession => 'Per Session',
+      PricingType.perClass => 'Per Class',
       PricingType.perMonth => 'Monthly',
-      PricingType.perYear => 'Yearly',
-      PricingType.oneTime => 'One Time',
-      PricingType.free => 'Free',
+      PricingType.perSessions => 'Per Sessions',
     };
   }
 }
@@ -401,8 +399,7 @@ class _ScheduleInfo extends StatelessWidget {
 
     if (parts.isEmpty) {
       return switch (schedule.type) {
-        ScheduleType.oneTime => 'One-time event',
-        ScheduleType.flexible => 'Flexible schedule',
+        ScheduleType.dateSpecific => 'One-time event',
         _ => 'See details',
       };
     }

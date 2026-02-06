@@ -282,7 +282,7 @@ For each function above, the following resources are created:
 ### API Gateway Resources and Methods
 
 For the complete list of endpoints with request/response schemas, see
-the OpenAPI specs: [`docs/api/activities-search.yaml`](../api/activities-search.yaml)
+the OpenAPI specs: [`docs/api/search.yaml`](../api/search.yaml)
 and [`docs/api/admin.yaml`](../api/admin.yaml).
 
 | Resource Path | Method | Authorization | Integration | Notes |

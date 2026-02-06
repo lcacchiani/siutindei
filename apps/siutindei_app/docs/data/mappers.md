@@ -42,7 +42,7 @@ class ActivityMapper {
       id: model.id,
       name: model.name,
       description: model.description,
-      pictureUrls: model.pictureUrls,
+      mediaUrls: model.mediaUrls,
     );
   }
 

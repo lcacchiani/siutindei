@@ -48,17 +48,17 @@ class OrganizationEntity {
     required this.id,
     required this.name,
     this.description,
-    this.pictureUrls = const [],
+    this.mediaUrls = const [],
   });
 
   final String id;
   final String name;
   final String? description;
-  final List<String> pictureUrls;
+  final List<String> mediaUrls;
 
-  /// Returns the primary picture URL, if available.
-  String? get primaryPictureUrl =>
-      pictureUrls.isNotEmpty ? pictureUrls.first : null;
+  /// Returns the primary media URL, if available.
+  String? get primaryMediaUrl =>
+      mediaUrls.isNotEmpty ? mediaUrls.first : null;
 
   @override
   bool operator ==(Object other) =>
@@ -124,18 +124,19 @@ class PricingEntity {
   final int? sessionsCount;
 
   /// Returns true if this is free.
-  bool get isFree => type == PricingType.free || amount == 0;
+  bool get isFree => amount == 0;
 
   /// Returns a formatted price string.
   String get formattedPrice {
     if (isFree) return 'Free';
     final priceStr = '${amount.toStringAsFixed(0)} $currency';
     return switch (type) {
-      PricingType.perSession => '$priceStr/session',
+      PricingType.perClass => '$priceStr/class',
       PricingType.perMonth => '$priceStr/month',
-      PricingType.perYear => '$priceStr/year',
-      PricingType.oneTime => priceStr,
-      PricingType.free => 'Free',
+      PricingType.perSessions =>
+        sessionsCount != null
+            ? '$priceStr/$sessionsCount sessions'
+            : '$priceStr/package',
     };
   }
 
@@ -152,30 +153,27 @@ class PricingEntity {
 }
 
 /// Pricing type enumeration.
+///
+/// Values must match the API enum: per_class, per_month, per_sessions
+/// (defined in docs/api/search.yaml).
 enum PricingType {
-  perSession,
+  perClass,
   perMonth,
-  perYear,
-  oneTime,
-  free;
+  perSessions;
 
   /// Creates from API string value.
   static PricingType fromString(String value) => switch (value) {
-        'per_session' => PricingType.perSession,
+        'per_class' => PricingType.perClass,
         'per_month' => PricingType.perMonth,
-        'per_year' => PricingType.perYear,
-        'one_time' => PricingType.oneTime,
-        'free' => PricingType.free,
-        _ => PricingType.oneTime,
+        'per_sessions' => PricingType.perSessions,
+        _ => PricingType.perClass,
       };
 
   /// Returns the API string value.
   String toApiString() => switch (this) {
-        PricingType.perSession => 'per_session',
+        PricingType.perClass => 'per_class',
         PricingType.perMonth => 'per_month',
-        PricingType.perYear => 'per_year',
-        PricingType.oneTime => 'one_time',
-        PricingType.free => 'free',
+        PricingType.perSessions => 'per_sessions',
       };
 }
 
@@ -248,26 +246,26 @@ class ScheduleEntity {
 }
 
 /// Schedule type enumeration.
+///
+/// Values must match the API enum: weekly, monthly, date_specific
+/// (defined in docs/api/search.yaml).
 enum ScheduleType {
   weekly,
   monthly,
-  oneTime,
-  flexible;
+  dateSpecific;
 
   /// Creates from API string value.
   static ScheduleType fromString(String value) => switch (value) {
         'weekly' => ScheduleType.weekly,
         'monthly' => ScheduleType.monthly,
-        'one_time' => ScheduleType.oneTime,
-        'flexible' => ScheduleType.flexible,
-        _ => ScheduleType.flexible,
+        'date_specific' => ScheduleType.dateSpecific,
+        _ => ScheduleType.weekly,
       };
 
   /// Returns the API string value.
   String toApiString() => switch (this) {
         ScheduleType.weekly => 'weekly',
         ScheduleType.monthly => 'monthly',
-        ScheduleType.oneTime => 'one_time',
-        ScheduleType.flexible => 'flexible',
+        ScheduleType.dateSpecific => 'date_specific',
       };
 }

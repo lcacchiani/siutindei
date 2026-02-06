@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint --max-warnings=0 .",
-    "generate:api": "openapi-typescript ../../docs/api/admin.yaml -o src/types/api-admin.generated.ts",
+    "generate:api": "openapi-typescript ../../docs/api/admin.yaml -o src/types/api-admin.generated.ts && openapi-typescript ../../docs/api/search.yaml -o src/types/api-search.generated.ts",
     "prebuild": "npm run generate:api",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",

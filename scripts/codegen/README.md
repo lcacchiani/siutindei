@@ -12,7 +12,7 @@ Example:
 
 ```
 ./scripts/codegen/openapi_codegen.sh \
-  --spec docs/api/activities-search.yaml \
+  --spec docs/api/search.yaml \
   --generator typescript-fetch \
   --output packages/api_client_ts
 ```

@@ -141,7 +141,7 @@ repo root
      - Add the resource and method with the correct Lambda integration
      - Configure the appropriate authorizer (adminAuthorizer, managerAuthorizer, userAuthorizer, deviceAttestationAuthorizer, or IAM)
      - Set apiKeyRequired if the endpoint needs an API key
-  2. Update the OpenAPI documentation (docs/api/admin.yaml or docs/api/activities-search.yaml)
+  2. Update the OpenAPI documentation (docs/api/admin.yaml or docs/api/search.yaml)
      - Add the path with all HTTP methods, parameters, request body, and response schemas
      - Add any new component schemas referenced by the endpoint
      - Document authentication requirements

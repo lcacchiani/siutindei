@@ -83,7 +83,7 @@ class OrganizationScreen extends ConsumerWidget {
   }
 
   Widget _buildHeaderImage(SemanticTokens semantic) {
-    final imageUrl = organization.primaryPictureUrl;
+    final imageUrl = organization.primaryMediaUrl;
     if (imageUrl != null) {
       return Image.network(
         imageUrl,
@@ -163,7 +163,7 @@ class OrganizationScreen extends ConsumerWidget {
   }
 
   Widget _buildImageGallery(SemanticTokens semantic) {
-    if (organization.pictureUrls.length <= 1) return const SizedBox.shrink();
+    if (organization.mediaUrls.length <= 1) return const SizedBox.shrink();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -178,14 +178,14 @@ class OrganizationScreen extends ConsumerWidget {
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             padding: EdgeInsets.symmetric(horizontal: semantic.spacing.md),
-            itemCount: organization.pictureUrls.length,
+            itemCount: organization.mediaUrls.length,
             itemBuilder: (context, index) {
               return Padding(
                 padding: EdgeInsets.only(right: semantic.spacing.sm),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(semantic.radius.md),
                   child: Image.network(
-                    organization.pictureUrls[index],
+                    organization.mediaUrls[index],
                     width: 160,
                     height: 120,
                     fit: BoxFit.cover,
