@@ -105,13 +105,35 @@ repo root
   - Use abbreviations: "org" not "organization", "req" not "request", etc.
   - Examples of valid IDs: "0011_add_org_suggestions" (24 chars), "0010_add_audit_logging" (22 chars)
   - NEVER exceed 32 characters - migrations WILL FAIL
-- When making ANY database schema changes (migrations, new tables, column changes):
-  - ALWAYS check if backend/db/seed/seed_data.sql needs to be updated
-  - ALWAYS verify seed data is compatible with new schema constraints
-  - ALWAYS update seed data if new required columns are added
-  - ALWAYS check if new tables need seed data for testing/development
+
+### Seed data assessment (MANDATORY for ANY database change)
+- **Every** database change (migration, new table, column add/rename/drop,
+  constraint change, enum change, default change) MUST include a seed-data
+  assessment before the work is considered complete.
 - Seed data location: backend/db/seed/seed_data.sql
-- Run seed data after migrations to verify compatibility
+- Assessment checklist — answer ALL of these for every DB change:
+  1. **Compatibility**: Will the existing seed SQL still execute without errors
+     after this migration? (Check column names, types, NOT NULL, FKs, enums,
+     CHECK constraints.)
+  2. **New required columns**: Does the migration add a NOT NULL column or a
+     column with a CHECK constraint?  If yes, UPDATE seed_data.sql to supply
+     valid values for that column.
+  3. **Renamed / dropped columns**: Does the migration rename or remove a
+     column?  If yes, UPDATE seed_data.sql to match the new schema.
+  4. **New tables**: Does the migration create a new table?  If yes, EVALUATE
+     whether seed rows are needed for local development and testing, and ADD
+     them if so.
+  5. **Enum / allowed-value changes**: Does the migration add or remove enum
+     values or change CHECK constraints?  If yes, VERIFY that all seed rows
+     still use allowed values.
+  6. **FK / cascade changes**: Does the migration alter foreign-key
+     relationships or cascade rules?  If yes, VERIFY that the insert order
+     and referenced IDs in seed_data.sql are still valid.
+- After updating seed_data.sql, mentally (or actually) run the full sequence:
+  `alembic upgrade head` → `psql -f seed_data.sql` to confirm no errors.
+- If the assessment concludes "no seed changes needed", add a brief comment
+  in the PR/commit explaining why (e.g., "Seed assessment: new nullable
+  column with DEFAULT — existing seed rows unaffected").
 
 ### Endpoint registration and documentation requirements (MANDATORY)
 - Every time you add a new API endpoint (Lambda handler route), you MUST:
