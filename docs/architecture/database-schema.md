@@ -3,11 +3,16 @@
 This document describes the PostgreSQL schema for the activities
 backend. It is based on the SQLAlchemy models and Alembic migrations.
 
+Alembic migrations live in `backend/db/alembic/versions/`.
+Seed data lives in `backend/db/seed/seed_data.sql`.
+
 ## Extensions and enums
 
 - Extension: `pgcrypto` (used by `gen_random_uuid()` defaults).
 - Enum `pricing_type`: `per_class`, `per_month`, `per_sessions`.
 - Enum `schedule_type`: `weekly`, `monthly`, `date_specific`.
+- Enum `access_request_status`: `pending`, `approved`, `rejected`.
+- Enum `suggestion_status`: `pending`, `approved`, `rejected`.
 
 ## Table: organizations
 
@@ -131,3 +136,90 @@ Indexes:
   `end_minutes_utc`
 - `activity_schedule_date_idx` on `start_at_utc`, `end_at_utc`
 - `activity_schedule_languages_gin` on `languages` (GIN)
+
+## Table: organizations (additional columns)
+
+The following columns were added after the initial schema:
+
+- `media_urls` (text[], default empty array) — replaces `picture_urls`
+- `manager_id` (text, optional) — Cognito user sub of the organization manager
+
+## Table: organization_access_requests
+
+Purpose: Manager access request workflow. Users request to become a
+manager of an organization; admins approve or reject.
+
+Columns:
+- `id` (UUID, PK, default `gen_random_uuid()`)
+- `ticket_id` (text, unique, required) — progressive ID (R00001)
+- `requester_id` (text, required) — Cognito user sub
+- `requester_email` (text, required)
+- `organization_name` (text, required)
+- `request_message` (text, optional)
+- `status` (enum `access_request_status`, default `pending`)
+- `reviewed_at` (timestamptz, optional)
+- `reviewed_by` (text, optional) — Cognito user sub of reviewer
+- `created_at` (timestamptz, default `now()`)
+- `updated_at` (timestamptz, default `now()`)
+
+Indexes:
+- Unique on `ticket_id`
+- Index on `requester_id`
+- Index on `status`
+
+## Table: organization_suggestions
+
+Purpose: User-submitted suggestions for new organizations/places. Admins
+review and optionally create an organization from the suggestion.
+
+Columns:
+- `id` (UUID, PK, default `gen_random_uuid()`)
+- `ticket_id` (text, unique, required) — progressive ID (S00001)
+- `suggester_id` (text, required) — Cognito user sub
+- `suggester_email` (text, required)
+- `organization_name` (text, required)
+- `description` (text, optional)
+- `suggested_district` (text, optional)
+- `suggested_address` (text, optional)
+- `suggested_lat` (numeric, optional)
+- `suggested_lng` (numeric, optional)
+- `media_urls` (text[], default empty array)
+- `additional_notes` (text, optional)
+- `status` (enum `suggestion_status`, default `pending`)
+- `reviewed_at` (timestamptz, optional)
+- `reviewed_by` (text, optional) — Cognito user sub of reviewer
+- `admin_notes` (text, optional)
+- `created_organization_id` (UUID, FK -> organizations.id, optional)
+- `created_at` (timestamptz, default `now()`)
+- `updated_at` (timestamptz, default `now()`)
+
+Indexes:
+- Unique on `ticket_id`
+- Index on `suggester_id`
+- Index on `status`
+
+## Table: audit_log
+
+Purpose: Automatic change tracking for all audited tables.
+Populated via database triggers (see [`audit-logging.md`](audit-logging.md)).
+
+Columns:
+- `id` (UUID, PK, default `gen_random_uuid()`)
+- `timestamp` (timestamptz, default `now()`)
+- `table_name` (text, required)
+- `record_id` (text, required) — primary key of the modified record
+- `action` (text, required) — INSERT, UPDATE, or DELETE
+- `user_id` (text, optional) — Cognito user sub from session context
+- `request_id` (text, optional) — Lambda request ID
+- `old_values` (jsonb, optional)
+- `new_values` (jsonb, optional)
+- `changed_fields` (text[], optional)
+- `source` (text, optional) — 'trigger' or 'application'
+- `ip_address` (text, optional)
+- `user_agent` (text, optional)
+
+Indexes:
+- `audit_log_table_record_idx` on `table_name`, `record_id`
+- `audit_log_timestamp_idx` on `timestamp`
+- `audit_log_user_id_idx` on `user_id`
+- `audit_log_action_idx` on `action`

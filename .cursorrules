@@ -113,6 +113,43 @@ repo root
 - Seed data location: backend/db/seed/seed_data.sql
 - Run seed data after migrations to verify compatibility
 
+### Endpoint registration and documentation requirements (MANDATORY)
+- Every time you add a new API endpoint (Lambda handler route), you MUST:
+  1. Register the route in the API Gateway CDK stack (backend/infrastructure/lib/api-stack.ts)
+     - Add the resource and method with the correct Lambda integration
+     - Configure the appropriate authorizer (adminAuthorizer, managerAuthorizer, userAuthorizer, deviceAttestationAuthorizer, or IAM)
+     - Set apiKeyRequired if the endpoint needs an API key
+  2. Update the OpenAPI documentation (docs/api/admin.yaml or docs/api/activities-search.yaml)
+     - Add the path with all HTTP methods, parameters, request body, and response schemas
+     - Add any new component schemas referenced by the endpoint
+     - Document authentication requirements
+  3. Update the Lambda catalog (docs/architecture/lambdas.md)
+     - If a new Lambda function is created, add its entry with function name, handler path, trigger, purpose, DB access, and VPC config
+     - If an existing Lambda gains new routes, update its description
+- NEVER merge a PR that adds an endpoint without all three updates completed
+- API Gateway route paths must exactly match the paths handled in the Lambda code
+- Documentation paths must exactly match the API Gateway registered paths
+
+### Documentation freshness requirements (MANDATORY)
+- After ANY code change, ensure the relevant documentation is still accurate.
+- API endpoint details (paths, methods, parameters, schemas) belong ONLY in
+  the OpenAPI specs (docs/api/*.yaml). NEVER duplicate endpoint details in
+  architecture docs; link to the OpenAPI spec instead.
+- When modifying code, check and update as applicable:
+  - docs/api/*.yaml — if API endpoints, parameters, or schemas change
+  - docs/architecture/lambdas.md — if Lambda functions are added, removed, or reconfigured
+  - docs/architecture/database-schema.md — if database tables or columns change
+  - docs/architecture/aws-assets-map.md — if AWS resources, IAM permissions, or CDK outputs change
+  - docs/architecture/overview.md — if high-level architecture or component relationships change
+  - docs/architecture/decisions.md — if architectural decisions or patterns change
+  - docs/architecture/security.md — if security practices or configurations change
+  - docs/architecture/aws-messaging.md — if messaging (SNS/SQS) architecture changes
+  - docs/architecture/audit-logging.md — if audit logging behavior changes
+  - .cursorrules — if development rules or conventions change
+- Architecture docs describe DESIGN, PATTERNS, and DECISIONS — not endpoint specifics.
+- The single source of truth for endpoints is the OpenAPI spec.
+- When in doubt, update the docs. Stale documentation is worse than no documentation.
+
 ### Security requirements (MANDATORY - see docs/architecture/security.md)
 - NEVER hardcode secrets, API keys, passwords, or tokens in source code.
 - NEVER log PII (emails, names) without masking. Use mask_email() and mask_pii() from app.utils.logging.
