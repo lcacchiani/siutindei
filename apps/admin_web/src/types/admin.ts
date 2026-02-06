@@ -1,3 +1,17 @@
+/**
+ * Admin domain types — manually maintained for backward compatibility.
+ *
+ * IMPORTANT: These types MUST stay in sync with docs/api/admin.yaml.
+ *
+ * Auto-generated types live in ./api-admin.generated.ts (run `npm run generate:api`).
+ * The generated file is the authoritative reference; these hand-written types
+ * exist because the generated response schemas have all properties optional
+ * (the OpenAPI spec doesn't declare `required` on response objects).
+ *
+ * New code should prefer importing from '@/lib/api-admin-client' which
+ * re-exports the generated types alongside a type-safe fetch client.
+ */
+
 export interface Organization {
   id: string;
   name: string;
