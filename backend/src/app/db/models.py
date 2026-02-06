@@ -27,6 +27,61 @@ from sqlalchemy.types import TIMESTAMP
 from app.db.base import Base
 
 
+class GeographicArea(Base):
+    """Hierarchical geographic area (country > region > city > district).
+
+    The ``active`` flag on country-level rows controls which countries
+    are available to users.  Children inherit active status from their
+    country ancestor at query time.
+    """
+
+    __tablename__ = "geographic_areas"
+
+    id: Mapped[str] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        server_default=text("gen_random_uuid()"),
+    )
+    parent_id: Mapped[Optional[str]] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("geographic_areas.id", ondelete="CASCADE"),
+        nullable=True,
+        comment="NULL for root (country) nodes",
+    )
+    name: Mapped[str] = mapped_column(Text(), nullable=False)
+    level: Mapped[str] = mapped_column(
+        Text(),
+        nullable=False,
+        comment="country | region | city | district",
+    )
+    code: Mapped[Optional[str]] = mapped_column(
+        Text(),
+        nullable=True,
+        comment="ISO 3166-1 alpha-2 for countries (HK, SG, AE)",
+    )
+    active: Mapped[bool] = mapped_column(
+        sa.Boolean(),
+        nullable=False,
+        server_default=text("true"),
+        comment="Only active countries (and their children) are shown",
+    )
+    display_order: Mapped[int] = mapped_column(
+        Integer(),
+        nullable=False,
+        server_default=text("0"),
+    )
+
+    parent: Mapped[Optional["GeographicArea"]] = relationship(
+        remote_side="GeographicArea.id",
+        back_populates="children",
+    )
+    children: Mapped[List["GeographicArea"]] = relationship(
+        back_populates="parent",
+        cascade="all, delete-orphan",
+        order_by="GeographicArea.display_order",
+    )
+
+
 class PricingType(str, enum.Enum):
     """Supported pricing types for activities."""
 
@@ -116,13 +171,19 @@ class Location(Base):
         ForeignKey("organizations.id", ondelete="CASCADE"),
         nullable=False,
     )
+    area_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("geographic_areas.id"),
+        nullable=False,
+        comment="FK to geographic_areas leaf node",
+    )
     district: Mapped[str] = mapped_column(Text(), nullable=False)
     country: Mapped[str] = mapped_column(
         Text(),
         nullable=False,
         default="Hong Kong",
         server_default=text("'Hong Kong'"),
-        comment="Country where the location is situated",
+        comment="Denormalized from geographic_areas for query performance",
     )
     address: Mapped[Optional[str]] = mapped_column(Text(), nullable=True)
     lat: Mapped[Optional[Decimal]] = mapped_column(Numeric(9, 6), nullable=True)
@@ -139,6 +200,7 @@ class Location(Base):
     )
 
     organization: Mapped["Organization"] = relationship(back_populates="locations")
+    area: Mapped["GeographicArea"] = relationship()
     activity_pricing: Mapped[List["ActivityPricing"]] = relationship(
         back_populates="location",
         cascade="all, delete-orphan",
