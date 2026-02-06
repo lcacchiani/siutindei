@@ -701,3 +701,65 @@ export async function reviewAccessRequest(
     body: JSON.stringify(payload),
   });
 }
+
+// --- Admin Audit Logs ---
+
+export interface AuditLogsResponse {
+  items: import('../types/admin').AuditLog[];
+  next_cursor?: string | null;
+}
+
+export interface AuditLogsFilters {
+  table?: string;
+  record_id?: string;
+  user_id?: string;
+  action?: 'INSERT' | 'UPDATE' | 'DELETE';
+  since?: string;
+}
+
+function buildAuditLogsUrl(id?: string) {
+  const base = getApiBaseUrl();
+  const normalized = base.endsWith('/') ? base : `${base}/`;
+  const suffix = id ? `v1/admin/audit-logs/${id}` : 'v1/admin/audit-logs';
+  return new URL(suffix, normalized).toString();
+}
+
+/**
+ * List audit log entries with optional filtering.
+ */
+export async function listAuditLogs(
+  filters?: AuditLogsFilters,
+  cursor?: string,
+  limit = 50
+): Promise<AuditLogsResponse> {
+  const url = new URL(buildAuditLogsUrl());
+  url.searchParams.set('limit', `${limit}`);
+  if (filters?.table) {
+    url.searchParams.set('table', filters.table);
+  }
+  if (filters?.record_id) {
+    url.searchParams.set('record_id', filters.record_id);
+  }
+  if (filters?.user_id) {
+    url.searchParams.set('user_id', filters.user_id);
+  }
+  if (filters?.action) {
+    url.searchParams.set('action', filters.action);
+  }
+  if (filters?.since) {
+    url.searchParams.set('since', filters.since);
+  }
+  if (cursor) {
+    url.searchParams.set('cursor', cursor);
+  }
+  return request<AuditLogsResponse>(url.toString());
+}
+
+/**
+ * Get a single audit log entry by ID.
+ */
+export async function getAuditLog(
+  id: string
+): Promise<import('../types/admin').AuditLog> {
+  return request<import('../types/admin').AuditLog>(buildAuditLogsUrl(id));
+}

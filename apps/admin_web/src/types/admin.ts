@@ -69,3 +69,19 @@ export interface ActivitySchedule {
   end_at_utc?: string | null;
   languages: string[];
 }
+
+export interface AuditLog {
+  id: string;
+  timestamp: string;
+  table_name: string;
+  record_id: string;
+  action: 'INSERT' | 'UPDATE' | 'DELETE';
+  user_id?: string | null;
+  request_id?: string | null;
+  old_values?: Record<string, unknown> | null;
+  new_values?: Record<string, unknown> | null;
+  changed_fields?: string[] | null;
+  source: 'trigger' | 'application';
+  ip_address?: string | null;
+  user_agent?: string | null;
+}
