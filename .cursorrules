@@ -94,6 +94,12 @@ repo root
 - Auth is passwordless with email OTP/magic link and federated Google/Apple/Microsoft.
 
 ### Database change requirements (MANDATORY)
+- **ALEMBIC MIGRATION REVISION IDs MUST BE <= 32 CHARACTERS**
+  - Format: NNNN_short_description (e.g., "0010_add_audit_logging")
+  - ALWAYS count characters before creating: `echo -n "revision_id" | wc -c`
+  - Use abbreviations: "org" not "organization", "req" not "request", etc.
+  - Examples of valid IDs: "0011_add_org_suggestions" (24 chars), "0010_add_audit_logging" (22 chars)
+  - NEVER exceed 32 characters - migrations WILL FAIL
 - When making ANY database schema changes (migrations, new tables, column changes):
   - ALWAYS check if backend/db/seed/seed_data.sql needs to be updated
   - ALWAYS verify seed data is compatible with new schema constraints
