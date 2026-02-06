@@ -13,12 +13,11 @@ import {
   PricingPanel,
   SchedulesPanel,
 } from '../shared';
-import { AccessRequestsPanel } from './access-requests-panel';
 import { AuditLogsPanel } from './audit-logs-panel';
 import { CognitoUsersPanel } from './cognito-users-panel';
 import { MediaPanel } from './media-panel';
 import { ManagerDashboard } from './manager-dashboard';
-import { OrganizationSuggestionsPanel } from './organization-suggestions-panel';
+import { TicketsPanel } from './tickets-panel';
 import { UserDashboard } from './user-dashboard';
 
 const sectionLabels = [
@@ -28,8 +27,7 @@ const sectionLabels = [
   { key: 'activities', label: 'Activities' },
   { key: 'pricing', label: 'Pricing' },
   { key: 'schedules', label: 'Schedules' },
-  { key: 'access-requests', label: 'Access Requests', dividerBefore: true },
-  { key: 'org-suggestions', label: 'Org Suggestions' },
+  { key: 'tickets', label: 'Tickets', dividerBefore: true },
   { key: 'cognito-users', label: 'Cognito Users' },
   { key: 'audit-logs', label: 'Audit Logs' },
 ];
@@ -50,10 +48,8 @@ export function AdminDashboard() {
         return <PricingPanel mode='admin' />;
       case 'schedules':
         return <SchedulesPanel mode='admin' />;
-      case 'access-requests':
-        return <AccessRequestsPanel />;
-      case 'org-suggestions':
-        return <OrganizationSuggestionsPanel />;
+      case 'tickets':
+        return <TicketsPanel />;
       case 'cognito-users':
         return <CognitoUsersPanel />;
       case 'audit-logs':

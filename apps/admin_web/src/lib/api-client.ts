@@ -814,7 +814,7 @@ export async function getAuditLog(
   return request<import('../types/admin').AuditLog>(buildAuditLogsUrl(id));
 }
 
-// --- Admin Organization Suggestions ---
+// --- Admin Organization Suggestions (legacy, kept for backward compat) ---
 
 export interface OrganizationSuggestionsResponse {
   items: import('../types/admin').OrganizationSuggestion[];
@@ -847,6 +847,7 @@ function buildOrganizationSuggestionsUrl(id?: string) {
 
 /**
  * List organization suggestions for admin review.
+ * @deprecated Use listTickets() instead.
  */
 export async function listOrganizationSuggestions(
   status?: 'pending' | 'approved' | 'rejected',
@@ -866,6 +867,7 @@ export async function listOrganizationSuggestions(
 
 /**
  * Approve or reject an organization suggestion.
+ * @deprecated Use reviewTicket() instead.
  */
 export async function reviewOrganizationSuggestion(
   id: string,
@@ -881,4 +883,99 @@ export async function reviewOrganizationSuggestion(
       body: JSON.stringify(payload),
     }
   );
+}
+
+// --- Admin Unified Tickets ---
+
+export type TicketType = 'access_request' | 'organization_suggestion';
+export type TicketStatus = 'pending' | 'approved' | 'rejected';
+
+export interface Ticket {
+  id: string;
+  ticket_id: string;
+  ticket_type: TicketType;
+  organization_name: string;
+  message?: string | null;
+  status: TicketStatus;
+  submitter_email: string;
+  submitter_id: string;
+  created_at?: string | null;
+  reviewed_at?: string | null;
+  reviewed_by?: string | null;
+  admin_notes?: string | null;
+  // Suggestion-specific fields
+  description?: string | null;
+  suggested_district?: string | null;
+  suggested_address?: string | null;
+  suggested_lat?: number | null;
+  suggested_lng?: number | null;
+  media_urls?: string[];
+  created_organization_id?: string | null;
+}
+
+export interface TicketsListResponse {
+  items: Ticket[];
+  next_cursor?: string | null;
+  pending_count: number;
+}
+
+export interface ReviewTicketPayload {
+  action: 'approve' | 'reject';
+  admin_notes?: string;
+  /** For access_request: ID of existing org to assign */
+  organization_id?: string;
+  /** Create organization from ticket data (for approval) */
+  create_organization?: boolean;
+}
+
+export interface ReviewTicketResponse {
+  message: string;
+  ticket: Ticket;
+  organization?: import('../types/admin').Organization;
+}
+
+function buildTicketsUrl(id?: string) {
+  const base = getApiBaseUrl();
+  const normalized = base.endsWith('/') ? base : `${base}/`;
+  const suffix = id ? `v1/admin/tickets/${id}` : 'v1/admin/tickets';
+  return new URL(suffix, normalized).toString();
+}
+
+/**
+ * List all tickets for admin review.
+ */
+export async function listTickets(
+  ticketType?: TicketType,
+  status?: TicketStatus,
+  cursor?: string,
+  limit = 50
+): Promise<TicketsListResponse> {
+  const url = new URL(buildTicketsUrl());
+  url.searchParams.set('limit', `${limit}`);
+  if (ticketType) {
+    url.searchParams.set('ticket_type', ticketType);
+  }
+  if (status) {
+    url.searchParams.set('status', status);
+  }
+  if (cursor) {
+    url.searchParams.set('cursor', cursor);
+  }
+  return request<TicketsListResponse>(url.toString());
+}
+
+/**
+ * Approve or reject a ticket.
+ */
+export async function reviewTicket(
+  id: string,
+  payload: ReviewTicketPayload
+): Promise<ReviewTicketResponse> {
+  return request<ReviewTicketResponse>(buildTicketsUrl(id), {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
 }

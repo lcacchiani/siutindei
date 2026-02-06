@@ -1932,7 +1932,20 @@ export class ApiStack extends cdk.Stack {
       authorizer: adminAuthorizer,
     });
 
-    // Organization suggestions management - admin only
+    // Unified tickets management (access requests + org suggestions) - admin only
+    const tickets = admin.addResource("tickets");
+    tickets.addMethod("GET", adminIntegration, {
+      authorizationType: apigateway.AuthorizationType.CUSTOM,
+      authorizer: adminAuthorizer,
+    });
+
+    const ticketById = tickets.addResource("{id}");
+    ticketById.addMethod("PUT", adminIntegration, {
+      authorizationType: apigateway.AuthorizationType.CUSTOM,
+      authorizer: adminAuthorizer,
+    });
+
+    // Legacy routes (kept for backward compatibility, handled by same Lambda)
     const orgSuggestions = admin.addResource("organization-suggestions");
     orgSuggestions.addMethod("GET", adminIntegration, {
       authorizationType: apigateway.AuthorizationType.CUSTOM,
