@@ -1861,9 +1861,11 @@ def _handle_audit_logs(
     """
     # Single audit log entry by ID
     if audit_id:
+        logger.info(f"Fetching audit log entry: {audit_id}")
         return _get_audit_log_by_id(event, audit_id)
 
     # List/filter audit logs
+    logger.info("Listing audit logs with filters")
     return _list_audit_logs(event)
 
 
@@ -1971,6 +1973,17 @@ def _list_audit_logs(event: Mapping[str, Any]) -> dict[str, Any]:
         has_more = len(rows) > limit
         trimmed = list(rows)[:limit]
         next_cursor = _encode_cursor(trimmed[-1].id) if has_more and trimmed else None
+
+        logger.info(
+            f"Audit logs query returned {len(trimmed)} entries"
+            f" (has_more={has_more})",
+            extra={
+                "table": table_name,
+                "action": action,
+                "since": since_str,
+                "result_count": len(trimmed),
+            },
+        )
 
         return json_response(
             200,
