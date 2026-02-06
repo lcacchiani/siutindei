@@ -67,6 +67,7 @@ def lambda_handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
 
         _run_with_retry(_run_migrations, database_url)
         _run_with_retry(_sync_proxy_user_passwords, database_url)
+        _run_with_retry(_sync_active_countries, database_url)
 
         run_seed = _truthy(resource_props.get("RunSeed"))
         if run_seed:
@@ -226,6 +227,70 @@ def _sync_proxy_user_passwords(database_url: str) -> None:
                     extra={"db_user": username},
                 )
         connection.commit()
+
+
+def _sync_active_countries(database_url: str) -> None:
+    """Sync geographic_areas active flags based on ACTIVE_COUNTRY_CODES env var.
+
+    Reads the comma-separated list of ISO 3166-1 alpha-2 codes from the
+    environment and ensures only those countries are active=true.
+    All other country-level rows are set to active=false.
+
+    This is a no-op if the environment variable is unset or empty, or if
+    the geographic_areas table does not exist yet.
+    """
+    raw = os.getenv("ACTIVE_COUNTRY_CODES", "").strip()
+    if not raw:
+        logger.info("ACTIVE_COUNTRY_CODES not set, skipping country sync")
+        return
+
+    codes = [c.strip().upper() for c in raw.split(",") if c.strip()]
+    if not codes:
+        logger.info("ACTIVE_COUNTRY_CODES is empty, skipping country sync")
+        return
+
+    logger.info(f"Syncing active countries to: {codes}")
+
+    with _psycopg_connect(database_url) as connection:
+        with connection.cursor() as cursor:
+            # Check if geographic_areas table exists (migration may not have run yet)
+            cursor.execute(
+                "SELECT EXISTS ("
+                "  SELECT 1 FROM information_schema.tables "
+                "  WHERE table_name = 'geographic_areas'"
+                ")"
+            )
+            exists = cursor.fetchone()
+            if not exists or not exists[0]:
+                logger.info("geographic_areas table does not exist yet, skipping")
+                return
+
+            # Deactivate all country-level rows
+            cursor.execute(
+                "UPDATE geographic_areas SET active = false "
+                "WHERE level = 'country'"
+            )
+
+            # Activate only the configured ones
+            cursor.execute(
+                "UPDATE geographic_areas SET active = true "
+                "WHERE level = 'country' AND code = ANY(%s)",
+                (codes,),
+            )
+
+            # Log what we changed
+            cursor.execute(
+                "SELECT code, name, active FROM geographic_areas "
+                "WHERE level = 'country' ORDER BY display_order"
+            )
+            rows = cursor.fetchall()
+            for code, name, active in rows:
+                status = "ACTIVE" if active else "inactive"
+                logger.info(f"  Country {code} ({name}): {status}")
+
+        connection.commit()
+
+    logger.info("Country activation sync complete")
 
 
 def _run_with_retry(func: Any, *args: Any) -> None:
