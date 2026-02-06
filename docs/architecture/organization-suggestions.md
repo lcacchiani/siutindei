@@ -63,7 +63,7 @@ authentication requirements), see the OpenAPI spec:
 | `suggested_address` | TEXT | Full address |
 | `suggested_lat` | NUMERIC | Latitude |
 | `suggested_lng` | NUMERIC | Longitude |
-| `media_urls` | TEXT[] | Uploaded pictures |
+| `media_urls` | TEXT[] | Uploaded media files |
 | `additional_notes` | TEXT | Extra info from user |
 | `status` | ENUM | pending/approved/rejected |
 | `created_at` | TIMESTAMPTZ | Submission time |

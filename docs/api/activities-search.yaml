@@ -233,7 +233,10 @@ components:
         description:
           type: string
           nullable: true
-        picture_urls:
+        manager_id:
+          type: string
+          description: Cognito user sub of the organization manager
+        media_urls:
           type: array
           items:
             type: string

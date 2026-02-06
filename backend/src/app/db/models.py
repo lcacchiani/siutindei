@@ -569,7 +569,7 @@ class OrganizationSuggestion(Base):
         ARRAY(Text()),
         nullable=False,
         server_default=text("'{}'::text[]"),
-        comment="URLs of uploaded pictures",
+        comment="URLs of uploaded media files",
     )
     additional_notes: Mapped[Optional[str]] = mapped_column(
         Text(),
