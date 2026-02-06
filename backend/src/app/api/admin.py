@@ -1018,12 +1018,8 @@ def _serialize_ticket(
         "status": ticket.status.value,
         "submitter_email": ticket.submitter_email,
         "submitter_id": ticket.submitter_id,
-        "created_at": (
-            ticket.created_at.isoformat() if ticket.created_at else None
-        ),
-        "reviewed_at": (
-            ticket.reviewed_at.isoformat() if ticket.reviewed_at else None
-        ),
+        "created_at": (ticket.created_at.isoformat() if ticket.created_at else None),
+        "reviewed_at": (ticket.reviewed_at.isoformat() if ticket.reviewed_at else None),
         "reviewed_by": ticket.reviewed_by,
         "admin_notes": ticket.admin_notes,
         # Optional fields (depend on ticket_type)
@@ -1043,7 +1039,6 @@ def _serialize_ticket(
             else None
         ),
     }
-
 
 
 # --- Admin tickets management ---
@@ -1121,9 +1116,7 @@ def _list_admin_tickets(event: Mapping[str, Any]) -> dict[str, Any]:
         )
         has_more = len(rows) > limit
         trimmed = list(rows)[:limit]
-        next_cursor = (
-            _encode_cursor(trimmed[-1].id) if has_more and trimmed else None
-        )
+        next_cursor = _encode_cursor(trimmed[-1].id) if has_more and trimmed else None
 
         pending_count = repo.count_pending(ticket_type=ticket_type)
 
@@ -1184,10 +1177,7 @@ def _review_ticket(
         organization = None
 
         # --- access_request approval logic ---
-        if (
-            ticket.ticket_type == TicketType.ACCESS_REQUEST
-            and action == "approve"
-        ):
+        if ticket.ticket_type == TicketType.ACCESS_REQUEST and action == "approve":
             if not organization_id and not create_organization:
                 raise ValidationError(
                     "When approving an access request, you must either "
@@ -1203,9 +1193,7 @@ def _review_ticket(
             org_repo = OrganizationRepository(session)
 
             if organization_id:
-                organization = org_repo.get_by_id(
-                    _parse_uuid(organization_id)
-                )
+                organization = org_repo.get_by_id(_parse_uuid(organization_id))
                 if organization is None:
                     raise NotFoundError("organization", organization_id)
                 organization.manager_id = ticket.submitter_id
@@ -1265,9 +1253,7 @@ def _review_ticket(
 
         # Update the ticket status
         new_status = (
-            TicketStatus.APPROVED
-            if action == "approve"
-            else TicketStatus.REJECTED
+            TicketStatus.APPROVED if action == "approve" else TicketStatus.REJECTED
         )
         ticket.status = new_status
         ticket.reviewed_at = datetime.now(timezone.utc)
@@ -1281,9 +1267,7 @@ def _review_ticket(
         if organization:
             session.refresh(organization)
 
-        logger.info(
-            f"Ticket {ticket_id_param} {action}d by {reviewer_sub}"
-        )
+        logger.info(f"Ticket {ticket_id_param} {action}d by {reviewer_sub}")
 
         # Send notification email to the submitter
         _send_ticket_decision_email(ticket, action, admin_notes)
@@ -1294,9 +1278,7 @@ def _review_ticket(
         }
 
         if organization:
-            response_data["organization"] = _serialize_organization(
-                organization
-            )
+            response_data["organization"] = _serialize_organization(organization)
 
         return json_response(200, response_data, event=event)
 
@@ -1315,8 +1297,7 @@ def _send_ticket_decision_email(
 
     if not ticket.submitter_email or ticket.submitter_email == "unknown":
         logger.warning(
-            f"Email notification skipped: No valid email for "
-            f"ticket {ticket.ticket_id}"
+            f"Email notification skipped: No valid email for ticket {ticket.ticket_id}"
         )
         return
 
@@ -1330,9 +1311,7 @@ def _send_ticket_decision_email(
                 ticket_id=ticket.ticket_id,
                 organization_name=ticket.organization_name,
                 reviewed_at=(
-                    ticket.reviewed_at.isoformat()
-                    if ticket.reviewed_at
-                    else "Unknown"
+                    ticket.reviewed_at.isoformat() if ticket.reviewed_at else "Unknown"
                 ),
                 action=action,
                 admin_message=admin_notes if admin_notes else None,
@@ -1361,10 +1340,7 @@ def _send_ticket_decision_email(
         else:
             # Suggestion decision - inline email (same as before)
             if action == "approve":
-                subject = (
-                    f"Your place suggestion {ticket.ticket_id} "
-                    f"has been approved!"
-                )
+                subject = f"Your place suggestion {ticket.ticket_id} has been approved!"
                 body_text = (
                     f"Great news! Your suggestion for "
                     f"'{ticket.organization_name}' has been approved "
@@ -1374,9 +1350,7 @@ def _send_ticket_decision_email(
                 if admin_notes:
                     body_text += f"Note from admin: {admin_notes}\n"
             else:
-                subject = (
-                    f"Update on your place suggestion {ticket.ticket_id}"
-                )
+                subject = f"Update on your place suggestion {ticket.ticket_id}"
                 body_text = (
                     f"Thank you for suggesting "
                     f"'{ticket.organization_name}'.\n\n"
@@ -1665,10 +1639,6 @@ def _generate_suggestion_ticket_id(session: Session) -> str:
     return f"S{next_number:05d}"
 
 
-
-
-
-
 # --- Audit log management ---
 
 
@@ -1829,8 +1799,7 @@ def _list_audit_logs(event: Mapping[str, Any]) -> dict[str, Any]:
         next_cursor = _encode_cursor(trimmed[-1].id) if has_more and trimmed else None
 
         logger.info(
-            f"Audit logs query returned {len(trimmed)} entries"
-            f" (has_more={has_more})",
+            f"Audit logs query returned {len(trimmed)} entries (has_more={has_more})",
             extra={
                 "table": table_name,
                 "action": action,
@@ -2174,8 +2143,7 @@ def _handle_delete_cognito_user(
         session.commit()
 
     logger.info(
-        f"Transferred {transferred_count} orgs from {user_sub} "
-        f"to {fallback_manager_id}"
+        f"Transferred {transferred_count} orgs from {user_sub} to {fallback_manager_id}"
     )
 
     _invalidate_user_session(user_pool_id, username)

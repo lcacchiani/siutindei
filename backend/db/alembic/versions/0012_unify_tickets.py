@@ -177,9 +177,7 @@ def upgrade() -> None:
     op.create_index("tickets_status_idx", "tickets", ["status"])
     op.create_index("tickets_submitter_idx", "tickets", ["submitter_id"])
     op.create_index("tickets_created_at_idx", "tickets", ["created_at"])
-    op.create_index(
-        "tickets_type_status_idx", "tickets", ["ticket_type", "status"]
-    )
+    op.create_index("tickets_type_status_idx", "tickets", ["ticket_type", "status"])
 
     # Grant permissions
     op.execute("GRANT SELECT, INSERT ON tickets TO siutindei_app;")
@@ -256,14 +254,18 @@ def downgrade() -> None:
 
     # Recreate the old enum types
     access_request_status = postgresql.ENUM(
-        "pending", "approved", "rejected",
+        "pending",
+        "approved",
+        "rejected",
         name="access_request_status",
         create_type=False,
     )
     access_request_status.create(op.get_bind(), checkfirst=True)
 
     suggestion_status = postgresql.ENUM(
-        "pending", "approved", "rejected",
+        "pending",
+        "approved",
+        "rejected",
         name="suggestion_status",
         create_type=False,
     )
@@ -272,19 +274,35 @@ def downgrade() -> None:
     # Recreate organization_access_requests
     op.create_table(
         "organization_access_requests",
-        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True,
-                  server_default=sa.text("gen_random_uuid()")),
+        sa.Column(
+            "id",
+            postgresql.UUID(as_uuid=True),
+            primary_key=True,
+            server_default=sa.text("gen_random_uuid()"),
+        ),
         sa.Column("ticket_id", sa.Text(), nullable=False, unique=True),
         sa.Column("requester_id", sa.Text(), nullable=False),
         sa.Column("requester_email", sa.Text(), nullable=False),
         sa.Column("organization_name", sa.Text(), nullable=False),
         sa.Column("request_message", sa.Text(), nullable=True),
-        sa.Column("status", access_request_status, nullable=False,
-                  server_default=sa.text("'pending'")),
-        sa.Column("created_at", sa.TIMESTAMP(timezone=True), nullable=False,
-                  server_default=sa.text("now()")),
-        sa.Column("updated_at", sa.TIMESTAMP(timezone=True), nullable=False,
-                  server_default=sa.text("now()")),
+        sa.Column(
+            "status",
+            access_request_status,
+            nullable=False,
+            server_default=sa.text("'pending'"),
+        ),
+        sa.Column(
+            "created_at",
+            sa.TIMESTAMP(timezone=True),
+            nullable=False,
+            server_default=sa.text("now()"),
+        ),
+        sa.Column(
+            "updated_at",
+            sa.TIMESTAMP(timezone=True),
+            nullable=False,
+            server_default=sa.text("now()"),
+        ),
         sa.Column("reviewed_at", sa.TIMESTAMP(timezone=True), nullable=True),
         sa.Column("reviewed_by", sa.Text(), nullable=True),
     )
@@ -292,8 +310,12 @@ def downgrade() -> None:
     # Recreate organization_suggestions
     op.create_table(
         "organization_suggestions",
-        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True,
-                  server_default=sa.text("gen_random_uuid()")),
+        sa.Column(
+            "id",
+            postgresql.UUID(as_uuid=True),
+            primary_key=True,
+            server_default=sa.text("gen_random_uuid()"),
+        ),
         sa.Column("ticket_id", sa.Text(), nullable=False, unique=True),
         sa.Column("suggester_id", sa.Text(), nullable=False),
         sa.Column("suggester_email", sa.Text(), nullable=False),
@@ -303,21 +325,40 @@ def downgrade() -> None:
         sa.Column("suggested_address", sa.Text(), nullable=True),
         sa.Column("suggested_lat", sa.Numeric(9, 6), nullable=True),
         sa.Column("suggested_lng", sa.Numeric(9, 6), nullable=True),
-        sa.Column("media_urls", postgresql.ARRAY(sa.Text()), nullable=False,
-                  server_default=sa.text("'{}'::text[]")),
+        sa.Column(
+            "media_urls",
+            postgresql.ARRAY(sa.Text()),
+            nullable=False,
+            server_default=sa.text("'{}'::text[]"),
+        ),
         sa.Column("additional_notes", sa.Text(), nullable=True),
-        sa.Column("status", suggestion_status, nullable=False,
-                  server_default=sa.text("'pending'")),
-        sa.Column("created_at", sa.TIMESTAMP(timezone=True), nullable=False,
-                  server_default=sa.text("now()")),
-        sa.Column("updated_at", sa.TIMESTAMP(timezone=True), nullable=False,
-                  server_default=sa.text("now()")),
+        sa.Column(
+            "status",
+            suggestion_status,
+            nullable=False,
+            server_default=sa.text("'pending'"),
+        ),
+        sa.Column(
+            "created_at",
+            sa.TIMESTAMP(timezone=True),
+            nullable=False,
+            server_default=sa.text("now()"),
+        ),
+        sa.Column(
+            "updated_at",
+            sa.TIMESTAMP(timezone=True),
+            nullable=False,
+            server_default=sa.text("now()"),
+        ),
         sa.Column("reviewed_at", sa.TIMESTAMP(timezone=True), nullable=True),
         sa.Column("reviewed_by", sa.Text(), nullable=True),
         sa.Column("admin_notes", sa.Text(), nullable=True),
-        sa.Column("created_organization_id", postgresql.UUID(as_uuid=True),
-                  sa.ForeignKey("organizations.id", ondelete="SET NULL"),
-                  nullable=True),
+        sa.Column(
+            "created_organization_id",
+            postgresql.UUID(as_uuid=True),
+            sa.ForeignKey("organizations.id", ondelete="SET NULL"),
+            nullable=True,
+        ),
     )
 
     # Migrate data back
@@ -358,17 +399,31 @@ def downgrade() -> None:
     """)
 
     # Re-add indexes and triggers for old tables
-    op.create_index("org_access_req_status_idx", "organization_access_requests", ["status"])
-    op.create_index("org_access_req_requester_idx", "organization_access_requests", ["requester_id"])
+    op.create_index(
+        "org_access_req_status_idx", "organization_access_requests", ["status"]
+    )
+    op.create_index(
+        "org_access_req_requester_idx", "organization_access_requests", ["requester_id"]
+    )
     op.execute("""
         CREATE TRIGGER organization_access_requests_audit_trigger
         AFTER INSERT OR UPDATE OR DELETE ON organization_access_requests
         FOR EACH ROW EXECUTE FUNCTION audit_trigger_func();
     """)
 
-    op.create_index("organization_suggestions_status_idx", "organization_suggestions", ["status"])
-    op.create_index("organization_suggestions_suggester_idx", "organization_suggestions", ["suggester_id"])
-    op.create_index("organization_suggestions_created_at_idx", "organization_suggestions", ["created_at"])
+    op.create_index(
+        "organization_suggestions_status_idx", "organization_suggestions", ["status"]
+    )
+    op.create_index(
+        "organization_suggestions_suggester_idx",
+        "organization_suggestions",
+        ["suggester_id"],
+    )
+    op.create_index(
+        "organization_suggestions_created_at_idx",
+        "organization_suggestions",
+        ["created_at"],
+    )
     op.execute("""
         CREATE TRIGGER organization_suggestions_audit_trigger
         AFTER INSERT OR UPDATE OR DELETE ON organization_suggestions
@@ -377,9 +432,13 @@ def downgrade() -> None:
 
     # Grant permissions on old tables
     op.execute("GRANT SELECT, INSERT ON organization_access_requests TO siutindei_app;")
-    op.execute("GRANT SELECT, INSERT, UPDATE ON organization_access_requests TO siutindei_admin;")
+    op.execute(
+        "GRANT SELECT, INSERT, UPDATE ON organization_access_requests TO siutindei_admin;"
+    )
     op.execute("GRANT SELECT, INSERT ON organization_suggestions TO siutindei_app;")
-    op.execute("GRANT SELECT, INSERT, UPDATE ON organization_suggestions TO siutindei_admin;")
+    op.execute(
+        "GRANT SELECT, INSERT, UPDATE ON organization_suggestions TO siutindei_admin;"
+    )
 
     # Drop the unified tickets table
     op.execute("DROP TRIGGER IF EXISTS tickets_audit_trigger ON tickets;")

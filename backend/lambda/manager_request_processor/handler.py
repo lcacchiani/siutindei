@@ -89,9 +89,7 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
             ticket = _store_ticket(message, ticket_type)
 
             if ticket is None:
-                logger.info(
-                    f"Ticket {ticket_id} already exists, skipping"
-                )
+                logger.info(f"Ticket {ticket_id} already exists, skipping")
                 skipped += 1
                 continue
 
@@ -140,12 +138,16 @@ def _store_ticket(
 
     # Normalize field names: access requests use requester_*, suggestions
     # use suggester_*. The unified model uses submitter_*.
-    submitter_id = message.get("submitter_id") or message.get(
-        "requester_id"
-    ) or message.get("suggester_id")
-    submitter_email = message.get("submitter_email") or message.get(
-        "requester_email"
-    ) or message.get("suggester_email")
+    submitter_id = (
+        message.get("submitter_id")
+        or message.get("requester_id")
+        or message.get("suggester_id")
+    )
+    submitter_email = (
+        message.get("submitter_email")
+        or message.get("requester_email")
+        or message.get("suggester_email")
+    )
 
     with Session(get_engine()) as session:
         repo = TicketRepository(session)
@@ -181,8 +183,7 @@ def _store_ticket(
         session.refresh(ticket)
 
         logger.info(
-            f"Stored ticket in database: {ticket_id} "
-            f"(type={ticket_type.value})"
+            f"Stored ticket in database: {ticket_id} (type={ticket_type.value})"
         )
         return ticket
 
@@ -254,13 +255,8 @@ def _send_notification_email(ticket: Ticket) -> None:
                 },
             },
         )
-        logger.info(
-            f"Notification email sent for {ticket.ticket_id}"
-        )
+        logger.info(f"Notification email sent for {ticket.ticket_id}")
 
     except Exception as e:
         # Log but don't re-raise - DB write succeeded, email is secondary
-        logger.error(
-            f"Failed to send notification email for "
-            f"{ticket.ticket_id}: {e}"
-        )
+        logger.error(f"Failed to send notification email for {ticket.ticket_id}: {e}")
