@@ -16,6 +16,7 @@ info:
     | name | 200 characters |
     | description | 5,000 characters |
     | district | 100 characters |
+    | country | 100 characters |
     | address | 500 characters |
     | media_urls (each) | 2,048 characters |
 
@@ -1477,6 +1478,11 @@ components:
           type: string
           maxLength: 100
           description: District name (required, max 100 characters)
+        country:
+          type: string
+          maxLength: 100
+          default: Hong Kong
+          description: Country name (optional, defaults to 'Hong Kong', max 100 characters)
         address:
           type: string
           maxLength: 500
@@ -1499,6 +1505,10 @@ components:
           type: string
           maxLength: 100
           description: District name (max 100 characters)
+        country:
+          type: string
+          maxLength: 100
+          description: Country name (max 100 characters)
         address:
           type: string
           maxLength: 500
@@ -1516,7 +1526,7 @@ components:
 
     Location:
       type: object
-      required: [id, org_id, district, created_at, updated_at]
+      required: [id, org_id, district, country, created_at, updated_at]
       properties:
         id:
           type: string
@@ -1526,6 +1536,9 @@ components:
           format: uuid
         district:
           type: string
+        country:
+          type: string
+          description: Country where the location is situated
         address:
           type: string
           nullable: true

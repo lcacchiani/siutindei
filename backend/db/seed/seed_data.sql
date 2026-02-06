@@ -16,23 +16,23 @@ WHERE NOT EXISTS (
   SELECT 1 FROM organizations WHERE id = '22222222-2222-2222-2222-222222222222'
 );
 
-INSERT INTO locations (id, org_id, district, address, lat, lng)
+INSERT INTO locations (id, org_id, district, country, address, lat, lng)
 SELECT 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '11111111-1111-1111-1111-111111111111',
-       'Central and Western', '1 Queens Road Central', 22.282, 114.158
+       'Central and Western', 'Hong Kong', '1 Queens Road Central', 22.282, 114.158
 WHERE NOT EXISTS (
   SELECT 1 FROM locations WHERE id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
 );
 
-INSERT INTO locations (id, org_id, district, address, lat, lng)
+INSERT INTO locations (id, org_id, district, country, address, lat, lng)
 SELECT 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '11111111-1111-1111-1111-111111111111',
-       'Wan Chai', '88 Hennessy Road', 22.276, 114.172
+       'Wan Chai', 'Hong Kong', '88 Hennessy Road', 22.276, 114.172
 WHERE NOT EXISTS (
   SELECT 1 FROM locations WHERE id = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'
 );
 
-INSERT INTO locations (id, org_id, district, address, lat, lng)
+INSERT INTO locations (id, org_id, district, country, address, lat, lng)
 SELECT 'cccccccc-cccc-cccc-cccc-cccccccccccc', '22222222-2222-2222-2222-222222222222',
-       'Yau Tsim Mong', '18 Nathan Road', 22.298, 114.172
+       'Yau Tsim Mong', 'Hong Kong', '18 Nathan Road', 22.298, 114.172
 WHERE NOT EXISTS (
   SELECT 1 FROM locations WHERE id = 'cccccccc-cccc-cccc-cccc-cccccccccccc'
 );

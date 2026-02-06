@@ -34,6 +34,7 @@ class ActivityMapper {
     return LocationEntity(
       id: model.id,
       district: model.district,
+      country: model.country,
       address: model.address,
       latitude: model.lat,
       longitude: model.lng,

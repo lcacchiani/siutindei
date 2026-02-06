@@ -245,13 +245,16 @@ components:
             type: string
     Location:
       type: object
-      required: [id, district]
+      required: [id, district, country]
       properties:
         id:
           type: string
           format: uuid
         district:
           type: string
+        country:
+          type: string
+          description: Country where the location is situated
         address:
           type: string
           nullable: true

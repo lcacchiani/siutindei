@@ -80,6 +80,7 @@ class LocationEntity {
   const LocationEntity({
     required this.id,
     required this.district,
+    required this.country,
     this.address,
     this.latitude,
     this.longitude,
@@ -87,6 +88,7 @@ class LocationEntity {
 
   final String id;
   final String district;
+  final String country;
   final String? address;
   final double? latitude;
   final double? longitude;
@@ -100,10 +102,11 @@ class LocationEntity {
       (other is LocationEntity &&
           other.id == id &&
           other.district == district &&
+          other.country == country &&
           other.address == address);
 
   @override
-  int get hashCode => Object.hash(id, district, address);
+  int get hashCode => Object.hash(id, district, country, address);
 
   @override
   String toString() => 'LocationEntity(id: $id, district: $district)';

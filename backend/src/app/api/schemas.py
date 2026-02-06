@@ -30,6 +30,7 @@ class LocationSchema(BaseModel):
 
     id: str
     district: str
+    country: str
     address: Optional[str]
     lat: Optional[Decimal]
     lng: Optional[Decimal]

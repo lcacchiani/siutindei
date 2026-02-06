@@ -57,6 +57,7 @@ function DeleteIcon({ className }: { className?: string }) {
 interface LocationFormState {
   org_id: string;
   district: string;
+  country: string;
   address: string;
   lat: string;
   lng: string;
@@ -65,6 +66,7 @@ interface LocationFormState {
 const emptyForm: LocationFormState = {
   org_id: '',
   district: '',
+  country: 'Hong Kong',
   address: '',
   lat: '',
   lng: '',
@@ -74,6 +76,7 @@ function itemToForm(item: Location): LocationFormState {
   return {
     org_id: item.org_id ?? '',
     district: item.district ?? '',
+    country: item.country ?? 'Hong Kong',
     address: item.address ?? '',
     lat: item.lat !== undefined && item.lat !== null ? `${item.lat}` : '',
     lng: item.lng !== undefined && item.lng !== null ? `${item.lng}` : '',
@@ -148,6 +151,8 @@ export function LocationsPanel({ mode }: LocationsPanelProps) {
       lng: `${selection.lng}`,
       // Only auto-fill district if it's currently empty.
       district: prev.district.trim() ? prev.district : selection.district,
+      // Only auto-fill country if it's the default and Nominatim returned one.
+      country: selection.country || prev.country,
     }));
   };
 
@@ -161,6 +166,7 @@ export function LocationsPanel({ mode }: LocationsPanelProps) {
   const formToPayload = (form: LocationFormState) => ({
     org_id: form.org_id,
     district: form.district.trim(),
+    country: form.country.trim() || 'Hong Kong',
     address: form.address.trim() || null,
     lat: parseOptionalNumber(form.lat),
     lng: parseOptionalNumber(form.lng),
@@ -221,6 +227,19 @@ export function LocationsPanel({ mode }: LocationsPanelProps) {
                 panel.setFormState((prev) => ({
                   ...prev,
                   district: e.target.value,
+                }))
+              }
+            />
+          </div>
+          <div>
+            <Label htmlFor='location-country'>Country</Label>
+            <Input
+              id='location-country'
+              value={panel.formState.country}
+              onChange={(e) =>
+                panel.setFormState((prev) => ({
+                  ...prev,
+                  country: e.target.value,
                 }))
               }
             />

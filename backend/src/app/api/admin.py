@@ -1239,6 +1239,7 @@ def _review_ticket(
                 location = Location(
                     org_id=organization.id,
                     district=ticket.suggested_district,
+                    country=DEFAULT_COUNTRY,
                     address=ticket.suggested_address,
                     lat=ticket.suggested_lat,
                     lng=ticket.suggested_lng,
@@ -2459,6 +2460,9 @@ def _create_location(repo: LocationRepository, body: dict[str, Any]) -> Location
     district = _validate_string_length(
         body.get("district"), "district", MAX_DISTRICT_LENGTH, required=True
     )
+    country = _validate_string_length(
+        body.get("country", DEFAULT_COUNTRY), "country", MAX_COUNTRY_LENGTH
+    ) or DEFAULT_COUNTRY
     address = _validate_string_length(
         body.get("address"), "address", MAX_ADDRESS_LENGTH
     )
@@ -2470,6 +2474,7 @@ def _create_location(repo: LocationRepository, body: dict[str, Any]) -> Location
     return Location(
         org_id=_parse_uuid(org_id),
         district=district,
+        country=country,
         address=address,
         lat=lat,
         lng=lng,
@@ -2489,6 +2494,11 @@ def _update_location(
         )
         # _validate_string_length with required=True always returns str
         entity.district = district  # type: ignore[assignment]
+    if "country" in body:
+        country = _validate_string_length(
+            body["country"], "country", MAX_COUNTRY_LENGTH, required=True
+        )
+        entity.country = country  # type: ignore[assignment]
     if "address" in body:
         entity.address = _validate_string_length(
             body["address"], "address", MAX_ADDRESS_LENGTH
@@ -2540,6 +2550,7 @@ def _serialize_location(entity: Location) -> dict[str, Any]:
         "id": str(entity.id),
         "org_id": str(entity.org_id),
         "district": entity.district,
+        "country": entity.country,
         "address": entity.address,
         "lat": entity.lat,
         "lng": entity.lng,
@@ -2748,6 +2759,8 @@ MAX_NAME_LENGTH = 200
 MAX_DESCRIPTION_LENGTH = 5000
 MAX_ADDRESS_LENGTH = 500
 MAX_DISTRICT_LENGTH = 100
+MAX_COUNTRY_LENGTH = 100
+DEFAULT_COUNTRY = "Hong Kong"
 MAX_URL_LENGTH = 2048
 MAX_LANGUAGE_CODE_LENGTH = 10
 MAX_LANGUAGES_COUNT = 20

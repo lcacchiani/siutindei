@@ -254,10 +254,18 @@ class Organization {
 }
 
 class Location {
-  Location({required this.id, required this.district, this.address, this.lat, this.lng});
+  Location({
+    required this.id,
+    required this.district,
+    required this.country,
+    this.address,
+    this.lat,
+    this.lng,
+  });
 
   final String id;
   final String district;
+  final String country;
   final String? address;
   final double? lat;
   final double? lng;
@@ -266,6 +274,7 @@ class Location {
     return Location(
       id: json['id'] as String,
       district: json['district'] as String,
+      country: (json['country'] as String?) ?? 'Hong Kong',
       address: json['address'] as String?,
       lat: (json['lat'] as num?)?.toDouble(),
       lng: (json['lng'] as num?)?.toDouble(),

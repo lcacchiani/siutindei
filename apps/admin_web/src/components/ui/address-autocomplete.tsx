@@ -22,6 +22,8 @@ export interface AddressSelection {
   lng: number;
   /** Suburb / quarter / district extracted from the result. */
   district: string;
+  /** Country extracted from the result. */
+  country: string;
   /** Raw Nominatim address components (for advanced use). */
   raw: NominatimAddress;
 }
@@ -195,6 +197,7 @@ export function AddressAutocomplete({
       lat: parseFloat(result.lat),
       lng: parseFloat(result.lon),
       district: extractDistrict(result.address),
+      country: result.address.country || '',
       raw: result.address,
     };
     onChange(result.display_name);

@@ -159,6 +159,7 @@ def map_row_to_result(row: Any) -> ActivitySearchResultSchema:
         location=LocationSchema(
             id=str(location.id),
             district=location.district,
+            country=location.country,
             address=location.address,
             lat=location.lat,
             lng=location.lng,

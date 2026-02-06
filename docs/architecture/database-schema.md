@@ -39,6 +39,7 @@ Columns:
 - `id` (UUID, PK, default `gen_random_uuid()`)
 - `org_id` (UUID, FK -> organizations.id, cascade delete)
 - `district` (text, required)
+- `country` (text, required, default `'Hong Kong'`)
 - `address` (text, optional)
 - `lat` (numeric(9,6), optional)
 - `lng` (numeric(9,6), optional)

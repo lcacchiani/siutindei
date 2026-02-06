@@ -81,6 +81,7 @@ class LocationRepository(BaseRepository[Location]):
         self,
         org_id: UUID,
         district: str,
+        country: str = "Hong Kong",
         address: Optional[str] = None,
         lat: Optional[Decimal] = None,
         lng: Optional[Decimal] = None,
@@ -90,6 +91,7 @@ class LocationRepository(BaseRepository[Location]):
         Args:
             org_id: Organization UUID.
             district: District name.
+            country: Country name (defaults to Hong Kong).
             address: Optional address.
             lat: Optional latitude.
             lng: Optional longitude.
@@ -100,6 +102,7 @@ class LocationRepository(BaseRepository[Location]):
         location = Location(
             org_id=org_id,
             district=district,
+            country=country,
             address=address,
             lat=lat,
             lng=lng,
@@ -110,6 +113,7 @@ class LocationRepository(BaseRepository[Location]):
         self,
         location: Location,
         district: Optional[str] = None,
+        country: Optional[str] = None,
         address: Optional[str] = None,
         lat: Optional[Decimal] = None,
         lng: Optional[Decimal] = None,
@@ -119,6 +123,7 @@ class LocationRepository(BaseRepository[Location]):
         Args:
             location: The location to update.
             district: New district (if provided).
+            country: New country (if provided).
             address: New address (if provided).
             lat: New latitude (if provided).
             lng: New longitude (if provided).
@@ -128,6 +133,8 @@ class LocationRepository(BaseRepository[Location]):
         """
         if district is not None:
             location.district = district
+        if country is not None:
+            location.country = country
         if address is not None:
             location.address = address
         if lat is not None:

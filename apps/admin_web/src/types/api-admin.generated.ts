@@ -2704,6 +2704,11 @@ export interface components {
             org_id: string;
             /** @description District name (required, max 100 characters) */
             district: string;
+            /**
+             * @description Country name (optional, defaults to 'Hong Kong', max 100 characters)
+             * @default Hong Kong
+             */
+            country: string;
             /** @description Full address (optional, max 500 characters) */
             address?: string;
             /** @description Latitude (-90 to 90) */
@@ -2714,6 +2719,8 @@ export interface components {
         LocationUpdate: {
             /** @description District name (max 100 characters) */
             district?: string;
+            /** @description Country name (max 100 characters) */
+            country?: string;
             /** @description Full address (max 500 characters) */
             address?: string;
             /** @description Latitude (-90 to 90) */
@@ -2727,6 +2734,8 @@ export interface components {
             /** Format: uuid */
             org_id: string;
             district: string;
+            /** @description Country where the location is situated */
+            country: string;
             address?: string | null;
             lat?: number | null;
             lng?: number | null;

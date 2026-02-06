@@ -134,6 +134,8 @@ export interface components {
             /** Format: uuid */
             id: string;
             district: string;
+            /** @description Country where the location is situated */
+            country: string;
             address?: string | null;
             lat?: number | null;
             lng?: number | null;
