@@ -441,7 +441,6 @@ export function AuditLogsPanel() {
                     <th className='py-2'>Timestamp</th>
                     <th className='py-2'>Table</th>
                     <th className='py-2'>Action</th>
-                    <th className='py-2'>Record ID</th>
                     <th className='py-2'>User ID</th>
                     <th className='py-2'>Source</th>
                     <th className='py-2 text-right'>Details</th>
@@ -456,9 +455,6 @@ export function AuditLogsPanel() {
                       <td className='py-2 font-medium'>{item.table_name}</td>
                       <td className='py-2'>
                         <ActionBadge action={item.action} />
-                      </td>
-                      <td className='max-w-[120px] truncate py-2 font-mono text-xs'>
-                        {item.record_id}
                       </td>
                       <td className='max-w-[120px] truncate py-2 font-mono text-xs text-slate-600'>
                         {item.user_id || '—'}
@@ -502,9 +498,6 @@ export function AuditLogsPanel() {
                     <ActionBadge action={item.action} />
                   </div>
                   <div className='mt-2 space-y-1 text-sm'>
-                    <div className='truncate font-mono text-xs text-slate-600'>
-                      Record: {item.record_id}
-                    </div>
                     {item.user_id && (
                       <div className='truncate font-mono text-xs text-slate-500'>
                         User: {item.user_id}
