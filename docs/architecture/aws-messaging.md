@@ -2,16 +2,16 @@
 
 ## Overview
 
-Manager requests are processed asynchronously using SNS + SQS messaging. This provides reliable, decoupled processing with automatic retries and dead letter queue support.
+Ticket submissions are processed asynchronously using SNS + SQS messaging. This provides reliable, decoupled processing with automatic retries and dead letter queue support.
 
 ## Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                           MANAGER REQUEST FLOW                               │
+│                        ASYNC TICKET PROCESSING                              │
 │                                                                             │
 │  User submits ──▶ API Lambda ──▶ SNS Topic ──▶ SQS Queue ──▶ Processor     │
-│   request              │              │              │         Lambda       │
+│   ticket               │              │              │         Lambda       │
 │                        │              │              │            │         │
 │                   (validates,    (fan-out)     (reliable      (stores in   │
 │                   returns 202)                  delivery)      DB, sends   │
@@ -28,9 +28,9 @@ Manager requests are processed asynchronously using SNS + SQS messaging. This pr
 
 ### SNS Topic: `lxsoftware-siutindei-manager-request-events`
 
-- Receives manager request events from the API
+- Receives ticket events from the API
 - Fans out to subscribed SQS queue
-- Message attributes enable future filtering
+- Message attributes enable filtering by `event_type`
 
 ### SQS Queue: `lxsoftware-siutindei-manager-request-queue`
 
@@ -48,36 +48,38 @@ Manager requests are processed asynchronously using SNS + SQS messaging. This pr
 ### Processor Lambda: `ManagerRequestProcessor`
 
 - Triggered by SQS messages
-- Stores request in PostgreSQL database
+- Routes each message to the appropriate handler based on `event_type`
+- Stores the ticket in the `tickets` table
 - Sends email notification via SES
 - Idempotent via `ticket_id` check
 
 ## Message Format
 
+Each SNS message includes an `event_type` field that determines how the
+processor handles it. The `ticket_id` field provides idempotency.
+
+Example:
+
 ```json
 {
-  "event_type": "manager_request.submitted",
-  "ticket_id": "R00001",
-  "requester_id": "cognito-user-sub-uuid",
-  "requester_email": "user@example.com",
-  "organization_name": "My Organization",
-  "request_message": "Optional message from user"
+  "event_type": "<type>.submitted",
+  "ticket_id": "X00001",
+  "...": "type-specific fields"
 }
 ```
 
 ## API Behavior
 
-The user-facing API endpoints for access requests are at
-`/v1/user/access-request` (GET, POST). Admin review endpoints are at
-`/v1/admin/access-requests`. For full endpoint details (parameters,
-request/response schemas), see the OpenAPI spec:
+User-facing submission endpoints are under `/v1/user/`. Admin review
+endpoints are at `/v1/admin/tickets`. For full endpoint details
+(parameters, request/response schemas), see the OpenAPI spec:
 [`docs/api/admin.yaml`](../api/admin.yaml).
 
 **Processing flow:**
-1. User POSTs a request → API validates, generates ticket ID, publishes to SNS
+1. User POSTs a submission → API validates, generates ticket ID, publishes to SNS
 2. Returns `202 Accepted` with ticket ID
 3. SQS delivers message to processor Lambda
-4. Processor stores in DB and sends email notification
+4. Processor stores in DB and sends email notification to support
 
 ## Error Handling
 
@@ -90,7 +92,7 @@ request/response schemas), see the OpenAPI spec:
 
 ## Idempotency
 
-The processor checks if a request with the same `ticket_id` already exists before inserting. This handles SQS's at-least-once delivery guarantee.
+The processor checks if a ticket with the same `ticket_id` already exists before inserting. This handles SQS's at-least-once delivery guarantee.
 
 ## Files
 
@@ -99,7 +101,7 @@ The processor checks if a request with the same `ticket_id` already exists befor
 | `backend/infrastructure/lib/api-stack.ts` | CDK infrastructure |
 | `backend/src/app/api/admin.py` | API handler with SNS publish |
 | `backend/lambda/manager_request_processor/handler.py` | SQS processor |
-| `backend/src/app/db/repositories/access_request.py` | Repository with `find_by_ticket_id` |
+| `backend/src/app/db/repositories/ticket.py` | Repository with `find_by_ticket_id` |
 
 ## Environment Variables
 

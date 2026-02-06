@@ -5,7 +5,7 @@ import { useState } from 'react';
 import {
   ApiError,
   submitAccessRequest,
-  type AccessRequest,
+  type Ticket,
 } from '../../lib/api-client';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
@@ -15,7 +15,7 @@ import { Textarea } from '../ui/textarea';
 import { StatusBanner } from '../status-banner';
 
 interface AccessRequestFormProps {
-  onRequestSubmitted: (request: AccessRequest) => void;
+  onRequestSubmitted: (request: Ticket) => void;
 }
 
 export function AccessRequestForm({ onRequestSubmitted }: AccessRequestFormProps) {
@@ -41,15 +41,16 @@ export function AccessRequestForm({ onRequestSubmitted }: AccessRequestFormProps
         request_message: requestMessage.trim() || undefined,
       });
       // Backend returns { message, ticket_id } for async processing.
-      // Construct a partial AccessRequest from known data for the pending notice.
+      // Construct a partial Ticket from known data for the pending notice.
       onRequestSubmitted({
         id: '',
         ticket_id: response.ticket_id,
+        ticket_type: 'access_request',
         organization_name: organizationName.trim(),
-        request_message: requestMessage.trim() || null,
+        message: requestMessage.trim() || null,
         status: 'pending',
-        requester_email: '',
-        requester_id: '',
+        submitter_email: '',
+        submitter_id: '',
         created_at: new Date().toISOString(),
         reviewed_at: null,
         reviewed_by: null,

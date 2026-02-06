@@ -1,14 +1,14 @@
 'use client';
 
-import type { OrganizationSuggestion } from '../../types/admin';
+import type { Ticket } from '../../lib/api-client';
 import { Card } from '../ui/card';
 import { StatusBanner } from '../status-banner';
 
 interface PendingSuggestionNoticeProps {
-  suggestion: OrganizationSuggestion;
+  suggestion: Ticket;
 }
 
-function StatusBadge({ status }: { status: OrganizationSuggestion['status'] }) {
+function StatusBadge({ status }: { status: Ticket['status'] }) {
   const colors = {
     pending: 'bg-yellow-100 text-yellow-800',
     approved: 'bg-green-100 text-green-800',

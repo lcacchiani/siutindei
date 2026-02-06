@@ -6,8 +6,8 @@ import {
   ApiError,
   submitOrganizationSuggestion,
   type SubmitSuggestionPayload,
+  type Ticket,
 } from '../../lib/api-client';
-import type { OrganizationSuggestion } from '../../types/admin';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
 import { Input } from '../ui/input';
@@ -16,7 +16,7 @@ import { Textarea } from '../ui/textarea';
 import { StatusBanner } from '../status-banner';
 
 interface SuggestionFormProps {
-  onSuggestionSubmitted: (suggestion: OrganizationSuggestion) => void;
+  onSuggestionSubmitted: (suggestion: Ticket) => void;
 }
 
 export function SuggestionForm({ onSuggestionSubmitted }: SuggestionFormProps) {
@@ -59,21 +59,22 @@ export function SuggestionForm({ onSuggestionSubmitted }: SuggestionFormProps) {
 
       const response = await submitOrganizationSuggestion(payload);
       // Backend returns { message, ticket_id } for async processing.
-      // Construct a partial OrganizationSuggestion from known data for the pending notice.
+      // Construct a partial Ticket from known data for the pending notice.
       onSuggestionSubmitted({
         id: '',
         ticket_id: response.ticket_id,
+        ticket_type: 'organization_suggestion',
         organization_name: organizationName.trim(),
+        message: additionalNotes.trim() || null,
         description: description.trim() || null,
         suggested_district: district.trim() || null,
         suggested_address: address.trim() || null,
         suggested_lat: null,
         suggested_lng: null,
         media_urls: [],
-        additional_notes: additionalNotes.trim() || null,
         status: 'pending',
-        suggester_id: '',
-        suggester_email: '',
+        submitter_id: '',
+        submitter_email: '',
         created_at: new Date().toISOString(),
         reviewed_at: null,
         reviewed_by: null,

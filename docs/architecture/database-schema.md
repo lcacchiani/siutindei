@@ -11,8 +11,8 @@ Seed data lives in `backend/db/seed/seed_data.sql`.
 - Extension: `pgcrypto` (used by `gen_random_uuid()` defaults).
 - Enum `pricing_type`: `per_class`, `per_month`, `per_sessions`.
 - Enum `schedule_type`: `weekly`, `monthly`, `date_specific`.
-- Enum `access_request_status`: `pending`, `approved`, `rejected`.
-- Enum `suggestion_status`: `pending`, `approved`, `rejected`.
+- Enum `ticket_type`: `access_request`, `organization_suggestion`.
+- Enum `ticket_status`: `pending`, `approved`, `rejected`.
 
 ## Table: organizations
 
@@ -145,59 +145,41 @@ The following columns were added/renamed after the initial schema:
 - `media_urls` was originally named `picture_urls` (renamed in migration 0006)
 - `manager_id` was originally named `owner_id` (renamed in migration 0009)
 
-## Table: organization_access_requests
+## Table: tickets
 
-Purpose: Manager access request workflow. Users request to become a
-manager of an organization; admins approve or reject.
+Purpose: User-submitted tickets for admin review. The `ticket_type`
+column determines the workflow; optional columns are populated as
+needed by each type.
 
 Columns:
 - `id` (UUID, PK, default `gen_random_uuid()`)
-- `ticket_id` (text, unique, required) — progressive ID (R00001)
-- `requester_id` (text, required) — Cognito user sub
-- `requester_email` (text, required)
+- `ticket_id` (text, unique, required) — progressive ID (prefix + 5 digits)
+- `ticket_type` (enum `ticket_type`, required) — workflow discriminator
+- `submitter_id` (text, required) — Cognito user sub
+- `submitter_email` (text, required)
 - `organization_name` (text, required)
-- `request_message` (text, optional)
-- `status` (enum `access_request_status`, default `pending`)
-- `reviewed_at` (timestamptz, optional)
-- `reviewed_by` (text, optional) — Cognito user sub of reviewer
+- `message` (text, optional) — free-text from submitter
+- `status` (enum `ticket_status`, default `pending`)
 - `created_at` (timestamptz, default `now()`)
 - `updated_at` (timestamptz, default `now()`)
-
-Indexes:
-- Unique on `ticket_id`
-- Index on `requester_id`
-- Index on `status`
-
-## Table: organization_suggestions
-
-Purpose: User-submitted suggestions for new organizations/places. Admins
-review and optionally create an organization from the suggestion.
-
-Columns:
-- `id` (UUID, PK, default `gen_random_uuid()`)
-- `ticket_id` (text, unique, required) — progressive ID (S00001)
-- `suggester_id` (text, required) — Cognito user sub
-- `suggester_email` (text, required)
-- `organization_name` (text, required)
+- `reviewed_at` (timestamptz, optional)
+- `reviewed_by` (text, optional) — Cognito user sub of reviewer
+- `admin_notes` (text, optional)
 - `description` (text, optional)
 - `suggested_district` (text, optional)
 - `suggested_address` (text, optional)
 - `suggested_lat` (numeric, optional)
 - `suggested_lng` (numeric, optional)
 - `media_urls` (text[], default empty array)
-- `additional_notes` (text, optional)
-- `status` (enum `suggestion_status`, default `pending`)
-- `reviewed_at` (timestamptz, optional)
-- `reviewed_by` (text, optional) — Cognito user sub of reviewer
-- `admin_notes` (text, optional)
 - `created_organization_id` (UUID, FK -> organizations.id, optional)
-- `created_at` (timestamptz, default `now()`)
-- `updated_at` (timestamptz, default `now()`)
 
 Indexes:
 - Unique on `ticket_id`
-- Index on `suggester_id`
+- Index on `ticket_type`
 - Index on `status`
+- Index on `submitter_id`
+- Index on `created_at`
+- Composite index on (`ticket_type`, `status`)
 
 ## Table: audit_log
 

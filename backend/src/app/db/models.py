@@ -43,16 +43,15 @@ class ScheduleType(str, enum.Enum):
     DATE_SPECIFIC = "date_specific"
 
 
-class AccessRequestStatus(str, enum.Enum):
-    """Status for organization access requests."""
+class TicketType(str, enum.Enum):
+    """Discriminator for ticket types."""
 
-    PENDING = "pending"
-    APPROVED = "approved"
-    REJECTED = "rejected"
+    ACCESS_REQUEST = "access_request"
+    ORGANIZATION_SUGGESTION = "organization_suggestion"
 
 
-class SuggestionStatus(str, enum.Enum):
-    """Status for organization suggestions from public users."""
+class TicketStatus(str, enum.Enum):
+    """Lifecycle status for tickets."""
 
     PENDING = "pending"
     APPROVED = "approved"
@@ -355,74 +354,6 @@ class ActivitySchedule(Base):
     location: Mapped["Location"] = relationship(back_populates="activity_schedules")
 
 
-class OrganizationAccessRequest(Base):
-    """Request from a manager to be added to an organization."""
-
-    __tablename__ = "organization_access_requests"
-
-    id: Mapped[str] = mapped_column(
-        UUID(as_uuid=True),
-        primary_key=True,
-        server_default=text("gen_random_uuid()"),
-    )
-    ticket_id: Mapped[str] = mapped_column(
-        Text(),
-        nullable=False,
-        unique=True,
-        comment="Unique progressive ticket ID for tracking (format: R + 5 digits)",
-    )
-    requester_id: Mapped[str] = mapped_column(
-        Text(),
-        nullable=False,
-        comment="Cognito user sub (subject) identifier of the requesting user",
-    )
-    requester_email: Mapped[str] = mapped_column(
-        Text(),
-        nullable=False,
-        comment="Email address of the requester",
-    )
-    organization_name: Mapped[str] = mapped_column(
-        Text(),
-        nullable=False,
-        comment="Name of the organization the user wants to join/create",
-    )
-    request_message: Mapped[Optional[str]] = mapped_column(
-        Text(),
-        nullable=True,
-        comment="Optional message from the requester",
-    )
-    status: Mapped[AccessRequestStatus] = mapped_column(
-        sa.Enum(
-            AccessRequestStatus,
-            name="access_request_status",
-            values_callable=lambda x: [e.value for e in x],
-            create_type=False,
-        ),
-        nullable=False,
-        server_default=text("'pending'"),
-    )
-    created_at: Mapped[datetime] = mapped_column(
-        TIMESTAMP(timezone=True),
-        nullable=False,
-        server_default=text("now()"),
-    )
-    updated_at: Mapped[datetime] = mapped_column(
-        TIMESTAMP(timezone=True),
-        nullable=False,
-        server_default=text("now()"),
-    )
-    reviewed_at: Mapped[Optional[datetime]] = mapped_column(
-        TIMESTAMP(timezone=True),
-        nullable=True,
-        comment="When the request was reviewed",
-    )
-    reviewed_by: Mapped[Optional[str]] = mapped_column(
-        Text(),
-        nullable=True,
-        comment="Cognito user sub of the admin who reviewed the request",
-    )
-
-
 class AuditLog(Base):
     """Audit log entry for tracking data changes.
 
@@ -505,14 +436,15 @@ class AuditLog(Base):
     )
 
 
-class OrganizationSuggestion(Base):
-    """Suggestion for a new organization from a public user.
+class Ticket(Base):
+    """Ticket submitted by a user for admin review.
 
-    Unlike access requests, users submitting suggestions don't become managers.
-    They simply inform admins about new places that could be added.
+    The ticket_type column determines the workflow and which optional
+    fields are relevant. Common fields (submitter, status, dates) are
+    shared across all types; type-specific fields are nullable.
     """
 
-    __tablename__ = "organization_suggestions"
+    __tablename__ = "tickets"
 
     id: Mapped[str] = mapped_column(
         UUID(as_uuid=True),
@@ -523,63 +455,42 @@ class OrganizationSuggestion(Base):
         Text(),
         nullable=False,
         unique=True,
-        comment="Unique progressive ticket ID (format: S + 5 digits)",
+        comment="Unique progressive ticket ID (prefix + 5 digits)",
     )
-    suggester_id: Mapped[str] = mapped_column(
+    ticket_type: Mapped[TicketType] = mapped_column(
+        sa.Enum(
+            TicketType,
+            name="ticket_type",
+            values_callable=lambda x: [e.value for e in x],
+            create_type=False,
+        ),
+        nullable=False,
+        comment="Discriminator for ticket type and workflow",
+    )
+    submitter_id: Mapped[str] = mapped_column(
         Text(),
         nullable=False,
-        comment="Cognito user sub of the person suggesting",
+        comment="Cognito user sub of the person who submitted",
     )
-    suggester_email: Mapped[str] = mapped_column(
+    submitter_email: Mapped[str] = mapped_column(
         Text(),
         nullable=False,
-        comment="Email of the suggester for notifications",
+        comment="Email of the submitter for notifications",
     )
     organization_name: Mapped[str] = mapped_column(
         Text(),
         nullable=False,
-        comment="Suggested name for the organization",
+        comment="Organization name referenced by this ticket",
     )
-    description: Mapped[Optional[str]] = mapped_column(
+    message: Mapped[Optional[str]] = mapped_column(
         Text(),
         nullable=True,
-        comment="Description of the organization/place",
+        comment="Free-text message from the submitter",
     )
-    suggested_district: Mapped[Optional[str]] = mapped_column(
-        Text(),
-        nullable=True,
-        comment="District where the place is located",
-    )
-    suggested_address: Mapped[Optional[str]] = mapped_column(
-        Text(),
-        nullable=True,
-        comment="Full address of the place",
-    )
-    suggested_lat: Mapped[Optional[Decimal]] = mapped_column(
-        Numeric(9, 6),
-        nullable=True,
-        comment="Latitude coordinate",
-    )
-    suggested_lng: Mapped[Optional[Decimal]] = mapped_column(
-        Numeric(9, 6),
-        nullable=True,
-        comment="Longitude coordinate",
-    )
-    media_urls: Mapped[List[str]] = mapped_column(
-        ARRAY(Text()),
-        nullable=False,
-        server_default=text("'{}'::text[]"),
-        comment="URLs of uploaded media files",
-    )
-    additional_notes: Mapped[Optional[str]] = mapped_column(
-        Text(),
-        nullable=True,
-        comment="Any additional information from the suggester",
-    )
-    status: Mapped[SuggestionStatus] = mapped_column(
+    status: Mapped[TicketStatus] = mapped_column(
         sa.Enum(
-            SuggestionStatus,
-            name="suggestion_status",
+            TicketStatus,
+            name="ticket_status",
             values_callable=lambda x: [e.value for e in x],
             create_type=False,
         ),
@@ -599,7 +510,7 @@ class OrganizationSuggestion(Base):
     reviewed_at: Mapped[Optional[datetime]] = mapped_column(
         TIMESTAMP(timezone=True),
         nullable=True,
-        comment="When the suggestion was reviewed",
+        comment="When the ticket was reviewed",
     )
     reviewed_by: Mapped[Optional[str]] = mapped_column(
         Text(),
@@ -611,12 +522,47 @@ class OrganizationSuggestion(Base):
         nullable=True,
         comment="Notes from the reviewing admin",
     )
+
+    # --- Optional fields (used by some ticket types) ---
+    description: Mapped[Optional[str]] = mapped_column(
+        Text(),
+        nullable=True,
+        comment="Extended description",
+    )
+    suggested_district: Mapped[Optional[str]] = mapped_column(
+        Text(),
+        nullable=True,
+        comment="District or area",
+    )
+    suggested_address: Mapped[Optional[str]] = mapped_column(
+        Text(),
+        nullable=True,
+        comment="Full address",
+    )
+    suggested_lat: Mapped[Optional[Decimal]] = mapped_column(
+        Numeric(9, 6),
+        nullable=True,
+        comment="Latitude coordinate",
+    )
+    suggested_lng: Mapped[Optional[Decimal]] = mapped_column(
+        Numeric(9, 6),
+        nullable=True,
+        comment="Longitude coordinate",
+    )
+    media_urls: Mapped[List[str]] = mapped_column(
+        ARRAY(Text()),
+        nullable=False,
+        server_default=text("'{}'::text[]"),
+        comment="URLs of uploaded media files",
+    )
     created_organization_id: Mapped[Optional[str]] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("organizations.id", ondelete="SET NULL"),
         nullable=True,
-        comment="ID of organization created from this suggestion (if approved)",
+        comment="FK to organization created or assigned on approval",
     )
 
-    # Relationship to the created organization (if approved)
-    created_organization: Mapped[Optional["Organization"]] = relationship()
+    # Relationship to the created organization
+    created_organization: Mapped[Optional["Organization"]] = relationship(
+        foreign_keys=[created_organization_id],
+    )

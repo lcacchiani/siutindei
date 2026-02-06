@@ -1,15 +1,15 @@
-"""Lambda handler for processing manager requests from SQS.
+"""Lambda handler for processing ticket submissions from SQS.
 
 This Lambda is triggered by SQS messages that originate from the SNS topic.
-It processes manager request submissions asynchronously:
+It processes submissions asynchronously:
 1. Parses the SNS message from SQS
-2. Stores the request in the database (with idempotency check)
+2. Stores the ticket in the database (with idempotency check)
 3. Sends email notification to support/admin
 
 The decoupled architecture provides:
 - Automatic retries (3 attempts before DLQ)
 - Fault tolerance (email failures don't block DB writes)
-- Scalability (can process multiple requests concurrently)
+- Scalability (can process multiple submissions concurrently)
 """
 
 from __future__ import annotations
@@ -23,9 +23,9 @@ import boto3
 from sqlalchemy.orm import Session
 
 from app.db.engine import get_engine
-from app.db.models import OrganizationAccessRequest
-from app.db.repositories import OrganizationAccessRequestRepository
-from app.templates import render_new_request_email
+from app.db.models import Ticket, TicketType
+from app.db.repositories import TicketRepository
+from app.templates import render_new_request_email, render_new_suggestion_email
 from app.utils.logging import configure_logging, get_logger
 
 # Configure logging
@@ -35,17 +35,18 @@ logger = get_logger(__name__)
 # Initialize AWS clients
 ses_client = boto3.client("ses")
 
+# Map SNS event types to ticket types
+EVENT_TYPE_MAP = {
+    "manager_request.submitted": TicketType.ACCESS_REQUEST,
+    "organization_suggestion.submitted": TicketType.ORGANIZATION_SUGGESTION,
+}
+
 
 def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
-    """Process manager request messages from SQS.
+    """Process ticket messages from SQS.
 
-    Each SQS message contains an SNS notification with:
-    - event_type: "manager_request.submitted"
-    - ticket_id: Unique ticket ID (e.g., R00001)
-    - requester_id: Cognito user sub
-    - requester_email: User's email
-    - organization_name: Requested organization name
-    - request_message: Optional message from requester
+    Each SQS message contains an SNS notification with an event_type field
+    that maps to a ticket_type in the unified tickets table.
 
     Args:
         event: SQS event containing records to process.
@@ -70,8 +71,9 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
             message = json.loads(message_str)
 
             event_type = message.get("event_type")
-            if event_type != "manager_request.submitted":
-                logger.info(f"Skipping event type: {event_type}")
+            ticket_type = EVENT_TYPE_MAP.get(event_type)
+            if ticket_type is None:
+                logger.info(f"Skipping unsupported event type: {event_type}")
                 skipped += 1
                 continue
 
@@ -81,22 +83,21 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
                 skipped += 1
                 continue
 
-            logger.info(f"Processing manager request: {ticket_id}")
+            logger.info(f"Processing {event_type}: {ticket_id}")
 
             # Store in database with idempotency check
-            manager_request = _store_manager_request(message)
+            ticket = _store_ticket(message, ticket_type)
 
-            if manager_request is None:
-                # Already processed (idempotent)
-                logger.info(f"Request {ticket_id} already exists, skipping")
+            if ticket is None:
+                logger.info(f"Ticket {ticket_id} already exists, skipping")
                 skipped += 1
                 continue
 
             # Send email notification (non-blocking)
-            _send_notification_email(manager_request)
+            _send_notification_email(ticket)
 
             processed += 1
-            logger.info(f"Successfully processed request: {ticket_id}")
+            logger.info(f"Successfully processed {event_type}: {ticket_id}")
 
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse message JSON: {e}")
@@ -120,91 +121,142 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     return result
 
 
-def _store_manager_request(
+def _store_ticket(
     message: dict[str, Any],
-) -> OrganizationAccessRequest | None:
-    """Store manager request in database with idempotency check.
+    ticket_type: TicketType,
+) -> Ticket | None:
+    """Store ticket in database with idempotency check.
 
     Args:
-        message: Parsed SNS message containing request data.
+        message: Parsed SNS message containing ticket data.
+        ticket_type: The type of ticket to create.
 
     Returns:
-        The created OrganizationAccessRequest, or None if already exists.
+        The created Ticket, or None if already exists.
     """
     ticket_id = message["ticket_id"]
 
+    # Normalize field names: access requests use requester_*, suggestions
+    # use suggester_*. The unified model uses submitter_*.
+    submitter_id = (
+        message.get("submitter_id")
+        or message.get("requester_id")
+        or message.get("suggester_id")
+    )
+    submitter_email = (
+        message.get("submitter_email")
+        or message.get("requester_email")
+        or message.get("suggester_email")
+    )
+
     with Session(get_engine()) as session:
-        repo = OrganizationAccessRequestRepository(session)
+        repo = TicketRepository(session)
 
         # Idempotency check: skip if already processed
         existing = repo.find_by_ticket_id(ticket_id)
         if existing:
             return None
 
-        # Create new manager request
-        manager_request = OrganizationAccessRequest(
+        # Build the ticket
+        ticket = Ticket(
             ticket_id=ticket_id,
-            requester_id=message["requester_id"],
-            requester_email=message["requester_email"],
+            ticket_type=ticket_type,
+            submitter_id=submitter_id,
+            submitter_email=submitter_email,
             organization_name=message["organization_name"],
-            request_message=message.get("request_message"),
+            message=message.get("request_message")
+            or message.get("additional_notes")
+            or message.get("message"),
         )
 
-        repo.create(manager_request)
+        # Suggestion-specific fields
+        if ticket_type == TicketType.ORGANIZATION_SUGGESTION:
+            ticket.description = message.get("description")
+            ticket.suggested_district = message.get("suggested_district")
+            ticket.suggested_address = message.get("suggested_address")
+            ticket.suggested_lat = message.get("suggested_lat")
+            ticket.suggested_lng = message.get("suggested_lng")
+            ticket.media_urls = message.get("media_urls", [])
+
+        repo.create(ticket)
         session.commit()
-        session.refresh(manager_request)
+        session.refresh(ticket)
 
-        logger.info(f"Stored manager request in database: {ticket_id}")
-        return manager_request
+        logger.info(
+            f"Stored ticket in database: {ticket_id} (type={ticket_type.value})"
+        )
+        return ticket
 
 
-def _send_notification_email(request: OrganizationAccessRequest) -> None:
-    """Send email notification for new manager request.
+def _send_notification_email(ticket: Ticket) -> None:
+    """Send email notification for a new ticket.
 
+    Dispatches to the appropriate email template based on ticket type.
     This is a best-effort operation - failures are logged but don't
     cause the overall processing to fail (DB write already succeeded).
 
     Args:
-        request: The manager request to notify about.
+        ticket: The ticket to notify about.
     """
     support_email = os.getenv("SUPPORT_EMAIL")
     sender_email = os.getenv("SES_SENDER_EMAIL")
 
     if not support_email or not sender_email:
         logger.warning(
-            "Email notification skipped: SUPPORT_EMAIL or SES_SENDER_EMAIL not configured"
+            "Email notification skipped: SUPPORT_EMAIL or "
+            "SES_SENDER_EMAIL not configured"
         )
         return
 
     try:
-        # Format submitted_at timestamp
         submitted_at = (
-            request.created_at.isoformat()
-            if request.created_at
+            ticket.created_at.isoformat()
+            if ticket.created_at
             else datetime.now(timezone.utc).isoformat()
         )
 
-        email_content = render_new_request_email(
-            ticket_id=request.ticket_id,
-            requester_email=request.requester_email,
-            organization_name=request.organization_name,
-            request_message=request.request_message,
-            submitted_at=submitted_at,
-        )
+        if ticket.ticket_type == TicketType.ACCESS_REQUEST:
+            email_content = render_new_request_email(
+                ticket_id=ticket.ticket_id,
+                requester_email=ticket.submitter_email,
+                organization_name=ticket.organization_name,
+                request_message=ticket.message,
+                submitted_at=submitted_at,
+            )
+        else:
+            email_content = render_new_suggestion_email(
+                ticket_id=ticket.ticket_id,
+                suggester_email=ticket.submitter_email,
+                organization_name=ticket.organization_name,
+                description=ticket.description,
+                district=ticket.suggested_district,
+                address=ticket.suggested_address,
+                additional_notes=ticket.message,
+                submitted_at=submitted_at,
+            )
 
         ses_client.send_email(
             Source=sender_email,
             Destination={"ToAddresses": [support_email]},
             Message={
-                "Subject": {"Data": email_content.subject, "Charset": "UTF-8"},
+                "Subject": {
+                    "Data": email_content.subject,
+                    "Charset": "UTF-8",
+                },
                 "Body": {
-                    "Text": {"Data": email_content.body_text, "Charset": "UTF-8"},
-                    "Html": {"Data": email_content.body_html, "Charset": "UTF-8"},
+                    "Text": {
+                        "Data": email_content.body_text,
+                        "Charset": "UTF-8",
+                    },
+                    "Html": {
+                        "Data": email_content.body_html,
+                        "Charset": "UTF-8",
+                    },
                 },
             },
         )
-        logger.info(f"Notification email sent for {request.ticket_id}")
+        logger.info(f"Notification email sent for {ticket.ticket_id}")
 
     except Exception as e:
         # Log but don't re-raise - DB write succeeded, email is secondary
-        logger.error(f"Failed to send notification email for {request.ticket_id}: {e}")
+        logger.error(f"Failed to send notification email for {ticket.ticket_id}: {e}")

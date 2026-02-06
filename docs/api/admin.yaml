@@ -617,19 +617,26 @@ paths:
         "404":
           description: Cognito user not found
 
-  # --- Access Requests Management (Admin Only) ---
+  # --- Tickets Management (Admin Only) ---
 
-  /v1/admin/access-requests:
+  /v1/admin/tickets:
     get:
-      summary: List access requests
+      summary: List tickets
       description: |
-        List all manager access requests for admin review.
-        Supports filtering by status and cursor pagination.
+        List all tickets for admin review. Supports filtering by
+        ticket_type, status, and cursor pagination.
       parameters:
+        - name: ticket_type
+          in: query
+          required: false
+          description: Filter by ticket type
+          schema:
+            type: string
+            enum: [access_request, organization_suggestion]
         - name: status
           in: query
           required: false
-          description: Filter by request status
+          description: Filter by ticket status
           schema:
             type: string
             enum: [pending, approved, rejected]
@@ -648,13 +655,13 @@ paths:
             type: string
       responses:
         "200":
-          description: List of access requests
+          description: List of tickets
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AccessRequestListResponse'
+                $ref: '#/components/schemas/TicketListResponse'
 
-  /v1/admin/access-requests/{id}:
+  /v1/admin/tickets/{id}:
     parameters:
       - name: id
         in: path
@@ -663,29 +670,28 @@ paths:
           type: string
           format: uuid
     put:
-      summary: Review access request
+      summary: Review ticket
       description: |
-        Approve or reject a manager access request.
-        When approving, the admin can either assign an existing organization
-        or create a new one. The requester becomes the manager and is added
-        to the 'manager' Cognito group.
+        Approve or reject a ticket. Approval behaviour depends on the
+        ticket_type. The request body may include organization_id,
+        create_organization, and admin_notes.
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/AccessRequestReview'
+              $ref: '#/components/schemas/TicketReview'
       responses:
         "200":
-          description: Access request reviewed
+          description: Ticket reviewed
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AccessRequestReviewResponse'
+                $ref: '#/components/schemas/TicketReviewResponse'
         "400":
           description: Validation error
         "404":
-          description: Access request not found
+          description: Ticket not found
 
   # --- Audit Logs (Admin Only, Read-Only) ---
 
@@ -768,75 +774,6 @@ paths:
                 $ref: '#/components/schemas/AuditLogEntry'
         "404":
           description: Audit log entry not found
-
-  # --- Organization Suggestions Management (Admin Only) ---
-
-  /v1/admin/organization-suggestions:
-    get:
-      summary: List organization suggestions
-      description: |
-        List all user-submitted organization suggestions for admin review.
-        Supports filtering by status and cursor pagination.
-      parameters:
-        - name: status
-          in: query
-          required: false
-          description: Filter by suggestion status
-          schema:
-            type: string
-            enum: [pending, approved, rejected]
-        - name: limit
-          in: query
-          required: false
-          schema:
-            type: integer
-            minimum: 1
-            maximum: 200
-            default: 50
-        - name: cursor
-          in: query
-          required: false
-          schema:
-            type: string
-      responses:
-        "200":
-          description: List of organization suggestions
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/OrganizationSuggestionListResponse'
-
-  /v1/admin/organization-suggestions/{id}:
-    parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-    put:
-      summary: Review organization suggestion
-      description: |
-        Approve or reject an organization suggestion.
-        When approving, the admin can optionally create an organization
-        from the suggestion data.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/OrganizationSuggestionReview'
-      responses:
-        "200":
-          description: Suggestion reviewed
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/OrganizationSuggestionReviewResponse'
-        "400":
-          description: Validation error
-        "404":
-          description: Suggestion not found
 
   # --- Manager Routes (Admin or Manager Group) ---
 
@@ -1289,7 +1226,7 @@ paths:
                   has_pending_request:
                     type: boolean
                   pending_request:
-                    $ref: '#/components/schemas/AccessRequest'
+                    $ref: '#/components/schemas/Ticket'
                     nullable: true
                   organizations_count:
                     type: integer
@@ -1341,7 +1278,7 @@ paths:
                   suggestions:
                     type: array
                     items:
-                      $ref: '#/components/schemas/OrganizationSuggestion'
+                      $ref: '#/components/schemas/Ticket'
     post:
       summary: Submit organization suggestion
       description: |
@@ -2061,40 +1998,7 @@ components:
           nullable: true
           description: Token for fetching the next page
 
-    # Access Request schemas
-    AccessRequest:
-      type: object
-      required: [id, ticket_id, organization_name, status, requester_email, requester_id, created_at]
-      properties:
-        id:
-          type: string
-          format: uuid
-        ticket_id:
-          type: string
-          description: Unique ticket ID (e.g., R00001)
-        organization_name:
-          type: string
-        request_message:
-          type: string
-          nullable: true
-        status:
-          type: string
-          enum: [pending, approved, rejected]
-        requester_email:
-          type: string
-        requester_id:
-          type: string
-        created_at:
-          type: string
-          format: date-time
-        reviewed_at:
-          type: string
-          format: date-time
-          nullable: true
-        reviewed_by:
-          type: string
-          nullable: true
-
+    # Access Request input schema (used by user-facing POST endpoint)
     AccessRequestCreate:
       type: object
       required:
@@ -2109,7 +2013,73 @@ components:
           maxLength: 5000
           description: Optional message to the admin
 
-    AccessRequestReview:
+    # Ticket schemas
+    Ticket:
+      type: object
+      required: [id, ticket_id, ticket_type, organization_name, media_urls, status, submitter_id, submitter_email, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        ticket_id:
+          type: string
+          description: Unique progressive ticket ID (prefix + 5 digits)
+        ticket_type:
+          type: string
+          enum: [access_request, organization_suggestion]
+        organization_name:
+          type: string
+        message:
+          type: string
+          nullable: true
+          description: Free-text message from the submitter
+        status:
+          type: string
+          enum: [pending, approved, rejected]
+        submitter_id:
+          type: string
+          description: Cognito user sub of the submitter
+        submitter_email:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        reviewed_at:
+          type: string
+          format: date-time
+          nullable: true
+        reviewed_by:
+          type: string
+          nullable: true
+        admin_notes:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+          description: Extended description (optional, depends on ticket type)
+        suggested_district:
+          type: string
+          nullable: true
+        suggested_address:
+          type: string
+          nullable: true
+        suggested_lat:
+          type: number
+          nullable: true
+        suggested_lng:
+          type: number
+          nullable: true
+        media_urls:
+          type: array
+          items:
+            type: string
+        created_organization_id:
+          type: string
+          format: uuid
+          nullable: true
+
+    TicketReview:
       type: object
       required:
         - action
@@ -2117,43 +2087,44 @@ components:
         action:
           type: string
           enum: [approve, reject]
-          description: Review action
-        message:
+        admin_notes:
           type: string
-          description: Optional message to the requester
+          description: Notes from the admin about the decision
         organization_id:
           type: string
           format: uuid
-          description: Existing organization to assign (for approval)
+          description: Assign an existing organization on approval
         create_organization:
           type: boolean
-          description: Create a new organization from request (for approval)
+          description: Create a new organization on approval
 
-    AccessRequestReviewResponse:
+    TicketReviewResponse:
       type: object
-      required: [message, request]
+      required: [message, ticket]
       properties:
         message:
           type: string
-          description: Human-readable result message
-        request:
-          $ref: '#/components/schemas/AccessRequest'
+        ticket:
+          $ref: '#/components/schemas/Ticket'
         organization:
           $ref: '#/components/schemas/Organization'
           nullable: true
-          description: The organization assigned or created (only for approval)
+          description: The organization created or assigned (only on approval)
 
-    AccessRequestListResponse:
+    TicketListResponse:
       type: object
-      required: [items]
+      required: [items, pending_count]
       properties:
         items:
           type: array
           items:
-            $ref: '#/components/schemas/AccessRequest'
+            $ref: '#/components/schemas/Ticket'
         next_cursor:
           type: string
           nullable: true
+        pending_count:
+          type: integer
+          description: Number of pending tickets matching the current filters
 
     # Audit Log schemas
     AuditLogEntry:
@@ -2218,68 +2189,7 @@ components:
           type: string
           nullable: true
 
-    # Organization Suggestion schemas
-    OrganizationSuggestion:
-      type: object
-      required: [id, ticket_id, organization_name, media_urls, status, suggester_id, suggester_email, created_at]
-      properties:
-        id:
-          type: string
-          format: uuid
-        ticket_id:
-          type: string
-          description: Unique ticket ID (e.g., S00001)
-        organization_name:
-          type: string
-        description:
-          type: string
-          nullable: true
-        suggested_district:
-          type: string
-          nullable: true
-        suggested_address:
-          type: string
-          nullable: true
-        suggested_lat:
-          type: number
-          nullable: true
-        suggested_lng:
-          type: number
-          nullable: true
-        media_urls:
-          type: array
-          items:
-            type: string
-        additional_notes:
-          type: string
-          nullable: true
-        status:
-          type: string
-          enum: [pending, approved, rejected]
-        suggester_id:
-          type: string
-        suggester_email:
-          type: string
-        created_at:
-          type: string
-          format: date-time
-        reviewed_at:
-          type: string
-          format: date-time
-          nullable: true
-        reviewed_by:
-          type: string
-          nullable: true
-        admin_notes:
-          type: string
-          nullable: true
-          description: Notes from the reviewing admin
-        created_organization_id:
-          type: string
-          format: uuid
-          nullable: true
-          description: ID of organization created from this suggestion (if approved)
-
+    # Organization Suggestion input schema (used by user-facing POST endpoint)
     OrganizationSuggestionCreate:
       type: object
       required:
@@ -2323,50 +2233,6 @@ components:
           type: string
           maxLength: 5000
           description: Additional notes for the admin
-
-    OrganizationSuggestionReview:
-      type: object
-      required:
-        - action
-      properties:
-        action:
-          type: string
-          enum: [approve, reject]
-        admin_notes:
-          type: string
-          description: Optional admin notes
-        create_organization:
-          type: boolean
-          description: Create organization from suggestion (for approval)
-
-    OrganizationSuggestionReviewResponse:
-      type: object
-      required: [message, suggestion]
-      properties:
-        message:
-          type: string
-          description: Human-readable result message
-        suggestion:
-          $ref: '#/components/schemas/OrganizationSuggestion'
-        organization:
-          $ref: '#/components/schemas/Organization'
-          nullable: true
-          description: The organization created from suggestion (only for approval with create_organization=true)
-
-    OrganizationSuggestionListResponse:
-      type: object
-      required: [items, pending_count]
-      properties:
-        items:
-          type: array
-          items:
-            $ref: '#/components/schemas/OrganizationSuggestion'
-        next_cursor:
-          type: string
-          nullable: true
-        pending_count:
-          type: integer
-          description: Count of pending suggestions
 
     # Health Check schemas
     HealthStatus:
