@@ -1183,7 +1183,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/admin/access-requests": {
+    "/v1/admin/tickets": {
         parameters: {
             query?: never;
             header?: never;
@@ -1191,14 +1191,16 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * List access requests
-         * @description List all manager access requests for admin review.
-         *     Supports filtering by status and cursor pagination.
+         * List tickets
+         * @description List all tickets for admin review. Supports filtering by
+         *     ticket_type, status, and cursor pagination.
          */
         get: {
             parameters: {
                 query?: {
-                    /** @description Filter by request status */
+                    /** @description Filter by ticket type */
+                    ticket_type?: "access_request" | "organization_suggestion";
+                    /** @description Filter by ticket status */
                     status?: "pending" | "approved" | "rejected";
                     limit?: number;
                     cursor?: string;
@@ -1209,13 +1211,13 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description List of access requests */
+                /** @description List of tickets */
                 200: {
                     headers: {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["AccessRequestListResponse"];
+                        "application/json": components["schemas"]["TicketListResponse"];
                     };
                 };
             };
@@ -1228,7 +1230,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/admin/access-requests/{id}": {
+    "/v1/admin/tickets/{id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -1239,11 +1241,10 @@ export interface paths {
         };
         get?: never;
         /**
-         * Review access request
-         * @description Approve or reject a manager access request.
-         *     When approving, the admin can either assign an existing organization
-         *     or create a new one. The requester becomes the manager and is added
-         *     to the 'manager' Cognito group.
+         * Review ticket
+         * @description Approve or reject a ticket. Approval behaviour depends on the
+         *     ticket_type. The request body may include organization_id,
+         *     create_organization, and admin_notes.
          */
         put: {
             parameters: {
@@ -1256,17 +1257,17 @@ export interface paths {
             };
             requestBody: {
                 content: {
-                    "application/json": components["schemas"]["AccessRequestReview"];
+                    "application/json": components["schemas"]["TicketReview"];
                 };
             };
             responses: {
-                /** @description Access request reviewed */
+                /** @description Ticket reviewed */
                 200: {
                     headers: {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["AccessRequestReviewResponse"];
+                        "application/json": components["schemas"]["TicketReviewResponse"];
                     };
                 };
                 /** @description Validation error */
@@ -1276,7 +1277,7 @@ export interface paths {
                     };
                     content?: never;
                 };
-                /** @description Access request not found */
+                /** @description Ticket not found */
                 404: {
                     headers: {
                         [name: string]: unknown;
@@ -1385,114 +1386,6 @@ export interface paths {
             };
         };
         put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/admin/organization-suggestions": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List organization suggestions
-         * @description List all user-submitted organization suggestions for admin review.
-         *     Supports filtering by status and cursor pagination.
-         */
-        get: {
-            parameters: {
-                query?: {
-                    /** @description Filter by suggestion status */
-                    status?: "pending" | "approved" | "rejected";
-                    limit?: number;
-                    cursor?: string;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description List of organization suggestions */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["OrganizationSuggestionListResponse"];
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/admin/organization-suggestions/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        get?: never;
-        /**
-         * Review organization suggestion
-         * @description Approve or reject an organization suggestion.
-         *     When approving, the admin can optionally create an organization
-         *     from the suggestion data.
-         */
-        put: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["OrganizationSuggestionReview"];
-                };
-            };
-            responses: {
-                /** @description Suggestion reviewed */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["OrganizationSuggestionReviewResponse"];
-                    };
-                };
-                /** @description Validation error */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Suggestion not found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
         post?: never;
         delete?: never;
         options?: never;
@@ -2563,7 +2456,7 @@ export interface paths {
                     content: {
                         "application/json": {
                             has_pending_request?: boolean;
-                            pending_request?: components["schemas"]["AccessRequest"];
+                            pending_request?: components["schemas"]["Ticket"];
                             /** @description Number of organizations the user manages */
                             organizations_count?: number;
                         };
@@ -2648,7 +2541,7 @@ export interface paths {
                     content: {
                         "application/json": {
                             has_pending_suggestion?: boolean;
-                            suggestions?: components["schemas"]["OrganizationSuggestion"][];
+                            suggestions?: components["schemas"]["Ticket"][];
                         };
                     };
                 };
@@ -3086,55 +2979,67 @@ export interface components {
             /** @description Token for fetching the next page */
             pagination_token?: string | null;
         };
-        AccessRequest: {
-            /** Format: uuid */
-            id: string;
-            /** @description Unique ticket ID (e.g., R00001) */
-            ticket_id: string;
-            organization_name: string;
-            request_message?: string | null;
-            /** @enum {string} */
-            status: "pending" | "approved" | "rejected";
-            requester_email: string;
-            requester_id: string;
-            /** Format: date-time */
-            created_at: string;
-            /** Format: date-time */
-            reviewed_at?: string | null;
-            reviewed_by?: string | null;
-        };
         AccessRequestCreate: {
             /** @description Name of the organization to request access to */
             organization_name: string;
             /** @description Optional message to the admin */
             request_message?: string;
         };
-        AccessRequestReview: {
-            /**
-             * @description Review action
-             * @enum {string}
-             */
+        Ticket: {
+            /** Format: uuid */
+            id: string;
+            /** @description Unique progressive ticket ID (prefix + 5 digits) */
+            ticket_id: string;
+            /** @enum {string} */
+            ticket_type: "access_request" | "organization_suggestion";
+            organization_name: string;
+            /** @description Free-text message from the submitter */
+            message?: string | null;
+            /** @enum {string} */
+            status: "pending" | "approved" | "rejected";
+            /** @description Cognito user sub of the submitter */
+            submitter_id: string;
+            submitter_email: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            reviewed_at?: string | null;
+            reviewed_by?: string | null;
+            admin_notes?: string | null;
+            /** @description Extended description (optional, depends on ticket type) */
+            description?: string | null;
+            suggested_district?: string | null;
+            suggested_address?: string | null;
+            suggested_lat?: number | null;
+            suggested_lng?: number | null;
+            media_urls: string[];
+            /** Format: uuid */
+            created_organization_id?: string | null;
+        };
+        TicketReview: {
+            /** @enum {string} */
             action: "approve" | "reject";
-            /** @description Optional message to the requester */
-            message?: string;
+            /** @description Notes from the admin about the decision */
+            admin_notes?: string;
             /**
              * Format: uuid
-             * @description Existing organization to assign (for approval)
+             * @description Assign an existing organization on approval
              */
             organization_id?: string;
-            /** @description Create a new organization from request (for approval) */
+            /** @description Create a new organization on approval */
             create_organization?: boolean;
         };
-        AccessRequestReviewResponse: {
-            /** @description Human-readable result message */
+        TicketReviewResponse: {
             message: string;
-            request: components["schemas"]["AccessRequest"];
-            /** @description The organization assigned or created (only for approval) */
+            ticket: components["schemas"]["Ticket"];
+            /** @description The organization created or assigned (only on approval) */
             organization?: components["schemas"]["Organization"];
         };
-        AccessRequestListResponse: {
-            items: components["schemas"]["AccessRequest"][];
+        TicketListResponse: {
+            items: components["schemas"]["Ticket"][];
             next_cursor?: string | null;
+            /** @description Number of pending tickets matching the current filters */
+            pending_count: number;
         };
         AuditLogEntry: {
             /** Format: uuid */
@@ -3167,36 +3072,6 @@ export interface components {
             items: components["schemas"]["AuditLogEntry"][];
             next_cursor?: string | null;
         };
-        OrganizationSuggestion: {
-            /** Format: uuid */
-            id: string;
-            /** @description Unique ticket ID (e.g., S00001) */
-            ticket_id: string;
-            organization_name: string;
-            description?: string | null;
-            suggested_district?: string | null;
-            suggested_address?: string | null;
-            suggested_lat?: number | null;
-            suggested_lng?: number | null;
-            media_urls: string[];
-            additional_notes?: string | null;
-            /** @enum {string} */
-            status: "pending" | "approved" | "rejected";
-            suggester_id: string;
-            suggester_email: string;
-            /** Format: date-time */
-            created_at: string;
-            /** Format: date-time */
-            reviewed_at?: string | null;
-            reviewed_by?: string | null;
-            /** @description Notes from the reviewing admin */
-            admin_notes?: string | null;
-            /**
-             * Format: uuid
-             * @description ID of organization created from this suggestion (if approved)
-             */
-            created_organization_id?: string | null;
-        };
         OrganizationSuggestionCreate: {
             /** @description Suggested organization name (required) */
             organization_name: string;
@@ -3214,27 +3089,6 @@ export interface components {
             media_urls?: string[];
             /** @description Additional notes for the admin */
             additional_notes?: string;
-        };
-        OrganizationSuggestionReview: {
-            /** @enum {string} */
-            action: "approve" | "reject";
-            /** @description Optional admin notes */
-            admin_notes?: string;
-            /** @description Create organization from suggestion (for approval) */
-            create_organization?: boolean;
-        };
-        OrganizationSuggestionReviewResponse: {
-            /** @description Human-readable result message */
-            message: string;
-            suggestion: components["schemas"]["OrganizationSuggestion"];
-            /** @description The organization created from suggestion (only for approval with create_organization=true) */
-            organization?: components["schemas"]["Organization"];
-        };
-        OrganizationSuggestionListResponse: {
-            items: components["schemas"]["OrganizationSuggestion"][];
-            next_cursor?: string | null;
-            /** @description Count of pending suggestions */
-            pending_count: number;
         };
         HealthStatus: {
             healthy: boolean;
