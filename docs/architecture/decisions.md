@@ -63,14 +63,17 @@ Flutter mobile app, Next.js admin console, and AWS serverless backend.
 ## API Contracts
 
 **Decisions:**
-- OpenAPI contracts live under `docs/api/`.
-- Activities search contract: `docs/api/activities-search.yaml`.
-- Search responses are cursor-paginated.
-- Cursor pagination uses schedule time and type for ordering.
-- Admin CRUD contract: `docs/api/admin.yaml`.
-- Admin list endpoints return next_cursor for pagination.
+- OpenAPI contracts live under `docs/api/` and are the single source
+  of truth for all API endpoint details (paths, methods, parameters,
+  request/response schemas, authentication requirements).
+- Activities search contract: [`docs/api/activities-search.yaml`](../api/activities-search.yaml).
+- Admin, manager, user, and health contracts: [`docs/api/admin.yaml`](../api/admin.yaml).
+- Search responses are cursor-paginated (schedule time + type ordering).
+- Admin and manager list endpoints return `next_cursor` for pagination.
 - API client generation is handled via generalized scripts in
   `scripts/codegen/`.
+- **Do not duplicate endpoint details in architecture docs.** Always
+  link to the OpenAPI specs instead.
 
 ## Lambda Implementation
 
@@ -85,19 +88,21 @@ Flutter mobile app, Next.js admin console, and AWS serverless backend.
 ## Authentication
 
 **Decisions:**
-- Public activity search uses an API key; admin routes require Cognito.
-- Admin routes require membership in the `admin` group.
-- Admin group is created via CDK.
-- Admin group membership can be managed via
-  `/v1/admin/users/{username}/groups`.
+- Public activity search uses an API key + device attestation; admin
+  routes require Cognito `admin` group; manager routes require `admin`
+  or `manager` group; user routes require any valid JWT.
+- Admin and manager groups are created via CDK.
 - Admin bootstrap user can be created with CDK parameters.
 - Authentication is passwordless: email custom challenge (OTP + optional magic
   link) and federated sign-in via Google, Apple, and Microsoft (OIDC).
-- Public activity search also requires device attestation via a JWT validated
-  against a JWKS URL configured in CDK parameters.
+- Device attestation validates JWTs against a JWKS URL configured in CDK
+  parameters.
 - Hosted UI uses OAuth code flow with callback/logout URLs supplied via CDK
   parameters.
+- API keys are rotated every 90 days by a scheduled Lambda.
 - API Gateway method caching enabled for search responses (5-minute TTL).
+- See the OpenAPI specs for per-endpoint authentication requirements:
+  [`docs/api/admin.yaml`](../api/admin.yaml).
 
 ## AWS / HTTP Proxy
 
@@ -283,11 +288,16 @@ Lambdas or NAT Gateway.
 - `PublicApiKeyValue` (API key required for public search)
 - `DeviceAttestationJwksUrl`, `DeviceAttestationIssuer`, `DeviceAttestationAudience`
 
-## Next Steps
+## Keeping Documentation Up to Date
 
-1. Configure GitHub OIDC role in AWS and set org/repo variables.
-2. Initialize CDK project under `backend/infrastructure`.
-3. Bootstrap Next.js App Router admin app in `apps/admin_web`.
-4. Configure Flutter release pipelines for AAB and iOS.
-5. Configure Amplify app ID and branch variables for admin hosting.
-6. Configure Android keystore and iOS match credentials.
+**Decision:** Architecture documentation in `docs/architecture/` describes
+high-level design, patterns, and decisions. API endpoint details (paths,
+methods, parameters, schemas) are documented exclusively in the OpenAPI
+specs under `docs/api/`. Architecture docs must link to the OpenAPI specs
+rather than duplicating endpoint information.
+
+When making changes:
+1. Update the relevant OpenAPI spec if adding/changing endpoints.
+2. Update `docs/architecture/lambdas.md` if adding/changing Lambda functions.
+3. Update `docs/architecture/database-schema.md` if adding/changing tables.
+4. Update other architecture docs if design decisions or patterns change.

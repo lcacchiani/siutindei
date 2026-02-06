@@ -67,24 +67,17 @@ Manager requests are processed asynchronously using SNS + SQS messaging. This pr
 
 ## API Behavior
 
-### POST `/v1/user/access-request`
+The user-facing API endpoints for access requests are at
+`/v1/user/access-request` (GET, POST). Admin review endpoints are at
+`/v1/admin/access-requests`. For full endpoint details (parameters,
+request/response schemas), see the OpenAPI spec:
+[`docs/api/admin.yaml`](../api/admin.yaml).
 
-1. Validates request fields
-2. Checks for existing pending request
-3. Generates unique ticket ID
-4. Publishes to SNS topic
-5. Returns `202 Accepted` with ticket ID
-
-```json
-{
-  "message": "Your request has been submitted and is being processed",
-  "ticket_id": "R00001"
-}
-```
-
-### GET `/v1/user/access-request`
-
-Returns the user's pending request status (queries database directly).
+**Processing flow:**
+1. User POSTs a request → API validates, generates ticket ID, publishes to SNS
+2. Returns `202 Accepted` with ticket ID
+3. SQS delivers message to processor Lambda
+4. Processor stores in DB and sends email notification
 
 ## Error Handling
 

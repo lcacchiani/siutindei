@@ -32,111 +32,20 @@ Public logged-in users can suggest new organizations (places) without becoming m
 
 ## API Endpoints
 
-### User Endpoints
+The organization suggestion feature exposes endpoints under two route
+groups:
 
-#### GET /v1/user/organization-suggestion
+- **User endpoints** (`/v1/user/organization-suggestion`): Any
+  authenticated user can view their suggestion history and submit new
+  suggestions.
+- **Admin endpoints** (`/v1/admin/organization-suggestions`): Admins
+  can list all suggestions and approve/reject them.
 
-Get the current user's suggestion history.
-
-**Response:**
-```json
-{
-  "has_pending_suggestion": true,
-  "suggestions": [
-    {
-      "id": "550e8400-e29b-41d4-a716-446655440000",
-      "ticket_id": "S00001",
-      "organization_name": "Sunny Kids Academy",
-      "description": "Great art classes for children",
-      "suggested_district": "Central",
-      "suggested_address": "123 Main St",
-      "suggested_lat": 22.2796,
-      "suggested_lng": 114.1732,
-      "media_urls": ["https://images.example.com/org/photo1.jpg"],
-      "additional_notes": "Open on weekends too",
-      "status": "pending",
-      "created_at": "2024-01-15T10:30:00Z"
-    }
-  ]
-}
-```
-
-#### POST /v1/user/organization-suggestion
-
-Submit a new organization suggestion.
-
-**Request Body:**
-```json
-{
-  "organization_name": "Sunny Kids Academy",
-  "description": "Great art classes for children aged 3-12",
-  "suggested_district": "Central",
-  "suggested_address": "123 Main St, Central",
-  "suggested_lat": 22.2796,
-  "suggested_lng": 114.1732,
-  "media_urls": ["https://images.example.com/org/photo1.jpg"],
-  "additional_notes": "They also offer weekend classes"
-}
-```
-
-**Response (202 Accepted):**
-```json
-{
-  "message": "Your suggestion has been submitted and is being processed",
-  "ticket_id": "S00001"
-}
-```
-
-### Admin Endpoints
-
-#### GET /v1/admin/organization-suggestions
-
-List all suggestions for admin review.
-
-**Query Parameters:**
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `status` | string | Filter by status: pending, approved, rejected |
-| `limit` | integer | Max results (1-200, default 50) |
-| `cursor` | string | Pagination cursor |
-
-**Response:**
-```json
-{
-  "items": [...],
-  "next_cursor": "eyJpZCI6...",
-  "pending_count": 5
-}
-```
-
-#### PUT /v1/admin/organization-suggestions/{id}
-
-Approve or reject a suggestion.
-
-**Request Body:**
-```json
-{
-  "action": "approve",
-  "admin_notes": "Great suggestion! Adding to the platform.",
-  "create_organization": true
-}
-```
-
-**Parameters:**
-| Field | Type | Description |
-|-------|------|-------------|
-| `action` | string | Required. "approve" or "reject" |
-| `admin_notes` | string | Optional. Notes for the suggester |
-| `create_organization` | boolean | If true, creates an org from the suggestion |
-
-**Response:**
-```json
-{
-  "message": "Suggestion has been approved",
-  "suggestion": {...},
-  "organization": {...}
-}
-```
+For full endpoint details (parameters, request/response schemas,
+authentication requirements), see the OpenAPI spec:
+[`docs/api/admin.yaml`](../api/admin.yaml) — search for
+`/v1/user/organization-suggestion` and
+`/v1/admin/organization-suggestions`.
 
 ## Database Schema
 

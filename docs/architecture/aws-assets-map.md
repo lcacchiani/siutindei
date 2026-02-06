@@ -152,6 +152,7 @@ Cognito operations are proxied through `AwsApiProxyFunction` instead.
 | User Pool Domain | `SiutindeiUserPoolDomain` | `{CognitoDomainPrefix}.auth.{region}.amazoncognito.com` | Domain prefix from parameter |
 | User Pool Client | `SiutindeiUserPoolClient` | Auto-generated | OAuth client (no secret) |
 | User Pool Group | `AdminGroup` | `admin` | Admin group |
+| User Pool Group | `ManagerGroup` | `manager` | Manager group |
 
 ### Identity Providers
 
@@ -195,13 +196,23 @@ Each Lambda function created by `PythonLambda` construct includes:
 | `AuthCreateChallengeFunction` | `lambda/auth/create_auth_challenge/handler.lambda_handler` | 256 MB | 10s | No | Cognito trigger, SES permissions |
 | `AuthVerifyChallengeFunction` | `lambda/auth/verify_auth_challenge/handler.lambda_handler` | 256 MB | 10s | No | Cognito trigger |
 
+### Authorizer Functions
+
+| Function Logical ID | Handler | Memory | Timeout | VPC | Notes |
+|---------------------|---------|--------|---------|-----|-------|
+| `DeviceAttestationAuthorizer` | `lambda/authorizers/device_attestation/handler.lambda_handler` | 256 MB | 5s | No | Device attestation authorizer |
+| `AdminGroupAuthorizerFunction` | `lambda/authorizers/cognito_group/handler.lambda_handler` | 256 MB | 5s | No | Admin group authorizer |
+| `ManagerGroupAuthorizerFunction` | `lambda/authorizers/cognito_group/handler.lambda_handler` | 256 MB | 5s | No | Manager group authorizer |
+| `UserAuthorizerFunction` | `lambda/authorizers/cognito_user/handler.lambda_handler` | 256 MB | 5s | No | Any-user authorizer |
+
 ### Other Functions
 
 | Function Logical ID | Handler | Memory | Timeout | VPC | Notes |
 |---------------------|---------|--------|---------|-----|-------|
-| `DeviceAttestationAuthorizer` | `lambda/authorizers/device_attestation/handler.lambda_handler` | 256 MB | 5s | No | API Gateway authorizer |
-| `AdminBootstrapFunction` | `lambda/admin_bootstrap/handler.lambda_handler` | 256 MB | 30s | No | Custom resource handler |
+| `AdminBootstrapFunction` | `lambda/admin_bootstrap/handler.lambda_handler` | 256 MB | 30s | Yes | Custom resource handler |
 | `AwsApiProxyFunction` | `lambda/aws_proxy/handler.lambda_handler` | 256 MB | 15s | No | AWS/HTTP proxy for in-VPC Lambdas |
+| `ApiKeyRotationFunction` | `lambda/api_key_rotation/handler.lambda_handler` | 256 MB | 60s | Yes | Scheduled API key rotation |
+| `ManagerRequestProcessor` | `lambda/manager_request_processor/handler.lambda_handler` | 512 MB | 10s | Yes | SQS-triggered request processor |
 
 ### Lambda Resources Per Function
 
@@ -229,12 +240,14 @@ For each function above, the following resources are created:
 | Function | Additional Permissions |
 |----------|------------------------|
 | `SiutindeiSearchFunction` | Read DB secret, connect to RDS Proxy as `siutindei_app` |
-| `SiutindeiAdminFunction` | Read DB secret, connect to RDS Proxy as `siutindei_admin`, invoke `AwsApiProxyFunction` |
+| `SiutindeiAdminFunction` | Read DB secret, connect to RDS Proxy as `siutindei_admin`, invoke `AwsApiProxyFunction`, SNS publish to manager request topic, SES send email, S3 read/write for org media |
 | `AwsApiProxyFunction` | Cognito admin operations (`ListUsers`, `AdminGetUser`, `AdminDeleteUser`, `AdminAddUserToGroup`, `AdminRemoveUserFromGroup`, `AdminListGroupsForUser`, `AdminUserGlobalSignOut`) |
-| `SiutindeiMigrationFunction` | Read DB secret, direct connect to Aurora as `postgres`, CloudFormation invoke permission |
+| `SiutindeiMigrationFunction` | Read DB secret, direct connect to Aurora as `postgres`, Cognito user management, CloudFormation invoke permission |
 | `HealthCheckFunction` | Read DB secret, connect to RDS Proxy as `siutindei_app` |
 | `AuthCreateChallengeFunction` | SES `SendEmail`, `SendRawEmail` for the configured email address |
 | `AdminBootstrapFunction` | Cognito `AdminCreateUser`, `AdminUpdateUserAttributes`, `AdminSetUserPassword`, `AdminAddUserToGroup`, CloudFormation invoke permission |
+| `ApiKeyRotationFunction` | API Gateway key management, Secrets Manager read/write |
+| `ManagerRequestProcessor` | Read DB secret, connect to RDS Proxy as `siutindei_admin`, SES send email |
 
 **Lambda Log Groups:**
 - Explicitly created by CDK with KMS encryption
@@ -268,21 +281,30 @@ For each function above, the following resources are created:
 
 ### API Gateway Resources and Methods
 
+For the complete list of endpoints with request/response schemas, see
+the OpenAPI specs: [`docs/api/activities-search.yaml`](../api/activities-search.yaml)
+and [`docs/api/admin.yaml`](../api/admin.yaml).
+
 | Resource Path | Method | Authorization | Integration | Notes |
 |--------------|--------|---------------|-------------|-------|
-| `/health` | GET | IAM | `HealthCheckFunction` | Health check endpoint |
-| `/v1/activities/search` | GET | Custom (Device Attestation) + API Key | `SiutindeiSearchFunction` | Cached, query params in cache key |
-| `/v1/admin/organizations` | GET, POST | Cognito | `SiutindeiAdminFunction` | Admin CRUD |
-| `/v1/admin/organizations/{id}` | GET, PUT, DELETE | Cognito | `SiutindeiAdminFunction` | Admin CRUD |
-| `/v1/admin/locations` | GET, POST | Cognito | `SiutindeiAdminFunction` | Admin CRUD |
-| `/v1/admin/locations/{id}` | GET, PUT, DELETE | Cognito | `SiutindeiAdminFunction` | Admin CRUD |
-| `/v1/admin/activities` | GET, POST | Cognito | `SiutindeiAdminFunction` | Admin CRUD |
-| `/v1/admin/activities/{id}` | GET, PUT, DELETE | Cognito | `SiutindeiAdminFunction` | Admin CRUD |
-| `/v1/admin/pricing` | GET, POST | Cognito | `SiutindeiAdminFunction` | Admin CRUD |
-| `/v1/admin/pricing/{id}` | GET, PUT, DELETE | Cognito | `SiutindeiAdminFunction` | Admin CRUD |
-| `/v1/admin/schedules` | GET, POST | Cognito | `SiutindeiAdminFunction` | Admin CRUD |
-| `/v1/admin/schedules/{id}` | GET, PUT, DELETE | Cognito | `SiutindeiAdminFunction` | Admin CRUD |
-| `/v1/admin/users/{username}/groups` | POST, DELETE | Cognito | `SiutindeiAdminFunction` | User group management |
+| `/health` | GET | IAM | `HealthCheckFunction` | Health check |
+| `/v1/activities/search` | GET | Device Attestation + API Key | `SiutindeiSearchFunction` | Cached |
+| `/v1/admin/{resource}` | GET, POST | Admin Group | `SiutindeiAdminFunction` | CRUD (orgs, locations, activities, pricing, schedules) |
+| `/v1/admin/{resource}/{id}` | GET, PUT, DELETE | Admin Group | `SiutindeiAdminFunction` | CRUD by ID |
+| `/v1/admin/organizations/{id}/media` | POST, DELETE | Admin Group | `SiutindeiAdminFunction` | Media upload/delete |
+| `/v1/admin/users/{username}/groups` | POST, DELETE | Admin Group | `SiutindeiAdminFunction` | Group management |
+| `/v1/admin/cognito-users` | GET | Admin Group | `SiutindeiAdminFunction` | List Cognito users |
+| `/v1/admin/cognito-users/{username}` | DELETE | Admin Group | `SiutindeiAdminFunction` | Delete Cognito user |
+| `/v1/admin/access-requests` | GET | Admin Group | `SiutindeiAdminFunction` | List access requests |
+| `/v1/admin/access-requests/{id}` | PUT | Admin Group | `SiutindeiAdminFunction` | Review access request |
+| `/v1/admin/audit-logs` | GET | Admin Group | `SiutindeiAdminFunction` | List audit logs |
+| `/v1/admin/audit-logs/{id}` | GET | Admin Group | `SiutindeiAdminFunction` | Get audit log entry |
+| `/v1/admin/organization-suggestions` | GET | Admin Group | `SiutindeiAdminFunction` | List suggestions |
+| `/v1/admin/organization-suggestions/{id}` | PUT | Admin Group | `SiutindeiAdminFunction` | Review suggestion |
+| `/v1/manager/{resource}` | GET, POST | Manager Group | `SiutindeiAdminFunction` | Filtered CRUD |
+| `/v1/manager/{resource}/{id}` | GET, PUT, DELETE | Manager Group | `SiutindeiAdminFunction` | Filtered CRUD by ID |
+| `/v1/user/access-request` | GET, POST | User Auth | `SiutindeiAdminFunction` | Access request |
+| `/v1/user/organization-suggestion` | GET, POST | User Auth | `SiutindeiAdminFunction` | Org suggestion |
 
 ### API Gateway Gateway Responses
 
@@ -299,7 +321,9 @@ read error status codes instead of silently blocking them.
 | Resource Type | Logical ID | Type | Handler | Notes |
 |--------------|------------|------|---------|-------|
 | Request Authorizer | `DeviceAttestationRequestAuthorizer` | Lambda | `DeviceAttestationAuthorizer` | Validates `x-device-attestation` header, no caching |
-| Cognito Authorizer | `SiutindeiAuthorizer` | Cognito User Pool | `SiutindeiUserPool` | For admin endpoints |
+| Request Authorizer | `AdminGroupAuthorizer` | Lambda | `AdminGroupAuthorizerFunction` | JWT + admin group check, 5-min cache |
+| Request Authorizer | `ManagerGroupAuthorizer` | Lambda | `ManagerGroupAuthorizerFunction` | JWT + admin/manager group check, 5-min cache |
+| Request Authorizer | `UserAuthorizer` | Lambda | `UserAuthorizerFunction` | JWT validation (any user), 5-min cache |
 
 ### API Gateway API Key and Usage Plan
 
@@ -377,6 +401,12 @@ read error status codes instead of silently blocking them.
 | `DeviceAttestationIssuer` | String | No | No | Expected issuer (default: empty) |
 | `DeviceAttestationAudience` | String | No | No | Expected audience (default: empty) |
 | `DeviceAttestationFailClosed` | String | No | No | Fail-closed mode (default: `true`, allowed: `true`/`false`) |
+| `RunSeedData` | String | No | No | Run seed data after migrations (default: `false`) |
+| `FallbackManagerEmail` | String | No | No | Fallback manager email for migration |
+| `SupportEmail` | String | No | No | Email to receive manager request notifications |
+| `SesSenderEmail` | String | No | No | SES-verified sender email for notifications |
+| `ApiCustomDomainName` | String | No | No | Custom domain for the API (default: empty) |
+| `ApiCustomDomainCertificateArn` | String | No | No | ACM certificate ARN for API custom domain |
 | `AdminBootstrapEmail` | String | No | No | Admin email for bootstrap (default: empty) |
 | `AdminBootstrapTempPassword` | String | No | Yes | Temporary password for bootstrap (default: empty) |
 
@@ -391,6 +421,14 @@ read error status codes instead of silently blocking them.
 | `DatabaseProxyEndpoint` | RDS Proxy endpoint | Endpoint for database connections via proxy |
 | `UserPoolId` | Cognito User Pool ID | User Pool identifier |
 | `UserPoolClientId` | Cognito User Pool Client ID | OAuth client identifier |
+| `OrganizationImagesBucketName` | S3 bucket name | Organization media bucket |
+| `OrganizationImagesBaseUrl` | S3 bucket URL | Public URL for organization images |
+| `ManagerRequestTopicArn` | SNS topic ARN | Manager request events topic |
+| `ManagerRequestQueueUrl` | SQS queue URL | Manager request processing queue |
+| `ManagerRequestDLQUrl` | SQS DLQ URL | Failed manager request messages |
+| `CognitoCustomDomainCloudFront` | CloudFront distribution | Custom auth domain target (conditional) |
+| `ApiCustomDomainTarget` | CNAME target | API custom domain DNS target (conditional) |
+| `ApiCustomDomainUrl` | Custom domain URL | API custom domain URL (conditional) |
 
 ---
 

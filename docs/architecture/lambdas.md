@@ -23,10 +23,16 @@ their primary responsibilities.
 ### Admin API
 - Function: SiutindeiAdminFunction
 - Handler: backend/lambda/admin/handler.py
-- Trigger: API Gateway `GET/POST/PUT/DELETE /v1/admin/*`
-- Auth: Cognito user pool, admin group required
-- Purpose: admin CRUD and group management
-- DB access: RDS Proxy with IAM auth (`activities_admin`)
+- Trigger: API Gateway — handles routes under `/v1/admin/*`,
+  `/v1/manager/*`, and `/v1/user/*`
+- Auth: Cognito JWT — admin group for `/v1/admin/*`, admin/manager
+  group for `/v1/manager/*`, any authenticated user for `/v1/user/*`
+- Purpose: admin CRUD, manager CRUD (filtered by ownership), user
+  self-service (access requests, organization suggestions), Cognito
+  user management, audit logs, and media upload
+- DB access: RDS Proxy with IAM auth (`siutindei_admin`)
+- For the full endpoint list, see the OpenAPI spec:
+  `docs/api/admin.yaml`
 
 ### Health check
 - Function: HealthCheckFunction

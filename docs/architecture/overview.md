@@ -37,40 +37,46 @@ Flutter Mobile / Next.js Admin
 - Hosted on Amplify Hosting (release jobs triggered in CI).
 
 ### Backend
-- API Gateway exposes REST endpoints (start with
-  `GET /v1/activities/search`).
-- Admin CRUD routes under `/v1/admin/*` for organizations, locations,
-  activities, pricing, and schedules.
-- Admin user group assignment available at
-  `/v1/admin/users/{username}/groups`.
-- Admin list endpoints support cursor pagination.
+- API Gateway exposes REST endpoints for public search, admin CRUD,
+  manager CRUD, and user self-service operations.
+- For the full list of API routes, request/response schemas, and
+  authentication requirements, see the OpenAPI specs:
+  - [`docs/api/activities-search.yaml`](../api/activities-search.yaml) — public activity search
+  - [`docs/api/admin.yaml`](../api/admin.yaml) — admin, manager, user, and health endpoints
 - Lambda functions in `backend/lambda/` call into shared code in
   `backend/src/app`.
-- See `docs/architecture/lambdas.md` for a full function inventory.
+- See [`docs/architecture/lambdas.md`](lambdas.md) for a full function inventory.
 - A generic AWS/HTTP proxy Lambda (`AwsApiProxyFunction`) runs outside
   the VPC and provides a channel for in-VPC Lambdas to call services
   that are unreachable via PrivateLink (e.g. Cognito with ManagedLogin).
   Requests are gated by allow-lists (`ALLOWED_ACTIONS` for AWS API
   calls, `ALLOWED_HTTP_URLS` for outbound HTTP).  See
   `backend/src/app/services/aws_proxy.py`.
+- Asynchronous messaging (SNS + SQS) is used for manager access requests
+  and organization suggestions. See [`docs/architecture/aws-messaging.md`](aws-messaging.md).
 - SQLAlchemy models map to Aurora PostgreSQL.
 - Alembic manages schema migrations, executed via a custom resource Lambda
   during deploy.
-- Cognito User Pool secures admin routes with passwordless email
-  challenges and federated sign-in (Google, Apple, Microsoft).
+- Cognito User Pool secures admin/manager routes; any-user routes require
+  only a valid JWT. Passwordless email challenges and federated sign-in
+  (Google, Apple, Microsoft) are supported.
+- API keys are rotated automatically every 90 days via a scheduled Lambda.
 
 ## Data model
 
 Key entities:
-- `organizations`
+- `organizations` (with manager assignment)
 - `locations` (district used for filtering)
 - `activities`
 - `activity_locations`
 - `activity_pricing` (per-class, per-month, per-sessions)
 - `activity_schedule` (weekly, monthly, date-specific; languages per session)
+- `organization_access_requests` (manager access workflow)
+- `organization_suggestions` (user-submitted place suggestions)
+- `audit_log` (automatic change tracking via triggers)
 
 All times are stored in UTC.
-See `docs/architecture/database-schema.md` for full table details.
+See [`docs/architecture/database-schema.md`](database-schema.md) for full table details.
 
 ## Database and migrations
 
@@ -116,31 +122,27 @@ pull requests for dependency updates:
 - No long-lived AWS credentials in GitHub.
 - IAM auth for RDS Proxy, TLS enforced on DB connections.
 - Secrets stored in GitHub Secrets or AWS Secrets Manager.
-- Admin API routes require Cognito authentication.
-- Public activity search requires an API key supplied by the mobile app.
-- Public activity search requires device attestation tokens (JWKS-validated).
+- Public activity search requires an API key plus device attestation (JWKS-validated).
 - Admin routes require membership in the Cognito `admin` group.
+- Manager routes require `admin` or `manager` group membership.
+- User routes require any valid Cognito JWT (no group requirement).
+- API keys are rotated every 90 days via a scheduled Lambda.
 - Optional CDK parameters can bootstrap an initial admin user.
-- Public activities search uses an API key plus device attestation for access control.
-- Passwordless email sign-in uses Cognito custom auth triggers (define/create/verify).
+- Passwordless email sign-in uses Cognito custom auth triggers.
 - Hosted UI enables Google, Apple, and Microsoft IdPs via OAuth.
+- Database audit logging tracks all data changes (see [`audit-logging.md`](audit-logging.md)).
+- See [`docs/architecture/security.md`](security.md) for full security guidelines.
 
-## Observability (planned)
+## Observability
 
-- CloudWatch logs for Lambda.
-- X-Ray for tracing.
-- (Optional) Sentry for client + server error reporting.
-
-## Caching (planned)
+- CloudWatch logs for all Lambda functions (KMS encrypted, 90-day retention).
+- X-Ray tracing enabled for API Gateway.
+- CloudWatch alarms for DLQ messages (manager request processing failures).
+- Structured JSON logging with request ID correlation.
 
 ## Caching
 
 - API Gateway method caching enabled for search queries (5-minute TTL).
 - Cache keys include all search query parameters.
 - Client-side caching with stale-while-revalidate in Flutter (planned).
-
-## Next steps
-
-1. Wire API Gateway responses to pagination cursor logic.
-2. Implement admin CRUD APIs.
-3. Add search caching layer (Redis or API caching).
+- See [`docs/architecture/cloudflare-optimization.md`](cloudflare-optimization.md) for edge caching strategy.
