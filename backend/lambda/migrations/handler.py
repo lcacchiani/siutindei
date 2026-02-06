@@ -267,8 +267,7 @@ def _sync_active_countries(database_url: str) -> None:
 
             # Deactivate all country-level rows
             cursor.execute(
-                "UPDATE geographic_areas SET active = false "
-                "WHERE level = 'country'"
+                "UPDATE geographic_areas SET active = false " "WHERE level = 'country'"
             )
 
             # Activate only the configured ones

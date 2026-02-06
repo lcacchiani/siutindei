@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-from typing import Any
 from typing import Optional
 from typing import Sequence
 from uuid import UUID
 
-from sqlalchemy import select, update
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db.models import GeographicArea
@@ -81,30 +80,16 @@ class GeographicAreaRepository:
             All geographic areas.
         """
         if active_only:
-            # Get active country IDs first
-            active_countries = (
-                select(GeographicArea.id)
-                .where(
-                    GeographicArea.parent_id.is_(None),
-                    GeographicArea.active.is_(True),
-                )
-            )
-            # Use a CTE to recursively get all descendants
-            # For simplicity, fetch all and filter in Python
+            # Fetch all and filter in Python (simple approach for small tree)
             all_areas = (
                 self._session.execute(
-                    select(GeographicArea).order_by(
-                        GeographicArea.display_order
-                    )
+                    select(GeographicArea).order_by(GeographicArea.display_order)
                 )
                 .scalars()
                 .all()
             )
             # Build a set of active area IDs
             active_ids: set[str] = set()
-            areas_by_id: dict[str, GeographicArea] = {
-                str(a.id): a for a in all_areas
-            }
             # Find active countries
             for a in all_areas:
                 if a.parent_id is None and a.active:
@@ -122,9 +107,7 @@ class GeographicAreaRepository:
         else:
             return (
                 self._session.execute(
-                    select(GeographicArea).order_by(
-                        GeographicArea.display_order
-                    )
+                    select(GeographicArea).order_by(GeographicArea.display_order)
                 )
                 .scalars()
                 .all()
@@ -166,9 +149,7 @@ class GeographicAreaRepository:
         chain.reverse()
         return chain
 
-    def resolve_country_and_district(
-        self, area_id: UUID
-    ) -> tuple[str, str]:
+    def resolve_country_and_district(self, area_id: UUID) -> tuple[str, str]:
         """Resolve country name and district name from an area_id.
 
         Walks up the tree to find the root (country) and uses the

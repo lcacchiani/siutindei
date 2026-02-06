@@ -26,6 +26,7 @@ depends_on: Union[str, Sequence[str], None] = None
 # Seed data  (id, parent_id, name, level, code, active, display_order)
 # ---------------------------------------------------------------------------
 
+
 def _uuid() -> str:
     return str(uuid4())
 
@@ -36,55 +37,129 @@ def _build_seed_data() -> list[dict]:
 
     # ---- Hong Kong ----
     hk_id = _uuid()
-    rows.append(dict(
-        id=hk_id, parent_id=None, name="Hong Kong", level="country",
-        code="HK", active=True, display_order=1,
-    ))
+    rows.append(
+        dict(
+            id=hk_id,
+            parent_id=None,
+            name="Hong Kong",
+            level="country",
+            code="HK",
+            active=True,
+            display_order=1,
+        )
+    )
     hk_districts = [
-        "Central and Western", "Eastern", "Southern", "Wan Chai",
-        "Kowloon City", "Kwun Tong", "Sham Shui Po", "Wong Tai Sin",
-        "Yau Tsim Mong", "Islands", "Kwai Tsing", "North",
-        "Sai Kung", "Sha Tin", "Tai Po", "Tsuen Wan",
-        "Tuen Mun", "Yuen Long",
+        "Central and Western",
+        "Eastern",
+        "Southern",
+        "Wan Chai",
+        "Kowloon City",
+        "Kwun Tong",
+        "Sham Shui Po",
+        "Wong Tai Sin",
+        "Yau Tsim Mong",
+        "Islands",
+        "Kwai Tsing",
+        "North",
+        "Sai Kung",
+        "Sha Tin",
+        "Tai Po",
+        "Tsuen Wan",
+        "Tuen Mun",
+        "Yuen Long",
     ]
     for i, d in enumerate(hk_districts, 1):
-        rows.append(dict(
-            id=_uuid(), parent_id=hk_id, name=d, level="district",
-            code=None, active=True, display_order=i,
-        ))
+        rows.append(
+            dict(
+                id=_uuid(),
+                parent_id=hk_id,
+                name=d,
+                level="district",
+                code=None,
+                active=True,
+                display_order=i,
+            )
+        )
 
     # ---- Singapore ----
     sg_id = _uuid()
-    rows.append(dict(
-        id=sg_id, parent_id=None, name="Singapore", level="country",
-        code="SG", active=False, display_order=2,
-    ))
+    rows.append(
+        dict(
+            id=sg_id,
+            parent_id=None,
+            name="Singapore",
+            level="country",
+            code="SG",
+            active=False,
+            display_order=2,
+        )
+    )
     sg_districts = [
-        "Ang Mo Kio", "Bedok", "Bishan", "Bukit Batok", "Bukit Merah",
-        "Bukit Panjang", "Bukit Timah", "Central Area", "Choa Chu Kang",
-        "Clementi", "Geylang", "Hougang", "Jurong East", "Jurong West",
-        "Kallang", "Marine Parade", "Novena", "Pasir Ris", "Punggol",
-        "Queenstown", "Sembawang", "Sengkang", "Serangoon", "Tampines",
-        "Toa Payoh", "Woodlands", "Yishun",
+        "Ang Mo Kio",
+        "Bedok",
+        "Bishan",
+        "Bukit Batok",
+        "Bukit Merah",
+        "Bukit Panjang",
+        "Bukit Timah",
+        "Central Area",
+        "Choa Chu Kang",
+        "Clementi",
+        "Geylang",
+        "Hougang",
+        "Jurong East",
+        "Jurong West",
+        "Kallang",
+        "Marine Parade",
+        "Novena",
+        "Pasir Ris",
+        "Punggol",
+        "Queenstown",
+        "Sembawang",
+        "Sengkang",
+        "Serangoon",
+        "Tampines",
+        "Toa Payoh",
+        "Woodlands",
+        "Yishun",
     ]
     for i, d in enumerate(sg_districts, 1):
-        rows.append(dict(
-            id=_uuid(), parent_id=sg_id, name=d, level="district",
-            code=None, active=True, display_order=i,
-        ))
+        rows.append(
+            dict(
+                id=_uuid(),
+                parent_id=sg_id,
+                name=d,
+                level="district",
+                code=None,
+                active=True,
+                display_order=i,
+            )
+        )
 
     # ---- UAE ----
     ae_id = _uuid()
-    rows.append(dict(
-        id=ae_id, parent_id=None, name="United Arab Emirates", level="country",
-        code="AE", active=False, display_order=3,
-    ))
+    rows.append(
+        dict(
+            id=ae_id,
+            parent_id=None,
+            name="United Arab Emirates",
+            level="country",
+            code="AE",
+            active=False,
+            display_order=3,
+        )
+    )
 
     uae_structure: dict[str, list[str]] = {
         "Abu Dhabi": ["Abu Dhabi Island", "Al Ain", "Al Dhafra"],
         "Dubai": [
-            "Bur Dubai", "Deira", "Downtown Dubai", "Dubai Marina",
-            "Jumeirah", "Business Bay", "Al Barsha",
+            "Bur Dubai",
+            "Deira",
+            "Downtown Dubai",
+            "Dubai Marina",
+            "Jumeirah",
+            "Business Bay",
+            "Al Barsha",
         ],
         "Sharjah": ["Sharjah City", "Al Dhaid"],
         "Ajman": ["Ajman City"],
@@ -94,15 +169,29 @@ def _build_seed_data() -> list[dict]:
     }
     for eidx, (emirate, districts) in enumerate(uae_structure.items(), 1):
         emirate_id = _uuid()
-        rows.append(dict(
-            id=emirate_id, parent_id=ae_id, name=emirate, level="region",
-            code=None, active=True, display_order=eidx,
-        ))
+        rows.append(
+            dict(
+                id=emirate_id,
+                parent_id=ae_id,
+                name=emirate,
+                level="region",
+                code=None,
+                active=True,
+                display_order=eidx,
+            )
+        )
         for didx, d in enumerate(districts, 1):
-            rows.append(dict(
-                id=_uuid(), parent_id=emirate_id, name=d, level="district",
-                code=None, active=True, display_order=didx,
-            ))
+            rows.append(
+                dict(
+                    id=_uuid(),
+                    parent_id=emirate_id,
+                    name=d,
+                    level="district",
+                    code=None,
+                    active=True,
+                    display_order=didx,
+                )
+            )
 
     return rows
 
@@ -110,6 +199,7 @@ def _build_seed_data() -> list[dict]:
 # ---------------------------------------------------------------------------
 # Migration
 # ---------------------------------------------------------------------------
+
 
 def upgrade() -> None:
     """Create geographic_areas and link to locations."""

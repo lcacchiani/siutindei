@@ -1265,8 +1265,7 @@ def _review_ticket(
                     (
                         a
                         for a in all_areas
-                        if a.level == "district"
-                        and a.name == ticket.suggested_district
+                        if a.level == "district" and a.name == ticket.suggested_district
                     ),
                     None,
                 )
@@ -1518,7 +1517,7 @@ def _submit_organization_suggestion(
     suggested_district = _validate_string_length(
         body.get("suggested_district"),
         "suggested_district",
-        MAX_DISTRICT_LENGTH,
+        100,
         required=False,
     )
     suggested_address = _validate_string_length(
@@ -1974,12 +1973,10 @@ def _handle_toggle_area(
     """Toggle the active flag on a geographic area (admin only)."""
     area_uuid = _parse_uuid(area_id_str)
 
-    body = _parse_json_body(event)
+    body = _parse_body(event)
     active = body.get("active")
     if active is None or not isinstance(active, bool):
-        raise ValidationError(
-            "active (boolean) is required", field="active"
-        )
+        raise ValidationError("active (boolean) is required", field="active")
 
     with Session(get_engine()) as session:
         _set_session_audit_context(session, event)

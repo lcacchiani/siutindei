@@ -20,8 +20,7 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     """Drop district and country columns from locations."""
-    op.drop_index("locations_district_idx", table_name="locations",
-                  if_exists=True)
+    op.drop_index("locations_district_idx", table_name="locations", if_exists=True)
     op.drop_column("locations", "district")
     op.drop_column("locations", "country")
 
