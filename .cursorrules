@@ -93,6 +93,15 @@ repo root
 - Optional CDK parameters bootstrap an admin user.
 - Auth is passwordless with email OTP/magic link and federated Google/Apple/Microsoft.
 
+### Database change requirements (MANDATORY)
+- When making ANY database schema changes (migrations, new tables, column changes):
+  - ALWAYS check if backend/db/seed/seed_data.sql needs to be updated
+  - ALWAYS verify seed data is compatible with new schema constraints
+  - ALWAYS update seed data if new required columns are added
+  - ALWAYS check if new tables need seed data for testing/development
+- Seed data location: backend/db/seed/seed_data.sql
+- Run seed data after migrations to verify compatibility
+
 ### Security requirements (MANDATORY - see docs/architecture/security.md)
 - NEVER hardcode secrets, API keys, passwords, or tokens in source code.
 - NEVER log PII (emails, names) without masking. Use mask_email() and mask_pii() from app.utils.logging.
