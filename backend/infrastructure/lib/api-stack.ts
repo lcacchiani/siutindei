@@ -1327,7 +1327,6 @@ export class ApiStack extends cdk.Stack {
         noVpc: true,
         environment: {
           ALLOWED_GROUPS: adminGroupName,
-          COGNITO_USER_POOL_ID: userPool.userPoolId,
         },
       }
     );
@@ -1353,7 +1352,6 @@ export class ApiStack extends cdk.Stack {
         noVpc: true,
         environment: {
           ALLOWED_GROUPS: `${adminGroupName},${managerGroupName}`,
-          COGNITO_USER_POOL_ID: userPool.userPoolId,
         },
       }
     );
@@ -1377,9 +1375,6 @@ export class ApiStack extends cdk.Stack {
         memorySize: 256,
         timeout: cdk.Duration.seconds(5),
         noVpc: true,
-        environment: {
-          COGNITO_USER_POOL_ID: userPool.userPoolId,
-        },
       }
     );
 
