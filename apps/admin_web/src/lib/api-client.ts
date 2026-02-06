@@ -332,6 +332,56 @@ export async function submitAccessRequest(
   });
 }
 
+// --- User Organization Suggestions ---
+
+export interface UserSuggestionsResponse {
+  has_pending_suggestion: boolean;
+  suggestions: import('../types/admin').OrganizationSuggestion[];
+}
+
+export interface SubmitSuggestionPayload {
+  organization_name: string;
+  description?: string;
+  suggested_district?: string;
+  suggested_address?: string;
+  suggested_lat?: number;
+  suggested_lng?: number;
+  media_urls?: string[];
+  additional_notes?: string;
+}
+
+export interface SubmitSuggestionResponse {
+  message: string;
+  suggestion: import('../types/admin').OrganizationSuggestion;
+}
+
+/**
+ * Get user's organization suggestion history.
+ * Available to any logged-in user.
+ */
+export async function getUserSuggestions(): Promise<UserSuggestionsResponse> {
+  return request<UserSuggestionsResponse>(buildUserUrl('organization-suggestion'));
+}
+
+/**
+ * Submit a new organization suggestion.
+ * Available to any logged-in user.
+ */
+export async function submitOrganizationSuggestion(
+  payload: SubmitSuggestionPayload
+): Promise<SubmitSuggestionResponse> {
+  return request<SubmitSuggestionResponse>(
+    buildUserUrl('organization-suggestion'),
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    }
+  );
+}
+
 /**
  * List organizations managed by the current user.
  */
@@ -762,4 +812,73 @@ export async function getAuditLog(
   id: string
 ): Promise<import('../types/admin').AuditLog> {
   return request<import('../types/admin').AuditLog>(buildAuditLogsUrl(id));
+}
+
+// --- Admin Organization Suggestions ---
+
+export interface OrganizationSuggestionsResponse {
+  items: import('../types/admin').OrganizationSuggestion[];
+  next_cursor?: string | null;
+  pending_count: number;
+}
+
+export interface ReviewSuggestionPayload {
+  action: 'approve' | 'reject';
+  admin_notes?: string;
+  /** Create organization from suggestion data (for approval) */
+  create_organization?: boolean;
+}
+
+export interface ReviewSuggestionResponse {
+  message: string;
+  suggestion: import('../types/admin').OrganizationSuggestion;
+  /** The organization that was created (only for approval with create_organization=true) */
+  organization?: import('../types/admin').Organization;
+}
+
+function buildOrganizationSuggestionsUrl(id?: string) {
+  const base = getApiBaseUrl();
+  const normalized = base.endsWith('/') ? base : `${base}/`;
+  const suffix = id
+    ? `v1/admin/organization-suggestions/${id}`
+    : 'v1/admin/organization-suggestions';
+  return new URL(suffix, normalized).toString();
+}
+
+/**
+ * List organization suggestions for admin review.
+ */
+export async function listOrganizationSuggestions(
+  status?: 'pending' | 'approved' | 'rejected',
+  cursor?: string,
+  limit = 50
+): Promise<OrganizationSuggestionsResponse> {
+  const url = new URL(buildOrganizationSuggestionsUrl());
+  url.searchParams.set('limit', `${limit}`);
+  if (status) {
+    url.searchParams.set('status', status);
+  }
+  if (cursor) {
+    url.searchParams.set('cursor', cursor);
+  }
+  return request<OrganizationSuggestionsResponse>(url.toString());
+}
+
+/**
+ * Approve or reject an organization suggestion.
+ */
+export async function reviewOrganizationSuggestion(
+  id: string,
+  payload: ReviewSuggestionPayload
+): Promise<ReviewSuggestionResponse> {
+  return request<ReviewSuggestionResponse>(
+    buildOrganizationSuggestionsUrl(id),
+    {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    }
+  );
 }

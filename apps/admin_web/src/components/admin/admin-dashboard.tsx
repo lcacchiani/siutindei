@@ -18,6 +18,7 @@ import { AuditLogsPanel } from './audit-logs-panel';
 import { CognitoUsersPanel } from './cognito-users-panel';
 import { MediaPanel } from './media-panel';
 import { ManagerDashboard } from './manager-dashboard';
+import { OrganizationSuggestionsPanel } from './organization-suggestions-panel';
 import { UserDashboard } from './user-dashboard';
 
 const sectionLabels = [
@@ -28,6 +29,7 @@ const sectionLabels = [
   { key: 'pricing', label: 'Pricing' },
   { key: 'schedules', label: 'Schedules' },
   { key: 'access-requests', label: 'Access Requests', dividerBefore: true },
+  { key: 'org-suggestions', label: 'Org Suggestions' },
   { key: 'cognito-users', label: 'Cognito Users' },
   { key: 'audit-logs', label: 'Audit Logs' },
 ];
@@ -50,6 +52,8 @@ export function AdminDashboard() {
         return <SchedulesPanel mode='admin' />;
       case 'access-requests':
         return <AccessRequestsPanel />;
+      case 'org-suggestions':
+        return <OrganizationSuggestionsPanel />;
       case 'cognito-users':
         return <CognitoUsersPanel />;
       case 'audit-logs':

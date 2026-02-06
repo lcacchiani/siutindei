@@ -85,3 +85,24 @@ export interface AuditLog {
   ip_address?: string | null;
   user_agent?: string | null;
 }
+
+export interface OrganizationSuggestion {
+  id: string;
+  ticket_id: string;
+  organization_name: string;
+  description?: string | null;
+  suggested_district?: string | null;
+  suggested_address?: string | null;
+  suggested_lat?: number | null;
+  suggested_lng?: number | null;
+  media_urls: string[];
+  additional_notes?: string | null;
+  status: 'pending' | 'approved' | 'rejected';
+  suggester_id: string;
+  suggester_email: string;
+  created_at?: string | null;
+  reviewed_at?: string | null;
+  reviewed_by?: string | null;
+  admin_notes?: string | null;
+  created_organization_id?: string | null;
+}

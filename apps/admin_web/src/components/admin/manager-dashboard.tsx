@@ -5,9 +5,11 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   ApiError,
   getUserAccessStatus,
+  getUserSuggestions,
   type AccessRequest,
   type ManagerStatusResponse,
 } from '../../lib/api-client';
+import type { OrganizationSuggestion } from '../../types/admin';
 import { useAuth } from '../auth-provider';
 import { AppShell } from '../app-shell';
 import { StatusBanner } from '../status-banner';
@@ -21,6 +23,8 @@ import {
 import { AccessRequestForm } from './access-request-form';
 import { PendingRequestNotice } from './pending-request-notice';
 import { MediaPanel } from './media-panel';
+import { SuggestionForm } from './suggestion-form';
+import { PendingSuggestionNotice } from './pending-suggestion-notice';
 
 type ManagerView = 'loading' | 'request-form' | 'pending' | 'dashboard';
 
@@ -35,14 +39,30 @@ export function ManagerDashboard() {
   const [pendingRequest, setPendingRequest] = useState<AccessRequest | null>(
     null
   );
+  const [pendingSuggestion, setPendingSuggestion] =
+    useState<OrganizationSuggestion | null>(null);
   const [activeSection, setActiveSection] = useState('organizations');
 
   const loadManagerStatus = async () => {
     setIsLoading(true);
     setError('');
     try {
-      const status = await getUserAccessStatus();
+      // Load both access request status and suggestions in parallel
+      const [status, suggestionsStatus] = await Promise.all([
+        getUserAccessStatus(),
+        getUserSuggestions(),
+      ]);
       setManagerStatus(status);
+
+      // Check for pending suggestion
+      if (suggestionsStatus.has_pending_suggestion) {
+        const pending = suggestionsStatus.suggestions.find(
+          (s) => s.status === 'pending'
+        );
+        if (pending) {
+          setPendingSuggestion(pending);
+        }
+      }
 
       if (status.organizations_count > 0) {
         // User has organizations, show the dashboard
@@ -76,6 +96,10 @@ export function ManagerDashboard() {
     setView('pending');
   };
 
+  const handleSuggestionSubmitted = (suggestion: OrganizationSuggestion) => {
+    setPendingSuggestion(suggestion);
+  };
+
   // Sections available to managers
   const sectionLabels = [
     { key: 'organizations', label: 'Organizations' },
@@ -84,6 +108,7 @@ export function ManagerDashboard() {
     { key: 'activities', label: 'Activities' },
     { key: 'pricing', label: 'Pricing' },
     { key: 'schedules', label: 'Schedules' },
+    { key: 'suggest-place', label: 'Suggest a Place', dividerBefore: true },
   ];
 
   // Use shared components with mode='manager'
@@ -99,11 +124,16 @@ export function ManagerDashboard() {
         return <PricingPanel mode='manager' />;
       case 'schedules':
         return <SchedulesPanel mode='manager' />;
+      case 'suggest-place':
+        if (pendingSuggestion) {
+          return <PendingSuggestionNotice suggestion={pendingSuggestion} />;
+        }
+        return <SuggestionForm onSuggestionSubmitted={handleSuggestionSubmitted} />;
       case 'organizations':
       default:
         return <OrganizationsPanel mode='manager' />;
     }
-  }, [activeSection]);
+  }, [activeSection, pendingSuggestion]);
 
   // Loading state
   if (view === 'loading' || isLoading) {
