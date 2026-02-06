@@ -1,11 +1,11 @@
 'use client';
 
-import type { AccessRequest } from '../../lib/api-client';
+import type { Ticket } from '../../lib/api-client';
 import { Card } from '../ui/card';
 import { StatusBanner } from '../status-banner';
 
 interface PendingRequestNoticeProps {
-  request: AccessRequest;
+  request: Ticket;
 }
 
 export function PendingRequestNotice({ request }: PendingRequestNoticeProps) {
@@ -47,13 +47,13 @@ export function PendingRequestNotice({ request }: PendingRequestNoticeProps) {
               </dd>
             </div>
 
-            {request.request_message && (
+            {request.message && (
               <div>
                 <dt className='text-sm font-medium text-slate-500'>
                   Your Message
                 </dt>
                 <dd className='mt-1 text-sm text-slate-900'>
-                  {request.request_message}
+                  {request.message}
                 </dd>
               </div>
             )}

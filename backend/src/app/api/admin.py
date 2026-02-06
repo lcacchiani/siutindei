@@ -38,11 +38,8 @@ from app.db.models import ActivitySchedule
 from app.db.models import AuditLog
 from app.db.models import Location
 from app.db.models import Organization
-from app.db.models import OrganizationAccessRequest
-from app.db.models import OrganizationSuggestion
 from app.db.models import PricingType
 from app.db.models import ScheduleType
-from app.db.models import SuggestionStatus
 from app.db.models import Ticket
 from app.db.models import TicketStatus
 from app.db.models import TicketType
@@ -53,8 +50,6 @@ from app.db.repositories import (
     ActivityScheduleRepository,
     LocationRepository,
     OrganizationRepository,
-    OrganizationAccessRequestRepository,
-    OrganizationSuggestionRepository,
     TicketRepository,
 )
 from app.exceptions import NotFoundError, ValidationError
@@ -158,11 +153,6 @@ def lambda_handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
             event,
         )
     if resource == "tickets":
-        return _handle_admin_tickets(event, method, resource_id)
-    # Legacy routes redirect to unified tickets handler
-    if resource == "access-requests":
-        return _handle_admin_tickets(event, method, resource_id)
-    if resource == "organization-suggestions":
         return _handle_admin_tickets(event, method, resource_id)
     if resource == "audit-logs" and method == "GET":
         return _safe_handler(lambda: _handle_audit_logs(event, resource_id), event)
@@ -1055,31 +1045,6 @@ def _serialize_ticket(
     }
 
 
-# --- Backward-compat serializer for user access-request GET endpoint ---
-
-def _serialize_access_request_from_ticket(
-    ticket: Optional[Ticket],
-) -> Optional[dict[str, Any]]:
-    """Serialize a ticket as the legacy access-request shape."""
-    if ticket is None:
-        return None
-    return {
-        "id": str(ticket.id),
-        "ticket_id": ticket.ticket_id,
-        "organization_name": ticket.organization_name,
-        "request_message": ticket.message,
-        "status": ticket.status.value,
-        "requester_email": ticket.submitter_email,
-        "requester_id": ticket.submitter_id,
-        "created_at": (
-            ticket.created_at.isoformat() if ticket.created_at else None
-        ),
-        "reviewed_at": (
-            ticket.reviewed_at.isoformat() if ticket.reviewed_at else None
-        ),
-        "reviewed_by": ticket.reviewed_by,
-    }
-
 
 # --- Admin unified tickets management ---
 
@@ -1710,13 +1675,7 @@ def _generate_suggestion_ticket_id(session: Session) -> str:
 
 
 
-# (Old _serialize_suggestion, _handle_admin_organization_suggestions,
-# _list_admin_suggestions removed — replaced by unified ticket handlers above)
 
-
-
-# (Old _review_suggestion and _send_suggestion_decision_email removed —
-# replaced by unified _review_ticket and _send_ticket_decision_email above)
 
 
 # --- Audit log management ---

@@ -1906,18 +1906,6 @@ export class ApiStack extends cdk.Stack {
       authorizer: adminAuthorizer,
     });
 
-    // Admin access requests management (for reviewing manager requests) - admin only
-    const accessRequests = admin.addResource("access-requests");
-    accessRequests.addMethod("GET", adminIntegration, {
-      authorizationType: apigateway.AuthorizationType.CUSTOM,
-      authorizer: adminAuthorizer,
-    });
-
-    const accessRequestById = accessRequests.addResource("{id}");
-    accessRequestById.addMethod("PUT", adminIntegration, {
-      authorizationType: apigateway.AuthorizationType.CUSTOM,
-      authorizer: adminAuthorizer,
-    });
 
     // Audit logs endpoint (read-only) - admin only
     const auditLogs = admin.addResource("audit-logs");
@@ -1945,18 +1933,6 @@ export class ApiStack extends cdk.Stack {
       authorizer: adminAuthorizer,
     });
 
-    // Legacy routes (kept for backward compatibility, handled by same Lambda)
-    const orgSuggestions = admin.addResource("organization-suggestions");
-    orgSuggestions.addMethod("GET", adminIntegration, {
-      authorizationType: apigateway.AuthorizationType.CUSTOM,
-      authorizer: adminAuthorizer,
-    });
-
-    const orgSuggestionById = orgSuggestions.addResource("{id}");
-    orgSuggestionById.addMethod("PUT", adminIntegration, {
-      authorizationType: apigateway.AuthorizationType.CUSTOM,
-      authorizer: adminAuthorizer,
-    });
 
     // Manager-specific routes at /v1/manager (accessible by users in 'admin' OR 'manager' group)
     // All manager routes are filtered by organization management in the Lambda

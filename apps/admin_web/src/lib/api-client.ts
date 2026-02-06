@@ -263,22 +263,9 @@ export async function deleteCognitoUser(
 
 // --- Manager-specific API methods ---
 
-export interface AccessRequest {
-  id: string;
-  ticket_id: string;
-  organization_name: string;
-  request_message?: string | null;
-  status: 'pending' | 'approved' | 'rejected';
-  requester_email: string;
-  requester_id: string;
-  created_at?: string | null;
-  reviewed_at?: string | null;
-  reviewed_by?: string | null;
-}
-
 export interface ManagerStatusResponse {
   has_pending_request: boolean;
-  pending_request: AccessRequest | null;
+  pending_request: Ticket | null;
   organizations_count: number;
 }
 
@@ -336,7 +323,7 @@ export async function submitAccessRequest(
 
 export interface UserSuggestionsResponse {
   has_pending_suggestion: boolean;
-  suggestions: import('../types/admin').OrganizationSuggestion[];
+  suggestions: Ticket[];
 }
 
 export interface SubmitSuggestionPayload {
@@ -685,72 +672,6 @@ export async function deleteManagerSchedule(id: string): Promise<void> {
   });
 }
 
-// --- Admin access request management ---
-
-export interface ListAccessRequestsResponse {
-  items: AccessRequest[];
-  next_cursor?: string | null;
-}
-
-export interface ReviewAccessRequestPayload {
-  action: 'approve' | 'reject';
-  message?: string;
-  /** ID of existing organization to assign (for approval) */
-  organization_id?: string;
-  /** Create a new organization with the requested name (for approval) */
-  create_organization?: boolean;
-}
-
-export interface ReviewAccessRequestResponse {
-  message: string;
-  request: AccessRequest;
-  /** The organization that was assigned or created (only for approval) */
-  organization?: import('../types/admin').Organization;
-}
-
-function buildAccessRequestsUrl(id?: string) {
-  const base = getApiBaseUrl();
-  const normalized = base.endsWith('/') ? base : `${base}/`;
-  const suffix = id
-    ? `v1/admin/access-requests/${id}`
-    : 'v1/admin/access-requests';
-  return new URL(suffix, normalized).toString();
-}
-
-/**
- * List all access requests for admin review.
- */
-export async function listAccessRequests(
-  status?: 'pending' | 'approved' | 'rejected',
-  cursor?: string,
-  limit = 50
-): Promise<ListAccessRequestsResponse> {
-  const url = new URL(buildAccessRequestsUrl());
-  url.searchParams.set('limit', `${limit}`);
-  if (status) {
-    url.searchParams.set('status', status);
-  }
-  if (cursor) {
-    url.searchParams.set('cursor', cursor);
-  }
-  return request<ListAccessRequestsResponse>(url.toString());
-}
-
-/**
- * Approve or reject an access request.
- */
-export async function reviewAccessRequest(
-  id: string,
-  payload: ReviewAccessRequestPayload
-): Promise<ReviewAccessRequestResponse> {
-  return request<ReviewAccessRequestResponse>(buildAccessRequestsUrl(id), {
-    method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(payload),
-  });
-}
 
 // --- Admin Audit Logs ---
 
@@ -812,77 +733,6 @@ export async function getAuditLog(
   id: string
 ): Promise<import('../types/admin').AuditLog> {
   return request<import('../types/admin').AuditLog>(buildAuditLogsUrl(id));
-}
-
-// --- Admin Organization Suggestions (legacy, kept for backward compat) ---
-
-export interface OrganizationSuggestionsResponse {
-  items: import('../types/admin').OrganizationSuggestion[];
-  next_cursor?: string | null;
-  pending_count: number;
-}
-
-export interface ReviewSuggestionPayload {
-  action: 'approve' | 'reject';
-  admin_notes?: string;
-  /** Create organization from suggestion data (for approval) */
-  create_organization?: boolean;
-}
-
-export interface ReviewSuggestionResponse {
-  message: string;
-  suggestion: import('../types/admin').OrganizationSuggestion;
-  /** The organization that was created (only for approval with create_organization=true) */
-  organization?: import('../types/admin').Organization;
-}
-
-function buildOrganizationSuggestionsUrl(id?: string) {
-  const base = getApiBaseUrl();
-  const normalized = base.endsWith('/') ? base : `${base}/`;
-  const suffix = id
-    ? `v1/admin/organization-suggestions/${id}`
-    : 'v1/admin/organization-suggestions';
-  return new URL(suffix, normalized).toString();
-}
-
-/**
- * List organization suggestions for admin review.
- * @deprecated Use listTickets() instead.
- */
-export async function listOrganizationSuggestions(
-  status?: 'pending' | 'approved' | 'rejected',
-  cursor?: string,
-  limit = 50
-): Promise<OrganizationSuggestionsResponse> {
-  const url = new URL(buildOrganizationSuggestionsUrl());
-  url.searchParams.set('limit', `${limit}`);
-  if (status) {
-    url.searchParams.set('status', status);
-  }
-  if (cursor) {
-    url.searchParams.set('cursor', cursor);
-  }
-  return request<OrganizationSuggestionsResponse>(url.toString());
-}
-
-/**
- * Approve or reject an organization suggestion.
- * @deprecated Use reviewTicket() instead.
- */
-export async function reviewOrganizationSuggestion(
-  id: string,
-  payload: ReviewSuggestionPayload
-): Promise<ReviewSuggestionResponse> {
-  return request<ReviewSuggestionResponse>(
-    buildOrganizationSuggestionsUrl(id),
-    {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-    }
-  );
 }
 
 // --- Admin Unified Tickets ---

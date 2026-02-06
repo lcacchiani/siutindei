@@ -6,10 +6,9 @@ import {
   ApiError,
   getUserAccessStatus,
   getUserSuggestions,
-  type AccessRequest,
+  type Ticket,
   type ManagerStatusResponse,
 } from '../../lib/api-client';
-import type { OrganizationSuggestion } from '../../types/admin';
 import { useAuth } from '../auth-provider';
 import { AppShell } from '../app-shell';
 import { StatusBanner } from '../status-banner';
@@ -36,11 +35,9 @@ export function ManagerDashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [view, setView] = useState<ManagerView>('loading');
-  const [pendingRequest, setPendingRequest] = useState<AccessRequest | null>(
-    null
-  );
+  const [pendingRequest, setPendingRequest] = useState<Ticket | null>(null);
   const [pendingSuggestion, setPendingSuggestion] =
-    useState<OrganizationSuggestion | null>(null);
+    useState<Ticket | null>(null);
   const [activeSection, setActiveSection] = useState('organizations');
 
   const loadManagerStatus = async () => {
@@ -91,12 +88,12 @@ export function ManagerDashboard() {
     loadManagerStatus();
   }, []);
 
-  const handleRequestSubmitted = (request: AccessRequest) => {
+  const handleRequestSubmitted = (request: Ticket) => {
     setPendingRequest(request);
     setView('pending');
   };
 
-  const handleSuggestionSubmitted = (suggestion: OrganizationSuggestion) => {
+  const handleSuggestionSubmitted = (suggestion: Ticket) => {
     setPendingSuggestion(suggestion);
   };
 
