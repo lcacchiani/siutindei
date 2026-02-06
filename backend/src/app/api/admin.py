@@ -96,6 +96,10 @@ class ResourceConfig:
 def lambda_handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
     """Handle admin CRUD requests."""
 
+    # Internal cross-Lambda invocations from the Cognito admin Lambda
+    if event.get("_internal"):
+        return _handle_internal(event)
+
     # Set request context for logging
     request_id = event.get("requestContext", {}).get("requestId", "")
     set_request_context(req_id=request_id)
@@ -199,6 +203,56 @@ def _safe_handler(
         return json_response(
             500, {"error": "Internal server error", "detail": str(exc)}, event=event
         )
+
+
+# --- Internal cross-Lambda handlers ---
+
+
+def _handle_internal(event: Mapping[str, Any]) -> dict[str, Any]:
+    """Handle invocations from the Cognito admin Lambda (outside VPC).
+
+    Used for database operations that cannot run outside the VPC.
+    """
+    action = event.get("action", "")
+    logger.info(f"Internal action: {action}")
+
+    if action == "transfer_organizations":
+        return _internal_transfer_organizations(event)
+
+    logger.error(f"Unknown internal action: {action}")
+    return {"error": "Unknown action"}
+
+
+def _internal_transfer_organizations(event: Mapping[str, Any]) -> dict[str, Any]:
+    user_sub = event.get("user_sub", "")
+    fallback_manager_id = event.get("fallback_manager_id", "")
+
+    if not user_sub or not fallback_manager_id:
+        return {"error": "Missing user_sub or fallback_manager_id"}
+
+    try:
+        transferred_count = 0
+        with Session(get_engine()) as session:
+            set_audit_context(
+                session,
+                user_id=fallback_manager_id,
+                request_id=f"internal-transfer-{user_sub[:8]}",
+            )
+            org_repo = OrganizationRepository(session)
+            orgs = org_repo.find_by_manager(user_sub, limit=1000)
+            for org in orgs:
+                org.manager_id = fallback_manager_id
+                org_repo.update(org)
+                transferred_count += 1
+            session.commit()
+        logger.info(
+            f"Transferred {transferred_count} orgs from {user_sub} "
+            f"to {fallback_manager_id}"
+        )
+        return {"transferred_count": transferred_count}
+    except Exception as exc:
+        logger.exception("Failed to transfer organizations")
+        return {"error": str(exc), "transferred_count": 0}
 
 
 # --- Unified CRUD Handlers ---

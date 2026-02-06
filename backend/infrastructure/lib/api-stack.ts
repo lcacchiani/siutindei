@@ -194,14 +194,10 @@ export class ApiStack extends cdk.Stack {
         securityGroups: [endpointSecurityGroup],
       });
 
-      // Cognito IDP endpoint for admin operations (ListUsers,
-      // AdminAddUserToGroup, etc.) from Lambdas inside the VPC.
-      // NOTE: If Cognito ManagedLogin is enabled in the future, this
-      // endpoint may need to be replaced with a NAT Gateway.
-      vpc.addInterfaceEndpoint("CognitoIdpEndpoint", {
-        service: ec2.InterfaceVpcEndpointAwsService.COGNITO_IDP,
-        securityGroups: [endpointSecurityGroup],
-      });
+      // NOTE: Cognito VPC endpoint (PrivateLink) is NOT supported when the
+      // User Pool has ManagedLogin configured.  Cognito admin operations
+      // (ListUsers, AdminAddUserToGroup, etc.) are handled by a dedicated
+      // Lambda that runs outside the VPC instead.
 
       // SES endpoint for sending emails (manager requests, passwordless auth)
       vpc.addInterfaceEndpoint("SesEndpoint", {
@@ -1051,6 +1047,49 @@ export class ApiStack extends cdk.Stack {
       })
     );
 
+    // -----------------------------------------------------------------
+    // Cognito Admin Lambda (outside VPC)
+    //
+    // Cognito disables PrivateLink when ManagedLogin is configured, so
+    // a VPC endpoint cannot be used.  This Lambda runs outside the VPC
+    // and handles Cognito user management endpoints.  For operations
+    // that also need the database it invokes the admin Lambda.
+    // -----------------------------------------------------------------
+    const cognitoAdminFunction = createPythonFunction(
+      "CognitoAdminFunction",
+      {
+        handler: "lambda/cognito_admin/handler.lambda_handler",
+        memorySize: 256,
+        timeout: cdk.Duration.seconds(30),
+        noVpc: true,
+        environment: {
+          COGNITO_USER_POOL_ID: userPool.userPoolId,
+          ADMIN_GROUP: adminGroupName,
+          MANAGER_GROUP: managerGroupName,
+          ADMIN_FUNCTION_ARN: adminFunction.functionArn,
+          CORS_ALLOWED_ORIGINS: corsAllowedOrigins.join(","),
+        },
+      }
+    );
+
+    cognitoAdminFunction.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: [
+          "cognito-idp:ListUsers",
+          "cognito-idp:AdminGetUser",
+          "cognito-idp:AdminDeleteUser",
+          "cognito-idp:AdminAddUserToGroup",
+          "cognito-idp:AdminRemoveUserFromGroup",
+          "cognito-idp:AdminListGroupsForUser",
+          "cognito-idp:AdminUserGlobalSignOut",
+        ],
+        resources: [userPool.userPoolArn],
+      })
+    );
+
+    // Allow the Cognito Lambda to invoke the admin Lambda for DB operations
+    adminFunction.grantInvoke(cognitoAdminFunction);
+
     // Grant SES permissions for sending access request notification emails
     // Uses condition to only grant if SES sender email is configured
     const sesSenderIdentityArn = cdk.Stack.of(this).formatArn({
@@ -1785,6 +1824,9 @@ export class ApiStack extends cdk.Stack {
       sourceArn: api.arnForExecuteApi(),
     });
 
+    const cognitoAdminIntegration = new apigateway.LambdaIntegration(
+      cognitoAdminFunction
+    );
 
 
     // All admin resources - admin only, full access
@@ -1834,21 +1876,28 @@ export class ApiStack extends cdk.Stack {
       }
     }
 
+    // User group management and Cognito user listing use the Cognito admin
+    // Lambda (outside VPC) because Cognito disables PrivateLink for pools
+    // with ManagedLogin.
     const users = admin.addResource("users");
     const userByName = users.addResource("{username}");
     const userGroups = userByName.addResource("groups");
-    userGroups.addMethod("POST", adminIntegration, {
+    userGroups.addMethod("POST", cognitoAdminIntegration, {
       authorizationType: apigateway.AuthorizationType.CUSTOM,
       authorizer: adminAuthorizer,
     });
-    userGroups.addMethod("DELETE", adminIntegration, {
+    userGroups.addMethod("DELETE", cognitoAdminIntegration, {
       authorizationType: apigateway.AuthorizationType.CUSTOM,
       authorizer: adminAuthorizer,
     });
 
-    // Cognito users listing endpoint (for manager selection) - admin only
     const cognitoUsers = admin.addResource("cognito-users");
-    cognitoUsers.addMethod("GET", adminIntegration, {
+    cognitoUsers.addMethod("GET", cognitoAdminIntegration, {
+      authorizationType: apigateway.AuthorizationType.CUSTOM,
+      authorizer: adminAuthorizer,
+    });
+    const cognitoUserByName = cognitoUsers.addResource("{username}");
+    cognitoUserByName.addMethod("DELETE", cognitoAdminIntegration, {
       authorizationType: apigateway.AuthorizationType.CUSTOM,
       authorizer: adminAuthorizer,
     });
