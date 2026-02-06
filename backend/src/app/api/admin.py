@@ -2026,6 +2026,10 @@ def _serialize_audit_log(
     else:
         result["new_values"] = None
 
+    # Include client context fields
+    result["ip_address"] = entry.ip_address
+    result["user_agent"] = entry.user_agent
+
     return result
 
 
