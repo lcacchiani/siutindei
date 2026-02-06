@@ -92,12 +92,8 @@ def clear_audit_context(session: Session) -> None:
     Args:
         session: SQLAlchemy database session.
     """
-    session.execute(
-        text("SELECT set_config('app.current_user_id', '', true)")
-    )
-    session.execute(
-        text("SELECT set_config('app.current_request_id', '', true)")
-    )
+    session.execute(text("SELECT set_config('app.current_user_id', '', true)"))
+    session.execute(text("SELECT set_config('app.current_request_id', '', true)"))
 
 
 class AuditService:
