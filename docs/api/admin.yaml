@@ -1208,7 +1208,72 @@ paths:
         "404":
           description: Schedule not found
 
+  # --- Geographic Areas Management (Admin Only) ---
+
+  /v1/admin/areas:
+    get:
+      summary: List all geographic areas
+      description: |
+        Returns the full geographic area tree including inactive countries.
+        Admin-only endpoint for managing area activation.
+      responses:
+        "200":
+          description: Full area tree
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AreaTreeResponse'
+
+  /v1/admin/areas/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    patch:
+      summary: Toggle area active status
+      description: |
+        Activate or deactivate a geographic area (typically a country).
+        When a country is deactivated, it and its children are hidden
+        from user-facing endpoints.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [active]
+              properties:
+                active:
+                  type: boolean
+                  description: New active state
+      responses:
+        "200":
+          description: Area updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GeographicArea'
+        "404":
+          description: Area not found
+
   # --- User Routes (Any Authenticated User) ---
+
+  /v1/user/areas:
+    get:
+      summary: List active geographic areas
+      description: |
+        Returns the geographic area tree for active countries only.
+        Used by frontend for cascading country/district dropdowns.
+      responses:
+        "200":
+          description: Active area tree
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AreaTreeResponse'
 
   /v1/user/access-request:
     get:
@@ -1468,21 +1533,16 @@ components:
       type: object
       required:
         - org_id
-        - district
+        - area_id
       properties:
         org_id:
           type: string
           format: uuid
           description: Organization UUID (required)
-        district:
+        area_id:
           type: string
-          maxLength: 100
-          description: District name (required, max 100 characters)
-        country:
-          type: string
-          maxLength: 100
-          default: Hong Kong
-          description: Country name (optional, defaults to 'Hong Kong', max 100 characters)
+          format: uuid
+          description: Geographic area UUID (required, must be a leaf node)
         address:
           type: string
           maxLength: 500
@@ -1501,14 +1561,10 @@ components:
     LocationUpdate:
       type: object
       properties:
-        district:
+        area_id:
           type: string
-          maxLength: 100
-          description: District name (max 100 characters)
-        country:
-          type: string
-          maxLength: 100
-          description: Country name (max 100 characters)
+          format: uuid
+          description: Geographic area UUID (must be a leaf node)
         address:
           type: string
           maxLength: 500
@@ -1526,7 +1582,7 @@ components:
 
     Location:
       type: object
-      required: [id, org_id, district, country, created_at, updated_at]
+      required: [id, org_id, area_id, district, country, created_at, updated_at]
       properties:
         id:
           type: string
@@ -1534,11 +1590,16 @@ components:
         org_id:
           type: string
           format: uuid
+        area_id:
+          type: string
+          format: uuid
+          description: Geographic area UUID
         district:
           type: string
+          description: Denormalized district name from geographic area tree
         country:
           type: string
-          description: Country where the location is situated
+          description: Denormalized country name from geographic area tree
         address:
           type: string
           nullable: true
@@ -2201,6 +2262,49 @@ components:
         next_cursor:
           type: string
           nullable: true
+
+    # Geographic Area schemas
+    GeographicArea:
+      type: object
+      required: [id, name, level, active, display_order]
+      properties:
+        id:
+          type: string
+          format: uuid
+        parent_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: NULL for root (country) nodes
+        name:
+          type: string
+          description: Area name (e.g., 'Hong Kong', 'Wan Chai')
+        level:
+          type: string
+          enum: [country, region, city, district]
+        code:
+          type: string
+          nullable: true
+          description: ISO 3166-1 alpha-2 for countries (HK, SG, AE)
+        active:
+          type: boolean
+          description: Whether this area (and its children) is available
+        display_order:
+          type: integer
+        children:
+          type: array
+          items:
+            $ref: '#/components/schemas/GeographicArea'
+          description: Nested child areas (populated in tree responses)
+
+    AreaTreeResponse:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/GeographicArea'
 
     # Organization Suggestion input schema (used by user-facing POST endpoint)
     OrganizationSuggestionCreate:

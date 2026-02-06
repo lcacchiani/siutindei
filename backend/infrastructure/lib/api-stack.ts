@@ -1933,6 +1933,17 @@ export class ApiStack extends cdk.Stack {
       authorizer: adminAuthorizer,
     });
 
+    // Geographic areas management (admin can list all or toggle active)
+    const adminAreas = admin.addResource("areas");
+    adminAreas.addMethod("GET", adminIntegration, {
+      authorizationType: apigateway.AuthorizationType.CUSTOM,
+      authorizer: adminAuthorizer,
+    });
+    const adminAreaById = adminAreas.addResource("{id}");
+    adminAreaById.addMethod("PATCH", adminIntegration, {
+      authorizationType: apigateway.AuthorizationType.CUSTOM,
+      authorizer: adminAuthorizer,
+    });
 
     // Manager-specific routes at /v1/manager (accessible by users in 'admin' OR 'manager' group)
     // All manager routes are filtered by organization management in the Lambda
@@ -2001,6 +2012,13 @@ export class ApiStack extends cdk.Stack {
       authorizer: userAuthorizer,
     });
     userOrgSuggestion.addMethod("POST", adminIntegration, {
+      authorizationType: apigateway.AuthorizationType.CUSTOM,
+      authorizer: userAuthorizer,
+    });
+
+    // Geographic areas (any authenticated user can fetch the area tree)
+    const userAreas = user.addResource("areas");
+    userAreas.addMethod("GET", adminIntegration, {
       authorizationType: apigateway.AuthorizationType.CUSTOM,
       authorizer: userAuthorizer,
     });

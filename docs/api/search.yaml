@@ -245,11 +245,15 @@ components:
             type: string
     Location:
       type: object
-      required: [id, district, country]
+      required: [id, area_id, district, country]
       properties:
         id:
           type: string
           format: uuid
+        area_id:
+          type: string
+          format: uuid
+          description: Geographic area UUID
         district:
           type: string
         country:
