@@ -2,17 +2,17 @@
 
 ## Overview
 
-Manager requests are processed asynchronously using SNS + SQS messaging. This provides reliable, decoupled processing with automatic retries and dead letter queue support.
+Manager requests and organization suggestions are processed asynchronously using SNS + SQS messaging. This provides reliable, decoupled processing with automatic retries and dead letter queue support.
 
 ## Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                           MANAGER REQUEST FLOW                               │
+│                    ASYNC REQUEST/SUGGESTION FLOW                             │
 │                                                                             │
 │  User submits ──▶ API Lambda ──▶ SNS Topic ──▶ SQS Queue ──▶ Processor     │
-│   request              │              │              │         Lambda       │
-│                        │              │              │            │         │
+│  request or            │              │              │         Lambda       │
+│  suggestion            │              │              │            │         │
 │                   (validates,    (fan-out)     (reliable      (stores in   │
 │                   returns 202)                  delivery)      DB, sends   │
 │                                                    │           email)      │
@@ -28,9 +28,9 @@ Manager requests are processed asynchronously using SNS + SQS messaging. This pr
 
 ### SNS Topic: `lxsoftware-siutindei-manager-request-events`
 
-- Receives manager request events from the API
+- Receives manager request and organization suggestion events from the API
 - Fans out to subscribed SQS queue
-- Message attributes enable future filtering
+- Message attributes enable filtering by `event_type`
 
 ### SQS Queue: `lxsoftware-siutindei-manager-request-queue`
 
@@ -48,11 +48,15 @@ Manager requests are processed asynchronously using SNS + SQS messaging. This pr
 ### Processor Lambda: `ManagerRequestProcessor`
 
 - Triggered by SQS messages
-- Stores request in PostgreSQL database
-- Sends email notification via SES
-- Idempotent via `ticket_id` check
+- Handles two event types:
+  - `manager_request.submitted`: Stores access request in `organization_access_requests` table
+  - `organization_suggestion.submitted`: Stores suggestion in `organization_suggestions` table
+- Sends email notification via SES for both event types
+- Idempotent via `ticket_id` check for both event types
 
-## Message Format
+## Message Formats
+
+### Manager Request
 
 ```json
 {
@@ -65,19 +69,40 @@ Manager requests are processed asynchronously using SNS + SQS messaging. This pr
 }
 ```
 
+### Organization Suggestion
+
+```json
+{
+  "event_type": "organization_suggestion.submitted",
+  "ticket_id": "S00001",
+  "suggester_id": "cognito-user-sub-uuid",
+  "suggester_email": "user@example.com",
+  "organization_name": "Suggested Place Name",
+  "description": "Optional description of the place",
+  "suggested_district": "Optional district",
+  "suggested_address": "Optional address",
+  "suggested_lat": 22.2783,
+  "suggested_lng": 114.1747,
+  "media_urls": [],
+  "additional_notes": "Optional notes"
+}
+```
+
 ## API Behavior
 
 The user-facing API endpoints for access requests are at
 `/v1/user/access-request` (GET, POST). Admin review endpoints are at
-`/v1/admin/access-requests`. For full endpoint details (parameters,
-request/response schemas), see the OpenAPI spec:
+`/v1/admin/access-requests`. Organization suggestion endpoints are at
+`/v1/user/organization-suggestion` (GET, POST) and
+`/v1/admin/organization-suggestions` (GET, PUT). For full endpoint details
+(parameters, request/response schemas), see the OpenAPI spec:
 [`docs/api/admin.yaml`](../api/admin.yaml).
 
-**Processing flow:**
-1. User POSTs a request → API validates, generates ticket ID, publishes to SNS
+**Processing flow (applies to both requests and suggestions):**
+1. User POSTs a request/suggestion → API validates, generates ticket ID, publishes to SNS
 2. Returns `202 Accepted` with ticket ID
 3. SQS delivers message to processor Lambda
-4. Processor stores in DB and sends email notification
+4. Processor stores in DB and sends email notification to support
 
 ## Error Handling
 

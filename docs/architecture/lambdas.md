@@ -130,8 +130,13 @@ their primary responsibilities.
 - Function: ManagerRequestProcessor
 - Handler: backend/lambda/manager_request_processor/handler.py
 - Trigger: SQS queue (subscribed to SNS manager request topic)
-- Purpose: process manager access request submissions asynchronously:
-  store in database with idempotency check, send email notification
+- Purpose: process async submissions from the SNS topic. Handles two
+  event types:
+  - `manager_request.submitted`: stores access request in
+    `organization_access_requests` table, sends notification email
+  - `organization_suggestion.submitted`: stores suggestion in
+    `organization_suggestions` table, sends notification email
+  Both paths use idempotency checks via `ticket_id`.
 - DB access: RDS Proxy with IAM auth (`siutindei_admin`)
 - VPC: Yes
 - Permissions: SES send email
