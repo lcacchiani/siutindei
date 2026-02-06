@@ -194,11 +194,10 @@ export class ApiStack extends cdk.Stack {
         securityGroups: [endpointSecurityGroup],
       });
 
-      // Cognito endpoint for migration Lambda to create seed manager user
-      vpc.addInterfaceEndpoint("CognitoIdpEndpoint", {
-        service: ec2.InterfaceVpcEndpointAwsService.COGNITO_IDP,
-        securityGroups: [endpointSecurityGroup],
-      });
+      // NOTE: Cognito VPC endpoint is NOT included because Cognito disables
+      // PrivateLink access when ManagedLogin is configured. Cognito admin
+      // operations (AdminCreateUser, etc.) must be performed from outside
+      // the VPC (e.g., GitHub Actions) or via NAT Gateway.
 
       // SES endpoint for sending emails (manager requests, passwordless auth)
       vpc.addInterfaceEndpoint("SesEndpoint", {
