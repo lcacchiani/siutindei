@@ -1893,9 +1893,15 @@ export class ApiStack extends cdk.Stack {
       authorizer: adminAuthorizer,
     });
 
-    // Cognito users listing endpoint (for manager selection) - admin only
+    // Cognito users listing and management endpoint - admin only
     const cognitoUsers = admin.addResource("cognito-users");
     cognitoUsers.addMethod("GET", adminIntegration, {
+      authorizationType: apigateway.AuthorizationType.CUSTOM,
+      authorizer: adminAuthorizer,
+    });
+
+    const cognitoUserByName = cognitoUsers.addResource("{username}");
+    cognitoUserByName.addMethod("DELETE", adminIntegration, {
       authorizationType: apigateway.AuthorizationType.CUSTOM,
       authorizer: adminAuthorizer,
     });
@@ -1909,6 +1915,32 @@ export class ApiStack extends cdk.Stack {
 
     const accessRequestById = accessRequests.addResource("{id}");
     accessRequestById.addMethod("PUT", adminIntegration, {
+      authorizationType: apigateway.AuthorizationType.CUSTOM,
+      authorizer: adminAuthorizer,
+    });
+
+    // Audit logs endpoint (read-only) - admin only
+    const auditLogs = admin.addResource("audit-logs");
+    auditLogs.addMethod("GET", adminIntegration, {
+      authorizationType: apigateway.AuthorizationType.CUSTOM,
+      authorizer: adminAuthorizer,
+    });
+
+    const auditLogById = auditLogs.addResource("{id}");
+    auditLogById.addMethod("GET", adminIntegration, {
+      authorizationType: apigateway.AuthorizationType.CUSTOM,
+      authorizer: adminAuthorizer,
+    });
+
+    // Organization suggestions management - admin only
+    const orgSuggestions = admin.addResource("organization-suggestions");
+    orgSuggestions.addMethod("GET", adminIntegration, {
+      authorizationType: apigateway.AuthorizationType.CUSTOM,
+      authorizer: adminAuthorizer,
+    });
+
+    const orgSuggestionById = orgSuggestions.addResource("{id}");
+    orgSuggestionById.addMethod("PUT", adminIntegration, {
       authorizationType: apigateway.AuthorizationType.CUSTOM,
       authorizer: adminAuthorizer,
     });
