@@ -68,22 +68,19 @@ def set_audit_context(
             # ... perform database operations ...
             session.commit()
     """
-    # Use SET LOCAL so the settings are transaction-scoped
-    # This ensures cleanup on commit/rollback
-    if user_id:
-        session.execute(
-            text("SET LOCAL app.current_user_id = :user_id"), {"user_id": user_id}
-        )
-    else:
-        session.execute(text("SET LOCAL app.current_user_id = ''"))
-
-    if request_id:
-        session.execute(
-            text("SET LOCAL app.current_request_id = :request_id"),
-            {"request_id": request_id},
-        )
-    else:
-        session.execute(text("SET LOCAL app.current_request_id = ''"))
+    # Use set_config() instead of SET LOCAL because PostgreSQL's SET command
+    # does not support bind parameters ($1), which causes a SyntaxError with
+    # psycopg. set_config(name, value, is_local) is a regular SQL function
+    # that properly accepts bind parameters, and is_local=true makes the
+    # setting transaction-scoped (equivalent to SET LOCAL).
+    session.execute(
+        text("SELECT set_config('app.current_user_id', :user_id, true)"),
+        {"user_id": user_id or ""},
+    )
+    session.execute(
+        text("SELECT set_config('app.current_request_id', :request_id, true)"),
+        {"request_id": request_id or ""},
+    )
 
 
 def clear_audit_context(session: Session) -> None:
@@ -95,8 +92,8 @@ def clear_audit_context(session: Session) -> None:
     Args:
         session: SQLAlchemy database session.
     """
-    session.execute(text("SET LOCAL app.current_user_id = ''"))
-    session.execute(text("SET LOCAL app.current_request_id = ''"))
+    session.execute(text("SELECT set_config('app.current_user_id', '', true)"))
+    session.execute(text("SELECT set_config('app.current_request_id', '', true)"))
 
 
 class AuditService:

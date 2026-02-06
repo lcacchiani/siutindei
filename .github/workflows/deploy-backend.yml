@@ -14,7 +14,7 @@ on:
         default: false
         type: boolean
       run_seed_data:
-        description: "Run database seed data (creates test manager user and demo organizations)"
+        description: "Run database seed data"
         required: false
         default: false
         type: boolean
