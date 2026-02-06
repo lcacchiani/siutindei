@@ -111,6 +111,12 @@ def _handle_seed_only(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
 
     This allows seeding to be run as a separate step after CloudFormation
     deployment completes, so seeding failures don't roll back the stack.
+
+    The event can optionally include:
+    - seed_manager_sub: Pre-created Cognito user sub to use as manager_id.
+      This is required when running from GitHub Actions because the Lambda
+      runs in a VPC with isolated subnets and cannot access Cognito APIs
+      when ManagedLogin is enabled (PrivateLink access is disabled).
     """
     logger.info("Running seed-only mode (direct invocation)")
 
@@ -122,8 +128,14 @@ def _handle_seed_only(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
             "/var/task/db/seed/seed_data.sql",
         )
 
-        # Create or get seed manager user for demo data
-        seed_manager_sub = _get_or_create_seed_manager()
+        # Use provided seed_manager_sub or create user (if Cognito access available)
+        seed_manager_sub = event.get("seed_manager_sub")
+        if not seed_manager_sub:
+            logger.info("No seed_manager_sub provided, attempting to create user")
+            seed_manager_sub = _get_or_create_seed_manager()
+        else:
+            logger.info(f"Using provided seed_manager_sub: {seed_manager_sub}")
+
         _run_with_retry(_run_seed, database_url, seed_path, seed_manager_sub)
 
         logger.info("Seeding completed successfully")

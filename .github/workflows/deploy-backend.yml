@@ -674,12 +674,77 @@ jobs:
         if: github.event.inputs.run_seed_data == 'true' && steps.region.outputs.is_waf != 'true'
         run: |
           echo "Running database seeding after successful deployment..."
-          FUNCTION_NAME="lxsoftware-siutindei-SiutindeiMigrationFunction"
 
-          # Invoke the Lambda with seed-only action
+          # Get User Pool ID from CloudFormation stack
+          USER_POOL_ID=$(aws cloudformation describe-stacks \
+            --stack-name lxsoftware-siutindei \
+            --query "Stacks[0].Outputs[?OutputKey=='UserPoolId'].OutputValue" \
+            --output text)
+
+          if [ -z "$USER_POOL_ID" ] || [ "$USER_POOL_ID" = "None" ]; then
+            echo "Error: Could not get User Pool ID from stack outputs"
+            exit 1
+          fi
+          echo "User Pool ID: $USER_POOL_ID"
+
+          # Create or get the seed manager user
+          # This must be done from GitHub Actions (not Lambda) because Lambda
+          # runs in VPC with isolated subnets and Cognito blocks PrivateLink
+          # access when ManagedLogin is enabled.
+          SEED_EMAIL="test@lx-software.com"
+          SEED_PASSWORD=$(openssl rand -base64 16 | tr -d '/+=' | head -c 16)
+
+          # Check if user already exists
+          USER_SUB=$(aws cognito-idp list-users \
+            --user-pool-id "$USER_POOL_ID" \
+            --filter "email = \"$SEED_EMAIL\"" \
+            --query "Users[0].Attributes[?Name=='sub'].Value" \
+            --output text 2>/dev/null || true)
+
+          if [ -z "$USER_SUB" ] || [ "$USER_SUB" = "None" ]; then
+            echo "Creating seed manager user: $SEED_EMAIL"
+            aws cognito-idp admin-create-user \
+              --user-pool-id "$USER_POOL_ID" \
+              --username "$SEED_EMAIL" \
+              --user-attributes Name=email,Value="$SEED_EMAIL" Name=email_verified,Value=true \
+              --message-action SUPPRESS
+
+            # Set permanent password
+            aws cognito-idp admin-set-user-password \
+              --user-pool-id "$USER_POOL_ID" \
+              --username "$SEED_EMAIL" \
+              --password "${SEED_PASSWORD}Aa1!" \
+              --permanent
+
+            # Add to manager group
+            aws cognito-idp admin-add-user-to-group \
+              --user-pool-id "$USER_POOL_ID" \
+              --username "$SEED_EMAIL" \
+              --group-name "manager"
+
+            # Get the user's sub
+            USER_SUB=$(aws cognito-idp list-users \
+              --user-pool-id "$USER_POOL_ID" \
+              --filter "email = \"$SEED_EMAIL\"" \
+              --query "Users[0].Attributes[?Name=='sub'].Value" \
+              --output text)
+            echo "Created seed manager user with sub: $USER_SUB"
+          else
+            echo "Seed manager user already exists with sub: $USER_SUB"
+          fi
+
+          if [ -z "$USER_SUB" ] || [ "$USER_SUB" = "None" ]; then
+            echo "Error: Could not get or create seed manager user"
+            exit 1
+          fi
+
+          # Invoke the Lambda with seed-only action and the manager sub
+          FUNCTION_NAME="lxsoftware-siutindei-SiutindeiMigrationFunction"
+          PAYLOAD=$(printf '{"action": "seed", "seed_manager_sub": "%s"}' "$USER_SUB")
+
           RESPONSE=$(aws lambda invoke \
             --function-name "$FUNCTION_NAME" \
-            --payload '{"action": "seed"}' \
+            --payload "$PAYLOAD" \
             --cli-binary-format raw-in-base64-out \
             /tmp/seed-response.json 2>&1)
 
