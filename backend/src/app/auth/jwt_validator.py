@@ -255,6 +255,10 @@ def decode_and_verify_token(
                 "verify_signature": True,
                 "verify_exp": verify_expiration,
                 "verify_iss": True,
+                # Disable audience verification - Cognito ID tokens have aud=client_id
+                # which varies per app. Issuer verification is sufficient since we
+                # verify the token was issued by our specific Cognito User Pool.
+                "verify_aud": False,
                 "require": ["sub", "iss", "exp", "token_use"],
             },
         )
