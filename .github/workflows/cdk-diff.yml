@@ -399,7 +399,7 @@ jobs:
               --output text 2>/dev/null || true)
             log_bucket=$(normalize_value "$log_bucket")
             if [ -n "$log_bucket" ]; then
-              echo "EXISTING_ORG_IMAGES_LOG_BUCKET_NAME=$log_bucket" \
+              echo "EXISTING_ORG_MEDIA_LOG_BUCKET_NAME=$log_bucket" \
                 >> "$GITHUB_ENV"
             fi
           fi
@@ -411,7 +411,7 @@ jobs:
               --output text 2>/dev/null || true)
             images_bucket=$(normalize_value "$images_bucket")
             if [ -n "$images_bucket" ]; then
-              echo "EXISTING_ORG_IMAGES_BUCKET_NAME=$images_bucket" \
+              echo "EXISTING_ORG_MEDIA_BUCKET_NAME=$images_bucket" \
                 >> "$GITHUB_ENV"
             fi
           fi
@@ -523,5 +523,5 @@ jobs:
           EXISTING_DB_PROXY_ARN: ${{ env.EXISTING_DB_PROXY_ARN }}
           EXISTING_DB_PROXY_ENDPOINT: ${{ env.EXISTING_DB_PROXY_ENDPOINT }}
           EXISTING_VPC_ID: ${{ env.EXISTING_VPC_ID }}
-          EXISTING_ORG_IMAGES_LOG_BUCKET_NAME: ${{ env.EXISTING_ORG_IMAGES_LOG_BUCKET_NAME }}
-          EXISTING_ORG_IMAGES_BUCKET_NAME: ${{ env.EXISTING_ORG_IMAGES_BUCKET_NAME }}
+          EXISTING_ORG_MEDIA_LOG_BUCKET_NAME: ${{ env.EXISTING_ORG_MEDIA_LOG_BUCKET_NAME }}
+          EXISTING_ORG_MEDIA_BUCKET_NAME: ${{ env.EXISTING_ORG_MEDIA_BUCKET_NAME }}

@@ -1,0 +1,503 @@
+"""Audit logging service for tracking data changes.
+
+This module provides:
+- Context management for database triggers (set_audit_context)
+- Application-level audit logging (AuditService)
+- Query interface for audit logs (AuditLogRepository)
+
+SECURITY NOTES:
+- User IDs are Cognito subs, not emails (no PII in audit logs)
+- Request IDs enable correlation with CloudWatch logs
+- Old/new values may contain business data - apply retention policies
+
+Usage:
+    # In your Lambda handler or repository:
+    with Session(get_engine()) as session:
+        # Set context for trigger-based auditing
+        set_audit_context(session, user_id="cognito-sub", request_id="req-123")
+
+        # Perform database operations - triggers will capture changes
+        repo = OrganizationRepository(session)
+        repo.create(org)
+
+        # Or use application-level auditing for more control
+        audit = AuditService(session)
+        audit.log_create("organizations", org.id, new_values={...})
+
+        session.commit()
+"""
+
+from __future__ import annotations
+
+from datetime import datetime
+from datetime import timezone
+from typing import Any
+from typing import Optional
+from typing import Sequence
+from uuid import UUID
+
+from sqlalchemy import select
+from sqlalchemy import text
+from sqlalchemy.orm import Session
+
+from app.db.models import AuditLog
+from app.utils.logging import get_logger
+
+logger = get_logger(__name__)
+
+
+def set_audit_context(
+    session: Session,
+    user_id: Optional[str] = None,
+    request_id: Optional[str] = None,
+) -> None:
+    """Set audit context for the current database session.
+
+    This sets PostgreSQL session variables that the audit trigger function
+    reads to populate user_id and request_id fields. Use SET LOCAL to scope
+    the settings to the current transaction only.
+
+    Args:
+        session: SQLAlchemy database session.
+        user_id: Cognito user sub (subject) making the change.
+        request_id: Lambda request ID for log correlation.
+
+    Example:
+        with Session(get_engine()) as session:
+            set_audit_context(session, user_id=user_sub, request_id=req_id)
+            # ... perform database operations ...
+            session.commit()
+    """
+    # Use SET LOCAL so the settings are transaction-scoped
+    # This ensures cleanup on commit/rollback
+    if user_id:
+        session.execute(
+            text("SET LOCAL app.current_user_id = :user_id"), {"user_id": user_id}
+        )
+    else:
+        session.execute(text("SET LOCAL app.current_user_id = ''"))
+
+    if request_id:
+        session.execute(
+            text("SET LOCAL app.current_request_id = :request_id"),
+            {"request_id": request_id},
+        )
+    else:
+        session.execute(text("SET LOCAL app.current_request_id = ''"))
+
+
+def clear_audit_context(session: Session) -> None:
+    """Clear audit context from the current database session.
+
+    This is typically not needed since SET LOCAL is transaction-scoped,
+    but can be used for explicit cleanup within a transaction.
+
+    Args:
+        session: SQLAlchemy database session.
+    """
+    session.execute(text("SET LOCAL app.current_user_id = ''"))
+    session.execute(text("SET LOCAL app.current_request_id = ''"))
+
+
+class AuditService:
+    """Service for application-level audit logging.
+
+    Use this when you need more control over audit entries than triggers provide,
+    such as:
+    - Adding IP address or user agent
+    - Custom action descriptions
+    - Selective field logging (excluding sensitive data)
+
+    For most cases, the trigger-based auditing is sufficient and automatic.
+    """
+
+    def __init__(
+        self,
+        session: Session,
+        user_id: Optional[str] = None,
+        request_id: Optional[str] = None,
+        ip_address: Optional[str] = None,
+        user_agent: Optional[str] = None,
+    ):
+        """Initialize the audit service.
+
+        Args:
+            session: SQLAlchemy database session.
+            user_id: Cognito user sub making the change.
+            request_id: Lambda request ID for correlation.
+            ip_address: Client IP address.
+            user_agent: Client user agent string.
+        """
+        self._session = session
+        self._user_id = user_id
+        self._request_id = request_id
+        self._ip_address = ip_address
+        self._user_agent = user_agent
+
+    def log_create(
+        self,
+        table_name: str,
+        record_id: str | UUID,
+        new_values: Optional[dict[str, Any]] = None,
+    ) -> AuditLog:
+        """Log a record creation.
+
+        Args:
+            table_name: Name of the table.
+            record_id: Primary key of the created record.
+            new_values: Dictionary of the new record's values.
+
+        Returns:
+            The created AuditLog entry.
+        """
+        return self._create_entry(
+            table_name=table_name,
+            record_id=str(record_id),
+            action="INSERT",
+            new_values=new_values,
+        )
+
+    def log_update(
+        self,
+        table_name: str,
+        record_id: str | UUID,
+        old_values: Optional[dict[str, Any]] = None,
+        new_values: Optional[dict[str, Any]] = None,
+        changed_fields: Optional[list[str]] = None,
+    ) -> AuditLog:
+        """Log a record update.
+
+        Args:
+            table_name: Name of the table.
+            record_id: Primary key of the updated record.
+            old_values: Dictionary of previous values.
+            new_values: Dictionary of new values.
+            changed_fields: List of field names that changed.
+
+        Returns:
+            The created AuditLog entry.
+        """
+        # Auto-detect changed fields if not provided
+        if changed_fields is None and old_values and new_values:
+            changed_fields = [
+                key
+                for key in new_values
+                if key in old_values and old_values[key] != new_values[key]
+            ]
+
+        return self._create_entry(
+            table_name=table_name,
+            record_id=str(record_id),
+            action="UPDATE",
+            old_values=old_values,
+            new_values=new_values,
+            changed_fields=changed_fields,
+        )
+
+    def log_delete(
+        self,
+        table_name: str,
+        record_id: str | UUID,
+        old_values: Optional[dict[str, Any]] = None,
+    ) -> AuditLog:
+        """Log a record deletion.
+
+        Args:
+            table_name: Name of the table.
+            record_id: Primary key of the deleted record.
+            old_values: Dictionary of the deleted record's values.
+
+        Returns:
+            The created AuditLog entry.
+        """
+        return self._create_entry(
+            table_name=table_name,
+            record_id=str(record_id),
+            action="DELETE",
+            old_values=old_values,
+        )
+
+    def log_custom(
+        self,
+        table_name: str,
+        record_id: str | UUID,
+        action: str,
+        old_values: Optional[dict[str, Any]] = None,
+        new_values: Optional[dict[str, Any]] = None,
+        changed_fields: Optional[list[str]] = None,
+    ) -> AuditLog:
+        """Log a custom action.
+
+        Use this for non-standard operations like:
+        - APPROVE, REJECT (for access requests)
+        - TRANSFER (for ownership changes)
+        - RESTORE (for soft-delete recovery)
+
+        Args:
+            table_name: Name of the table.
+            record_id: Primary key of the record.
+            action: Custom action name.
+            old_values: Previous state.
+            new_values: New state.
+            changed_fields: Fields that changed.
+
+        Returns:
+            The created AuditLog entry.
+        """
+        return self._create_entry(
+            table_name=table_name,
+            record_id=str(record_id),
+            action=action,
+            old_values=old_values,
+            new_values=new_values,
+            changed_fields=changed_fields,
+        )
+
+    def _create_entry(
+        self,
+        table_name: str,
+        record_id: str,
+        action: str,
+        old_values: Optional[dict[str, Any]] = None,
+        new_values: Optional[dict[str, Any]] = None,
+        changed_fields: Optional[list[str]] = None,
+    ) -> AuditLog:
+        """Create an audit log entry.
+
+        Args:
+            table_name: Name of the table.
+            record_id: Primary key of the record.
+            action: The action performed.
+            old_values: Previous values.
+            new_values: New values.
+            changed_fields: Fields that changed.
+
+        Returns:
+            The created AuditLog entry.
+        """
+        entry = AuditLog(
+            timestamp=datetime.now(timezone.utc),
+            table_name=table_name,
+            record_id=record_id,
+            action=action,
+            user_id=self._user_id,
+            request_id=self._request_id,
+            old_values=old_values,
+            new_values=new_values,
+            changed_fields=changed_fields,
+            source="application",
+            ip_address=self._ip_address,
+            user_agent=self._user_agent,
+        )
+        self._session.add(entry)
+        self._session.flush()
+        return entry
+
+
+class AuditLogRepository:
+    """Repository for querying audit logs.
+
+    Provides methods for retrieving audit history for compliance,
+    debugging, and analytics purposes.
+    """
+
+    def __init__(self, session: Session):
+        """Initialize the repository.
+
+        Args:
+            session: SQLAlchemy database session.
+        """
+        self._session = session
+
+    def get_by_id(self, audit_id: UUID) -> Optional[AuditLog]:
+        """Get an audit log entry by ID.
+
+        Args:
+            audit_id: The audit log entry ID.
+
+        Returns:
+            The audit log entry if found.
+        """
+        return self._session.get(AuditLog, audit_id)
+
+    def get_record_history(
+        self,
+        table_name: str,
+        record_id: str | UUID,
+        limit: int = 100,
+    ) -> Sequence[AuditLog]:
+        """Get the audit history for a specific record.
+
+        Args:
+            table_name: Name of the table.
+            record_id: Primary key of the record.
+            limit: Maximum entries to return.
+
+        Returns:
+            Audit log entries in reverse chronological order.
+        """
+        query = (
+            select(AuditLog)
+            .where(AuditLog.table_name == table_name)
+            .where(AuditLog.record_id == str(record_id))
+            .order_by(AuditLog.timestamp.desc())
+            .limit(limit)
+        )
+        return self._session.execute(query).scalars().all()
+
+    def get_user_activity(
+        self,
+        user_id: str,
+        limit: int = 100,
+        since: Optional[datetime] = None,
+    ) -> Sequence[AuditLog]:
+        """Get audit logs for a specific user.
+
+        Args:
+            user_id: Cognito user sub.
+            limit: Maximum entries to return.
+            since: Only return entries after this timestamp.
+
+        Returns:
+            Audit log entries in reverse chronological order.
+        """
+        query = (
+            select(AuditLog)
+            .where(AuditLog.user_id == user_id)
+            .order_by(AuditLog.timestamp.desc())
+            .limit(limit)
+        )
+        if since:
+            query = query.where(AuditLog.timestamp >= since)
+        return self._session.execute(query).scalars().all()
+
+    def get_table_activity(
+        self,
+        table_name: str,
+        limit: int = 100,
+        since: Optional[datetime] = None,
+        action: Optional[str] = None,
+    ) -> Sequence[AuditLog]:
+        """Get audit logs for a specific table.
+
+        Args:
+            table_name: Name of the table.
+            limit: Maximum entries to return.
+            since: Only return entries after this timestamp.
+            action: Filter by action type (INSERT, UPDATE, DELETE).
+
+        Returns:
+            Audit log entries in reverse chronological order.
+        """
+        query = (
+            select(AuditLog)
+            .where(AuditLog.table_name == table_name)
+            .order_by(AuditLog.timestamp.desc())
+            .limit(limit)
+        )
+        if since:
+            query = query.where(AuditLog.timestamp >= since)
+        if action:
+            query = query.where(AuditLog.action == action)
+        return self._session.execute(query).scalars().all()
+
+    def get_recent_activity(
+        self,
+        limit: int = 100,
+        since: Optional[datetime] = None,
+        cursor: Optional[UUID] = None,
+    ) -> Sequence[AuditLog]:
+        """Get recent audit log entries.
+
+        Args:
+            limit: Maximum entries to return.
+            since: Only return entries after this timestamp.
+            cursor: Pagination cursor (audit log ID).
+
+        Returns:
+            Audit log entries in reverse chronological order.
+        """
+        query = select(AuditLog).order_by(AuditLog.timestamp.desc()).limit(limit)
+        if since:
+            query = query.where(AuditLog.timestamp >= since)
+        if cursor:
+            # For cursor pagination, get the timestamp of the cursor entry
+            cursor_entry = self.get_by_id(cursor)
+            if cursor_entry:
+                query = query.where(AuditLog.timestamp < cursor_entry.timestamp)
+        return self._session.execute(query).scalars().all()
+
+    def count_by_table(
+        self,
+        table_name: str,
+        since: Optional[datetime] = None,
+    ) -> dict[str, int]:
+        """Count audit entries by action for a table.
+
+        Args:
+            table_name: Name of the table.
+            since: Only count entries after this timestamp.
+
+        Returns:
+            Dictionary mapping action to count.
+        """
+        from sqlalchemy import func
+
+        query = (
+            select(AuditLog.action, func.count(AuditLog.id))
+            .where(AuditLog.table_name == table_name)
+            .group_by(AuditLog.action)
+        )
+        if since:
+            query = query.where(AuditLog.timestamp >= since)
+
+        results = self._session.execute(query).all()
+        return {action: count for action, count in results}
+
+
+def serialize_for_audit(
+    entity: Any, exclude_fields: Optional[set[str]] = None
+) -> dict[str, Any]:
+    """Serialize a SQLAlchemy entity for audit logging.
+
+    Converts an entity to a dictionary suitable for storing in audit logs,
+    handling common types like UUID, datetime, Decimal, and enums.
+
+    Args:
+        entity: SQLAlchemy model instance.
+        exclude_fields: Field names to exclude from serialization.
+
+    Returns:
+        Dictionary of serialized values.
+    """
+    import enum
+    from decimal import Decimal
+    from uuid import UUID as UUIDType
+
+    exclude = exclude_fields or set()
+    result: dict[str, Any] = {}
+
+    # Get all mapped columns
+    for column in entity.__table__.columns:
+        if column.name in exclude:
+            continue
+
+        value = getattr(entity, column.name, None)
+
+        # Handle special types
+        if value is None:
+            result[column.name] = None
+        elif isinstance(value, UUIDType):
+            result[column.name] = str(value)
+        elif isinstance(value, datetime):
+            result[column.name] = value.isoformat()
+        elif isinstance(value, Decimal):
+            result[column.name] = float(value)
+        elif isinstance(value, enum.Enum):
+            result[column.name] = value.value
+        elif isinstance(value, (list, dict)):
+            result[column.name] = value
+        else:
+            result[column.name] = value
+
+    return result

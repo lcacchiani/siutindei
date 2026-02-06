@@ -32,11 +32,15 @@ from app.db.engine import get_engine
 from app.db.models import Activity
 from app.db.models import ActivityPricing
 from app.db.models import ActivitySchedule
+from app.db.models import AuditLog
 from app.db.models import Location
 from app.db.models import Organization
 from app.db.models import OrganizationAccessRequest
+from app.db.models import OrganizationSuggestion
 from app.db.models import PricingType
 from app.db.models import ScheduleType
+from app.db.models import SuggestionStatus
+from app.db.audit import AuditLogRepository, set_audit_context
 from app.db.repositories import (
     ActivityPricingRepository,
     ActivityRepository,
@@ -44,6 +48,7 @@ from app.db.repositories import (
     LocationRepository,
     OrganizationRepository,
     OrganizationAccessRequestRepository,
+    OrganizationSuggestionRepository,
 )
 from app.exceptions import NotFoundError, ValidationError
 from app.utils import json_response, parse_datetime, parse_int
@@ -145,6 +150,10 @@ def lambda_handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
         )
     if resource == "access-requests":
         return _handle_admin_access_requests(event, method, resource_id)
+    if resource == "audit-logs" and method == "GET":
+        return _safe_handler(lambda: _handle_audit_logs(event, resource_id), event)
+    if resource == "organization-suggestions":
+        return _handle_admin_organization_suggestions(event, method, resource_id)
 
     # Standard admin CRUD routes (no ownership filtering)
     config = _RESOURCE_CONFIG.get(resource)
@@ -216,6 +225,9 @@ def _handle_crud(
         API Gateway response.
     """
     with Session(get_engine()) as session:
+        # Set audit context for trigger-based audit logging
+        _set_session_audit_context(session, event)
+
         if method == "GET":
             return _crud_get(event, session, config, resource_id, managed_org_ids)
         if method == "POST":
@@ -534,6 +546,21 @@ def _get_user_email(event: Mapping[str, Any]) -> Optional[str]:
     return ctx.get("email") or None
 
 
+def _set_session_audit_context(session: Session, event: Mapping[str, Any]) -> None:
+    """Set audit context on the database session for trigger-based logging.
+
+    This sets PostgreSQL session variables that the audit trigger function
+    reads to populate user_id and request_id fields in audit_log entries.
+
+    Args:
+        session: SQLAlchemy database session.
+        event: Lambda event containing user and request context.
+    """
+    user_sub = _get_user_sub(event)
+    request_id = event.get("requestContext", {}).get("requestId", "")
+    set_audit_context(session, user_id=user_sub, request_id=request_id)
+
+
 def _get_managed_organization_ids(event: Mapping[str, Any]) -> set[str]:
     """Get the IDs of organizations managed by the current user.
 
@@ -545,6 +572,8 @@ def _get_managed_organization_ids(event: Mapping[str, Any]) -> set[str]:
         return set()
 
     with Session(get_engine()) as session:
+        # Read-only query, but set context for consistency
+        _set_session_audit_context(session, event)
         repo = OrganizationRepository(session)
         orgs = repo.find_by_manager(user_sub)
         return {str(org.id) for org in orgs}
@@ -655,11 +684,19 @@ def _handle_user_routes(
 
     User routes:
         /v1/user/access-request - Request access to become a manager
+        /v1/user/organization-suggestion - Suggest a new organization/place
     """
     # Access request - any logged-in user can request
     if resource == "access-request":
         return _safe_handler(
             lambda: _handle_user_access_request(event, method),
+            event,
+        )
+
+    # Organization suggestion - any logged-in user can suggest places
+    if resource == "organization-suggestion":
+        return _safe_handler(
+            lambda: _handle_user_organization_suggestion(event, method),
             event,
         )
 
@@ -773,6 +810,7 @@ def _handle_user_access_request(
     if method == "GET":
         # Check if user has a pending request and return their organizations count
         with Session(get_engine()) as session:
+            _set_session_audit_context(session, event)
             org_repo = OrganizationRepository(session)
             request_repo = OrganizationAccessRequestRepository(session)
 
@@ -830,6 +868,7 @@ def _handle_user_access_request(
             )
 
         with Session(get_engine()) as session:
+            _set_session_audit_context(session, event)
             request_repo = OrganizationAccessRequestRepository(session)
 
             # Check if user already has a pending request
@@ -1030,6 +1069,7 @@ def _handle_list_access_requests(event: Mapping[str, Any]) -> dict[str, Any]:
             )
 
     with Session(get_engine()) as session:
+        _set_session_audit_context(session, event)
         repo = OrganizationAccessRequestRepository(session)
         cursor = _parse_cursor(_query_param(event, "cursor"))
         rows = repo.find_all(status=status, limit=limit + 1, cursor=cursor)
@@ -1095,6 +1135,7 @@ def _handle_review_access_request(
             )
 
     with Session(get_engine()) as session:
+        _set_session_audit_context(session, event)
         repo = OrganizationAccessRequestRepository(session)
         request = repo.get_by_id(_parse_uuid(request_id))
 
@@ -1235,6 +1276,772 @@ def _send_request_decision_email(
     except Exception as exc:
         # Don't fail the request if email fails
         logger.error(f"Failed to send request decision email: {exc}")
+
+
+# --- Organization suggestion management (user routes) ---
+
+
+def _handle_user_organization_suggestion(
+    event: Mapping[str, Any],
+    method: str,
+) -> dict[str, Any]:
+    """Handle user organization suggestion operations.
+
+    Any logged-in user can suggest new organizations/places for admin review.
+    Unlike access requests, users don't become managers - they just inform
+    about new places.
+
+    GET: Check user's suggestion history
+    POST: Submit a new organization suggestion
+    """
+    user_sub = _get_user_sub(event)
+    user_email = _get_user_email(event)
+
+    if not user_sub:
+        return json_response(401, {"error": "User identity not found"}, event=event)
+
+    if method == "GET":
+        return _get_user_suggestions(event, user_sub)
+
+    if method == "POST":
+        return _submit_organization_suggestion(event, user_sub, user_email)
+
+    return json_response(405, {"error": "Method not allowed"}, event=event)
+
+
+def _get_user_suggestions(
+    event: Mapping[str, Any],
+    user_sub: str,
+) -> dict[str, Any]:
+    """Get the current user's suggestion history."""
+    with Session(get_engine()) as session:
+        _set_session_audit_context(session, event)
+        repo = OrganizationSuggestionRepository(session)
+
+        # Get user's suggestions
+        suggestions = repo.find_by_suggester(user_sub, limit=50)
+
+        # Check for pending suggestion
+        pending = repo.find_pending_by_suggester(user_sub)
+
+        return json_response(
+            200,
+            {
+                "has_pending_suggestion": pending is not None,
+                "suggestions": [_serialize_suggestion(s) for s in suggestions],
+            },
+            event=event,
+        )
+
+
+def _submit_organization_suggestion(
+    event: Mapping[str, Any],
+    user_sub: str,
+    user_email: Optional[str],
+) -> dict[str, Any]:
+    """Submit a new organization suggestion.
+
+    Publishes to SNS for async processing, similar to manager requests.
+    """
+    body = _parse_body(event)
+
+    # Validate required fields
+    organization_name = _validate_string_length(
+        body.get("organization_name"),
+        "organization_name",
+        MAX_NAME_LENGTH,
+        required=True,
+    )
+    if organization_name is None:
+        raise ValidationError(
+            "organization_name is required", field="organization_name"
+        )
+
+    # Validate optional fields
+    description = _validate_string_length(
+        body.get("description"),
+        "description",
+        MAX_DESCRIPTION_LENGTH,
+        required=False,
+    )
+    suggested_district = _validate_string_length(
+        body.get("suggested_district"),
+        "suggested_district",
+        MAX_DISTRICT_LENGTH,
+        required=False,
+    )
+    suggested_address = _validate_string_length(
+        body.get("suggested_address"),
+        "suggested_address",
+        MAX_ADDRESS_LENGTH,
+        required=False,
+    )
+    additional_notes = _validate_string_length(
+        body.get("additional_notes"),
+        "additional_notes",
+        MAX_DESCRIPTION_LENGTH,
+        required=False,
+    )
+
+    # Validate coordinates if provided
+    suggested_lat = body.get("suggested_lat")
+    suggested_lng = body.get("suggested_lng")
+    if suggested_lat is not None or suggested_lng is not None:
+        _validate_coordinates(suggested_lat, suggested_lng)
+
+    # Validate media URLs if provided
+    media_urls = _parse_media_urls(body.get("media_urls"))
+    if media_urls:
+        media_urls = _validate_media_urls(media_urls)
+
+    # Check for existing pending suggestion
+    with Session(get_engine()) as session:
+        _set_session_audit_context(session, event)
+        repo = OrganizationSuggestionRepository(session)
+
+        existing = repo.find_pending_by_suggester(user_sub)
+        if existing:
+            return json_response(
+                409,
+                {
+                    "error": "You already have a pending suggestion",
+                    "suggestion": _serialize_suggestion(existing),
+                },
+                event=event,
+            )
+
+        # Generate ticket ID
+        ticket_id = _generate_suggestion_ticket_id(session)
+
+    # Get SNS topic ARN (reuse the manager request topic or use a dedicated one)
+    topic_arn = os.getenv("SUGGESTION_TOPIC_ARN") or os.getenv(
+        "MANAGER_REQUEST_TOPIC_ARN"
+    )
+    if not topic_arn:
+        logger.error("SUGGESTION_TOPIC_ARN not configured")
+        return json_response(
+            500,
+            {"error": "Service configuration error. Please contact support."},
+            event=event,
+        )
+
+    # Publish to SNS for async processing
+    return _publish_suggestion_to_sns(
+        event=event,
+        topic_arn=topic_arn,
+        ticket_id=ticket_id,
+        user_sub=user_sub,
+        user_email=user_email or "unknown",
+        organization_name=organization_name,
+        description=description,
+        suggested_district=suggested_district,
+        suggested_address=suggested_address,
+        suggested_lat=suggested_lat,
+        suggested_lng=suggested_lng,
+        media_urls=media_urls,
+        additional_notes=additional_notes,
+    )
+
+
+def _publish_suggestion_to_sns(
+    event: Mapping[str, Any],
+    topic_arn: str,
+    ticket_id: str,
+    user_sub: str,
+    user_email: str,
+    organization_name: str,
+    description: Optional[str],
+    suggested_district: Optional[str],
+    suggested_address: Optional[str],
+    suggested_lat: Optional[float],
+    suggested_lng: Optional[float],
+    media_urls: list[str],
+    additional_notes: Optional[str],
+) -> dict[str, Any]:
+    """Publish organization suggestion to SNS for async processing."""
+    sns_client = boto3.client("sns")
+
+    try:
+        sns_client.publish(
+            TopicArn=topic_arn,
+            Message=json.dumps(
+                {
+                    "event_type": "organization_suggestion.submitted",
+                    "ticket_id": ticket_id,
+                    "suggester_id": user_sub,
+                    "suggester_email": user_email,
+                    "organization_name": organization_name,
+                    "description": description,
+                    "suggested_district": suggested_district,
+                    "suggested_address": suggested_address,
+                    "suggested_lat": suggested_lat,
+                    "suggested_lng": suggested_lng,
+                    "media_urls": media_urls,
+                    "additional_notes": additional_notes,
+                }
+            ),
+            MessageAttributes={
+                "event_type": {
+                    "DataType": "String",
+                    "StringValue": "organization_suggestion.submitted",
+                },
+            },
+        )
+
+        logger.info(f"Published organization suggestion to SNS: {ticket_id}")
+
+        return json_response(
+            202,
+            {
+                "message": "Your suggestion has been submitted and is being processed",
+                "ticket_id": ticket_id,
+            },
+            event=event,
+        )
+
+    except Exception as exc:
+        logger.exception(f"Failed to publish organization suggestion to SNS: {exc}")
+        return json_response(
+            500,
+            {"error": "Failed to submit suggestion. Please try again."},
+            event=event,
+        )
+
+
+def _generate_suggestion_ticket_id(session: Session) -> str:
+    """Generate a unique progressive ticket ID for suggestions.
+
+    Format: S + 5 digits (e.g., S00001, S00002)
+    """
+    from sqlalchemy import text
+
+    result = session.execute(
+        text(
+            "SELECT MAX(CAST(SUBSTRING(ticket_id FROM 2) AS BIGINT)) "
+            "FROM organization_suggestions "
+            "WHERE ticket_id LIKE 'S%'"
+        )
+    ).scalar()
+
+    next_number = (result or 0) + 1
+    return f"S{next_number:05d}"
+
+
+def _serialize_suggestion(
+    suggestion: Optional[OrganizationSuggestion],
+) -> Optional[dict[str, Any]]:
+    """Serialize an organization suggestion for the API response."""
+    if suggestion is None:
+        return None
+    return {
+        "id": str(suggestion.id),
+        "ticket_id": suggestion.ticket_id,
+        "organization_name": suggestion.organization_name,
+        "description": suggestion.description,
+        "suggested_district": suggestion.suggested_district,
+        "suggested_address": suggestion.suggested_address,
+        "suggested_lat": (
+            float(suggestion.suggested_lat) if suggestion.suggested_lat else None
+        ),
+        "suggested_lng": (
+            float(suggestion.suggested_lng) if suggestion.suggested_lng else None
+        ),
+        "media_urls": suggestion.media_urls or [],
+        "additional_notes": suggestion.additional_notes,
+        "status": suggestion.status.value,
+        "suggester_id": suggestion.suggester_id,
+        "suggester_email": suggestion.suggester_email,
+        "created_at": (
+            suggestion.created_at.isoformat() if suggestion.created_at else None
+        ),
+        "reviewed_at": (
+            suggestion.reviewed_at.isoformat() if suggestion.reviewed_at else None
+        ),
+        "reviewed_by": suggestion.reviewed_by,
+        "admin_notes": suggestion.admin_notes,
+        "created_organization_id": (
+            str(suggestion.created_organization_id)
+            if suggestion.created_organization_id
+            else None
+        ),
+    }
+
+
+# --- Admin organization suggestion management ---
+
+
+def _handle_admin_organization_suggestions(
+    event: Mapping[str, Any],
+    method: str,
+    suggestion_id: Optional[str],
+) -> dict[str, Any]:
+    """Handle admin organization suggestion management.
+
+    GET: List all suggestions (optionally filtered by status)
+    PUT /{id}: Approve or reject a suggestion
+    """
+    try:
+        if method == "GET":
+            return _list_admin_suggestions(event)
+        if method == "PUT" and suggestion_id:
+            return _review_suggestion(event, suggestion_id)
+        return json_response(405, {"error": "Method not allowed"}, event=event)
+    except ValidationError as exc:
+        logger.warning(f"Validation error: {exc.message}")
+        return json_response(exc.status_code, exc.to_dict(), event=event)
+    except NotFoundError as exc:
+        return json_response(exc.status_code, exc.to_dict(), event=event)
+    except Exception as exc:
+        logger.exception("Unexpected error in admin suggestions handler")
+        return json_response(
+            500, {"error": "Internal server error", "detail": str(exc)}, event=event
+        )
+
+
+def _list_admin_suggestions(event: Mapping[str, Any]) -> dict[str, Any]:
+    """List all organization suggestions for admin review."""
+    limit = parse_int(_query_param(event, "limit")) or 50
+    if limit < 1 or limit > 200:
+        raise ValidationError("limit must be between 1 and 200", field="limit")
+
+    status_filter = _query_param(event, "status")
+    status = None
+    if status_filter:
+        try:
+            status = SuggestionStatus(status_filter)
+        except ValueError:
+            raise ValidationError(
+                f"Invalid status: {status_filter}. Must be pending, approved, or rejected",
+                field="status",
+            )
+
+    with Session(get_engine()) as session:
+        _set_session_audit_context(session, event)
+        repo = OrganizationSuggestionRepository(session)
+        cursor = _parse_cursor(_query_param(event, "cursor"))
+        rows = repo.find_all(status=status, limit=limit + 1, cursor=cursor)
+        has_more = len(rows) > limit
+        trimmed = list(rows)[:limit]
+        next_cursor = _encode_cursor(trimmed[-1].id) if has_more and trimmed else None
+
+        # Also return count of pending suggestions
+        pending_count = repo.count_pending()
+
+        return json_response(
+            200,
+            {
+                "items": [_serialize_suggestion(row) for row in trimmed],
+                "next_cursor": next_cursor,
+                "pending_count": pending_count,
+            },
+            event=event,
+        )
+
+
+def _review_suggestion(
+    event: Mapping[str, Any],
+    suggestion_id: str,
+) -> dict[str, Any]:
+    """Approve or reject an organization suggestion.
+
+    When approving, the admin can optionally create an organization
+    from the suggestion data.
+    """
+    from datetime import datetime, timezone
+
+    body = _parse_body(event)
+    action = body.get("action")
+    admin_notes = body.get("admin_notes", "")
+    create_organization = body.get("create_organization", False)
+
+    if action not in ("approve", "reject"):
+        raise ValidationError(
+            "action must be 'approve' or 'reject'",
+            field="action",
+        )
+
+    reviewer_sub = _get_user_sub(event)
+    if not reviewer_sub:
+        return json_response(401, {"error": "User identity not found"}, event=event)
+
+    with Session(get_engine()) as session:
+        _set_session_audit_context(session, event)
+        repo = OrganizationSuggestionRepository(session)
+        suggestion = repo.get_by_id(_parse_uuid(suggestion_id))
+
+        if suggestion is None:
+            raise NotFoundError("organization_suggestion", suggestion_id)
+
+        if suggestion.status != SuggestionStatus.PENDING:
+            return json_response(
+                409,
+                {"error": f"Suggestion has already been {suggestion.status.value}"},
+                event=event,
+            )
+
+        created_org = None
+
+        # If approving and create_organization is True, create the organization
+        if action == "approve" and create_organization:
+            org_repo = OrganizationRepository(session)
+            location_repo = LocationRepository(session)
+
+            # Create the organization (without a manager - it's a public suggestion)
+            # Admin will need to assign a manager later or manage it themselves
+            created_org = Organization(
+                name=suggestion.organization_name,
+                description=suggestion.description,
+                manager_id=reviewer_sub,  # Admin who approved becomes temporary manager
+                media_urls=suggestion.media_urls or [],
+            )
+            org_repo.create(created_org)
+
+            # Create location if district was provided
+            if suggestion.suggested_district:
+                location = Location(
+                    org_id=created_org.id,
+                    district=suggestion.suggested_district,
+                    address=suggestion.suggested_address,
+                    lat=suggestion.suggested_lat,
+                    lng=suggestion.suggested_lng,
+                )
+                location_repo.create(location)
+
+            suggestion.created_organization_id = created_org.id
+            logger.info(
+                f"Created organization '{suggestion.organization_name}' "
+                f"from suggestion {suggestion.ticket_id}"
+            )
+
+        # Update the suggestion status
+        new_status = (
+            SuggestionStatus.APPROVED
+            if action == "approve"
+            else SuggestionStatus.REJECTED
+        )
+        suggestion.status = new_status
+        suggestion.reviewed_at = datetime.now(timezone.utc)
+        suggestion.reviewed_by = reviewer_sub
+        suggestion.admin_notes = admin_notes
+
+        repo.update(suggestion)
+        session.commit()
+        session.refresh(suggestion)
+
+        if created_org:
+            session.refresh(created_org)
+
+        logger.info(f"Suggestion {suggestion_id} {action}d by {reviewer_sub}")
+
+        # Send notification email to the suggester
+        _send_suggestion_decision_email(suggestion, action, admin_notes)
+
+        response_data: dict[str, Any] = {
+            "message": f"Suggestion has been {action}d",
+            "suggestion": _serialize_suggestion(suggestion),
+        }
+
+        if created_org:
+            response_data["organization"] = _serialize_organization(created_org)
+
+        return json_response(200, response_data, event=event)
+
+
+def _send_suggestion_decision_email(
+    suggestion: OrganizationSuggestion,
+    action: str,
+    admin_notes: str,
+) -> None:
+    """Send email notification to suggester about their suggestion decision."""
+    sender_email = os.getenv("SES_SENDER_EMAIL")
+
+    if not sender_email:
+        logger.warning("Email notification skipped: SES_SENDER_EMAIL not configured")
+        return
+
+    if not suggestion.suggester_email or suggestion.suggester_email == "unknown":
+        logger.warning(
+            f"Email notification skipped: No valid email for suggestion "
+            f"{suggestion.ticket_id}"
+        )
+        return
+
+    try:
+        ses_client = boto3.client("ses")
+
+        if action == "approve":
+            subject = f"Your place suggestion {suggestion.ticket_id} has been approved!"
+            body_text = (
+                f"Great news! Your suggestion for '{suggestion.organization_name}' "
+                f"has been approved and added to our platform.\n\n"
+                f"Thank you for helping us grow our community!\n\n"
+            )
+            if admin_notes:
+                body_text += f"Note from admin: {admin_notes}\n"
+        else:
+            subject = f"Update on your place suggestion {suggestion.ticket_id}"
+            body_text = (
+                f"Thank you for suggesting '{suggestion.organization_name}'.\n\n"
+                f"Unfortunately, we were unable to add this place to our platform "
+                f"at this time.\n\n"
+            )
+            if admin_notes:
+                body_text += f"Reason: {admin_notes}\n"
+            body_text += (
+                "\nWe appreciate your contribution and encourage you to "
+                "submit other suggestions in the future!"
+            )
+
+        ses_client.send_email(
+            Source=sender_email,
+            Destination={"ToAddresses": [suggestion.suggester_email]},
+            Message={
+                "Subject": {"Data": subject, "Charset": "UTF-8"},
+                "Body": {"Text": {"Data": body_text, "Charset": "UTF-8"}},
+            },
+        )
+        logger.info(
+            f"Suggestion decision email sent to {suggestion.suggester_email} "
+            f"for {suggestion.ticket_id}"
+        )
+    except Exception as exc:
+        # Don't fail the request if email fails
+        logger.error(f"Failed to send suggestion decision email: {exc}")
+
+
+# --- Audit log management ---
+
+
+# Fields to redact from audit log old_values/new_values for security
+AUDIT_REDACTED_FIELDS: frozenset[str] = frozenset(
+    [
+        "password",
+        "secret",
+        "token",
+        "api_key",
+    ]
+)
+
+# Valid table names that can be queried via the audit logs endpoint
+AUDITABLE_TABLES: frozenset[str] = frozenset(
+    [
+        "organizations",
+        "locations",
+        "activities",
+        "activity_locations",
+        "activity_pricing",
+        "activity_schedule",
+        "organization_access_requests",
+        "organization_suggestions",
+    ]
+)
+
+
+def _handle_audit_logs(
+    event: Mapping[str, Any],
+    audit_id: Optional[str],
+) -> dict[str, Any]:
+    """Handle audit log queries.
+
+    Query parameters:
+        - table: Filter by table name (required if record_id is provided)
+        - record_id: Filter by specific record ID
+        - user_id: Filter by user who made the change
+        - action: Filter by action type (INSERT, UPDATE, DELETE)
+        - since: Filter by timestamp (ISO 8601 format)
+        - limit: Maximum entries to return (default 50, max 200)
+        - cursor: Pagination cursor
+
+    If audit_id is provided, returns a single audit log entry.
+    """
+    # Single audit log entry by ID
+    if audit_id:
+        return _get_audit_log_by_id(event, audit_id)
+
+    # List/filter audit logs
+    return _list_audit_logs(event)
+
+
+def _get_audit_log_by_id(
+    event: Mapping[str, Any],
+    audit_id: str,
+) -> dict[str, Any]:
+    """Get a single audit log entry by ID."""
+    with Session(get_engine()) as session:
+        _set_session_audit_context(session, event)
+        repo = AuditLogRepository(session)
+
+        try:
+            entry = repo.get_by_id(_parse_uuid(audit_id))
+        except ValidationError:
+            raise NotFoundError("audit_log", audit_id)
+
+        if entry is None:
+            raise NotFoundError("audit_log", audit_id)
+
+        return json_response(200, _serialize_audit_log(entry), event=event)
+
+
+def _list_audit_logs(event: Mapping[str, Any]) -> dict[str, Any]:
+    """List audit logs with optional filtering."""
+    # Parse and validate query parameters
+    limit = parse_int(_query_param(event, "limit")) or 50
+    if limit < 1 or limit > 200:
+        raise ValidationError("limit must be between 1 and 200", field="limit")
+
+    table_name = _query_param(event, "table")
+    record_id = _query_param(event, "record_id")
+    user_id = _query_param(event, "user_id")
+    action = _query_param(event, "action")
+    since_str = _query_param(event, "since")
+
+    # Validate table name if provided
+    if table_name and table_name not in AUDITABLE_TABLES:
+        raise ValidationError(
+            f"Invalid table: {table_name}. Must be one of: {', '.join(sorted(AUDITABLE_TABLES))}",
+            field="table",
+        )
+
+    # record_id requires table
+    if record_id and not table_name:
+        raise ValidationError(
+            "table parameter is required when filtering by record_id",
+            field="table",
+        )
+
+    # Validate action if provided
+    valid_actions = {"INSERT", "UPDATE", "DELETE"}
+    if action and action.upper() not in valid_actions:
+        raise ValidationError(
+            f"Invalid action: {action}. Must be one of: INSERT, UPDATE, DELETE",
+            field="action",
+        )
+
+    # Parse since timestamp
+    since = None
+    if since_str:
+        since = parse_datetime(since_str)
+        if since is None:
+            raise ValidationError(
+                "Invalid since format. Use ISO 8601 format (e.g., 2024-01-01T00:00:00Z)",
+                field="since",
+            )
+
+    with Session(get_engine()) as session:
+        _set_session_audit_context(session, event)
+        repo = AuditLogRepository(session)
+        cursor = _parse_cursor(_query_param(event, "cursor"))
+
+        # Choose the appropriate query method based on filters
+        if record_id and table_name:
+            # Get history for a specific record
+            rows = repo.get_record_history(
+                table_name=table_name,
+                record_id=record_id,
+                limit=limit + 1,
+            )
+        elif user_id:
+            # Get activity for a specific user
+            rows = repo.get_user_activity(
+                user_id=user_id,
+                limit=limit + 1,
+                since=since,
+            )
+        elif table_name:
+            # Get activity for a specific table
+            rows = repo.get_table_activity(
+                table_name=table_name,
+                limit=limit + 1,
+                since=since,
+                action=action.upper() if action else None,
+            )
+        else:
+            # Get recent activity across all tables
+            rows = repo.get_recent_activity(
+                limit=limit + 1,
+                since=since,
+                cursor=cursor,
+            )
+
+        has_more = len(rows) > limit
+        trimmed = list(rows)[:limit]
+        next_cursor = _encode_cursor(trimmed[-1].id) if has_more and trimmed else None
+
+        return json_response(
+            200,
+            {
+                "items": [_serialize_audit_log(row) for row in trimmed],
+                "next_cursor": next_cursor,
+            },
+            event=event,
+        )
+
+
+def _serialize_audit_log(
+    entry: AuditLog,
+    redact_sensitive: bool = True,
+) -> dict[str, Any]:
+    """Serialize an audit log entry for the API response.
+
+    Args:
+        entry: The AuditLog model instance.
+        redact_sensitive: Whether to redact sensitive fields from values.
+
+    Returns:
+        Serialized audit log entry.
+    """
+    result: dict[str, Any] = {
+        "id": str(entry.id),
+        "timestamp": entry.timestamp.isoformat() if entry.timestamp else None,
+        "table_name": entry.table_name,
+        "record_id": entry.record_id,
+        "action": entry.action,
+        "user_id": entry.user_id,
+        "request_id": entry.request_id,
+        "changed_fields": entry.changed_fields,
+        "source": entry.source,
+    }
+
+    # Include old/new values with optional redaction
+    if entry.old_values:
+        result["old_values"] = (
+            _redact_sensitive_fields(entry.old_values)
+            if redact_sensitive
+            else entry.old_values
+        )
+    else:
+        result["old_values"] = None
+
+    if entry.new_values:
+        result["new_values"] = (
+            _redact_sensitive_fields(entry.new_values)
+            if redact_sensitive
+            else entry.new_values
+        )
+    else:
+        result["new_values"] = None
+
+    return result
+
+
+def _redact_sensitive_fields(values: dict[str, Any]) -> dict[str, Any]:
+    """Redact sensitive fields from a dictionary.
+
+    Args:
+        values: Dictionary of field values.
+
+    Returns:
+        Dictionary with sensitive fields redacted.
+    """
+    result: dict[str, Any] = {}
+    for key, value in values.items():
+        key_lower = key.lower()
+        # Check if any sensitive term is in the field name
+        if any(term in key_lower for term in AUDIT_REDACTED_FIELDS):
+            result[key] = "[REDACTED]"
+        else:
+            result[key] = value
+    return result
 
 
 # --- User group management ---
@@ -1542,6 +2349,7 @@ def _handle_delete_cognito_user(
         # Transfer organizations to the fallback manager
         transferred_count = 0
         with Session(get_engine()) as session:
+            _set_session_audit_context(session, event)
             org_repo = OrganizationRepository(session)
             orgs = org_repo.find_by_manager(user_sub, limit=1000)
 
@@ -1702,7 +2510,7 @@ def _build_media_key(organization_id: str, file_name: str) -> str:
     trimmed_base = base[:40].strip("_") or "image"
     suffix = extension.lower() if extension else ""
     unique = uuid4().hex
-    return f"organizations/{organization_id}/{unique}-" f"{trimmed_base}{suffix}"
+    return f"organizations/{organization_id}/{unique}-{trimmed_base}{suffix}"
 
 
 def _sanitize_media_filename(file_name: str) -> str:
