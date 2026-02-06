@@ -2206,10 +2206,17 @@ def _handle_list_cognito_users(event: Mapping[str, Any]) -> dict[str, Any]:
 
     try:
         response = client.list_users(**list_params)
-    except client.exceptions.InvalidParameterException as e:
-        raise ValidationError(
-            "Invalid pagination token", field="pagination_token"
-        ) from e
+    except client.exceptions.InvalidParameterException as exc:
+        detail = str(exc)
+        logger.warning(f"Cognito list_users InvalidParameterException: {detail}")
+        if pagination_token:
+            raise ValidationError(
+                "Invalid pagination token", field="pagination_token"
+            ) from exc
+        raise ValidationError(f"Cognito error: {detail}") from exc
+    except Exception as exc:
+        logger.error(f"Cognito list_users failed: {type(exc).__name__}: {exc}")
+        raise
 
     # Extract user data and fetch groups for each user
     users = []
