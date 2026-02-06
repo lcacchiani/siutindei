@@ -44,7 +44,7 @@ class ScheduleType(str, enum.Enum):
 
 
 class AccessRequestStatus(str, enum.Enum):
-    """Status for organization access requests."""
+    """Status for organization access requests (legacy)."""
 
     PENDING = "pending"
     APPROVED = "approved"
@@ -52,7 +52,22 @@ class AccessRequestStatus(str, enum.Enum):
 
 
 class SuggestionStatus(str, enum.Enum):
-    """Status for organization suggestions from public users."""
+    """Status for organization suggestions (legacy)."""
+
+    PENDING = "pending"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+
+
+class TicketType(str, enum.Enum):
+    """Type of ticket in the unified tickets table."""
+
+    ACCESS_REQUEST = "access_request"
+    ORGANIZATION_SUGGESTION = "organization_suggestion"
+
+
+class TicketStatus(str, enum.Enum):
+    """Status for unified tickets."""
 
     PENDING = "pending"
     APPROVED = "approved"
@@ -620,3 +635,140 @@ class OrganizationSuggestion(Base):
 
     # Relationship to the created organization (if approved)
     created_organization: Mapped[Optional["Organization"]] = relationship()
+
+
+class Ticket(Base):
+    """Unified ticket for access requests and organization suggestions.
+
+    This table replaces both organization_access_requests and
+    organization_suggestions. Common fields are shared; type-specific
+    fields are nullable columns.
+
+    ticket_type discriminates between:
+    - access_request: user wants to manage an existing/new org (prefix R)
+    - organization_suggestion: user informs about a new place (prefix S)
+    """
+
+    __tablename__ = "tickets"
+
+    # --- Common fields ---
+    id: Mapped[str] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        server_default=text("gen_random_uuid()"),
+    )
+    ticket_id: Mapped[str] = mapped_column(
+        Text(),
+        nullable=False,
+        unique=True,
+        comment="Unique progressive ticket ID (R00001 or S00001)",
+    )
+    ticket_type: Mapped[TicketType] = mapped_column(
+        sa.Enum(
+            TicketType,
+            name="ticket_type",
+            values_callable=lambda x: [e.value for e in x],
+            create_type=False,
+        ),
+        nullable=False,
+        comment="Type of ticket: access_request or organization_suggestion",
+    )
+    submitter_id: Mapped[str] = mapped_column(
+        Text(),
+        nullable=False,
+        comment="Cognito user sub of the person who submitted",
+    )
+    submitter_email: Mapped[str] = mapped_column(
+        Text(),
+        nullable=False,
+        comment="Email of the submitter for notifications",
+    )
+    organization_name: Mapped[str] = mapped_column(
+        Text(),
+        nullable=False,
+        comment="Organization name (requested or suggested)",
+    )
+    message: Mapped[Optional[str]] = mapped_column(
+        Text(),
+        nullable=True,
+        comment="Free-text from submitter (request_message or additional_notes)",
+    )
+    status: Mapped[TicketStatus] = mapped_column(
+        sa.Enum(
+            TicketStatus,
+            name="ticket_status",
+            values_callable=lambda x: [e.value for e in x],
+            create_type=False,
+        ),
+        nullable=False,
+        server_default=text("'pending'"),
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True),
+        nullable=False,
+        server_default=text("now()"),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True),
+        nullable=False,
+        server_default=text("now()"),
+    )
+    reviewed_at: Mapped[Optional[datetime]] = mapped_column(
+        TIMESTAMP(timezone=True),
+        nullable=True,
+        comment="When the ticket was reviewed",
+    )
+    reviewed_by: Mapped[Optional[str]] = mapped_column(
+        Text(),
+        nullable=True,
+        comment="Cognito user sub of the admin who reviewed",
+    )
+    admin_notes: Mapped[Optional[str]] = mapped_column(
+        Text(),
+        nullable=True,
+        comment="Notes from the reviewing admin",
+    )
+
+    # --- Suggestion-specific fields (nullable for access_request) ---
+    description: Mapped[Optional[str]] = mapped_column(
+        Text(),
+        nullable=True,
+        comment="Description of the suggested place",
+    )
+    suggested_district: Mapped[Optional[str]] = mapped_column(
+        Text(),
+        nullable=True,
+        comment="District where the suggested place is located",
+    )
+    suggested_address: Mapped[Optional[str]] = mapped_column(
+        Text(),
+        nullable=True,
+        comment="Full address of the suggested place",
+    )
+    suggested_lat: Mapped[Optional[Decimal]] = mapped_column(
+        Numeric(9, 6),
+        nullable=True,
+        comment="Latitude coordinate",
+    )
+    suggested_lng: Mapped[Optional[Decimal]] = mapped_column(
+        Numeric(9, 6),
+        nullable=True,
+        comment="Longitude coordinate",
+    )
+    media_urls: Mapped[List[str]] = mapped_column(
+        ARRAY(Text()),
+        nullable=False,
+        server_default=text("'{}'::text[]"),
+        comment="URLs of uploaded media files",
+    )
+    created_organization_id: Mapped[Optional[str]] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("organizations.id", ondelete="SET NULL"),
+        nullable=True,
+        comment="ID of organization created/assigned on approval",
+    )
+
+    # Relationship to the created organization
+    created_organization: Mapped[Optional["Organization"]] = relationship(
+        foreign_keys=[created_organization_id],
+    )

@@ -12,6 +12,7 @@ from app.db.repositories.pricing import ActivityPricingRepository
 from app.db.repositories.schedule import ActivityScheduleRepository
 from app.db.repositories.access_request import OrganizationAccessRequestRepository
 from app.db.repositories.suggestion import OrganizationSuggestionRepository
+from app.db.repositories.ticket import TicketRepository
 
 __all__ = [
     "BaseRepository",
@@ -22,4 +23,5 @@ __all__ = [
     "ActivityScheduleRepository",
     "OrganizationAccessRequestRepository",
     "OrganizationSuggestionRepository",
+    "TicketRepository",
 ]
