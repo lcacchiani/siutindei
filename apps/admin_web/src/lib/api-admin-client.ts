@@ -14,9 +14,6 @@
  *   const { data, error } = await api.GET('/v1/admin/organizations', {
  *     params: { query: { limit: 20 } },
  *   });
- *
- *   // Access schema types directly:
- *   type Org = AdminSchemas['Organization'];
  */
 
 import createClient, { type Middleware } from 'openapi-fetch';
@@ -26,19 +23,11 @@ import { getApiBaseUrl } from './config';
 
 // ---- Re-export generated type helpers ----
 
-/** All paths defined in the admin OpenAPI spec. */
 export type { paths };
-
-/** All component schemas from admin.yaml. */
 export type AdminSchemas = components['schemas'];
 
 // ---- Auth middleware ----
 
-/**
- * Middleware that attaches the current Cognito Bearer token to every
- * outgoing request.  If no tokens are available the request is still
- * sent (the server will return 401).
- */
 const authMiddleware: Middleware = {
   async onRequest({ request }) {
     const tokens = await ensureFreshTokens();
@@ -61,25 +50,8 @@ function createAdminApi() {
   return client;
 }
 
-/** Lazily-initialised singleton so the base URL is read at first use. */
 let _client: ReturnType<typeof createAdminApi> | null = null;
 
-/**
- * Get (or create) the typed admin API client.
- *
- * Every call on this client is fully type-checked against the OpenAPI spec:
- * - Path must exist in the spec
- * - HTTP method must be defined for that path
- * - Query params, path params, and request body are validated
- * - Response type is inferred from the spec
- *
- * Example:
- * ```ts
- * const api = getAdminApi();
- * const { data } = await api.GET('/v1/admin/organizations');
- * //    ^? { items?: Organization[]; next_cursor?: string | null }
- * ```
- */
 export function getAdminApi() {
   if (!_client) {
     _client = createAdminApi();
@@ -87,7 +59,6 @@ export function getAdminApi() {
   return _client;
 }
 
-/** Reset the cached client (useful in tests or when config changes). */
 export function resetAdminApi() {
   _client = null;
 }

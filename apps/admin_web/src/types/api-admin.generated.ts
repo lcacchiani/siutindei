@@ -2760,7 +2760,7 @@ export interface components {
     schemas: {
         ValidationError: {
             /** @description Error message */
-            error?: string;
+            error: string;
             /** @description Additional details (e.g., field name) */
             detail?: string;
         };
@@ -2788,19 +2788,19 @@ export interface components {
         };
         Organization: {
             /** Format: uuid */
-            id?: string;
-            name?: string;
+            id: string;
+            name: string;
             description?: string | null;
             /** @description Cognito user sub of the organization manager */
-            manager_id?: string;
-            media_urls?: string[];
+            manager_id: string;
+            media_urls: string[];
             /** Format: date-time */
-            created_at?: string;
+            created_at: string;
             /** Format: date-time */
-            updated_at?: string;
+            updated_at: string;
         };
         OrganizationListResponse: {
-            items?: components["schemas"]["Organization"][];
+            items: components["schemas"]["Organization"][];
             next_cursor?: string | null;
         };
         LocationCreate: {
@@ -2830,20 +2830,20 @@ export interface components {
         };
         Location: {
             /** Format: uuid */
-            id?: string;
+            id: string;
             /** Format: uuid */
-            org_id?: string;
-            district?: string;
+            org_id: string;
+            district: string;
             address?: string | null;
             lat?: number | null;
             lng?: number | null;
             /** Format: date-time */
-            created_at?: string;
+            created_at: string;
             /** Format: date-time */
-            updated_at?: string;
+            updated_at: string;
         };
         LocationListResponse: {
-            items?: components["schemas"]["Location"][];
+            items: components["schemas"]["Location"][];
             next_cursor?: string | null;
         };
         ActivityCreate: {
@@ -2873,20 +2873,20 @@ export interface components {
         };
         Activity: {
             /** Format: uuid */
-            id?: string;
+            id: string;
             /** Format: uuid */
-            org_id?: string;
-            name?: string;
+            org_id: string;
+            name: string;
             description?: string | null;
-            age_min?: number;
-            age_max?: number;
+            age_min: number;
+            age_max: number;
             /** Format: date-time */
-            created_at?: string;
+            created_at: string;
             /** Format: date-time */
-            updated_at?: string;
+            updated_at: string;
         };
         ActivityListResponse: {
-            items?: components["schemas"]["Activity"][];
+            items: components["schemas"]["Activity"][];
             next_cursor?: string | null;
         };
         PricingCreate: {
@@ -2931,18 +2931,18 @@ export interface components {
         };
         Pricing: {
             /** Format: uuid */
-            id?: string;
+            id: string;
             /** Format: uuid */
-            activity_id?: string;
+            activity_id: string;
             /** Format: uuid */
-            location_id?: string;
-            pricing_type?: string;
-            amount?: number;
-            currency?: string;
+            location_id: string;
+            pricing_type: string;
+            amount: number;
+            currency: string;
             sessions_count?: number | null;
         };
         PricingListResponse: {
-            items?: components["schemas"]["Pricing"][];
+            items: components["schemas"]["Pricing"][];
             next_cursor?: string | null;
         };
         ScheduleCreate: {
@@ -3018,12 +3018,12 @@ export interface components {
         };
         Schedule: {
             /** Format: uuid */
-            id?: string;
+            id: string;
             /** Format: uuid */
-            activity_id?: string;
+            activity_id: string;
             /** Format: uuid */
-            location_id?: string;
-            schedule_type?: string;
+            location_id: string;
+            schedule_type: string;
             day_of_week_utc?: number | null;
             day_of_month?: number | null;
             start_minutes_utc?: number | null;
@@ -3032,10 +3032,10 @@ export interface components {
             start_at_utc?: string | null;
             /** Format: date-time */
             end_at_utc?: string | null;
-            languages?: string[];
+            languages: string[];
         };
         ScheduleListResponse: {
-            items?: components["schemas"]["Schedule"][];
+            items: components["schemas"]["Schedule"][];
             next_cursor?: string | null;
         };
         MediaUploadRequest: {
@@ -3046,13 +3046,13 @@ export interface components {
         };
         MediaUploadResponse: {
             /** @description Presigned S3 upload URL (expires in 15 minutes) */
-            upload_url?: string;
+            upload_url: string;
             /** @description Final public URL of the media file */
-            media_url?: string;
+            media_url: string;
             /** @description S3 object key */
-            object_key?: string;
+            object_key: string;
             /** @description URL expiration time in seconds */
-            expires_in?: number;
+            expires_in: number;
         };
         MediaDeleteRequest: {
             /** @description S3 object key to delete */
@@ -3062,43 +3062,43 @@ export interface components {
         };
         CognitoUser: {
             /** @description Cognito user sub (UUID) */
-            sub?: string;
-            email?: string;
-            email_verified?: boolean;
+            sub: string;
+            email: string;
+            email_verified: boolean;
             name?: string | null;
             given_name?: string | null;
             family_name?: string | null;
-            username?: string;
+            username: string;
             /** @description Cognito user status (e.g., CONFIRMED, FORCE_CHANGE_PASSWORD) */
-            status?: string;
-            enabled?: boolean;
+            status: string;
+            enabled: boolean;
             /** @description Cognito group memberships */
-            groups?: string[];
+            groups: string[];
             /** Format: date-time */
-            created_at?: string;
+            created_at: string;
             /** Format: date-time */
-            updated_at?: string;
+            updated_at: string;
             /** Format: date-time */
             last_auth_time?: string | null;
         };
         CognitoUserListResponse: {
-            items?: components["schemas"]["CognitoUser"][];
+            items: components["schemas"]["CognitoUser"][];
             /** @description Token for fetching the next page */
             pagination_token?: string | null;
         };
         AccessRequest: {
             /** Format: uuid */
-            id?: string;
+            id: string;
             /** @description Unique ticket ID (e.g., R00001) */
-            ticket_id?: string;
-            organization_name?: string;
+            ticket_id: string;
+            organization_name: string;
             request_message?: string | null;
             /** @enum {string} */
-            status?: "pending" | "approved" | "rejected";
-            requester_email?: string;
-            requester_id?: string;
+            status: "pending" | "approved" | "rejected";
+            requester_email: string;
+            requester_id: string;
             /** Format: date-time */
-            created_at?: string;
+            created_at: string;
             /** Format: date-time */
             reviewed_at?: string | null;
             reviewed_by?: string | null;
@@ -3127,60 +3127,65 @@ export interface components {
         };
         AccessRequestReviewResponse: {
             /** @description Human-readable result message */
-            message?: string;
-            request?: components["schemas"]["AccessRequest"];
+            message: string;
+            request: components["schemas"]["AccessRequest"];
             /** @description The organization assigned or created (only for approval) */
             organization?: components["schemas"]["Organization"];
         };
         AccessRequestListResponse: {
-            items?: components["schemas"]["AccessRequest"][];
+            items: components["schemas"]["AccessRequest"][];
             next_cursor?: string | null;
         };
         AuditLogEntry: {
             /** Format: uuid */
-            id?: string;
+            id: string;
             /** Format: date-time */
-            timestamp?: string;
-            table_name?: string;
-            record_id?: string;
+            timestamp: string;
+            table_name: string;
+            record_id: string;
             /** @enum {string} */
-            action?: "INSERT" | "UPDATE" | "DELETE";
+            action: "INSERT" | "UPDATE" | "DELETE";
             user_id?: string | null;
             request_id?: string | null;
             changed_fields?: string[] | null;
             /** @description Previous field values (sensitive fields redacted) */
-            old_values?: Record<string, never> | null;
+            old_values?: {
+                [key: string]: unknown;
+            } | null;
             /** @description New field values (sensitive fields redacted) */
-            new_values?: Record<string, never> | null;
-            source?: string | null;
+            new_values?: {
+                [key: string]: unknown;
+            } | null;
+            /** @description Source of the audit entry (trigger or application) */
+            source: string;
             /** @description Client IP address if available */
             ip_address?: string | null;
             /** @description Client user agent if available */
             user_agent?: string | null;
         };
         AuditLogListResponse: {
-            items?: components["schemas"]["AuditLogEntry"][];
+            items: components["schemas"]["AuditLogEntry"][];
             next_cursor?: string | null;
         };
         OrganizationSuggestion: {
             /** Format: uuid */
-            id?: string;
+            id: string;
             /** @description Unique ticket ID (e.g., S00001) */
-            ticket_id?: string;
-            organization_name?: string;
+            ticket_id: string;
+            organization_name: string;
             description?: string | null;
             suggested_district?: string | null;
             suggested_address?: string | null;
             suggested_lat?: number | null;
             suggested_lng?: number | null;
-            media_urls?: string[];
+            media_urls: string[];
             additional_notes?: string | null;
             /** @enum {string} */
-            status?: "pending" | "approved" | "rejected";
-            suggester_id?: string;
-            suggester_email?: string;
+            status: "pending" | "approved" | "rejected";
+            suggester_id: string;
+            suggester_email: string;
             /** Format: date-time */
-            created_at?: string;
+            created_at: string;
             /** Format: date-time */
             reviewed_at?: string | null;
             reviewed_by?: string | null;
@@ -3220,26 +3225,26 @@ export interface components {
         };
         OrganizationSuggestionReviewResponse: {
             /** @description Human-readable result message */
-            message?: string;
-            suggestion?: components["schemas"]["OrganizationSuggestion"];
+            message: string;
+            suggestion: components["schemas"]["OrganizationSuggestion"];
             /** @description The organization created from suggestion (only for approval with create_organization=true) */
             organization?: components["schemas"]["Organization"];
         };
         OrganizationSuggestionListResponse: {
-            items?: components["schemas"]["OrganizationSuggestion"][];
+            items: components["schemas"]["OrganizationSuggestion"][];
             next_cursor?: string | null;
             /** @description Count of pending suggestions */
-            pending_count?: number;
+            pending_count: number;
         };
         HealthStatus: {
-            healthy?: boolean;
+            healthy: boolean;
             version?: string;
             environment?: string;
             checks?: components["schemas"]["HealthCheckResult"][];
         };
         HealthCheckResult: {
-            name?: string;
-            healthy?: boolean;
+            name: string;
+            healthy: boolean;
             latency_ms?: number | null;
             error?: string | null;
             details?: Record<string, never> | null;

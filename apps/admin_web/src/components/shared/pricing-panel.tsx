@@ -83,7 +83,7 @@ function itemToForm(item: ActivityPricing): PricingFormState {
     activity_id: item.activity_id ?? '',
     location_id: item.location_id ?? '',
     pricing_type: item.pricing_type,
-    amount: item.amount ?? '',
+    amount: item.amount != null ? String(item.amount) : '',
     currency: item.currency ?? 'HKD',
     sessions_count: item.sessions_count ? `${item.sessions_count}` : '',
   };
@@ -187,7 +187,7 @@ export function PricingPanel({ mode }: PricingPanelProps) {
       activityName.includes(query) ||
       locationName.includes(query) ||
       item.pricing_type?.toLowerCase().includes(query) ||
-      item.amount?.toLowerCase().includes(query) ||
+      String(item.amount).toLowerCase().includes(query) ||
       item.currency?.toLowerCase().includes(query)
     );
   });

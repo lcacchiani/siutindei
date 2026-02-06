@@ -1427,6 +1427,7 @@ components:
   schemas:
     ValidationError:
       type: object
+      required: [error]
       properties:
         error:
           type: string
@@ -1488,6 +1489,7 @@ components:
 
     Organization:
       type: object
+      required: [id, name, manager_id, media_urls, created_at, updated_at]
       properties:
         id:
           type: string
@@ -1513,6 +1515,7 @@ components:
 
     OrganizationListResponse:
       type: object
+      required: [items]
       properties:
         items:
           type: array
@@ -1576,6 +1579,7 @@ components:
 
     Location:
       type: object
+      required: [id, org_id, district, created_at, updated_at]
       properties:
         id:
           type: string
@@ -1603,6 +1607,7 @@ components:
 
     LocationListResponse:
       type: object
+      required: [items]
       properties:
         items:
           type: array
@@ -1668,6 +1673,7 @@ components:
 
     Activity:
       type: object
+      required: [id, org_id, name, age_min, age_max, created_at, updated_at]
       properties:
         id:
           type: string
@@ -1693,6 +1699,7 @@ components:
 
     ActivityListResponse:
       type: object
+      required: [items]
       properties:
         items:
           type: array
@@ -1761,6 +1768,7 @@ components:
 
     Pricing:
       type: object
+      required: [id, activity_id, location_id, pricing_type, amount, currency]
       properties:
         id:
           type: string
@@ -1783,6 +1791,7 @@ components:
 
     PricingListResponse:
       type: object
+      required: [items]
       properties:
         items:
           type: array
@@ -1903,6 +1912,7 @@ components:
 
     Schedule:
       type: object
+      required: [id, activity_id, location_id, schedule_type, languages]
       properties:
         id:
           type: string
@@ -1942,6 +1952,7 @@ components:
 
     ScheduleListResponse:
       type: object
+      required: [items]
       properties:
         items:
           type: array
@@ -1968,6 +1979,7 @@ components:
 
     MediaUploadResponse:
       type: object
+      required: [upload_url, media_url, object_key, expires_in]
       properties:
         upload_url:
           type: string
@@ -1995,6 +2007,7 @@ components:
     # Cognito User schemas
     CognitoUser:
       type: object
+      required: [sub, email, email_verified, username, status, enabled, groups, created_at, updated_at]
       properties:
         sub:
           type: string
@@ -2037,6 +2050,7 @@ components:
 
     CognitoUserListResponse:
       type: object
+      required: [items]
       properties:
         items:
           type: array
@@ -2050,6 +2064,7 @@ components:
     # Access Request schemas
     AccessRequest:
       type: object
+      required: [id, ticket_id, organization_name, status, requester_email, requester_id, created_at]
       properties:
         id:
           type: string
@@ -2116,6 +2131,7 @@ components:
 
     AccessRequestReviewResponse:
       type: object
+      required: [message, request]
       properties:
         message:
           type: string
@@ -2129,6 +2145,7 @@ components:
 
     AccessRequestListResponse:
       type: object
+      required: [items]
       properties:
         items:
           type: array
@@ -2141,6 +2158,7 @@ components:
     # Audit Log schemas
     AuditLogEntry:
       type: object
+      required: [id, timestamp, table_name, record_id, action, source]
       properties:
         id:
           type: string
@@ -2168,15 +2186,17 @@ components:
           nullable: true
         old_values:
           type: object
+          additionalProperties: true
           nullable: true
           description: Previous field values (sensitive fields redacted)
         new_values:
           type: object
+          additionalProperties: true
           nullable: true
           description: New field values (sensitive fields redacted)
         source:
           type: string
-          nullable: true
+          description: Source of the audit entry (trigger or application)
         ip_address:
           type: string
           nullable: true
@@ -2188,6 +2208,7 @@ components:
 
     AuditLogListResponse:
       type: object
+      required: [items]
       properties:
         items:
           type: array
@@ -2200,6 +2221,7 @@ components:
     # Organization Suggestion schemas
     OrganizationSuggestion:
       type: object
+      required: [id, ticket_id, organization_name, media_urls, status, suggester_id, suggester_email, created_at]
       properties:
         id:
           type: string
@@ -2319,6 +2341,7 @@ components:
 
     OrganizationSuggestionReviewResponse:
       type: object
+      required: [message, suggestion]
       properties:
         message:
           type: string
@@ -2332,6 +2355,7 @@ components:
 
     OrganizationSuggestionListResponse:
       type: object
+      required: [items, pending_count]
       properties:
         items:
           type: array
@@ -2347,6 +2371,7 @@ components:
     # Health Check schemas
     HealthStatus:
       type: object
+      required: [healthy]
       properties:
         healthy:
           type: boolean
@@ -2361,6 +2386,7 @@ components:
 
     HealthCheckResult:
       type: object
+      required: [name, healthy]
       properties:
         name:
           type: string
