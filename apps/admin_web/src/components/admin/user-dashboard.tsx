@@ -5,43 +5,66 @@ import { useEffect, useState } from 'react';
 import {
   ApiError,
   getUserAccessStatus,
+  getUserSuggestions,
   type AccessRequest,
   type ManagerStatusResponse,
 } from '../../lib/api-client';
+import type { OrganizationSuggestion } from '../../types/admin';
 import { useAuth } from '../auth-provider';
 import { AppShell } from '../app-shell';
 import { StatusBanner } from '../status-banner';
 import { AccessRequestForm } from './access-request-form';
 import { PendingRequestNotice } from './pending-request-notice';
+import { SuggestionForm } from './suggestion-form';
+import { PendingSuggestionNotice } from './pending-suggestion-notice';
 
-type UserView = 'loading' | 'request-form' | 'pending';
+const sectionLabels = [
+  { key: 'become-manager', label: 'Become a Manager' },
+  { key: 'suggest-place', label: 'Suggest a Place' },
+];
 
 /**
  * Dashboard for regular logged-in users who are not yet managers or admins.
- * Allows them to submit a request to become a manager of an organization.
+ * Allows them to:
+ * - Submit a request to become a manager of an organization
+ * - Suggest new places/organizations for the platform
  */
 export function UserDashboard() {
   const { user, logout, error: authError } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
-  const [view, setView] = useState<UserView>('loading');
-  const [pendingRequest, setPendingRequest] = useState<AccessRequest | null>(
-    null
-  );
+  const [activeSection, setActiveSection] = useState('suggest-place');
+
+  // Access request state
+  const [pendingRequest, setPendingRequest] = useState<AccessRequest | null>(null);
+
+  // Suggestion state
+  const [pendingSuggestion, setPendingSuggestion] =
+    useState<OrganizationSuggestion | null>(null);
 
   const loadUserStatus = async () => {
     setIsLoading(true);
     setError('');
     try {
-      const status: ManagerStatusResponse = await getUserAccessStatus();
+      // Load both access request status and suggestions in parallel
+      const [accessStatus, suggestionsStatus] = await Promise.all([
+        getUserAccessStatus(),
+        getUserSuggestions(),
+      ]);
 
-      if (status.has_pending_request && status.pending_request) {
-        // User has a pending request
-        setPendingRequest(status.pending_request);
-        setView('pending');
-      } else {
-        // User has no pending request, show the request form
-        setView('request-form');
+      // Check for pending access request
+      if (accessStatus.has_pending_request && accessStatus.pending_request) {
+        setPendingRequest(accessStatus.pending_request);
+      }
+
+      // Check for pending suggestion
+      if (suggestionsStatus.has_pending_suggestion) {
+        const pending = suggestionsStatus.suggestions.find(
+          (s) => s.status === 'pending'
+        );
+        if (pending) {
+          setPendingSuggestion(pending);
+        }
       }
     } catch (err) {
       const message =
@@ -49,8 +72,6 @@ export function UserDashboard() {
           ? err.message
           : 'Failed to load your account status.';
       setError(message);
-      // Show the request form even on error
-      setView('request-form');
     } finally {
       setIsLoading(false);
     }
@@ -62,11 +83,14 @@ export function UserDashboard() {
 
   const handleRequestSubmitted = (request: AccessRequest) => {
     setPendingRequest(request);
-    setView('pending');
+  };
+
+  const handleSuggestionSubmitted = (suggestion: OrganizationSuggestion) => {
+    setPendingSuggestion(suggestion);
   };
 
   // Loading state
-  if (view === 'loading' || isLoading) {
+  if (isLoading) {
     return (
       <main className='mx-auto flex min-h-screen max-w-lg items-center px-6'>
         <StatusBanner variant='info' title='Loading'>
@@ -76,33 +100,27 @@ export function UserDashboard() {
     );
   }
 
-  // Pending request view
-  if (view === 'pending' && pendingRequest) {
-    return (
-      <AppShell
-        sections={[]}
-        activeKey=''
-        onSelect={() => {}}
-        onLogout={logout}
-        userEmail={user?.email}
-        lastAuthTime={user?.lastAuthTime}
-      >
-        {authError && (
-          <StatusBanner variant='error' title='Session'>
-            {authError}
-          </StatusBanner>
-        )}
-        <PendingRequestNotice request={pendingRequest} />
-      </AppShell>
-    );
-  }
+  // Render the active section content
+  const renderContent = () => {
+    if (activeSection === 'become-manager') {
+      if (pendingRequest) {
+        return <PendingRequestNotice request={pendingRequest} />;
+      }
+      return <AccessRequestForm onRequestSubmitted={handleRequestSubmitted} />;
+    }
 
-  // Request form view (default for regular users)
+    // suggest-place section
+    if (pendingSuggestion) {
+      return <PendingSuggestionNotice suggestion={pendingSuggestion} />;
+    }
+    return <SuggestionForm onSuggestionSubmitted={handleSuggestionSubmitted} />;
+  };
+
   return (
     <AppShell
-      sections={[]}
-      activeKey=''
-      onSelect={() => {}}
+      sections={sectionLabels}
+      activeKey={activeSection}
+      onSelect={setActiveSection}
       onLogout={logout}
       userEmail={user?.email}
       lastAuthTime={user?.lastAuthTime}
@@ -117,7 +135,7 @@ export function UserDashboard() {
           {error}
         </StatusBanner>
       )}
-      <AccessRequestForm onRequestSubmitted={handleRequestSubmitted} />
+      {renderContent()}
     </AppShell>
   );
 }

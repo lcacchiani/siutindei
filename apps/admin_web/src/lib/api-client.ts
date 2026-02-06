@@ -332,6 +332,56 @@ export async function submitAccessRequest(
   });
 }
 
+// --- User Organization Suggestions ---
+
+export interface UserSuggestionsResponse {
+  has_pending_suggestion: boolean;
+  suggestions: import('../types/admin').OrganizationSuggestion[];
+}
+
+export interface SubmitSuggestionPayload {
+  organization_name: string;
+  description?: string;
+  suggested_district?: string;
+  suggested_address?: string;
+  suggested_lat?: number;
+  suggested_lng?: number;
+  media_urls?: string[];
+  additional_notes?: string;
+}
+
+export interface SubmitSuggestionResponse {
+  message: string;
+  suggestion: import('../types/admin').OrganizationSuggestion;
+}
+
+/**
+ * Get user's organization suggestion history.
+ * Available to any logged-in user.
+ */
+export async function getUserSuggestions(): Promise<UserSuggestionsResponse> {
+  return request<UserSuggestionsResponse>(buildUserUrl('organization-suggestion'));
+}
+
+/**
+ * Submit a new organization suggestion.
+ * Available to any logged-in user.
+ */
+export async function submitOrganizationSuggestion(
+  payload: SubmitSuggestionPayload
+): Promise<SubmitSuggestionResponse> {
+  return request<SubmitSuggestionResponse>(
+    buildUserUrl('organization-suggestion'),
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    }
+  );
+}
+
 /**
  * List organizations managed by the current user.
  */
