@@ -138,11 +138,13 @@ def lambda_handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
 
     # Special admin routes
     if resource == "users" and sub_resource == "groups":
-        return _handle_user_group(event, method, resource_id)
+        return _safe_handler(
+            lambda: _handle_user_group(event, method, resource_id), event
+        )
     if resource == "organizations" and sub_resource == "media":
         return _handle_organization_media(event, method, resource_id)
     if resource == "cognito-users" and method == "GET":
-        return _handle_list_cognito_users(event)
+        return _safe_handler(lambda: _handle_list_cognito_users(event), event)
     if resource == "cognito-users" and method == "DELETE" and resource_id:
         return _safe_handler(
             lambda: _handle_delete_cognito_user(event, resource_id),
