@@ -98,7 +98,7 @@ def _handle_aws(event: Mapping[str, Any]) -> dict[str, Any]:
     logger.info(f"Proxying AWS {key}")
 
     try:
-        client = boto3.client(service)
+        client = boto3.client(service)  # type: ignore[call-overload]
         method = getattr(client, action, None)
         if method is None:
             return {
@@ -166,7 +166,7 @@ def _handle_http(event: Mapping[str, Any]) -> dict[str, Any]:
         return {
             "error": {
                 "code": "URLNotAllowed",
-                "message": f"URL is not in the proxy allow-list",
+                "message": "URL is not in the proxy allow-list",
             },
         }
 

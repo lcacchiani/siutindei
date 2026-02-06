@@ -2195,9 +2195,7 @@ def _handle_list_cognito_users(event: Mapping[str, Any]) -> dict[str, Any]:
                         UserPoolId=user_pool_id,
                         Username=username,
                     )
-                    user_data["groups"] = [
-                        g["GroupName"] for g in gr.get("Groups", [])
-                    ]
+                    user_data["groups"] = [g["GroupName"] for g in gr.get("Groups", [])]
                 except Exception:
                     user_data["groups"] = []
             else:
