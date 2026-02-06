@@ -28,7 +28,7 @@ const sectionLabels = [
   { key: 'pricing', label: 'Pricing' },
   { key: 'schedules', label: 'Schedules' },
   { key: 'tickets', label: 'Tickets', dividerBefore: true },
-  { key: 'cognito-users', label: 'Cognito Users' },
+  { key: 'cognito-users', label: 'Users' },
   { key: 'audit-logs', label: 'Audit Logs' },
 ];
 

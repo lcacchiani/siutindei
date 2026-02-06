@@ -23,7 +23,7 @@ test.describe('Admin Dashboard', () => {
       'Pricing',
       'Schedules',
       'Access Requests',
-      'Cognito Users',
+      'Users',
     ];
 
     for (const section of expectedSections) {
@@ -104,14 +104,16 @@ test.describe('Admin Dashboard', () => {
     await expect(adminPage.getByText(/Access Request/i).first()).toBeVisible();
   });
 
-  test('should navigate to Cognito Users section', async ({ adminPage }) => {
+  test('should navigate to Users section', async ({ adminPage }) => {
     await adminPage.goto('/');
 
-    // Click Cognito Users
-    await adminPage.getByRole('button', { name: 'Cognito Users' }).click();
+    // Click Users
+    await adminPage.getByRole('button', { name: 'Users' }).click();
 
-    // Should show Cognito Users panel content
-    await expect(adminPage.getByText(/Cognito User/i).first()).toBeVisible();
+    // Should show Users panel content
+    await expect(
+      adminPage.getByRole('heading', { name: 'Users' })
+    ).toBeVisible();
   });
 
   test('should switch between sections correctly', async ({ adminPage }) => {

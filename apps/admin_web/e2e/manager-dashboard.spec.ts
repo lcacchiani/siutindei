@@ -30,7 +30,9 @@ test.describe('Manager Dashboard', () => {
 
     // Admin-only sections should NOT be visible
     await expect(managerPage.getByRole('button', { name: 'Access Requests' })).not.toBeVisible();
-    await expect(managerPage.getByRole('button', { name: 'Cognito Users' })).not.toBeVisible();
+    await expect(
+      managerPage.getByRole('button', { name: 'Users' })
+    ).not.toBeVisible();
   });
 
   test('should display user email in header', async ({ managerPage }) => {
@@ -244,7 +246,9 @@ test.describe('Admin with Manager Group', () => {
 
     // Should see full admin navigation (admin takes precedence)
     await expect(page.getByRole('button', { name: 'Access Requests' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Cognito Users' })).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Users' })
+    ).toBeVisible();
 
     // Should NOT see manager banner
     await expect(page.getByText('Manager View')).not.toBeVisible();

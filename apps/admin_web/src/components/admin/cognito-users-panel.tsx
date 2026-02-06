@@ -184,7 +184,7 @@ export function CognitoUsersPanel() {
       const message =
         err instanceof ApiError
           ? err.message
-          : 'Failed to load Cognito users.';
+          : 'Failed to load users.';
       setError(message);
     } finally {
       setIsLoading(false);
@@ -328,7 +328,7 @@ export function CognitoUsersPanel() {
   return (
     <div className='space-y-6'>
       <Card
-        title='Cognito Users'
+        title='Users'
         description='Manage user roles across all identity providers. Promote or demote users to Admin or Manager roles.'
       >
         {error && (
