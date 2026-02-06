@@ -1066,6 +1066,10 @@ export class ApiStack extends cdk.Stack {
       noVpc: true,
       environment: {
         ALLOWED_ACTIONS: allowedProxyActions.join(","),
+        // Comma-separated URL prefixes for outbound HTTP requests.
+        // Empty by default – add prefixes here when Lambdas inside the
+        // VPC need to call external APIs via the proxy.
+        ALLOWED_HTTP_URLS: "",
       },
     });
 

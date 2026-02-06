@@ -1,7 +1,8 @@
-"""Lambda entrypoint for the AWS API proxy.
+"""Lambda entrypoint for the AWS / HTTP proxy.
 
-Runs OUTSIDE the VPC so it can reach public AWS API endpoints that are
-not accessible via PrivateLink (e.g. Cognito with ManagedLogin).
+Runs OUTSIDE the VPC so it can reach public AWS API endpoints (e.g.
+Cognito with ManagedLogin) and external HTTP APIs that are not
+reachable from inside the VPC.
 """
 
 from __future__ import annotations
