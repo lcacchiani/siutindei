@@ -74,6 +74,26 @@ class OrganizationSuggestionRepository(BaseRepository[OrganizationSuggestion]):
         )
         return self._session.execute(query).scalar_one_or_none()
 
+    def find_by_ticket_id(
+        self,
+        ticket_id: str,
+    ) -> Optional[OrganizationSuggestion]:
+        """Find a suggestion by its ticket ID.
+
+        Used for idempotency checks in async processing to avoid
+        creating duplicate suggestions.
+
+        Args:
+            ticket_id: The unique ticket ID (e.g., S00001).
+
+        Returns:
+            The suggestion if found.
+        """
+        query = select(OrganizationSuggestion).where(
+            OrganizationSuggestion.ticket_id == ticket_id
+        )
+        return self._session.execute(query).scalar_one_or_none()
+
     def find_all(
         self,
         status: Optional[SuggestionStatus] = None,
