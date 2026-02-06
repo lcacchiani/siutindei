@@ -976,7 +976,7 @@ def _publish_manager_request_to_sns(
 def _generate_ticket_id(session: Session) -> str:
     """Generate a unique progressive ticket ID in format R + 5 digits.
 
-    Queries the unified tickets table for the highest existing R-prefix
+    Queries the tickets table for the highest existing R-prefix
     ticket number and increments it by 1.
 
     Args:
@@ -1004,7 +1004,7 @@ def _serialize_ticket(
 ) -> Optional[dict[str, Any]]:
     """Serialize a ticket for the API response.
 
-    Returns a unified shape that includes all fields. Consumers can check
+    Returns a common shape with all fields. Consumers can check
     ticket_type to know which optional fields are relevant.
     """
     if ticket is None:
@@ -1026,7 +1026,7 @@ def _serialize_ticket(
         ),
         "reviewed_by": ticket.reviewed_by,
         "admin_notes": ticket.admin_notes,
-        # Suggestion-specific fields (null for access_request type)
+        # Optional fields (depend on ticket_type)
         "description": ticket.description,
         "suggested_district": ticket.suggested_district,
         "suggested_address": ticket.suggested_address,
@@ -1046,7 +1046,7 @@ def _serialize_ticket(
 
 
 
-# --- Admin unified tickets management ---
+# --- Admin tickets management ---
 
 
 def _handle_admin_tickets(
@@ -1054,7 +1054,7 @@ def _handle_admin_tickets(
     method: str,
     ticket_id_param: Optional[str],
 ) -> dict[str, Any]:
-    """Handle admin ticket management (unified access requests + suggestions).
+    """Handle admin ticket management.
 
     GET: List all tickets (optionally filtered by type and/or status)
     PUT /{id}: Approve or reject a ticket
@@ -1142,15 +1142,10 @@ def _review_ticket(
     event: Mapping[str, Any],
     ticket_id_param: str,
 ) -> dict[str, Any]:
-    """Approve or reject a ticket (access request or suggestion).
+    """Approve or reject a ticket.
 
-    For access requests, approving can:
-    - Assign an existing organization (organization_id)
-    - Create a new organization (create_organization=True)
-    The submitter becomes manager and is added to the 'manager' group.
-
-    For suggestions, approving can optionally create an organization
-    from the suggestion data (create_organization=True).
+    Approval behaviour is determined by ticket_type. The request body
+    may include organization_id, create_organization, and admin_notes.
     """
     from datetime import datetime, timezone
 
@@ -1188,7 +1183,7 @@ def _review_ticket(
 
         organization = None
 
-        # --- Access request approval logic ---
+        # --- access_request approval logic ---
         if (
             ticket.ticket_type == TicketType.ACCESS_REQUEST
             and action == "approve"
@@ -1235,7 +1230,7 @@ def _review_ticket(
             # Add the user to the 'manager' Cognito group
             _add_user_to_manager_group(ticket.submitter_id)
 
-        # --- Suggestion approval logic ---
+        # --- organization_suggestion approval logic ---
         if (
             ticket.ticket_type == TicketType.ORGANIZATION_SUGGESTION
             and action == "approve"
@@ -1311,11 +1306,7 @@ def _send_ticket_decision_email(
     action: str,
     admin_notes: str,
 ) -> None:
-    """Send email notification to submitter about their ticket decision.
-
-    For access requests, uses the formal approve/reject template.
-    For suggestions, uses the informal suggestion outcome email.
-    """
+    """Send email notification to submitter about their ticket decision."""
     sender_email = os.getenv("SES_SENDER_EMAIL")
 
     if not sender_email:

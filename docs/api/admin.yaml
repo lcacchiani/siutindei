@@ -617,15 +617,14 @@ paths:
         "404":
           description: Cognito user not found
 
-  # --- Unified Tickets Management (Admin Only) ---
+  # --- Tickets Management (Admin Only) ---
 
   /v1/admin/tickets:
     get:
       summary: List tickets
       description: |
-        List all tickets (access requests and organization suggestions) for
-        admin review. Supports filtering by ticket_type, status, and cursor
-        pagination.
+        List all tickets for admin review. Supports filtering by
+        ticket_type, status, and cursor pagination.
       parameters:
         - name: ticket_type
           in: query
@@ -673,11 +672,9 @@ paths:
     put:
       summary: Review ticket
       description: |
-        Approve or reject a ticket. Behavior varies by ticket type:
-        - access_request: admin can assign existing org or create new one;
-          submitter becomes manager and is added to 'manager' Cognito group
-        - organization_suggestion: admin can optionally create org from
-          suggestion data
+        Approve or reject a ticket. Approval behaviour depends on the
+        ticket_type. The request body may include organization_id,
+        create_organization, and admin_notes.
       requestBody:
         required: true
         content:
@@ -2016,7 +2013,7 @@ components:
           maxLength: 5000
           description: Optional message to the admin
 
-    # Unified Ticket schemas
+    # Ticket schemas
     Ticket:
       type: object
       required: [id, ticket_id, ticket_type, organization_name, media_urls, status, submitter_id, submitter_email, created_at]
@@ -2026,7 +2023,7 @@ components:
           format: uuid
         ticket_id:
           type: string
-          description: "Unique progressive ID (R00001 for requests, S00001 for suggestions)"
+          description: Unique progressive ticket ID (prefix + 5 digits)
         ticket_type:
           type: string
           enum: [access_request, organization_suggestion]
@@ -2035,7 +2032,7 @@ components:
         message:
           type: string
           nullable: true
-          description: Free-text from submitter (request message or additional notes)
+          description: Free-text message from the submitter
         status:
           type: string
           enum: [pending, approved, rejected]
@@ -2060,7 +2057,7 @@ components:
         description:
           type: string
           nullable: true
-          description: Description of suggested place (suggestion-specific)
+          description: Extended description (optional, depends on ticket type)
         suggested_district:
           type: string
           nullable: true
@@ -2096,10 +2093,10 @@ components:
         organization_id:
           type: string
           format: uuid
-          description: For access_request approval - assign existing org
+          description: Assign an existing organization on approval
         create_organization:
           type: boolean
-          description: Create organization from ticket data (for approval)
+          description: Create a new organization on approval
 
     TicketReviewResponse:
       type: object
@@ -2112,7 +2109,7 @@ components:
         organization:
           $ref: '#/components/schemas/Organization'
           nullable: true
-          description: The organization created or assigned on approval
+          description: The organization created or assigned (only on approval)
 
     TicketListResponse:
       type: object
@@ -2127,7 +2124,7 @@ components:
           nullable: true
         pending_count:
           type: integer
-          description: Number of pending tickets matching current type filter
+          description: Number of pending tickets matching the current filters
 
     # Audit Log schemas
     AuditLogEntry:

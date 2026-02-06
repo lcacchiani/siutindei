@@ -147,18 +147,14 @@ The following columns were added/renamed after the initial schema:
 
 ## Table: tickets
 
-Purpose: Unified ticket system for access requests and organization
-suggestions. Replaces the former `organization_access_requests` and
-`organization_suggestions` tables (merged in migration 0012).
+Purpose: User-submitted tickets for admin review. The `ticket_type`
+column determines the workflow; optional columns are populated as
+needed by each type.
 
-The `ticket_type` column discriminates between:
-- `access_request` (prefix R): user wants to manage an org
-- `organization_suggestion` (prefix S): user suggests a new place
-
-Common columns:
+Columns:
 - `id` (UUID, PK, default `gen_random_uuid()`)
-- `ticket_id` (text, unique, required) — progressive ID (R00001 or S00001)
-- `ticket_type` (enum `ticket_type`, required)
+- `ticket_id` (text, unique, required) — progressive ID (prefix + 5 digits)
+- `ticket_type` (enum `ticket_type`, required) — workflow discriminator
 - `submitter_id` (text, required) — Cognito user sub
 - `submitter_email` (text, required)
 - `organization_name` (text, required)
@@ -169,8 +165,6 @@ Common columns:
 - `reviewed_at` (timestamptz, optional)
 - `reviewed_by` (text, optional) — Cognito user sub of reviewer
 - `admin_notes` (text, optional)
-
-Suggestion-specific columns (null for access_request):
 - `description` (text, optional)
 - `suggested_district` (text, optional)
 - `suggested_address` (text, optional)

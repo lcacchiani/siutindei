@@ -44,14 +44,14 @@ class ScheduleType(str, enum.Enum):
 
 
 class TicketType(str, enum.Enum):
-    """Type of ticket in the unified tickets table."""
+    """Discriminator for ticket types."""
 
     ACCESS_REQUEST = "access_request"
     ORGANIZATION_SUGGESTION = "organization_suggestion"
 
 
 class TicketStatus(str, enum.Enum):
-    """Status for unified tickets."""
+    """Lifecycle status for tickets."""
 
     PENDING = "pending"
     APPROVED = "approved"
@@ -437,20 +437,15 @@ class AuditLog(Base):
 
 
 class Ticket(Base):
-    """Unified ticket for access requests and organization suggestions.
+    """Ticket submitted by a user for admin review.
 
-    This table replaces both organization_access_requests and
-    organization_suggestions. Common fields are shared; type-specific
-    fields are nullable columns.
-
-    ticket_type discriminates between:
-    - access_request: user wants to manage an existing/new org (prefix R)
-    - organization_suggestion: user informs about a new place (prefix S)
+    The ticket_type column determines the workflow and which optional
+    fields are relevant. Common fields (submitter, status, dates) are
+    shared across all types; type-specific fields are nullable.
     """
 
     __tablename__ = "tickets"
 
-    # --- Common fields ---
     id: Mapped[str] = mapped_column(
         UUID(as_uuid=True),
         primary_key=True,
@@ -460,7 +455,7 @@ class Ticket(Base):
         Text(),
         nullable=False,
         unique=True,
-        comment="Unique progressive ticket ID (R00001 or S00001)",
+        comment="Unique progressive ticket ID (prefix + 5 digits)",
     )
     ticket_type: Mapped[TicketType] = mapped_column(
         sa.Enum(
@@ -470,7 +465,7 @@ class Ticket(Base):
             create_type=False,
         ),
         nullable=False,
-        comment="Type of ticket: access_request or organization_suggestion",
+        comment="Discriminator for ticket type and workflow",
     )
     submitter_id: Mapped[str] = mapped_column(
         Text(),
@@ -485,12 +480,12 @@ class Ticket(Base):
     organization_name: Mapped[str] = mapped_column(
         Text(),
         nullable=False,
-        comment="Organization name (requested or suggested)",
+        comment="Organization name referenced by this ticket",
     )
     message: Mapped[Optional[str]] = mapped_column(
         Text(),
         nullable=True,
-        comment="Free-text from submitter (request_message or additional_notes)",
+        comment="Free-text message from the submitter",
     )
     status: Mapped[TicketStatus] = mapped_column(
         sa.Enum(
@@ -528,21 +523,21 @@ class Ticket(Base):
         comment="Notes from the reviewing admin",
     )
 
-    # --- Suggestion-specific fields (nullable for access_request) ---
+    # --- Optional fields (used by some ticket types) ---
     description: Mapped[Optional[str]] = mapped_column(
         Text(),
         nullable=True,
-        comment="Description of the suggested place",
+        comment="Extended description",
     )
     suggested_district: Mapped[Optional[str]] = mapped_column(
         Text(),
         nullable=True,
-        comment="District where the suggested place is located",
+        comment="District or area",
     )
     suggested_address: Mapped[Optional[str]] = mapped_column(
         Text(),
         nullable=True,
-        comment="Full address of the suggested place",
+        comment="Full address",
     )
     suggested_lat: Mapped[Optional[Decimal]] = mapped_column(
         Numeric(9, 6),
@@ -564,7 +559,7 @@ class Ticket(Base):
         UUID(as_uuid=True),
         ForeignKey("organizations.id", ondelete="SET NULL"),
         nullable=True,
-        comment="ID of organization created/assigned on approval",
+        comment="FK to organization created or assigned on approval",
     )
 
     # Relationship to the created organization

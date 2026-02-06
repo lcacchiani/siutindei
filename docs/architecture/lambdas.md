@@ -28,8 +28,8 @@ their primary responsibilities.
 - Auth: Cognito JWT — admin group for `/v1/admin/*`, admin/manager
   group for `/v1/manager/*`, any authenticated user for `/v1/user/*`
 - Purpose: admin CRUD, manager CRUD (filtered by ownership), user
-  self-service (access requests, organization suggestions), Cognito
-  user management, audit logs, and media upload
+  self-service (tickets), Cognito user management, audit logs, and
+  media upload
 - DB access: RDS Proxy with IAM auth (`siutindei_admin`)
 - For the full endpoint list, see the OpenAPI spec:
   `docs/api/admin.yaml`
@@ -130,13 +130,9 @@ their primary responsibilities.
 - Function: ManagerRequestProcessor
 - Handler: backend/lambda/manager_request_processor/handler.py
 - Trigger: SQS queue (subscribed to SNS manager request topic)
-- Purpose: process async submissions from the SNS topic. Handles two
-  event types:
-  - `manager_request.submitted`: stores access request in
-    `organization_access_requests` table, sends notification email
-  - `organization_suggestion.submitted`: stores suggestion in
-    `organization_suggestions` table, sends notification email
-  Both paths use idempotency checks via `ticket_id`.
+- Purpose: process async ticket submissions from the SNS topic. Stores
+  the ticket in the `tickets` table (idempotent via `ticket_id`) and
+  sends a notification email to support/admin.
 - DB access: RDS Proxy with IAM auth (`siutindei_admin`)
 - VPC: Yes
 - Permissions: SES send email

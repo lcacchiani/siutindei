@@ -1,9 +1,8 @@
-"""Unify access requests and suggestions into a single tickets table.
+"""Create tickets table and migrate data from legacy tables.
 
-This migration creates a single `tickets` table that replaces both
-`organization_access_requests` and `organization_suggestions`. Both
-ticket types share common fields (id, ticket_id, status, submitter info)
-while type-specific fields are nullable columns on the unified table.
+This migration creates the `tickets` table and migrates existing data
+from `organization_access_requests` and `organization_suggestions`,
+then drops those tables.
 """
 
 from __future__ import annotations

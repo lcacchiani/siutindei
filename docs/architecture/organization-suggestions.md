@@ -49,12 +49,10 @@ authentication requirements), see the OpenAPI spec:
 
 ## Database Schema
 
-Organization suggestions are stored in the unified **`tickets`** table
-alongside access requests. The `ticket_type` column distinguishes between
-the two (`organization_suggestion` for suggestions, `access_request` for
-access requests). Suggestion-specific columns (description, district,
-address, coordinates, media, etc.) are nullable and only populated for
-suggestion tickets.
+Organization suggestions are stored in the **`tickets`** table with
+`ticket_type = 'organization_suggestion'`. Type-specific columns
+(description, district, address, coordinates, media) are populated
+for suggestion tickets.
 
 See `docs/architecture/database-schema.md` for the full `tickets` table schema.
 

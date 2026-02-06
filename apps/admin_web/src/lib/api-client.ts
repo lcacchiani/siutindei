@@ -735,7 +735,7 @@ export async function getAuditLog(
   return request<import('../types/admin').AuditLog>(buildAuditLogsUrl(id));
 }
 
-// --- Admin Unified Tickets ---
+// --- Admin Tickets ---
 
 export type TicketType = 'access_request' | 'organization_suggestion';
 export type TicketStatus = 'pending' | 'approved' | 'rejected';
@@ -753,7 +753,7 @@ export interface Ticket {
   reviewed_at?: string | null;
   reviewed_by?: string | null;
   admin_notes?: string | null;
-  // Suggestion-specific fields
+  // Optional fields (depend on ticket_type)
   description?: string | null;
   suggested_district?: string | null;
   suggested_address?: string | null;
@@ -772,9 +772,9 @@ export interface TicketsListResponse {
 export interface ReviewTicketPayload {
   action: 'approve' | 'reject';
   admin_notes?: string;
-  /** For access_request: ID of existing org to assign */
+  /** Assign an existing organization on approval */
   organization_id?: string;
-  /** Create organization from ticket data (for approval) */
+  /** Create a new organization on approval */
   create_organization?: boolean;
 }
 

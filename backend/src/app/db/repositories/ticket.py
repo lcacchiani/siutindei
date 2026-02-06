@@ -1,8 +1,6 @@
-"""Repository for unified tickets (access requests + suggestions).
+"""Repository for tickets.
 
-This module provides data access methods for the unified tickets table
-that replaces both organization_access_requests and
-organization_suggestions.
+This module provides data access methods for the tickets table.
 """
 
 from __future__ import annotations

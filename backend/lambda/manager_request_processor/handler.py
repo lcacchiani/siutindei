@@ -1,19 +1,15 @@
-"""Lambda handler for processing tickets (access requests + suggestions) from SQS.
+"""Lambda handler for processing ticket submissions from SQS.
 
 This Lambda is triggered by SQS messages that originate from the SNS topic.
 It processes submissions asynchronously:
 1. Parses the SNS message from SQS
-2. Stores the ticket in the unified tickets table (with idempotency check)
+2. Stores the ticket in the database (with idempotency check)
 3. Sends email notification to support/admin
-
-Supported event types:
-- manager_request.submitted: Manager access requests
-- organization_suggestion.submitted: Organization suggestions from public users
 
 The decoupled architecture provides:
 - Automatic retries (3 attempts before DLQ)
 - Fault tolerance (email failures don't block DB writes)
-- Scalability (can process multiple requests concurrently)
+- Scalability (can process multiple submissions concurrently)
 """
 
 from __future__ import annotations

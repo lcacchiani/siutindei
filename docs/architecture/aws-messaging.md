@@ -2,17 +2,17 @@
 
 ## Overview
 
-Manager requests and organization suggestions are processed asynchronously using SNS + SQS messaging. This provides reliable, decoupled processing with automatic retries and dead letter queue support.
+Ticket submissions are processed asynchronously using SNS + SQS messaging. This provides reliable, decoupled processing with automatic retries and dead letter queue support.
 
 ## Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                    ASYNC REQUEST/SUGGESTION FLOW                             │
+│                        ASYNC TICKET PROCESSING                              │
 │                                                                             │
 │  User submits ──▶ API Lambda ──▶ SNS Topic ──▶ SQS Queue ──▶ Processor     │
-│  request or            │              │              │         Lambda       │
-│  suggestion            │              │              │            │         │
+│   ticket               │              │              │         Lambda       │
+│                        │              │              │            │         │
 │                   (validates,    (fan-out)     (reliable      (stores in   │
 │                   returns 202)                  delivery)      DB, sends   │
 │                                                    │           email)      │
@@ -28,7 +28,7 @@ Manager requests and organization suggestions are processed asynchronously using
 
 ### SNS Topic: `lxsoftware-siutindei-manager-request-events`
 
-- Receives manager request and organization suggestion events from the API
+- Receives ticket events from the API
 - Fans out to subscribed SQS queue
 - Message attributes enable filtering by `event_type`
 
@@ -48,58 +48,35 @@ Manager requests and organization suggestions are processed asynchronously using
 ### Processor Lambda: `ManagerRequestProcessor`
 
 - Triggered by SQS messages
-- Handles two event types:
-  - `manager_request.submitted`: Stores access request in unified `tickets` table
-  - `organization_suggestion.submitted`: Stores suggestion in unified `tickets` table
-- Sends email notification via SES for both event types
-- Idempotent via `ticket_id` check in the unified `tickets` table
+- Routes each message to the appropriate handler based on `event_type`
+- Stores the ticket in the `tickets` table
+- Sends email notification via SES
+- Idempotent via `ticket_id` check
 
-## Message Formats
+## Message Format
 
-### Manager Request
+Each SNS message includes an `event_type` field that determines how the
+processor handles it. The `ticket_id` field provides idempotency.
 
-```json
-{
-  "event_type": "manager_request.submitted",
-  "ticket_id": "R00001",
-  "requester_id": "cognito-user-sub-uuid",
-  "requester_email": "user@example.com",
-  "organization_name": "My Organization",
-  "request_message": "Optional message from user"
-}
-```
-
-### Organization Suggestion
+Example:
 
 ```json
 {
-  "event_type": "organization_suggestion.submitted",
-  "ticket_id": "S00001",
-  "suggester_id": "cognito-user-sub-uuid",
-  "suggester_email": "user@example.com",
-  "organization_name": "Suggested Place Name",
-  "description": "Optional description of the place",
-  "suggested_district": "Optional district",
-  "suggested_address": "Optional address",
-  "suggested_lat": 22.2783,
-  "suggested_lng": 114.1747,
-  "media_urls": [],
-  "additional_notes": "Optional notes"
+  "event_type": "<type>.submitted",
+  "ticket_id": "X00001",
+  "...": "type-specific fields"
 }
 ```
 
 ## API Behavior
 
-The user-facing API endpoints for access requests are at
-`/v1/user/access-request` (GET, POST). Admin review endpoints are at
-`/v1/admin/access-requests`. Organization suggestion endpoints are at
-`/v1/user/organization-suggestion` (GET, POST) and
-`/v1/admin/organization-suggestions` (GET, PUT). For full endpoint details
+User-facing submission endpoints are under `/v1/user/`. Admin review
+endpoints are at `/v1/admin/tickets`. For full endpoint details
 (parameters, request/response schemas), see the OpenAPI spec:
 [`docs/api/admin.yaml`](../api/admin.yaml).
 
-**Processing flow (applies to both requests and suggestions):**
-1. User POSTs a request/suggestion → API validates, generates ticket ID, publishes to SNS
+**Processing flow:**
+1. User POSTs a submission → API validates, generates ticket ID, publishes to SNS
 2. Returns `202 Accepted` with ticket ID
 3. SQS delivers message to processor Lambda
 4. Processor stores in DB and sends email notification to support
@@ -115,7 +92,7 @@ The user-facing API endpoints for access requests are at
 
 ## Idempotency
 
-The processor checks if a request with the same `ticket_id` already exists before inserting. This handles SQS's at-least-once delivery guarantee.
+The processor checks if a ticket with the same `ticket_id` already exists before inserting. This handles SQS's at-least-once delivery guarantee.
 
 ## Files
 
@@ -124,7 +101,7 @@ The processor checks if a request with the same `ticket_id` already exists befor
 | `backend/infrastructure/lib/api-stack.ts` | CDK infrastructure |
 | `backend/src/app/api/admin.py` | API handler with SNS publish |
 | `backend/lambda/manager_request_processor/handler.py` | SQS processor |
-| `backend/src/app/db/repositories/access_request.py` | Repository with `find_by_ticket_id` |
+| `backend/src/app/db/repositories/ticket.py` | Repository with `find_by_ticket_id` |
 
 ## Environment Variables
 

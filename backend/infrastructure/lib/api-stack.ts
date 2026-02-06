@@ -1920,7 +1920,7 @@ export class ApiStack extends cdk.Stack {
       authorizer: adminAuthorizer,
     });
 
-    // Unified tickets management (access requests + org suggestions) - admin only
+    // Tickets management - admin only
     const tickets = admin.addResource("tickets");
     tickets.addMethod("GET", adminIntegration, {
       authorizationType: apigateway.AuthorizationType.CUSTOM,

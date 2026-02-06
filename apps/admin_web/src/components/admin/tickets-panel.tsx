@@ -432,7 +432,7 @@ export function TicketsPanel() {
     <div className='space-y-6'>
       <Card
         title='Tickets'
-        description='Review access requests and organization suggestions.'
+        description='Review and manage submitted tickets.'
       >
         {pendingCount > 0 && (
           <div className='mb-4'>
