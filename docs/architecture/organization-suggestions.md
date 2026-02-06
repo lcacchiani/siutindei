@@ -49,28 +49,14 @@ authentication requirements), see the OpenAPI spec:
 
 ## Database Schema
 
-### organization_suggestions Table
+Organization suggestions are stored in the unified **`tickets`** table
+alongside access requests. The `ticket_type` column distinguishes between
+the two (`organization_suggestion` for suggestions, `access_request` for
+access requests). Suggestion-specific columns (description, district,
+address, coordinates, media, etc.) are nullable and only populated for
+suggestion tickets.
 
-| Column | Type | Description |
-|--------|------|-------------|
-| `id` | UUID | Primary key |
-| `ticket_id` | TEXT | Unique ticket ID (S00001) |
-| `suggester_id` | TEXT | Cognito user sub |
-| `suggester_email` | TEXT | For notifications |
-| `organization_name` | TEXT | Suggested name |
-| `description` | TEXT | Description of the place |
-| `suggested_district` | TEXT | Location district |
-| `suggested_address` | TEXT | Full address |
-| `suggested_lat` | NUMERIC | Latitude |
-| `suggested_lng` | NUMERIC | Longitude |
-| `media_urls` | TEXT[] | Uploaded media files |
-| `additional_notes` | TEXT | Extra info from user |
-| `status` | ENUM | pending/approved/rejected |
-| `created_at` | TIMESTAMPTZ | Submission time |
-| `reviewed_at` | TIMESTAMPTZ | Review time |
-| `reviewed_by` | TEXT | Admin who reviewed |
-| `admin_notes` | TEXT | Admin's notes |
-| `created_organization_id` | UUID | FK to created org |
+See `docs/architecture/database-schema.md` for the full `tickets` table schema.
 
 ## Configuration
 

@@ -49,10 +49,10 @@ Manager requests and organization suggestions are processed asynchronously using
 
 - Triggered by SQS messages
 - Handles two event types:
-  - `manager_request.submitted`: Stores access request in `organization_access_requests` table
-  - `organization_suggestion.submitted`: Stores suggestion in `organization_suggestions` table
+  - `manager_request.submitted`: Stores access request in unified `tickets` table
+  - `organization_suggestion.submitted`: Stores suggestion in unified `tickets` table
 - Sends email notification via SES for both event types
-- Idempotent via `ticket_id` check for both event types
+- Idempotent via `ticket_id` check in the unified `tickets` table
 
 ## Message Formats
 
