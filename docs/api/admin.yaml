@@ -144,7 +144,7 @@ paths:
         "404":
           description: Organization not found
 
-  /v1/admin/organizations/{id}/pictures:
+  /v1/admin/organizations/{id}/media:
     parameters:
       - name: id
         in: path
@@ -545,7 +545,875 @@ paths:
         "200":
           description: User removed from group
 
+  # --- Cognito Users Management (Admin Only) ---
+
+  /v1/admin/cognito-users:
+    get:
+      summary: List Cognito users
+      description: |
+        List all Cognito user pool users with their group memberships.
+        Used for manager selection and user management.
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          description: Maximum number of users to return (1-60, default 50)
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 60
+            default: 50
+        - name: pagination_token
+          in: query
+          required: false
+          description: Pagination token from previous response
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of Cognito users
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CognitoUserListResponse'
+
+  /v1/admin/cognito-users/{username}:
+    parameters:
+      - name: username
+        in: path
+        required: true
+        schema:
+          type: string
+    delete:
+      summary: Delete Cognito user
+      description: |
+        Delete a Cognito user and transfer their managed organizations
+        to the requesting admin user. The admin cannot delete themselves.
+      responses:
+        "200":
+          description: User deleted and organizations transferred
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  transferred_organizations:
+                    type: integer
+                    description: Number of organizations transferred to the admin
+        "400":
+          description: Cannot delete yourself
+        "404":
+          description: Cognito user not found
+
+  # --- Access Requests Management (Admin Only) ---
+
+  /v1/admin/access-requests:
+    get:
+      summary: List access requests
+      description: |
+        List all manager access requests for admin review.
+        Supports filtering by status and cursor pagination.
+      parameters:
+        - name: status
+          in: query
+          required: false
+          description: Filter by request status
+          schema:
+            type: string
+            enum: [pending, approved, rejected]
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of access requests
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccessRequestListResponse'
+
+  /v1/admin/access-requests/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    put:
+      summary: Review access request
+      description: |
+        Approve or reject a manager access request.
+        When approving, the admin can either assign an existing organization
+        or create a new one. The requester becomes the manager and is added
+        to the 'manager' Cognito group.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AccessRequestReview'
+      responses:
+        "200":
+          description: Access request reviewed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccessRequest'
+        "400":
+          description: Validation error
+        "404":
+          description: Access request not found
+
+  # --- Audit Logs (Admin Only, Read-Only) ---
+
+  /v1/admin/audit-logs:
+    get:
+      summary: List audit logs
+      description: |
+        Query audit logs with optional filtering by table, record, user,
+        action type, and timestamp. Returns paginated results.
+      parameters:
+        - name: table
+          in: query
+          required: false
+          description: Filter by table name (required if record_id is provided)
+          schema:
+            type: string
+        - name: record_id
+          in: query
+          required: false
+          description: Filter by specific record ID (requires table parameter)
+          schema:
+            type: string
+        - name: user_id
+          in: query
+          required: false
+          description: Filter by user who made the change
+          schema:
+            type: string
+        - name: action
+          in: query
+          required: false
+          description: Filter by action type
+          schema:
+            type: string
+            enum: [INSERT, UPDATE, DELETE]
+        - name: since
+          in: query
+          required: false
+          description: Filter by timestamp (ISO 8601 format)
+          schema:
+            type: string
+            format: date-time
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of audit log entries
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditLogListResponse'
+
+  /v1/admin/audit-logs/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      summary: Get audit log entry
+      responses:
+        "200":
+          description: Audit log entry details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditLogEntry'
+        "404":
+          description: Audit log entry not found
+
+  # --- Organization Suggestions Management (Admin Only) ---
+
+  /v1/admin/organization-suggestions:
+    get:
+      summary: List organization suggestions
+      description: |
+        List all user-submitted organization suggestions for admin review.
+        Supports filtering by status and cursor pagination.
+      parameters:
+        - name: status
+          in: query
+          required: false
+          description: Filter by suggestion status
+          schema:
+            type: string
+            enum: [pending, approved, rejected]
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of organization suggestions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrganizationSuggestionListResponse'
+
+  /v1/admin/organization-suggestions/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    put:
+      summary: Review organization suggestion
+      description: |
+        Approve or reject an organization suggestion.
+        When approving, the admin can optionally create an organization
+        from the suggestion data.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrganizationSuggestionReview'
+      responses:
+        "200":
+          description: Suggestion reviewed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrganizationSuggestion'
+        "400":
+          description: Validation error
+        "404":
+          description: Suggestion not found
+
+  # --- Manager Routes (Admin or Manager Group) ---
+
+  /v1/manager/organizations:
+    get:
+      summary: List managed organizations
+      description: |
+        List organizations managed by the authenticated user.
+        Results are filtered by the user's organization management.
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of managed organizations
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrganizationListResponse'
+    post:
+      summary: Create organization (manager)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrganizationCreate'
+      responses:
+        "201":
+          description: Organization created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Organization'
+        "400":
+          description: Validation error
+
+  /v1/manager/organizations/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      summary: Get managed organization
+      responses:
+        "200":
+          description: Organization details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Organization'
+        "403":
+          description: Not a manager of this organization
+        "404":
+          description: Organization not found
+    put:
+      summary: Update managed organization
+      description: Managers cannot change the manager_id field.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrganizationUpdate'
+      responses:
+        "200":
+          description: Organization updated
+        "400":
+          description: Validation error
+        "403":
+          description: Not a manager of this organization
+        "404":
+          description: Organization not found
+    delete:
+      summary: Delete managed organization
+      responses:
+        "204":
+          description: Organization deleted
+        "403":
+          description: Not a manager of this organization
+        "404":
+          description: Organization not found
+
+  /v1/manager/locations:
+    get:
+      summary: List locations in managed organizations
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of locations
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LocationListResponse'
+    post:
+      summary: Create location in managed organization
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LocationCreate'
+      responses:
+        "201":
+          description: Location created
+        "400":
+          description: Validation error
+        "403":
+          description: Not a manager of the target organization
+
+  /v1/manager/locations/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      summary: Get location in managed organization
+      responses:
+        "200":
+          description: Location details
+        "403":
+          description: Not a manager of this organization
+        "404":
+          description: Location not found
+    put:
+      summary: Update location in managed organization
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LocationUpdate'
+      responses:
+        "200":
+          description: Location updated
+        "400":
+          description: Validation error
+        "403":
+          description: Not a manager of this organization
+        "404":
+          description: Location not found
+    delete:
+      summary: Delete location in managed organization
+      responses:
+        "204":
+          description: Location deleted
+        "403":
+          description: Not a manager of this organization
+        "404":
+          description: Location not found
+
+  /v1/manager/activities:
+    get:
+      summary: List activities in managed organizations
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of activities
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityListResponse'
+    post:
+      summary: Create activity in managed organization
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ActivityCreate'
+      responses:
+        "201":
+          description: Activity created
+        "400":
+          description: Validation error
+        "403":
+          description: Not a manager of the target organization
+
+  /v1/manager/activities/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      summary: Get activity in managed organization
+      responses:
+        "200":
+          description: Activity details
+        "403":
+          description: Not a manager of this organization
+        "404":
+          description: Activity not found
+    put:
+      summary: Update activity in managed organization
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ActivityUpdate'
+      responses:
+        "200":
+          description: Activity updated
+        "400":
+          description: Validation error
+        "403":
+          description: Not a manager of this organization
+        "404":
+          description: Activity not found
+    delete:
+      summary: Delete activity in managed organization
+      responses:
+        "204":
+          description: Activity deleted
+        "403":
+          description: Not a manager of this organization
+        "404":
+          description: Activity not found
+
+  /v1/manager/pricing:
+    get:
+      summary: List pricing in managed organizations
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of pricing entries
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PricingListResponse'
+    post:
+      summary: Create pricing in managed organization
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PricingCreate'
+      responses:
+        "201":
+          description: Pricing created
+        "400":
+          description: Validation error
+        "403":
+          description: Not a manager of the target organization
+
+  /v1/manager/pricing/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      summary: Get pricing in managed organization
+      responses:
+        "200":
+          description: Pricing details
+        "403":
+          description: Not a manager of this organization
+        "404":
+          description: Pricing not found
+    put:
+      summary: Update pricing in managed organization
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PricingUpdate'
+      responses:
+        "200":
+          description: Pricing updated
+        "400":
+          description: Validation error
+        "403":
+          description: Not a manager of this organization
+        "404":
+          description: Pricing not found
+    delete:
+      summary: Delete pricing in managed organization
+      responses:
+        "204":
+          description: Pricing deleted
+        "403":
+          description: Not a manager of this organization
+        "404":
+          description: Pricing not found
+
+  /v1/manager/schedules:
+    get:
+      summary: List schedules in managed organizations
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of schedules
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduleListResponse'
+    post:
+      summary: Create schedule in managed organization
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ScheduleCreate'
+      responses:
+        "201":
+          description: Schedule created
+        "400":
+          description: Validation error
+        "403":
+          description: Not a manager of the target organization
+
+  /v1/manager/schedules/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      summary: Get schedule in managed organization
+      responses:
+        "200":
+          description: Schedule details
+        "403":
+          description: Not a manager of this organization
+        "404":
+          description: Schedule not found
+    put:
+      summary: Update schedule in managed organization
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ScheduleUpdate'
+      responses:
+        "200":
+          description: Schedule updated
+        "400":
+          description: Validation error
+        "403":
+          description: Not a manager of this organization
+        "404":
+          description: Schedule not found
+    delete:
+      summary: Delete schedule in managed organization
+      responses:
+        "204":
+          description: Schedule deleted
+        "403":
+          description: Not a manager of this organization
+        "404":
+          description: Schedule not found
+
+  # --- User Routes (Any Authenticated User) ---
+
+  /v1/user/access-request:
+    get:
+      summary: Check access request status
+      description: |
+        Check if the authenticated user has a pending manager access request
+        and get their managed organizations count.
+      responses:
+        "200":
+          description: User's access request status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  has_pending_request:
+                    type: boolean
+                  pending_request:
+                    $ref: '#/components/schemas/AccessRequest'
+                    nullable: true
+                  organizations_count:
+                    type: integer
+                    description: Number of organizations the user manages
+    post:
+      summary: Submit access request
+      description: |
+        Submit a request to become a manager of an organization.
+        Only one pending request per user is allowed.
+        Request is published to SNS for async processing.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AccessRequestCreate'
+      responses:
+        "202":
+          description: Request submitted for processing
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  ticket_id:
+                    type: string
+                    description: Unique ticket ID (e.g., R00001)
+        "409":
+          description: User already has a pending access request
+
+  /v1/user/organization-suggestion:
+    get:
+      summary: Get suggestion history
+      description: |
+        Get the authenticated user's organization suggestion history
+        and check if they have a pending suggestion.
+      responses:
+        "200":
+          description: User's suggestion history
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  has_pending_suggestion:
+                    type: boolean
+                  suggestions:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/OrganizationSuggestion'
+    post:
+      summary: Submit organization suggestion
+      description: |
+        Suggest a new organization/place for the platform.
+        Any authenticated user can submit suggestions.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrganizationSuggestionCreate'
+      responses:
+        "202":
+          description: Suggestion submitted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  ticket_id:
+                    type: string
+                    description: Unique ticket ID (e.g., S00001)
+        "409":
+          description: User already has a pending suggestion
+
+  # --- Health Check ---
+
+  /health:
+    get:
+      summary: Health check
+      description: |
+        Service health check endpoint. Returns overall health status,
+        including database connectivity and configuration checks.
+        Requires IAM authentication.
+      security:
+        - IAMAuth: []
+      parameters:
+        - name: details
+          in: query
+          required: false
+          description: Set to 'true' to include detailed check information
+          schema:
+            type: string
+            enum: ["true", "false"]
+      responses:
+        "200":
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
+        "503":
+          description: Service is unhealthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
+
 components:
+  securitySchemes:
+    AdminGroupAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Cognito JWT token, user must be in 'admin' group
+    ManagerGroupAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Cognito JWT token, user must be in 'admin' or 'manager' group
+    UserAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Cognito JWT token, any authenticated user
+    IAMAuth:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: AWS IAM Signature V4
   schemas:
     ValidationError:
       type: object
@@ -1103,3 +1971,326 @@ components:
         picture_url:
           type: string
           description: Picture URL to delete (alternative to object_key)
+
+    # Cognito User schemas
+    CognitoUser:
+      type: object
+      properties:
+        sub:
+          type: string
+          description: Cognito user sub (UUID)
+        email:
+          type: string
+        email_verified:
+          type: boolean
+        name:
+          type: string
+          nullable: true
+        given_name:
+          type: string
+          nullable: true
+        family_name:
+          type: string
+          nullable: true
+        username:
+          type: string
+        status:
+          type: string
+          description: Cognito user status (e.g., CONFIRMED, FORCE_CHANGE_PASSWORD)
+        enabled:
+          type: boolean
+        groups:
+          type: array
+          items:
+            type: string
+          description: Cognito group memberships
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        last_auth_time:
+          type: string
+          format: date-time
+          nullable: true
+
+    CognitoUserListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CognitoUser'
+        pagination_token:
+          type: string
+          nullable: true
+          description: Token for fetching the next page
+
+    # Access Request schemas
+    AccessRequest:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        ticket_id:
+          type: string
+          description: Unique ticket ID (e.g., R00001)
+        organization_name:
+          type: string
+        request_message:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [pending, approved, rejected]
+        requester_email:
+          type: string
+        requester_id:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        reviewed_at:
+          type: string
+          format: date-time
+          nullable: true
+        reviewed_by:
+          type: string
+          nullable: true
+
+    AccessRequestCreate:
+      type: object
+      required:
+        - organization_name
+      properties:
+        organization_name:
+          type: string
+          maxLength: 200
+          description: Name of the organization to request access to
+        request_message:
+          type: string
+          maxLength: 5000
+          description: Optional message to the admin
+
+    AccessRequestReview:
+      type: object
+      required:
+        - action
+      properties:
+        action:
+          type: string
+          enum: [approve, reject]
+          description: Review action
+        message:
+          type: string
+          description: Optional message to the requester
+        organization_id:
+          type: string
+          format: uuid
+          description: Existing organization to assign (for approval)
+        create_organization:
+          type: boolean
+          description: Create a new organization from request (for approval)
+
+    AccessRequestListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AccessRequest'
+        next_cursor:
+          type: string
+          nullable: true
+
+    # Audit Log schemas
+    AuditLogEntry:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        timestamp:
+          type: string
+          format: date-time
+        table_name:
+          type: string
+        record_id:
+          type: string
+        action:
+          type: string
+          enum: [INSERT, UPDATE, DELETE]
+        user_id:
+          type: string
+          nullable: true
+        request_id:
+          type: string
+          nullable: true
+        changed_fields:
+          type: array
+          items:
+            type: string
+          nullable: true
+        old_values:
+          type: object
+          nullable: true
+          description: Previous field values (sensitive fields redacted)
+        new_values:
+          type: object
+          nullable: true
+          description: New field values (sensitive fields redacted)
+        source:
+          type: string
+          nullable: true
+
+    AuditLogListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuditLogEntry'
+        next_cursor:
+          type: string
+          nullable: true
+
+    # Organization Suggestion schemas
+    OrganizationSuggestion:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        ticket_id:
+          type: string
+          description: Unique ticket ID (e.g., S00001)
+        organization_name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        suggested_district:
+          type: string
+          nullable: true
+        suggested_address:
+          type: string
+          nullable: true
+        suggested_lat:
+          type: number
+          nullable: true
+        suggested_lng:
+          type: number
+          nullable: true
+        media_urls:
+          type: array
+          items:
+            type: string
+        additional_notes:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [pending, approved, rejected]
+        suggester_id:
+          type: string
+        suggester_email:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        reviewed_at:
+          type: string
+          format: date-time
+          nullable: true
+        reviewed_by:
+          type: string
+          nullable: true
+
+    OrganizationSuggestionCreate:
+      type: object
+      required:
+        - organization_name
+      properties:
+        organization_name:
+          type: string
+          maxLength: 200
+          description: Suggested organization name (required)
+        description:
+          type: string
+          maxLength: 5000
+          description: Organization description
+        suggested_district:
+          type: string
+          maxLength: 100
+          description: Suggested district
+        suggested_address:
+          type: string
+          maxLength: 500
+          description: Suggested address
+        additional_notes:
+          type: string
+          maxLength: 5000
+          description: Additional notes for the admin
+
+    OrganizationSuggestionReview:
+      type: object
+      required:
+        - action
+      properties:
+        action:
+          type: string
+          enum: [approve, reject]
+        admin_notes:
+          type: string
+          description: Optional admin notes
+        create_organization:
+          type: boolean
+          description: Create organization from suggestion (for approval)
+
+    OrganizationSuggestionListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrganizationSuggestion'
+        next_cursor:
+          type: string
+          nullable: true
+        pending_count:
+          type: integer
+          description: Count of pending suggestions
+
+    # Health Check schemas
+    HealthStatus:
+      type: object
+      properties:
+        healthy:
+          type: boolean
+        version:
+          type: string
+        environment:
+          type: string
+        checks:
+          type: array
+          items:
+            $ref: '#/components/schemas/HealthCheckResult'
+
+    HealthCheckResult:
+      type: object
+      properties:
+        name:
+          type: string
+        healthy:
+          type: boolean
+        latency_ms:
+          type: number
+          nullable: true
+        error:
+          type: string
+          nullable: true
+        details:
+          type: object
+          nullable: true

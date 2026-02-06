@@ -113,6 +113,23 @@ repo root
 - Seed data location: backend/db/seed/seed_data.sql
 - Run seed data after migrations to verify compatibility
 
+### Endpoint registration and documentation requirements (MANDATORY)
+- Every time you add a new API endpoint (Lambda handler route), you MUST:
+  1. Register the route in the API Gateway CDK stack (backend/infrastructure/lib/api-stack.ts)
+     - Add the resource and method with the correct Lambda integration
+     - Configure the appropriate authorizer (adminAuthorizer, managerAuthorizer, userAuthorizer, deviceAttestationAuthorizer, or IAM)
+     - Set apiKeyRequired if the endpoint needs an API key
+  2. Update the OpenAPI documentation (docs/api/admin.yaml or docs/api/activities-search.yaml)
+     - Add the path with all HTTP methods, parameters, request body, and response schemas
+     - Add any new component schemas referenced by the endpoint
+     - Document authentication requirements
+  3. Update the Lambda catalog (docs/architecture/lambdas.md)
+     - If a new Lambda function is created, add its entry with function name, handler path, trigger, purpose, DB access, and VPC config
+     - If an existing Lambda gains new routes, update its description
+- NEVER merge a PR that adds an endpoint without all three updates completed
+- API Gateway route paths must exactly match the paths handled in the Lambda code
+- Documentation paths must exactly match the API Gateway registered paths
+
 ### Security requirements (MANDATORY - see docs/architecture/security.md)
 - NEVER hardcode secrets, API keys, passwords, or tokens in source code.
 - NEVER log PII (emails, names) without masking. Use mask_email() and mask_pii() from app.utils.logging.

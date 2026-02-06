@@ -68,6 +68,29 @@ their primary responsibilities.
 - Trigger: API Gateway request authorizer
 - Purpose: verify device attestation JWTs for public search
 
+### Admin group authorizer
+- Function: AdminGroupAuthorizerFunction
+- Handler: backend/lambda/authorizers/cognito_group/handler.py
+- Trigger: API Gateway request authorizer
+- Purpose: verify JWT and check user belongs to the `admin` Cognito group
+- VPC: **No** (runs outside VPC to fetch JWKS from Cognito)
+- Environment: `ALLOWED_GROUPS=admin`
+
+### Manager group authorizer
+- Function: ManagerGroupAuthorizerFunction
+- Handler: backend/lambda/authorizers/cognito_group/handler.py
+- Trigger: API Gateway request authorizer
+- Purpose: verify JWT and check user belongs to `admin` or `manager` group
+- VPC: **No** (runs outside VPC to fetch JWKS from Cognito)
+- Environment: `ALLOWED_GROUPS=admin,manager`
+
+### User authorizer (any authenticated user)
+- Function: UserAuthorizerFunction
+- Handler: backend/lambda/authorizers/cognito_user/handler.py
+- Trigger: API Gateway request authorizer
+- Purpose: verify JWT for any authenticated Cognito user (no group requirement)
+- VPC: **No** (runs outside VPC to fetch JWKS from Cognito)
+
 ## Deployment and maintenance Lambdas
 
 ### Migrations
@@ -82,6 +105,34 @@ their primary responsibilities.
 - Handler: backend/lambda/admin_bootstrap/handler.py
 - Trigger: CloudFormation custom resource (optional)
 - Purpose: create a bootstrap admin user and add to admin group
+
+### API key rotation
+- Function: ApiKeyRotationFunction
+- Handler: backend/lambda/api_key_rotation/handler.py
+- Trigger: EventBridge scheduled rule (every 90 days)
+- Purpose: rotate the API Gateway API key to limit exposure from compromise
+- VPC: Yes
+- Permissions: API Gateway key management, Secrets Manager read/write
+- Environment:
+  - `API_GATEWAY_REST_API_ID`: REST API ID
+  - `API_GATEWAY_USAGE_PLAN_ID`: usage plan ID
+  - `API_KEY_SECRET_ARN`: Secrets Manager ARN for key storage
+  - `API_KEY_NAME_PREFIX`: prefix for key names
+  - `GRACE_PERIOD_HOURS`: hours to keep old key active (default 24)
+
+### Manager request processor
+- Function: ManagerRequestProcessor
+- Handler: backend/lambda/manager_request_processor/handler.py
+- Trigger: SQS queue (subscribed to SNS manager request topic)
+- Purpose: process manager access request submissions asynchronously:
+  store in database with idempotency check, send email notification
+- DB access: RDS Proxy with IAM auth (`siutindei_admin`)
+- VPC: Yes
+- Permissions: SES send email
+- Environment:
+  - `DATABASE_SECRET_ARN`, `DATABASE_NAME`, `DATABASE_USERNAME`,
+    `DATABASE_PROXY_ENDPOINT`, `DATABASE_IAM_AUTH`
+  - `SES_SENDER_EMAIL`, `SUPPORT_EMAIL`
 
 ### AWS / HTTP proxy
 - Function: AwsApiProxyFunction
