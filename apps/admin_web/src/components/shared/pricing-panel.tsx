@@ -183,8 +183,7 @@ export function PricingPanel({ mode }: PricingPanelProps) {
   }, [currencyOptions]);
 
   function getCurrencyDisplay(value?: string | null): string {
-    const normalized = normalizeCurrencyCode(value);
-    return currencyNameByCode.get(normalized) ?? normalized;
+    return normalizeCurrencyCode(value);
   }
 
   function getCurrencySearchText(value?: string | null): string {
@@ -357,21 +356,6 @@ export function PricingPanel({ mode }: PricingPanelProps) {
           <div className='md:col-span-2'>
             <div className='grid gap-4 sm:grid-cols-2'>
               <div>
-                <Label htmlFor='pricing-amount'>Amount</Label>
-                <Input
-                  id='pricing-amount'
-                  type='number'
-                  step='0.01'
-                  value={panel.formState.amount}
-                  onChange={(e) =>
-                    panel.setFormState((prev) => ({
-                      ...prev,
-                      amount: e.target.value,
-                    }))
-                  }
-                />
-              </div>
-              <div>
                 <Label htmlFor='pricing-currency'>Currency</Label>
                 <Select
                   id='pricing-currency'
@@ -389,6 +373,21 @@ export function PricingPanel({ mode }: PricingPanelProps) {
                     </option>
                   ))}
                 </Select>
+              </div>
+              <div>
+                <Label htmlFor='pricing-amount'>Amount</Label>
+                <Input
+                  id='pricing-amount'
+                  type='number'
+                  step='0.01'
+                  value={panel.formState.amount}
+                  onChange={(e) =>
+                    panel.setFormState((prev) => ({
+                      ...prev,
+                      amount: e.target.value,
+                    }))
+                  }
+                />
               </div>
             </div>
           </div>
