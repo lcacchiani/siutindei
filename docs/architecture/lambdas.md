@@ -27,9 +27,9 @@ their primary responsibilities.
   `/v1/manager/*`, and `/v1/user/*`
 - Auth: Cognito JWT — admin group for `/v1/admin/*`, admin/manager
   group for `/v1/manager/*`, any authenticated user for `/v1/user/*`
-- Purpose: admin CRUD, manager CRUD (filtered by ownership), user
-  self-service (tickets), Cognito user management, audit logs, and
-  media upload
+- Purpose: admin CRUD (including activity categories), manager CRUD
+  (filtered by ownership), user self-service (tickets), Cognito user
+  management, audit logs, and media upload
 - DB access: RDS Proxy with IAM auth (`siutindei_admin`)
 - For the full endpoint list, see the OpenAPI spec:
   `docs/api/admin.yaml`

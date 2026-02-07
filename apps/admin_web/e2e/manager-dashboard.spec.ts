@@ -22,6 +22,7 @@ test.describe('Manager Dashboard', () => {
       'Activities',
       'Pricing',
       'Schedules',
+      'Suggest a Place',
     ];
 
     for (const section of managerSections) {
@@ -29,9 +30,15 @@ test.describe('Manager Dashboard', () => {
     }
 
     // Admin-only sections should NOT be visible
-    await expect(managerPage.getByRole('button', { name: 'Access Requests' })).not.toBeVisible();
+    await expect(
+      managerPage.getByRole('button', { name: 'Activity Categories' })
+    ).not.toBeVisible();
+    await expect(managerPage.getByRole('button', { name: 'Tickets' })).not.toBeVisible();
     await expect(
       managerPage.getByRole('button', { name: 'Users' })
+    ).not.toBeVisible();
+    await expect(
+      managerPage.getByRole('button', { name: 'Audit Logs' })
     ).not.toBeVisible();
   });
 
@@ -245,10 +252,9 @@ test.describe('Admin with Manager Group', () => {
     await page.goto('/');
 
     // Should see full admin navigation (admin takes precedence)
-    await expect(page.getByRole('button', { name: 'Access Requests' })).toBeVisible();
-    await expect(
-      page.getByRole('button', { name: 'Users' })
-    ).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Activity Categories' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Tickets' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Users' })).toBeVisible();
 
     // Should NOT see manager banner
     await expect(page.getByText('Manager View')).not.toBeVisible();

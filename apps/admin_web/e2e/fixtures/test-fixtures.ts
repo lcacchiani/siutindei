@@ -86,6 +86,16 @@ export const mockOrganizations = [
     name: 'Test Organization 1',
     description: 'First test organization',
     manager_id: 'manager-user-id-456',
+    phone_country_code: 'HK',
+    phone_number: '12345678',
+    email: 'contact@org-one.test',
+    whatsapp: '@orgone',
+    facebook: 'https://facebook.com/orgone',
+    instagram: '@orgone',
+    tiktok: '@orgone',
+    twitter: '@orgone',
+    xiaohongshu: '@orgone',
+    wechat: '@orgone',
     media_urls: [],
     created_at: '2024-01-01T00:00:00Z',
     updated_at: '2024-01-01T00:00:00Z',
@@ -95,6 +105,16 @@ export const mockOrganizations = [
     name: 'Test Organization 2',
     description: 'Second test organization',
     manager_id: 'admin-manager-id-789',
+    phone_country_code: 'HK',
+    phone_number: '87654321',
+    email: 'contact@org-two.test',
+    whatsapp: '',
+    facebook: '',
+    instagram: '',
+    tiktok: '',
+    twitter: '',
+    xiaohongshu: '',
+    wechat: '',
     media_urls: [],
     created_at: '2024-01-02T00:00:00Z',
     updated_at: '2024-01-02T00:00:00Z',
@@ -108,6 +128,7 @@ export const mockActivities = [
   {
     id: 'activity-1',
     org_id: 'org-1',
+    category_id: 'cat-water',
     name: 'Swimming Class',
     description: 'Learn to swim',
     age_min: 5,
@@ -118,12 +139,91 @@ export const mockActivities = [
   {
     id: 'activity-2',
     org_id: 'org-1',
+    category_id: 'cat-paint',
     name: 'Art Workshop',
     description: 'Creative art activities',
     age_min: 3,
     age_max: 10,
     created_at: '2024-01-02T00:00:00Z',
     updated_at: '2024-01-02T00:00:00Z',
+  },
+];
+
+export const mockActivityCategoryTree = [
+  {
+    id: 'cat-sport',
+    parent_id: null,
+    name: 'Sport',
+    display_order: 1,
+    children: [
+      {
+        id: 'cat-water',
+        parent_id: 'cat-sport',
+        name: 'Water Sports',
+        display_order: 1,
+        children: [],
+      },
+      {
+        id: 'cat-team',
+        parent_id: 'cat-sport',
+        name: 'Team Sports',
+        display_order: 2,
+        children: [],
+      },
+    ],
+  },
+  {
+    id: 'cat-arts',
+    parent_id: null,
+    name: 'Arts',
+    display_order: 2,
+    children: [
+      {
+        id: 'cat-paint',
+        parent_id: 'cat-arts',
+        name: 'Painting',
+        display_order: 1,
+        children: [],
+      },
+    ],
+  },
+];
+
+export const mockActivityCategories = [
+  {
+    id: 'cat-sport',
+    parent_id: null,
+    name: 'Sport',
+    display_order: 1,
+    children: [],
+  },
+  {
+    id: 'cat-water',
+    parent_id: 'cat-sport',
+    name: 'Water Sports',
+    display_order: 1,
+    children: [],
+  },
+  {
+    id: 'cat-team',
+    parent_id: 'cat-sport',
+    name: 'Team Sports',
+    display_order: 2,
+    children: [],
+  },
+  {
+    id: 'cat-arts',
+    parent_id: null,
+    name: 'Arts',
+    display_order: 2,
+    children: [],
+  },
+  {
+    id: 'cat-paint',
+    parent_id: 'cat-arts',
+    name: 'Painting',
+    display_order: 1,
+    children: [],
   },
 ];
 
@@ -158,28 +258,56 @@ export const mockLocations = [
   {
     id: 'loc-1',
     org_id: 'org-1',
-    name: 'Main Center',
+    area_id: 'area-hk-wanchai',
     address: '123 Test Street',
-    city: 'Test City',
-    postal_code: '12345',
+    lat: 22.278,
+    lng: 114.175,
     created_at: '2024-01-01T00:00:00Z',
     updated_at: '2024-01-01T00:00:00Z',
   },
 ];
 
-/**
- * Mock access requests data
- */
-export const mockAccessRequests = [
+export const mockAreaTree = [
   {
-    id: 'request-1',
-    user_sub: 'pending-user-id',
-    user_email: 'pending@example.com',
+    id: 'area-hk',
+    parent_id: null,
+    name: 'Hong Kong',
+    level: 'country',
+    code: 'HK',
+    active: true,
+    display_order: 1,
+    children: [
+      {
+        id: 'area-hk-wanchai',
+        parent_id: 'area-hk',
+        name: 'Wan Chai',
+        level: 'district',
+        code: null,
+        active: true,
+        display_order: 1,
+        children: [],
+      },
+    ],
+  },
+];
+
+/**
+ * Mock tickets data
+ */
+export const mockTickets = [
+  {
+    id: 'ticket-1',
+    ticket_id: 'T00001',
+    ticket_type: 'access_request',
+    submitter_id: 'pending-user-id',
+    submitter_email: 'pending@example.com',
     organization_name: 'New Organization',
-    message: 'Please approve my request',
     status: 'pending',
     created_at: '2024-01-01T00:00:00Z',
     updated_at: '2024-01-01T00:00:00Z',
+    reviewed_at: null,
+    reviewed_by: null,
+    admin_notes: null,
   },
 ];
 
@@ -204,14 +332,14 @@ export async function setupAuth(page: Page, user: MockUser | null): Promise<void
  */
 export async function setupApiMocks(page: Page): Promise<void> {
   // Mock organizations list
-  await page.route('**/api/mock/admin/organizations*', async (route) => {
+  await page.route('**/api/mock/**/admin/organizations*', async (route) => {
     const method = route.request().method();
 
     if (method === 'GET') {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ items: mockOrganizations, cursor: null }),
+        body: JSON.stringify({ items: mockOrganizations, next_cursor: null }),
       });
     } else if (method === 'POST') {
       const body = route.request().postDataJSON();
@@ -232,7 +360,7 @@ export async function setupApiMocks(page: Page): Promise<void> {
   });
 
   // Mock organization by ID
-  await page.route('**/api/mock/admin/organizations/*', async (route) => {
+  await page.route('**/api/mock/**/admin/organizations/*', async (route) => {
     const method = route.request().method();
 
     if (method === 'DELETE') {
@@ -258,14 +386,14 @@ export async function setupApiMocks(page: Page): Promise<void> {
   });
 
   // Mock activities list
-  await page.route('**/api/mock/admin/activities*', async (route) => {
+  await page.route('**/api/mock/**/admin/activities*', async (route) => {
     const method = route.request().method();
 
     if (method === 'GET') {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ items: mockActivities, cursor: null }),
+        body: JSON.stringify({ items: mockActivities, next_cursor: null }),
       });
     } else if (method === 'POST') {
       const body = route.request().postDataJSON();
@@ -285,15 +413,93 @@ export async function setupApiMocks(page: Page): Promise<void> {
     }
   });
 
-  // Mock locations list
-  await page.route('**/api/mock/admin/locations*', async (route) => {
+  // Mock activity categories list
+  await page.route('**/api/mock/**/admin/activity-categories*', async (route) => {
     const method = route.request().method();
 
     if (method === 'GET') {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ items: mockLocations, cursor: null }),
+        body: JSON.stringify({ items: mockActivityCategories, next_cursor: null }),
+      });
+    } else if (method === 'POST') {
+      const body = route.request().postDataJSON();
+      const newCategory = {
+        id: 'category-new-' + Date.now(),
+        ...body,
+        children: [],
+      };
+      await route.fulfill({
+        status: 201,
+        contentType: 'application/json',
+        body: JSON.stringify(newCategory),
+      });
+    } else {
+      await route.continue();
+    }
+  });
+
+  // Mock activity category by ID
+  await page.route(
+    '**/api/mock/**/admin/activity-categories/*',
+    async (route) => {
+      const method = route.request().method();
+      const url = route.request().url();
+      const categoryId = url.split('/').pop()?.split('?')[0];
+
+      if (method === 'DELETE') {
+        await route.fulfill({
+          status: 204,
+        });
+      } else if (method === 'PUT') {
+        const body = route.request().postDataJSON();
+        const updatedCategory = {
+          id: categoryId,
+          ...body,
+          children: [],
+        };
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify(updatedCategory),
+        });
+      } else {
+        await route.continue();
+      }
+    }
+  );
+
+  // Mock activity category tree (user endpoint)
+  await page.route(
+    '**/api/mock/**/user/activity-categories*',
+    async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ items: mockActivityCategoryTree }),
+      });
+    }
+  );
+
+  // Mock geographic areas tree (user endpoint)
+  await page.route('**/api/mock/**/user/areas*', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ items: mockAreaTree }),
+    });
+  });
+
+  // Mock locations list
+  await page.route('**/api/mock/**/admin/locations*', async (route) => {
+    const method = route.request().method();
+
+    if (method === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ items: mockLocations, next_cursor: null }),
       });
     } else {
       await route.continue();
@@ -301,7 +507,7 @@ export async function setupApiMocks(page: Page): Promise<void> {
   });
 
   // Mock Cognito users list
-  await page.route('**/api/mock/admin/cognito/users*', async (route) => {
+  await page.route('**/api/mock/**/admin/cognito-users*', async (route) => {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -309,17 +515,42 @@ export async function setupApiMocks(page: Page): Promise<void> {
     });
   });
 
-  // Mock access requests list
-  await page.route('**/api/mock/admin/access-requests*', async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({ items: mockAccessRequests, cursor: null }),
-    });
+  // Mock tickets list and review
+  await page.route('**/api/mock/**/admin/tickets*', async (route) => {
+    const method = route.request().method();
+    if (method === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ items: mockTickets, next_cursor: null }),
+      });
+      return;
+    }
+    if (method === 'PUT') {
+      const body = route.request().postDataJSON();
+      const url = route.request().url();
+      const ticketId = url.split('/').pop()?.split('?')[0];
+      const existing = mockTickets.find((ticket) => ticket.id === ticketId);
+      const updated = {
+        ...(existing ?? mockTickets[0]),
+        id: ticketId ?? mockTickets[0].id,
+        status: body.action === 'approve' ? 'approved' : 'rejected',
+        admin_notes: body.admin_notes ?? null,
+        reviewed_at: new Date().toISOString(),
+        reviewed_by: 'admin-user-id-123',
+      };
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ message: 'Ticket reviewed', ticket: updated }),
+      });
+      return;
+    }
+    await route.continue();
   });
 
   // Mock user access request status endpoint
-  await page.route('**/api/mock/user/access-request*', async (route) => {
+  await page.route('**/api/mock/**/user/access-request*', async (route) => {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -331,45 +562,102 @@ export async function setupApiMocks(page: Page): Promise<void> {
     });
   });
 
+  // Mock user organization suggestions endpoint
+  await page.route('**/api/mock/**/user/organization-suggestion*', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ has_pending_suggestion: false, suggestions: [] }),
+    });
+  });
+
   // Mock manager organizations list
-  await page.route('**/api/mock/manager/organizations*', async (route) => {
+  await page.route('**/api/mock/**/manager/organizations*', async (route) => {
     const method = route.request().method();
 
     if (method === 'GET') {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ items: mockOrganizations.slice(0, 1), cursor: null }),
+        body: JSON.stringify({
+          items: mockOrganizations.slice(0, 1),
+          next_cursor: null,
+        }),
       });
     } else {
       await route.continue();
     }
   });
 
-  // Mock pricing list
-  await page.route('**/api/mock/admin/pricing*', async (route) => {
+  // Mock manager activities list
+  await page.route('**/api/mock/**/manager/activities*', async (route) => {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify({ items: [], cursor: null }),
+      body: JSON.stringify({ items: mockActivities, next_cursor: null }),
+    });
+  });
+
+  // Mock manager locations list
+  await page.route('**/api/mock/**/manager/locations*', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ items: mockLocations, next_cursor: null }),
+    });
+  });
+
+  // Mock manager pricing list
+  await page.route('**/api/mock/**/manager/pricing*', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ items: [], next_cursor: null }),
+    });
+  });
+
+  // Mock manager schedules list
+  await page.route('**/api/mock/**/manager/schedules*', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ items: [], next_cursor: null }),
+    });
+  });
+
+  // Mock pricing list
+  await page.route('**/api/mock/**/admin/pricing*', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ items: [], next_cursor: null }),
     });
   });
 
   // Mock schedules list
-  await page.route('**/api/mock/admin/schedules*', async (route) => {
+  await page.route('**/api/mock/**/admin/schedules*', async (route) => {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify({ items: [], cursor: null }),
+      body: JSON.stringify({ items: [], next_cursor: null }),
+    });
+  });
+
+  // Mock audit logs list
+  await page.route('**/api/mock/**/admin/audit-logs*', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ items: [], next_cursor: null }),
     });
   });
 
   // Mock media upload
-  await page.route('**/api/mock/admin/media*', async (route) => {
+  await page.route('**/api/mock/**/admin/media*', async (route) => {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify({ items: [], cursor: null }),
+      body: JSON.stringify({ items: [], next_cursor: null }),
     });
   });
 }

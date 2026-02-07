@@ -12,6 +12,7 @@ type S = components['schemas'];
 export type Organization = S['Organization'];
 export type Location = S['Location'];
 export type Activity = S['Activity'];
+export type ActivityCategory = S['ActivityCategory'];
 export type CognitoUser = S['CognitoUser'];
 export type ActivityPricing = S['Pricing'];
 export type ActivitySchedule = S['Schedule'];

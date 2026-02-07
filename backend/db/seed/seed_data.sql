@@ -16,6 +16,13 @@ WHERE NOT EXISTS (
   SELECT 1 FROM organizations WHERE id = '22222222-2222-2222-2222-222222222222'
 );
 
+INSERT INTO activity_categories (id, parent_id, name, display_order)
+SELECT '99999999-9999-9999-9999-999999999999', NULL, 'Sport', 1
+WHERE NOT EXISTS (
+  SELECT 1 FROM activity_categories
+  WHERE id = '99999999-9999-9999-9999-999999999999'
+);
+
 INSERT INTO locations (id, org_id, area_id, address, lat, lng)
 SELECT 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '11111111-1111-1111-1111-111111111111',
        (SELECT id FROM geographic_areas WHERE name = 'Central and Western' AND level = 'district' LIMIT 1),
@@ -40,16 +47,18 @@ WHERE NOT EXISTS (
   SELECT 1 FROM locations WHERE id = 'cccccccc-cccc-cccc-cccc-cccccccccccc'
 );
 
-INSERT INTO activities (id, org_id, name, description, age_range)
+INSERT INTO activities (id, org_id, category_id, name, description, age_range)
 SELECT 'dddddddd-dddd-dddd-dddd-dddddddddddd', '11111111-1111-1111-1111-111111111111',
+       '99999999-9999-9999-9999-999999999999',
        'Creative Painting', 'Painting classes for young artists.',
        int4range(4, 9, '[]')
 WHERE NOT EXISTS (
   SELECT 1 FROM activities WHERE id = 'dddddddd-dddd-dddd-dddd-dddddddddddd'
 );
 
-INSERT INTO activities (id, org_id, name, description, age_range)
+INSERT INTO activities (id, org_id, category_id, name, description, age_range)
 SELECT 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', '22222222-2222-2222-2222-222222222222',
+       '99999999-9999-9999-9999-999999999999',
        'Beginner Dance', 'Introductory dance sessions.',
        int4range(3, 7, '[]')
 WHERE NOT EXISTS (

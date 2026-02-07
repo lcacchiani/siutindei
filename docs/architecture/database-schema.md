@@ -62,6 +62,23 @@ Indexes:
 - `geo_areas_level_idx` on `level`
 - `geo_areas_code_idx` on `code`
 
+## Table: activity_categories
+
+Purpose: Hierarchical lookup of activity categories.
+
+Columns:
+- `id` (UUID, PK, default `gen_random_uuid()`)
+- `parent_id` (UUID, FK -> activity_categories.id, nullable for roots)
+- `name` (text, required)
+- `display_order` (integer, default 0)
+
+Constraints:
+- UNIQUE(`parent_id`, `name`)
+
+Indexes:
+- `activity_categories_parent_idx` on `parent_id`
+- `activity_categories_name_idx` on `name`
+
 ## Table: locations
 
 Purpose: Physical or logical locations for an organization.
@@ -88,6 +105,7 @@ Purpose: Activities offered by organizations.
 Columns:
 - `id` (UUID, PK, default `gen_random_uuid()`)
 - `org_id` (UUID, FK -> organizations.id, cascade delete)
+- `category_id` (UUID, FK -> activity_categories.id, restrict delete)
 - `name` (text, required)
 - `description` (text, optional)
 - `age_range` (int4range, required)
@@ -97,6 +115,7 @@ Columns:
 Indexes:
 - `activities_age_gist` on `age_range` (GiST)
 - `activities_org_idx` on `org_id`
+- `activities_category_idx` on `category_id`
 
 ## Table: activity_locations
 

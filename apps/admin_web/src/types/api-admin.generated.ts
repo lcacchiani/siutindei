@@ -458,6 +458,198 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/activity-categories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List activity categories
+         * @description Retrieve a paginated list of activity categories.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    limit?: number;
+                    cursor?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description List of activity categories */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ActivityCategoryListResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** Create activity category */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ActivityCategoryCreate"];
+                };
+            };
+            responses: {
+                /** @description Activity category created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ActivityCategory"];
+                    };
+                };
+                /** @description Validation error */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/activity-categories/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** Get activity category */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Activity category details */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ActivityCategory"];
+                    };
+                };
+                /** @description Activity category not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        /** Update activity category */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ActivityCategoryUpdate"];
+                };
+            };
+            responses: {
+                /** @description Activity category updated */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Validation error */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Activity category not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        post?: never;
+        /** Delete activity category */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Activity category deleted */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Validation error */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Activity category not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/activities": {
         parameters: {
             query?: never;
@@ -2566,6 +2758,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/user/activity-categories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List activity categories
+         * @description Returns the activity category tree for use in selection UIs.
+         *     Available to any authenticated user.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Activity category tree */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ActivityCategoryTreeResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/user/access-request": {
         parameters: {
             query?: never;
@@ -2954,6 +3186,11 @@ export interface components {
              * @description Organization UUID (required)
              */
             org_id: string;
+            /**
+             * Format: uuid
+             * @description Activity category UUID (required)
+             */
+            category_id: string;
             /** @description Activity name (required, max 200 characters) */
             name: string;
             /** @description Activity description (optional, max 5,000 characters) */
@@ -2964,6 +3201,11 @@ export interface components {
             age_max: number;
         };
         ActivityUpdate: {
+            /**
+             * Format: uuid
+             * @description Activity category UUID
+             */
+            category_id?: string;
             /** @description Activity name (max 200 characters) */
             name?: string;
             /** @description Activity description (max 5,000 characters) */
@@ -2978,6 +3220,8 @@ export interface components {
             id: string;
             /** Format: uuid */
             org_id: string;
+            /** Format: uuid */
+            category_id: string;
             name: string;
             description?: string | null;
             age_min: number;
@@ -3280,6 +3524,49 @@ export interface components {
         AuditLogListResponse: {
             items: components["schemas"]["AuditLogEntry"][];
             next_cursor?: string | null;
+        };
+        ActivityCategory: {
+            /** Format: uuid */
+            id: string;
+            /**
+             * Format: uuid
+             * @description NULL for root category nodes
+             */
+            parent_id?: string | null;
+            /** @description Category name */
+            name: string;
+            display_order: number;
+            /** @description Nested child categories (tree responses) */
+            children?: components["schemas"]["ActivityCategory"][];
+        };
+        ActivityCategoryCreate: {
+            /** @description Category name (required) */
+            name: string;
+            /**
+             * Format: uuid
+             * @description Optional parent category UUID
+             */
+            parent_id?: string | null;
+            /** @description Sort order within the parent */
+            display_order?: number;
+        };
+        ActivityCategoryUpdate: {
+            /** @description Category name */
+            name?: string;
+            /**
+             * Format: uuid
+             * @description Parent category UUID or null for root
+             */
+            parent_id?: string | null;
+            /** @description Sort order within the parent */
+            display_order?: number;
+        };
+        ActivityCategoryListResponse: {
+            items: components["schemas"]["ActivityCategory"][];
+            next_cursor?: string | null;
+        };
+        ActivityCategoryTreeResponse: {
+            items: components["schemas"]["ActivityCategory"][];
         };
         GeographicArea: {
             /** Format: uuid */

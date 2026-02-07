@@ -1,0 +1,47 @@
+import { test, expect } from './fixtures/test-fixtures';
+
+test.describe('Activity Categories Panel', () => {
+  test.beforeEach(async ({ adminPage }) => {
+    await adminPage.goto('/');
+    await adminPage.getByRole('button', { name: 'Activity Categories' }).click();
+  });
+
+  test('should display the category form', async ({ adminPage }) => {
+    await expect(
+      adminPage.getByRole('heading', { name: 'Activity Categories' })
+    ).toBeVisible();
+
+    await expect(adminPage.getByLabel('Name')).toBeVisible();
+    await expect(adminPage.getByLabel('Parent')).toBeVisible();
+    await expect(adminPage.getByLabel('Display Order')).toBeVisible();
+    await expect(
+      adminPage.getByRole('button', { name: 'Add Category' })
+    ).toBeVisible();
+  });
+
+  test('should display existing categories list', async ({ adminPage }) => {
+    await expect(
+      adminPage.getByRole('heading', { name: 'Existing Categories' })
+    ).toBeVisible();
+
+    await expect(adminPage.getByRole('columnheader', { name: 'Path' })).toBeVisible();
+    await expect(
+      adminPage.getByRole('columnheader', { name: 'Display Order' })
+    ).toBeVisible();
+    await expect(
+      adminPage.getByRole('columnheader', { name: 'Actions' })
+    ).toBeVisible();
+
+    await expect(adminPage.getByText('Sport / Water Sports')).toBeVisible();
+  });
+
+  test('should create a new category', async ({ adminPage }) => {
+    await adminPage.getByLabel('Name').fill('Outdoor');
+    await adminPage.getByLabel('Parent').selectOption({ label: 'Sport' });
+    await adminPage.getByLabel('Display Order').fill('3');
+
+    await adminPage.getByRole('button', { name: 'Add Category' }).click();
+
+    await expect(adminPage.getByText('Outdoor')).toBeVisible();
+  });
+});

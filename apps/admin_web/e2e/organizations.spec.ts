@@ -14,6 +14,12 @@ test.describe('Organizations Panel', () => {
     await expect(adminPage.getByLabel('Name')).toBeVisible();
     await expect(adminPage.getByLabel('Manager')).toBeVisible();
     await expect(adminPage.getByLabel('Description')).toBeVisible();
+    await expect(adminPage.getByLabel('Email')).toBeVisible();
+    await expect(adminPage.getByLabel('Phone country')).toBeVisible();
+    await expect(adminPage.getByLabel('Phone number')).toBeVisible();
+    await expect(adminPage.getByLabel('WhatsApp')).toBeVisible();
+    await expect(adminPage.getByLabel('X')).toBeVisible();
+    await expect(adminPage.getByLabel('WeChat')).toBeVisible();
 
     // Check for submit button
     await expect(adminPage.getByRole('button', { name: 'Add Organization' })).toBeVisible();

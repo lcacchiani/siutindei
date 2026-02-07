@@ -1,11 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
+import { useActivityCategories } from '../../hooks/use-activity-categories';
 import { useResourcePanel } from '../../hooks/use-resource-panel';
 import { listResource, listManagerOrganizations } from '../../lib/api-client';
 import type { ApiMode } from '../../lib/resource-api';
 import type { Activity, Organization } from '../../types/admin';
+import { CascadingCategorySelect } from '../ui/cascading-category-select';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
 import { Input } from '../ui/input';
@@ -53,6 +55,7 @@ function DeleteIcon({ className }: { className?: string }) {
 
 interface ActivityFormState {
   org_id: string;
+  category_id: string;
   name: string;
   description: string;
   age_min: string;
@@ -61,6 +64,7 @@ interface ActivityFormState {
 
 const emptyForm: ActivityFormState = {
   org_id: '',
+  category_id: '',
   name: '',
   description: '',
   age_min: '',
@@ -70,6 +74,7 @@ const emptyForm: ActivityFormState = {
 function itemToForm(item: Activity): ActivityFormState {
   return {
     org_id: item.org_id ?? '',
+    category_id: item.category_id ?? '',
     name: item.name ?? '',
     description: item.description ?? '',
     age_min: item.age_min !== undefined ? `${item.age_min}` : '',
@@ -96,8 +101,28 @@ export function ActivitiesPanel({ mode }: ActivitiesPanelProps) {
     itemToForm
   );
 
+  const { tree: categoryTree } = useActivityCategories();
+
   // Load organizations for the dropdown
   const [organizations, setOrganizations] = useState<Organization[]>([]);
+
+  const categoryPathById = useMemo(() => {
+    const map = new Map<string, string>();
+    function walk(nodes: typeof categoryTree, prefix = '') {
+      for (const node of nodes) {
+        const path = prefix ? `${prefix} / ${node.name}` : node.name;
+        map.set(node.id, path);
+        if (node.children) {
+          walk(node.children, path);
+        }
+      }
+    }
+    walk(categoryTree);
+    return map;
+  }, [categoryTree]);
+
+  const getCategoryPath = (categoryId?: string) =>
+    (categoryId ? categoryPathById.get(categoryId) : undefined) ?? '—';
 
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
@@ -143,6 +168,9 @@ export function ActivitiesPanel({ mode }: ActivitiesPanelProps) {
     if (!panel.formState.org_id || !panel.formState.name.trim()) {
       return 'Organization and name are required.';
     }
+    if (!panel.formState.category_id) {
+      return 'Category is required.';
+    }
     if (ageMin === null || ageMax === null) {
       return 'Age range must be numeric.';
     }
@@ -154,6 +182,7 @@ export function ActivitiesPanel({ mode }: ActivitiesPanelProps) {
 
   const formToPayload = (form: ActivityFormState) => ({
     org_id: form.org_id,
+    category_id: form.category_id,
     name: form.name.trim(),
     description: form.description.trim() || null,
     age_min: parseRequiredNumber(form.age_min),
@@ -167,10 +196,12 @@ export function ActivitiesPanel({ mode }: ActivitiesPanelProps) {
     if (!searchQuery.trim()) return true;
     const query = searchQuery.toLowerCase();
     const orgName = organizations.find((org) => org.id === item.org_id)?.name?.toLowerCase() || '';
+    const categoryPath = getCategoryPath(item.category_id).toLowerCase();
     return (
       item.name?.toLowerCase().includes(query) ||
       item.description?.toLowerCase().includes(query) ||
-      orgName.includes(query)
+      orgName.includes(query) ||
+      categoryPath.includes(query)
     );
   });
 
@@ -205,6 +236,19 @@ export function ActivitiesPanel({ mode }: ActivitiesPanelProps) {
                 </option>
               ))}
             </Select>
+          </div>
+          <div className='md:col-span-2'>
+            <Label htmlFor='activity-category'>Category</Label>
+            <CascadingCategorySelect
+              tree={categoryTree}
+              value={panel.formState.category_id}
+              onChange={(categoryId, _chain) =>
+                panel.setFormState((prev) => ({
+                  ...prev,
+                  category_id: categoryId,
+                }))
+              }
+            />
           </div>
           <div>
             <Label htmlFor='activity-name'>Name</Label>
@@ -312,6 +356,7 @@ export function ActivitiesPanel({ mode }: ActivitiesPanelProps) {
               <thead className='border-b border-slate-200 text-slate-500'>
                 <tr>
                   <th className='py-2'>Name</th>
+                  <th className='py-2'>Category</th>
                   {isAdmin && <th className='py-2'>Organization</th>}
                   <th className='py-2'>Age Range</th>
                   <th className='py-2 text-right'>Actions</th>
@@ -321,6 +366,9 @@ export function ActivitiesPanel({ mode }: ActivitiesPanelProps) {
                 {filteredItems.map((item) => (
                   <tr key={item.id} className='border-b border-slate-100'>
                     <td className='py-2 font-medium'>{item.name}</td>
+                    <td className='py-2 text-slate-600'>
+                      {getCategoryPath(item.category_id)}
+                    </td>
                     {isAdmin && (
                       <td className='py-2 text-slate-600'>
                         {organizations.find((org) => org.id === item.org_id)
@@ -366,6 +414,9 @@ export function ActivitiesPanel({ mode }: ActivitiesPanelProps) {
                   className='rounded-lg border border-slate-200 bg-slate-50 p-3'
                 >
                   <div className='font-medium text-slate-900'>{item.name}</div>
+                  <div className='mt-1 text-sm text-slate-600'>
+                    {getCategoryPath(item.category_id)}
+                  </div>
                   {isAdmin && (
                     <div className='mt-1 text-sm text-slate-600'>
                       {organizations.find((org) => org.id === item.org_id)?.name || item.org_id}

@@ -105,6 +105,17 @@ def sample_organization(db_session, sample_organization_data):
 
 
 @pytest.fixture
+def sample_activity_category(db_session):
+    """Create a sample activity category in the test database."""
+    from app.db.models import ActivityCategory
+
+    category = ActivityCategory(name='Sport', display_order=0)
+    db_session.add(category)
+    db_session.flush()
+    return category
+
+
+@pytest.fixture
 def sample_location_data(sample_organization) -> dict:
     """Sample data for creating a location."""
     return {
@@ -128,12 +139,13 @@ def sample_location(db_session, sample_location_data):
 
 
 @pytest.fixture
-def sample_activity_data(sample_organization) -> dict:
+def sample_activity_data(sample_organization, sample_activity_category) -> dict:
     """Sample data for creating an activity."""
     from psycopg.types.range import Range
 
     return {
         'org_id': sample_organization.id,
+        'category_id': sample_activity_category.id,
         'name': 'Swimming Class',
         'description': 'Learn to swim in our heated pool',
         'age_range': Range(5, 12, bounds='[]'),

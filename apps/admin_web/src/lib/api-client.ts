@@ -4,6 +4,7 @@ import { getApiBaseUrl } from './config';
 export type ResourceName =
   | 'organizations'
   | 'locations'
+  | 'activity-categories'
   | 'activities'
   | 'pricing'
   | 'schedules';
@@ -388,6 +389,28 @@ export interface GeographicAreaNode {
  */
 export async function fetchActiveAreas(): Promise<{ items: GeographicAreaNode[] }> {
   return request<{ items: GeographicAreaNode[] }>(buildUserUrl('areas'));
+}
+
+// --- Activity Categories ---
+
+/** A node in the activity category tree. */
+export interface ActivityCategoryNode {
+  id: string;
+  parent_id: string | null;
+  name: string;
+  display_order: number;
+  children: ActivityCategoryNode[];
+}
+
+/**
+ * Fetch the activity category tree (for any authenticated user).
+ */
+export async function fetchActivityCategories(): Promise<{
+  items: ActivityCategoryNode[];
+}> {
+  return request<{ items: ActivityCategoryNode[] }>(
+    buildUserUrl('activity-categories')
+  );
 }
 
 /**
