@@ -5,10 +5,21 @@
 # - rules/react-redux-typescript-cursorrules-prompt-file
 # - rules/nextjs-react-tailwind-cursorrules-prompt-file
 
-### Planning and approval (MANDATORY)
-- Before taking any action, write a brief plan for the task.
-- Ask questions to validate requirements and uncover hidden assumptions.
-- Wait for explicit user approval before making any changes.
+### Constraints (MANDATORY)
+- Never proceed with new files if similar functionality exists.
+- If the plan changes, re-submit for approval.
+- Use simple future tense for planning, not present tense (e.g., "I will
+  modify..." not "I am modifying...").
+
+### Workflow (MANDATORY)
+1. **Analyze:** Understand the user request.
+2. **Plan:** Create a detailed plan (output directly in chat) outlining:
+   - Files to be modified/created
+   - Functions/components to be changed
+   - Potential edge cases
+   - Ask questions to validate requirements and uncover hidden assumptions
+3. **Approval:** Wait for user approval.
+4. **Execute:** Implement the changes only after approval.
 
 ### Flutter development guidelines
 ### Repository structure
