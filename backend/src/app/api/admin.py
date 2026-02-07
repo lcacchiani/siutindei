@@ -3146,6 +3146,7 @@ MAX_MEDIA_URLS_COUNT = 20
 MAX_SOCIAL_VALUE_LENGTH = 2048
 MAX_SOCIAL_HANDLE_LENGTH = 64
 
+
 # Valid ISO 4217 currency codes.
 def _load_valid_currencies() -> frozenset[str]:
     codes: set[str] = set()
