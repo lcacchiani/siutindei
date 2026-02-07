@@ -1,14 +1,14 @@
 import { test, expect } from './fixtures/test-fixtures';
 
-test.describe('Activity Categories Panel', () => {
+test.describe('Categories Panel', () => {
   test.beforeEach(async ({ adminPage }) => {
     await adminPage.goto('/');
-    await adminPage.getByRole('button', { name: 'Activity Categories' }).click();
+    await adminPage.getByRole('button', { name: 'Categories' }).click();
   });
 
   test('should display the category form', async ({ adminPage }) => {
     await expect(
-      adminPage.getByRole('heading', { name: 'Activity Categories' })
+      adminPage.getByRole('heading', { name: 'Categories' })
     ).toBeVisible();
 
     await expect(adminPage.getByLabel('Name')).toBeVisible();

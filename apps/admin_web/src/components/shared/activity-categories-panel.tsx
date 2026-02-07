@@ -184,7 +184,7 @@ export function ActivityCategoriesPanel() {
   return (
     <div className='space-y-6'>
       <Card
-        title='Activity Categories'
+        title='Categories'
         description='Manage categories and subcategories.'
       >
         {panel.error && (
