@@ -238,7 +238,7 @@ interface OrganizationFormState {
   instagram: string;
   tiktok: string;
   twitter: string;
-  little_red_book: string;
+  xiaohongshu: string;
   wechat: string;
 }
 
@@ -254,7 +254,7 @@ const emptyForm: OrganizationFormState = {
   instagram: '',
   tiktok: '',
   twitter: '',
-  little_red_book: '',
+  xiaohongshu: '',
   wechat: '',
 };
 
@@ -271,7 +271,7 @@ function itemToForm(item: Organization): OrganizationFormState {
     instagram: item.instagram ?? '',
     tiktok: item.tiktok ?? '',
     twitter: item.twitter ?? '',
-    little_red_book: item.little_red_book ?? '',
+    xiaohongshu: item.xiaohongshu ?? '',
     wechat: item.wechat ?? '',
   };
 }
@@ -282,7 +282,7 @@ type SocialFieldKey =
   | 'instagram'
   | 'tiktok'
   | 'twitter'
-  | 'little_red_book'
+  | 'xiaohongshu'
   | 'wechat';
 
 const SOCIAL_FIELDS: Array<{
@@ -295,7 +295,7 @@ const SOCIAL_FIELDS: Array<{
   { key: 'instagram', label: 'Instagram', iconLabel: 'IG' },
   { key: 'tiktok', label: 'TikTok', iconLabel: 'TT' },
   { key: 'twitter', label: 'Twitter', iconLabel: 'X' },
-  { key: 'little_red_book', label: 'Little Red Book', iconLabel: 'XHS' },
+  { key: 'xiaohongshu', label: 'Xiaohongshu', iconLabel: 'XHS' },
   { key: 'wechat', label: 'WeChat', iconLabel: 'WC' },
 ];
 
@@ -439,7 +439,7 @@ export function OrganizationsPanel({ mode }: OrganizationsPanelProps) {
       instagram: normalizeSocialValue(form.instagram),
       tiktok: normalizeSocialValue(form.tiktok),
       twitter: normalizeSocialValue(form.twitter),
-      little_red_book: normalizeSocialValue(form.little_red_book),
+      xiaohongshu: normalizeSocialValue(form.xiaohongshu),
       wechat: normalizeSocialValue(form.wechat),
     };
     if (isAdmin) {

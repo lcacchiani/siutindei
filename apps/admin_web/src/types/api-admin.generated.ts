@@ -2819,8 +2819,8 @@ export interface components {
             tiktok?: string;
             /** @description Twitter handle or URL */
             twitter?: string;
-            /** @description Little Red Book handle or URL */
-            little_red_book?: string;
+            /** @description Xiaohongshu handle or URL */
+            xiaohongshu?: string;
             /** @description WeChat handle or URL */
             wechat?: string;
             /**
@@ -2852,8 +2852,8 @@ export interface components {
             tiktok?: string;
             /** @description Twitter handle or URL */
             twitter?: string;
-            /** @description Little Red Book handle or URL */
-            little_red_book?: string;
+            /** @description Xiaohongshu handle or URL */
+            xiaohongshu?: string;
             /** @description WeChat handle or URL */
             wechat?: string;
             media_urls?: string[];
@@ -2881,8 +2881,8 @@ export interface components {
             tiktok?: string | null;
             /** @description Twitter handle or URL */
             twitter?: string | null;
-            /** @description Little Red Book handle or URL */
-            little_red_book?: string | null;
+            /** @description Xiaohongshu handle or URL */
+            xiaohongshu?: string | null;
             /** @description WeChat handle or URL */
             wechat?: string | null;
             media_urls: string[];
