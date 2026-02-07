@@ -3,55 +3,21 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import { useActivityCategories } from '../../hooks/use-activity-categories';
+import { useOrganizationsByMode } from '../../hooks/use-organizations-by-mode';
 import { useResourcePanel } from '../../hooks/use-resource-panel';
-import { listResource, listManagerOrganizations } from '../../lib/api-client';
+import { parseRequiredNumber } from '../../lib/number-parsers';
 import type { ApiMode } from '../../lib/resource-api';
-import type { Activity, Organization } from '../../types/admin';
+import type { Activity } from '../../types/admin';
 import { CascadingCategorySelect } from '../ui/cascading-category-select';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
+import { DataTable } from '../ui/data-table';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { SearchInput } from '../ui/search-input';
 import { Select } from '../ui/select';
 import { Textarea } from '../ui/textarea';
 import { StatusBanner } from '../status-banner';
-
-function EditIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-    </svg>
-  );
-}
-
-function DeleteIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <polyline points="3 6 5 6 21 6" />
-      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-      <line x1="10" y1="11" x2="10" y2="17" />
-      <line x1="14" y1="11" x2="14" y2="17" />
-    </svg>
-  );
-}
 
 interface ActivityFormState {
   org_id: string;
@@ -82,12 +48,6 @@ function itemToForm(item: Activity): ActivityFormState {
   };
 }
 
-function parseRequiredNumber(value: string): number | null {
-  const trimmed = value.trim();
-  const parsed = Number(trimmed);
-  return Number.isFinite(parsed) ? parsed : null;
-}
-
 interface ActivitiesPanelProps {
   mode: ApiMode;
 }
@@ -103,8 +63,7 @@ export function ActivitiesPanel({ mode }: ActivitiesPanelProps) {
 
   const { tree: categoryTree } = useActivityCategories();
 
-  // Load organizations for the dropdown
-  const [organizations, setOrganizations] = useState<Organization[]>([]);
+  const { items: organizations } = useOrganizationsByMode(mode, { limit: 200 });
 
   const categoryPathById = useMemo(() => {
     const map = new Map<string, string>();
@@ -130,7 +89,6 @@ export function ActivitiesPanel({ mode }: ActivitiesPanelProps) {
   // For managers with a single org, auto-select and disable the dropdown
   const isSingleOrgManager = !isAdmin && organizations.length === 1;
 
-  // Extract setFormState for stable reference in useEffect
   const { setFormState } = panel;
 
   function getOrganizationName(orgId: string | undefined) {
@@ -142,32 +100,14 @@ export function ActivitiesPanel({ mode }: ActivitiesPanelProps) {
   }
 
   useEffect(() => {
-    const loadOrganizations = async () => {
-      try {
-        if (isAdmin) {
-          const response = await listResource<Organization>(
-            'organizations',
-            undefined,
-            200
-          );
-          setOrganizations(response.items);
-        } else {
-          const response = await listManagerOrganizations();
-          setOrganizations(response.items);
-          // Auto-select if manager has exactly one organization
-          if (response.items.length === 1) {
-            setFormState((prev) => ({
-              ...prev,
-              org_id: response.items[0].id,
-            }));
-          }
-        }
-      } catch {
-        setOrganizations([]);
-      }
-    };
-    loadOrganizations();
-  }, [isAdmin, setFormState]);
+    if (isAdmin || organizations.length !== 1) {
+      return;
+    }
+    const orgId = organizations[0].id;
+    setFormState((prev) =>
+      prev.org_id === orgId ? prev : { ...prev, org_id: orgId }
+    );
+  }, [isAdmin, organizations, setFormState]);
 
   const validate = () => {
     const ageMin = parseRequiredNumber(panel.formState.age_min);
@@ -199,11 +139,40 @@ export function ActivitiesPanel({ mode }: ActivitiesPanelProps) {
 
   const handleSubmit = () => panel.handleSubmit(formToPayload, validate);
 
+  const columns = useMemo(
+    () => [
+      {
+        key: 'name',
+        header: isAdmin ? 'Organization / Activity' : 'Name',
+        primary: true,
+        render: (item: Activity) =>
+          isAdmin
+            ? `${getOrganizationName(item.org_id)} - ${item.name}`
+            : item.name,
+      },
+      {
+        key: 'category',
+        header: 'Category',
+        secondary: true,
+        render: (item: Activity) => getCategoryPath(item.category_id),
+      },
+      {
+        key: 'age-range',
+        header: 'Age Range',
+        render: (item: Activity) => `${item.age_min} - ${item.age_max}`,
+      },
+    ],
+    [getCategoryPath, getOrganizationName, isAdmin]
+  );
+
   // Filter items based on search query
   const filteredItems = panel.items.filter((item) => {
     if (!searchQuery.trim()) return true;
     const query = searchQuery.toLowerCase();
-    const orgName = organizations.find((org) => org.id === item.org_id)?.name?.toLowerCase() || '';
+    const orgName =
+      organizations
+        .find((org) => org.id === item.org_id)
+        ?.name?.toLowerCase() || '';
     const categoryPath = getCategoryPath(item.category_id).toLowerCase();
     return (
       item.name?.toLowerCase().includes(query) ||
@@ -340,7 +309,7 @@ export function ActivitiesPanel({ mode }: ActivitiesPanelProps) {
         title='Existing Activities'
         description='Select an activity to edit or delete.'
       >
-        {panel.isLoading ? (
+        {panel.isLoading && panel.items.length === 0 ? (
           <p className='text-sm text-slate-600'>Loading activities...</p>
         ) : panel.items.length === 0 ? (
           <p className='text-sm text-slate-600'>No activities yet.</p>
@@ -353,123 +322,21 @@ export function ActivitiesPanel({ mode }: ActivitiesPanelProps) {
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
-            {filteredItems.length === 0 ? (
-              <p className='text-sm text-slate-600'>No activities match your search.</p>
-            ) : (
-            <>
-            {/* Desktop table view */}
-            <div className='hidden overflow-x-auto md:block'>
-            <table className='w-full text-left text-sm'>
-              <thead className='border-b border-slate-200 text-slate-500'>
-                <tr>
-                  <th className='py-2'>
-                    {isAdmin ? 'Organization / Activity' : 'Name'}
-                  </th>
-                  <th className='py-2'>Category</th>
-                  <th className='py-2'>Age Range</th>
-                  <th className='py-2 text-right'>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredItems.map((item) => (
-                  <tr key={item.id} className='border-b border-slate-100'>
-                    <td className='py-2 font-medium'>
-                      {isAdmin
-                        ? `${getOrganizationName(item.org_id)} - ${item.name}`
-                        : item.name}
-                    </td>
-                    <td className='py-2 text-slate-600'>
-                      {getCategoryPath(item.category_id)}
-                    </td>
-                    <td className='py-2 text-slate-600'>
-                      {item.age_min} - {item.age_max}
-                    </td>
-                    <td className='py-2 text-right'>
-                      <div className='flex justify-end gap-2'>
-                        <Button
-                          type='button'
-                          size='sm'
-                          variant='secondary'
-                          onClick={() => panel.startEdit(item)}
-                          title='Edit'
-                        >
-                          <EditIcon className='h-4 w-4' />
-                        </Button>
-                        <Button
-                          type='button'
-                          size='sm'
-                          variant='danger'
-                          onClick={() => panel.handleDelete(item)}
-                          title='Delete'
-                        >
-                          <DeleteIcon className='h-4 w-4' />
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            </div>
-
-            {/* Mobile card view */}
-            <div className='space-y-3 md:hidden'>
-              {filteredItems.map((item) => (
-                <div
-                  key={item.id}
-                  className='rounded-lg border border-slate-200 bg-slate-50 p-3'
-                >
-                  <div className='font-medium text-slate-900'>
-                    {isAdmin
-                      ? `${getOrganizationName(item.org_id)} - ${item.name}`
-                      : item.name}
-                  </div>
-                  <div className='mt-1 text-sm text-slate-600'>
-                    {getCategoryPath(item.category_id)}
-                  </div>
-                  <div className='mt-1 text-sm text-slate-500'>
-                    Ages: {item.age_min} - {item.age_max}
-                  </div>
-                  <div className='mt-3 flex gap-2 border-t border-slate-200 pt-3'>
-                    <Button
-                      type='button'
-                      size='sm'
-                      variant='secondary'
-                      onClick={() => panel.startEdit(item)}
-                      className='flex-1'
-                      title='Edit'
-                    >
-                      <EditIcon className='h-4 w-4' />
-                    </Button>
-                    <Button
-                      type='button'
-                      size='sm'
-                      variant='danger'
-                      onClick={() => panel.handleDelete(item)}
-                      className='flex-1'
-                      title='Delete'
-                    >
-                      <DeleteIcon className='h-4 w-4' />
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {panel.nextCursor && (
-              <div className='mt-4'>
-                <Button
-                  type='button'
-                  variant='secondary'
-                  onClick={panel.loadMore}
-                  className='w-full sm:w-auto'
-                >
-                  Load more
-                </Button>
-              </div>
-            )}
-            </>
-            )}
+            <DataTable
+              columns={columns}
+              data={filteredItems}
+              keyExtractor={(item) => item.id}
+              onEdit={(item) => panel.startEdit(item)}
+              onDelete={(item) => panel.handleDelete(item)}
+              nextCursor={panel.nextCursor}
+              onLoadMore={panel.loadMore}
+              isLoading={panel.isLoading}
+              emptyMessage={
+                searchQuery.trim()
+                  ? 'No activities match your search.'
+                  : 'No activities yet.'
+              }
+            />
           </div>
         )}
       </Card>

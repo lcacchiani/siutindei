@@ -8,10 +8,9 @@ import {
   ApiError,
   createOrganizationMediaUpload,
   deleteOrganizationMedia,
-  listResource,
-  listManagerOrganizations,
   updateResource,
 } from '../../lib/api-client';
+import { useOrganizationsByMode } from '../../hooks/use-organizations-by-mode';
 import type { ApiMode } from '../../lib/resource-api';
 import type { Organization } from '../../types/admin';
 import { Button } from '../ui/button';
@@ -91,9 +90,13 @@ interface MediaPanelProps {
 
 export function MediaPanel({ mode = 'admin' }: MediaPanelProps) {
   const isAdmin = mode === 'admin';
+  const {
+    items: orgItems,
+    isLoading: isLoadingOrgs,
+    error: organizationsError,
+  } = useOrganizationsByMode(mode, { fetchAll: true, limit: 50 });
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [selectedOrgId, setSelectedOrgId] = useState<string>('');
-  const [isLoadingOrgs, setIsLoadingOrgs] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isProcessingMedia, setIsProcessingMedia] = useState(false);
   const [error, setError] = useState('');
@@ -119,50 +122,22 @@ export function MediaPanel({ mode = 'admin' }: MediaPanelProps) {
   );
 
   useEffect(() => {
-    const loadOrganizations = async () => {
-      setIsLoadingOrgs(true);
-      setError('');
-      try {
-        let allOrganizations: Organization[];
+    setOrganizations(orgItems);
+    if (isAdmin || selectedOrgId) {
+      return;
+    }
+    if (orgItems.length === 1) {
+      const singleOrg = orgItems[0];
+      setSelectedOrgId(singleOrg.id);
+      setMediaUrls(singleOrg.media_urls ?? []);
+    }
+  }, [isAdmin, orgItems, selectedOrgId]);
 
-        if (isAdmin) {
-          allOrganizations = [];
-          let cursor: string | undefined;
-
-          do {
-            const response = await listResource<Organization>(
-              'organizations',
-              cursor
-            );
-            allOrganizations.push(...response.items);
-            cursor = response.next_cursor ?? undefined;
-          } while (cursor);
-        } else {
-          const response = await listManagerOrganizations();
-          allOrganizations = response.items;
-        }
-
-        setOrganizations(allOrganizations);
-
-        // Auto-select if manager has exactly one organization
-        if (!isAdmin && allOrganizations.length === 1) {
-          const singleOrg = allOrganizations[0];
-          setSelectedOrgId(singleOrg.id);
-          setMediaUrls(singleOrg.media_urls ?? []);
-        }
-      } catch (err) {
-        const message =
-          err instanceof ApiError
-            ? err.message
-            : 'Failed to load organizations.';
-        setError(message);
-      } finally {
-        setIsLoadingOrgs(false);
-      }
-    };
-
-    loadOrganizations();
-  }, [isAdmin]);
+  useEffect(() => {
+    if (organizationsError) {
+      setError(organizationsError);
+    }
+  }, [organizationsError]);
 
   const handleSelectOrganization = (orgId: string) => {
     if (hasUnsavedChanges) {
