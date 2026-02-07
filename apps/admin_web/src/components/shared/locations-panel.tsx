@@ -258,7 +258,6 @@ export function LocationsPanel({ mode }: LocationsPanelProps) {
               value={panel.formState.area_id}
               onChange={handleAreaChange}
               disableCountry
-              showCountryLast
             />
           </div>
           <div>
