@@ -31,7 +31,7 @@ Columns:
 - `instagram` (text, optional)
 - `tiktok` (text, optional)
 - `twitter` (text, optional)
-- `little_red_book` (text, optional)
+- `xiaohongshu` (text, optional)
 - `wechat` (text, optional)
 - `media_urls` (text[], default empty array)
 - `created_at` (timestamptz, default `now()`)

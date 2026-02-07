@@ -2514,9 +2514,9 @@ def _parse_organization_contact_fields(body: dict[str, Any]) -> dict[str, Any]:
         "instagram": _validate_social_value(body.get("instagram"), "instagram"),
         "tiktok": _validate_social_value(body.get("tiktok"), "tiktok"),
         "twitter": _validate_social_value(body.get("twitter"), "twitter"),
-        "little_red_book": _validate_social_value(
-            body.get("little_red_book"),
-            "little_red_book",
+        "xiaohongshu": _validate_social_value(
+            body.get("xiaohongshu"),
+            "xiaohongshu",
         ),
         "wechat": _validate_social_value(body.get("wechat"), "wechat"),
     }
@@ -2615,7 +2615,7 @@ def _serialize_organization(entity: Organization) -> dict[str, Any]:
         "instagram": entity.instagram,
         "tiktok": entity.tiktok,
         "twitter": entity.twitter,
-        "little_red_book": entity.little_red_book,
+        "xiaohongshu": entity.xiaohongshu,
         "wechat": entity.wechat,
         "media_urls": entity.media_urls or [],
         "created_at": entity.created_at,
@@ -2997,7 +2997,7 @@ SOCIAL_FIELDS = (
     "instagram",
     "tiktok",
     "twitter",
-    "little_red_book",
+    "xiaohongshu",
     "wechat",
 )
 

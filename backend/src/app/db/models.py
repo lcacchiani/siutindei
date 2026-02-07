@@ -146,7 +146,7 @@ class Organization(Base):
     instagram: Mapped[Optional[str]] = mapped_column(Text(), nullable=True)
     tiktok: Mapped[Optional[str]] = mapped_column(Text(), nullable=True)
     twitter: Mapped[Optional[str]] = mapped_column(Text(), nullable=True)
-    little_red_book: Mapped[Optional[str]] = mapped_column(Text(), nullable=True)
+    xiaohongshu: Mapped[Optional[str]] = mapped_column(Text(), nullable=True)
     wechat: Mapped[Optional[str]] = mapped_column(Text(), nullable=True)
     media_urls: Mapped[List[str]] = mapped_column(
         ARRAY(Text()),

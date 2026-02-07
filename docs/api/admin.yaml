@@ -1497,10 +1497,10 @@ components:
           type: string
           maxLength: 2048
           description: Twitter handle or URL
-        little_red_book:
+        xiaohongshu:
           type: string
           maxLength: 2048
-          description: Little Red Book handle or URL
+          description: Xiaohongshu handle or URL
         wechat:
           type: string
           maxLength: 2048
@@ -1562,10 +1562,10 @@ components:
           type: string
           maxLength: 2048
           description: Twitter handle or URL
-        little_red_book:
+        xiaohongshu:
           type: string
           maxLength: 2048
-          description: Little Red Book handle or URL
+          description: Xiaohongshu handle or URL
         wechat:
           type: string
           maxLength: 2048
@@ -1625,10 +1625,10 @@ components:
           type: string
           nullable: true
           description: Twitter handle or URL
-        little_red_book:
+        xiaohongshu:
           type: string
           nullable: true
-          description: Little Red Book handle or URL
+          description: Xiaohongshu handle or URL
         wechat:
           type: string
           nullable: true
