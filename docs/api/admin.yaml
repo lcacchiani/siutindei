@@ -1987,9 +1987,11 @@ components:
           description: Price amount (required, must be >= 0)
         currency:
           type: string
-          enum: [HKD, USD, EUR, GBP, CNY, JPY, SGD, AUD, CAD, CHF, NZD, TWD, KRW, THB, MYR, PHP, IDR, INR, VND]
+          minLength: 3
+          maxLength: 3
+          pattern: '^[A-Za-z]{3}$'
           default: HKD
-          description: ISO 4217 currency code (default HKD)
+          description: ISO 4217 currency code (default HKD, case-insensitive)
         sessions_count:
           type: integer
           minimum: 1
@@ -2007,7 +2009,10 @@ components:
           description: Price amount (must be >= 0)
         currency:
           type: string
-          enum: [HKD, USD, EUR, GBP, CNY, JPY, SGD, AUD, CAD, CHF, NZD, TWD, KRW, THB, MYR, PHP, IDR, INR, VND]
+          minLength: 3
+          maxLength: 3
+          pattern: '^[A-Za-z]{3}$'
+          description: ISO 4217 currency code (case-insensitive)
         sessions_count:
           type: integer
           minimum: 1

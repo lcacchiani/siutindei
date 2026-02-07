@@ -25,6 +25,7 @@ from uuid import UUID, uuid4
 
 import boto3
 import phonenumbers
+import pycountry
 from phonenumbers.phonenumberutil import NumberParseException
 from psycopg.types.range import Range
 from sqlalchemy import select
@@ -3145,30 +3146,18 @@ MAX_MEDIA_URLS_COUNT = 20
 MAX_SOCIAL_VALUE_LENGTH = 2048
 MAX_SOCIAL_HANDLE_LENGTH = 64
 
-# Valid ISO 4217 currency codes (common ones)
-VALID_CURRENCIES = frozenset(
-    [
-        "HKD",
-        "USD",
-        "EUR",
-        "GBP",
-        "CNY",
-        "JPY",
-        "SGD",
-        "AUD",
-        "CAD",
-        "CHF",
-        "NZD",
-        "TWD",
-        "KRW",
-        "THB",
-        "MYR",
-        "PHP",
-        "IDR",
-        "INR",
-        "VND",
-    ]
-)
+
+# Valid ISO 4217 currency codes.
+def _load_valid_currencies() -> frozenset[str]:
+    codes: set[str] = set()
+    for currency in pycountry.currencies:
+        code = getattr(currency, "alpha_3", None)
+        if code:
+            codes.add(code.upper())
+    return frozenset(codes)
+
+
+VALID_CURRENCIES = _load_valid_currencies()
 
 # Valid ISO 639-1 language codes (common ones)
 VALID_LANGUAGE_CODES = frozenset(

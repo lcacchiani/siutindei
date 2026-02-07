@@ -3257,11 +3257,10 @@ export interface components {
             /** @description Price amount (required, must be >= 0) */
             amount: number;
             /**
-             * @description ISO 4217 currency code (default HKD)
+             * @description ISO 4217 currency code (default HKD, case-insensitive)
              * @default HKD
-             * @enum {string}
              */
-            currency: "HKD" | "USD" | "EUR" | "GBP" | "CNY" | "JPY" | "SGD" | "AUD" | "CAD" | "CHF" | "NZD" | "TWD" | "KRW" | "THB" | "MYR" | "PHP" | "IDR" | "INR" | "VND";
+            currency: string;
             /** @description Number of sessions (required when pricing_type is per_sessions, must be > 0) */
             sessions_count?: number;
         };
@@ -3270,8 +3269,8 @@ export interface components {
             pricing_type?: "per_class" | "per_month" | "per_sessions";
             /** @description Price amount (must be >= 0) */
             amount?: number;
-            /** @enum {string} */
-            currency?: "HKD" | "USD" | "EUR" | "GBP" | "CNY" | "JPY" | "SGD" | "AUD" | "CAD" | "CHF" | "NZD" | "TWD" | "KRW" | "THB" | "MYR" | "PHP" | "IDR" | "INR" | "VND";
+            /** @description ISO 4217 currency code (case-insensitive) */
+            currency?: string;
             /** @description Number of sessions (must be > 0) */
             sessions_count?: number;
         };
