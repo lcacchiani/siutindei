@@ -13,7 +13,7 @@ import time
 from typing import Any
 from typing import Mapping
 
-from app.services.aws_proxy import invoke as aws_proxy
+import boto3
 from app.utils.logging import configure_logging
 from app.utils.logging import get_logger
 from app.utils.logging import mask_email
@@ -44,19 +44,16 @@ def lambda_handler(event: Mapping[str, Any], _context: Any) -> Mapping[str, Any]
     masked_user = _mask_user_identifier(event)
 
     try:
-        aws_proxy(
-            "cognito-idp",
-            "admin_update_user_attributes",
-            {
-                "UserPoolId": user_pool_id,
-                "Username": username,
-                "UserAttributes": [
-                    {
-                        "Name": "custom:last_auth_time",
-                        "Value": epoch_seconds,
-                    }
-                ],
-            },
+        client = boto3.client("cognito-idp")
+        client.admin_update_user_attributes(
+            UserPoolId=user_pool_id,
+            Username=username,
+            UserAttributes=[
+                {
+                    "Name": "custom:last_auth_time",
+                    "Value": epoch_seconds,
+                }
+            ],
         )
         logger.info(f"Updated last login time for {masked_user}")
     except Exception as exc:
