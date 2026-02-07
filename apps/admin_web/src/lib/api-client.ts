@@ -377,6 +377,7 @@ export interface GeographicAreaNode {
   id: string;
   parent_id: string | null;
   name: string;
+  name_translations: Record<string, string>;
   level: 'country' | 'region' | 'city' | 'district';
   code: string | null;
   active: boolean;
@@ -398,6 +399,7 @@ export interface ActivityCategoryNode {
   id: string;
   parent_id: string | null;
   name: string;
+  name_translations: Record<string, string>;
   display_order: number;
   children: ActivityCategoryNode[];
 }

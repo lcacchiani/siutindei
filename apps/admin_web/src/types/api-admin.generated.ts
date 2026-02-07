@@ -3028,11 +3028,22 @@ export interface components {
             /** @description Additional details (e.g., field name) */
             detail?: string;
         };
+        /**
+         * @description Language map for translated text. The server always includes English
+         *     as "en" and may include additional languages like "zh" or "yue".
+         */
+        TranslationMap: {
+            [key: string]: string;
+        };
         OrganizationCreate: {
             /** @description Organization name (required, max 200 characters) */
             name: string;
             /** @description Organization description (optional, max 5,000 characters) */
             description?: string;
+            /** @description Non-English name translations (language map) */
+            name_translations?: components["schemas"]["TranslationMap"];
+            /** @description Non-English description translations (language map) */
+            description_translations?: components["schemas"]["TranslationMap"];
             /** @description Cognito user sub of the organization manager (required) */
             manager_id: string;
             /** @description ISO 3166-1 alpha-2 country code for phone number */
@@ -3066,6 +3077,10 @@ export interface components {
             name?: string;
             /** @description Organization description (max 5,000 characters) */
             description?: string;
+            /** @description Non-English name translations (language map) */
+            name_translations?: components["schemas"]["TranslationMap"];
+            /** @description Non-English description translations (language map) */
+            description_translations?: components["schemas"]["TranslationMap"];
             /** @description Cognito user sub of the organization manager */
             manager_id?: string;
             /** @description ISO 3166-1 alpha-2 country code for phone number */
@@ -3095,6 +3110,8 @@ export interface components {
             id: string;
             name: string;
             description?: string | null;
+            name_translations: components["schemas"]["TranslationMap"];
+            description_translations: components["schemas"]["TranslationMap"];
             /** @description Cognito user sub of the organization manager */
             manager_id: string;
             /** @description ISO 3166-1 alpha-2 country code for phone number */
@@ -3195,6 +3212,10 @@ export interface components {
             name: string;
             /** @description Activity description (optional, max 5,000 characters) */
             description?: string;
+            /** @description Non-English name translations (language map) */
+            name_translations?: components["schemas"]["TranslationMap"];
+            /** @description Non-English description translations (language map) */
+            description_translations?: components["schemas"]["TranslationMap"];
             /** @description Minimum age (required, 0-119, must be less than age_max) */
             age_min: number;
             /** @description Maximum age (required, 1-120, must be greater than age_min) */
@@ -3210,6 +3231,10 @@ export interface components {
             name?: string;
             /** @description Activity description (max 5,000 characters) */
             description?: string;
+            /** @description Non-English name translations (language map) */
+            name_translations?: components["schemas"]["TranslationMap"];
+            /** @description Non-English description translations (language map) */
+            description_translations?: components["schemas"]["TranslationMap"];
             /** @description Minimum age (must provide both age_min and age_max together) */
             age_min?: number;
             /** @description Maximum age (must provide both age_min and age_max together) */
@@ -3224,6 +3249,8 @@ export interface components {
             category_id: string;
             name: string;
             description?: string | null;
+            name_translations: components["schemas"]["TranslationMap"];
+            description_translations: components["schemas"]["TranslationMap"];
             age_min: number;
             age_max: number;
             /** Format: date-time */
@@ -3534,6 +3561,7 @@ export interface components {
             parent_id?: string | null;
             /** @description Category name */
             name: string;
+            name_translations: components["schemas"]["TranslationMap"];
             display_order: number;
             /** @description Nested child categories (tree responses) */
             children?: components["schemas"]["ActivityCategory"][];
@@ -3541,6 +3569,8 @@ export interface components {
         ActivityCategoryCreate: {
             /** @description Category name (required) */
             name: string;
+            /** @description Non-English name translations (language map) */
+            name_translations?: components["schemas"]["TranslationMap"];
             /**
              * Format: uuid
              * @description Optional parent category UUID
@@ -3552,6 +3582,8 @@ export interface components {
         ActivityCategoryUpdate: {
             /** @description Category name */
             name?: string;
+            /** @description Non-English name translations (language map) */
+            name_translations?: components["schemas"]["TranslationMap"];
             /**
              * Format: uuid
              * @description Parent category UUID or null for root
@@ -3577,6 +3609,7 @@ export interface components {
             parent_id?: string | null;
             /** @description Area name (e.g., 'Hong Kong', 'Wan Chai') */
             name: string;
+            name_translations: components["schemas"]["TranslationMap"];
             /** @enum {string} */
             level: "country" | "region" | "city" | "district";
             /** @description ISO 3166-1 alpha-2 for countries (HK, SG, AE) */

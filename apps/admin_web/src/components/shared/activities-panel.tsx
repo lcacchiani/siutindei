@@ -7,6 +7,13 @@ import { useOrganizationsByMode } from '../../hooks/use-organizations-by-mode';
 import { useResourcePanel } from '../../hooks/use-resource-panel';
 import { parseRequiredNumber } from '../../lib/number-parsers';
 import type { ApiMode } from '../../lib/resource-api';
+import {
+  buildTranslationsPayload,
+  emptyTranslations,
+  extractTranslations,
+  translationLanguages,
+  type TranslationLanguageCode,
+} from '../../lib/translations';
 import type { Activity } from '../../types/admin';
 import { CascadingCategorySelect } from '../ui/cascading-category-select';
 import { Button } from '../ui/button';
@@ -24,6 +31,8 @@ interface ActivityFormState {
   category_id: string;
   name: string;
   description: string;
+  name_translations: Record<TranslationLanguageCode, string>;
+  description_translations: Record<TranslationLanguageCode, string>;
   age_min: string;
   age_max: string;
 }
@@ -33,6 +42,8 @@ const emptyForm: ActivityFormState = {
   category_id: '',
   name: '',
   description: '',
+  name_translations: emptyTranslations(),
+  description_translations: emptyTranslations(),
   age_min: '',
   age_max: '',
 };
@@ -43,6 +54,8 @@ function itemToForm(item: Activity): ActivityFormState {
     category_id: item.category_id ?? '',
     name: item.name ?? '',
     description: item.description ?? '',
+    name_translations: extractTranslations(item.name_translations),
+    description_translations: extractTranslations(item.description_translations),
     age_min: item.age_min !== undefined ? `${item.age_min}` : '',
     age_max: item.age_max !== undefined ? `${item.age_max}` : '',
   };
@@ -125,6 +138,10 @@ export function ActivitiesPanel({ mode }: ActivitiesPanelProps) {
     category_id: form.category_id,
     name: form.name.trim(),
     description: form.description.trim() || null,
+    name_translations: buildTranslationsPayload(form.name_translations),
+    description_translations: buildTranslationsPayload(
+      form.description_translations
+    ),
     age_min: parseRequiredNumber(form.age_min),
     age_max: parseRequiredNumber(form.age_max),
   });
@@ -171,6 +188,14 @@ export function ActivitiesPanel({ mode }: ActivitiesPanelProps) {
   const filteredItems = panel.items.filter((item) => {
     if (!searchQuery.trim()) return true;
     const query = searchQuery.toLowerCase();
+    const nameTranslations = Object.values(item.name_translations ?? {})
+      .join(' ')
+      .toLowerCase();
+    const descriptionTranslations = Object.values(
+      item.description_translations ?? {}
+    )
+      .join(' ')
+      .toLowerCase();
     const orgName =
       organizations
         .find((org) => org.id === item.org_id)
@@ -179,6 +204,8 @@ export function ActivitiesPanel({ mode }: ActivitiesPanelProps) {
     return (
       item.name?.toLowerCase().includes(query) ||
       item.description?.toLowerCase().includes(query) ||
+      nameTranslations.includes(query) ||
+      descriptionTranslations.includes(query) ||
       orgName.includes(query) ||
       categoryPath.includes(query)
     );
@@ -255,6 +282,66 @@ export function ActivitiesPanel({ mode }: ActivitiesPanelProps) {
               }
             />
           </div>
+          <div className='md:col-span-2 border-t border-slate-100 pt-4'>
+            <p className='text-sm font-medium text-slate-700'>
+              Name translations
+            </p>
+            <p className='text-xs text-slate-500'>
+              Provide non-English names for zh and yue.
+            </p>
+          </div>
+          {translationLanguages.map((language) => (
+            <div key={`activity-name-${language.code}`}>
+              <Label htmlFor={`activity-name-${language.code}`}>
+                {language.label}
+              </Label>
+              <Input
+                id={`activity-name-${language.code}`}
+                value={panel.formState.name_translations[language.code]}
+                onChange={(e) =>
+                  panel.setFormState((prev) => ({
+                    ...prev,
+                    name_translations: {
+                      ...prev.name_translations,
+                      [language.code]: e.target.value,
+                    },
+                  }))
+                }
+              />
+            </div>
+          ))}
+          <div className='md:col-span-2 border-t border-slate-100 pt-4'>
+            <p className='text-sm font-medium text-slate-700'>
+              Description translations
+            </p>
+            <p className='text-xs text-slate-500'>
+              Optional localized descriptions for zh and yue.
+            </p>
+          </div>
+          {translationLanguages.map((language) => (
+            <div
+              key={`activity-description-${language.code}`}
+              className='md:col-span-2'
+            >
+              <Label htmlFor={`activity-description-${language.code}`}>
+                {language.label}
+              </Label>
+              <Textarea
+                id={`activity-description-${language.code}`}
+                rows={2}
+                value={panel.formState.description_translations[language.code]}
+                onChange={(e) =>
+                  panel.setFormState((prev) => ({
+                    ...prev,
+                    description_translations: {
+                      ...prev.description_translations,
+                      [language.code]: e.target.value,
+                    },
+                  }))
+                }
+              />
+            </div>
+          ))}
           <div>
             <Label htmlFor='activity-age-min'>Age Min</Label>
             <Input

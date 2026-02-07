@@ -18,6 +18,13 @@ import {
 import { useResourcePanel } from '../../hooks/use-resource-panel';
 import { ApiError, listCognitoUsers } from '../../lib/api-client';
 import type { ApiMode } from '../../lib/resource-api';
+import {
+  buildTranslationsPayload,
+  emptyTranslations,
+  extractTranslations,
+  translationLanguages,
+  type TranslationLanguageCode,
+} from '../../lib/translations';
 import type { CognitoUser, Organization } from '../../types/admin';
 import { useAuth } from '../auth-provider';
 import { Button } from '../ui/button';
@@ -182,6 +189,8 @@ function isValidPhoneNumber(
 interface OrganizationFormState {
   name: string;
   description: string;
+  name_translations: Record<TranslationLanguageCode, string>;
+  description_translations: Record<TranslationLanguageCode, string>;
   manager_id: string;
   phone_country_code: string;
   phone_number: string;
@@ -198,6 +207,8 @@ interface OrganizationFormState {
 const emptyForm: OrganizationFormState = {
   name: '',
   description: '',
+  name_translations: emptyTranslations(),
+  description_translations: emptyTranslations(),
   manager_id: '',
   phone_country_code: 'HK',
   phone_number: '',
@@ -215,6 +226,8 @@ function itemToForm(item: Organization): OrganizationFormState {
   return {
     name: item.name ?? '',
     description: item.description ?? '',
+    name_translations: extractTranslations(item.name_translations),
+    description_translations: extractTranslations(item.description_translations),
     manager_id: item.manager_id ?? '',
     phone_country_code: item.phone_country_code ?? 'HK',
     phone_number: item.phone_number ?? '',
@@ -416,6 +429,10 @@ export function OrganizationsPanel({ mode }: OrganizationsPanelProps) {
     const payload: Record<string, unknown> = {
       name: form.name.trim(),
       description: form.description.trim() || null,
+      name_translations: buildTranslationsPayload(form.name_translations),
+      description_translations: buildTranslationsPayload(
+        form.description_translations
+      ),
       media_urls: existingOrg?.media_urls ?? [],
       phone_country_code: phoneNumber
         ? form.phone_country_code.trim().toUpperCase()
@@ -446,10 +463,20 @@ export function OrganizationsPanel({ mode }: OrganizationsPanelProps) {
   const filteredItems = panel.items.filter((item) => {
     if (!searchQuery.trim()) return true;
     const query = searchQuery.toLowerCase();
+    const nameTranslations = Object.values(item.name_translations ?? {})
+      .join(' ')
+      .toLowerCase();
+    const descriptionTranslations = Object.values(
+      item.description_translations ?? {}
+    )
+      .join(' ')
+      .toLowerCase();
     const managerDisplay = getManagerDisplayName(item.manager_id, cognitoUsers).toLowerCase();
     return (
       item.name?.toLowerCase().includes(query) ||
       item.description?.toLowerCase().includes(query) ||
+      nameTranslations.includes(query) ||
+      descriptionTranslations.includes(query) ||
       managerDisplay.includes(query)
     );
   });
@@ -603,6 +630,66 @@ export function OrganizationsPanel({ mode }: OrganizationsPanelProps) {
                 }
               />
             </div>
+            <div className='md:col-span-2 border-t border-slate-100 pt-4'>
+              <p className='text-sm font-medium text-slate-700'>
+                Name translations
+              </p>
+              <p className='text-xs text-slate-500'>
+                Provide non-English names for zh and yue.
+              </p>
+            </div>
+            {translationLanguages.map((language) => (
+              <div key={`org-name-${language.code}`}>
+                <Label htmlFor={`org-name-${language.code}`}>
+                  {language.label}
+                </Label>
+                <Input
+                  id={`org-name-${language.code}`}
+                  value={panel.formState.name_translations[language.code]}
+                  onChange={(e) =>
+                    panel.setFormState((prev) => ({
+                      ...prev,
+                      name_translations: {
+                        ...prev.name_translations,
+                        [language.code]: e.target.value,
+                      },
+                    }))
+                  }
+                />
+              </div>
+            ))}
+            <div className='md:col-span-2 border-t border-slate-100 pt-4'>
+              <p className='text-sm font-medium text-slate-700'>
+                Description translations
+              </p>
+              <p className='text-xs text-slate-500'>
+                Optional localized descriptions for zh and yue.
+              </p>
+            </div>
+            {translationLanguages.map((language) => (
+              <div
+                key={`org-description-${language.code}`}
+                className='md:col-span-2'
+              >
+                <Label htmlFor={`org-description-${language.code}`}>
+                  {language.label}
+                </Label>
+                <Textarea
+                  id={`org-description-${language.code}`}
+                  rows={2}
+                  value={panel.formState.description_translations[language.code]}
+                  onChange={(e) =>
+                    panel.setFormState((prev) => ({
+                      ...prev,
+                      description_translations: {
+                        ...prev.description_translations,
+                        [language.code]: e.target.value,
+                      },
+                    }))
+                  }
+                />
+              </div>
+            ))}
             <div className='md:col-span-2'>
               <Label htmlFor='org-email'>Email</Label>
               <Input

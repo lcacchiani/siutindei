@@ -16,6 +16,8 @@ test.describe('Activities Panel', () => {
     await expect(adminPage.getByLabel('Category')).toBeVisible();
     await expect(adminPage.getByLabel('Name')).toBeVisible();
     await expect(adminPage.getByLabel('Description')).toBeVisible();
+    await expect(adminPage.getByText('Name translations')).toBeVisible();
+    await expect(adminPage.getByText('Description translations')).toBeVisible();
     await expect(adminPage.getByLabel('Age Min')).toBeVisible();
     await expect(adminPage.getByLabel('Age Max')).toBeVisible();
 

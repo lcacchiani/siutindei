@@ -3,6 +3,13 @@
 import { useMemo, useState } from 'react';
 
 import { useResourcePanel } from '../../hooks/use-resource-panel';
+import {
+  buildTranslationsPayload,
+  emptyTranslations,
+  extractTranslations,
+  translationLanguages,
+  type TranslationLanguageCode,
+} from '../../lib/translations';
 import type { ActivityCategory } from '../../types/admin';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
@@ -16,12 +23,14 @@ import { StatusBanner } from '../status-banner';
 
 interface ActivityCategoryFormState {
   name: string;
+  name_translations: Record<TranslationLanguageCode, string>;
   parent_id: string;
   display_order: string;
 }
 
 const emptyForm: ActivityCategoryFormState = {
   name: '',
+  name_translations: emptyTranslations(),
   parent_id: '',
   display_order: '0',
 };
@@ -29,6 +38,7 @@ const emptyForm: ActivityCategoryFormState = {
 function itemToForm(item: ActivityCategory): ActivityCategoryFormState {
   return {
     name: item.name ?? '',
+    name_translations: extractTranslations(item.name_translations),
     parent_id: item.parent_id ?? '',
     display_order:
       item.display_order !== undefined ? `${item.display_order}` : '0',
@@ -134,6 +144,7 @@ export function ActivityCategoriesPanel() {
 
   const formToPayload = (form: ActivityCategoryFormState) => ({
     name: form.name.trim(),
+    name_translations: buildTranslationsPayload(form.name_translations),
     parent_id: form.parent_id || null,
     display_order: parseDisplayOrder(form.display_order),
   });
@@ -144,7 +155,14 @@ export function ActivityCategoriesPanel() {
     if (!searchQuery.trim()) return true;
     const query = searchQuery.toLowerCase();
     const path = categoryPathById.get(item.id)?.toLowerCase() ?? '';
-    return path.includes(query) || item.name.toLowerCase().includes(query);
+    const nameTranslations = Object.values(item.name_translations ?? {})
+      .join(' ')
+      .toLowerCase();
+    return (
+      path.includes(query) ||
+      item.name.toLowerCase().includes(query) ||
+      nameTranslations.includes(query)
+    );
   });
 
   const columns = [
@@ -189,6 +207,34 @@ export function ActivityCategoriesPanel() {
               }
             />
           </div>
+          <div className='md:col-span-2 border-t border-slate-100 pt-4'>
+            <p className='text-sm font-medium text-slate-700'>
+              Name translations
+            </p>
+            <p className='text-xs text-slate-500'>
+              Provide non-English names for zh and yue.
+            </p>
+          </div>
+          {translationLanguages.map((language) => (
+            <div key={`category-name-${language.code}`}>
+              <Label htmlFor={`category-name-${language.code}`}>
+                {language.label}
+              </Label>
+              <Input
+                id={`category-name-${language.code}`}
+                value={panel.formState.name_translations[language.code]}
+                onChange={(e) =>
+                  panel.setFormState((prev) => ({
+                    ...prev,
+                    name_translations: {
+                      ...prev.name_translations,
+                      [language.code]: e.target.value,
+                    },
+                  }))
+                }
+              />
+            </div>
+          ))}
           <div>
             <Label htmlFor='category-parent'>Parent</Label>
             <Select
