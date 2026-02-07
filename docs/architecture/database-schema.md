@@ -23,6 +23,16 @@ Columns:
 - `name` (text, required)
 - `description` (text, optional)
 - `manager_id` (text, required) — Cognito user sub of the organization manager
+- `phone_country_code` (text, optional) — ISO 3166-1 alpha-2 country code
+- `phone_number` (text, optional) — national phone number digits
+- `email` (text, optional)
+- `whatsapp` (text, optional)
+- `facebook` (text, optional)
+- `instagram` (text, optional)
+- `tiktok` (text, optional)
+- `twitter` (text, optional)
+- `little_red_book` (text, optional)
+- `wechat` (text, optional)
 - `media_urls` (text[], default empty array)
 - `created_at` (timestamptz, default `now()`)
 - `updated_at` (timestamptz, default `now()`)
