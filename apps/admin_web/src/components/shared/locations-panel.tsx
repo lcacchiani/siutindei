@@ -237,13 +237,6 @@ export function LocationsPanel({ mode }: LocationsPanelProps) {
             </Select>
           </div>
           <div className='md:col-span-2'>
-            <CascadingAreaSelect
-              tree={tree}
-              value={panel.formState.area_id}
-              onChange={handleAreaChange}
-            />
-          </div>
-          <div className='md:col-span-2'>
             <Label htmlFor='location-address'>Address</Label>
             <AddressAutocomplete
               id='location-address'
@@ -257,6 +250,15 @@ export function LocationsPanel({ mode }: LocationsPanelProps) {
               onSelect={handleAddressSelect}
               placeholder='Start typing an address...'
               countryCodes={countryCodes}
+            />
+          </div>
+          <div className='md:col-span-2'>
+            <CascadingAreaSelect
+              tree={tree}
+              value={panel.formState.area_id}
+              onChange={handleAreaChange}
+              disableCountry
+              showCountryLast
             />
           </div>
           <div>
