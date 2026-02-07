@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 
 import {
   ApiError,
   listAuditLogs,
+  listCognitoUsers,
   type AuditLogsFilters,
 } from '../../lib/api-client';
 import type { AuditLog } from '../../types/admin';
@@ -90,6 +91,7 @@ function SourceBadge({ source }: { source: AuditLog['source'] }) {
 interface DetailModalProps {
   log: AuditLog;
   onClose: () => void;
+  userEmailById: Record<string, string>;
 }
 
 function formatJson(obj: Record<string, unknown> | null | undefined): string {
@@ -97,7 +99,9 @@ function formatJson(obj: Record<string, unknown> | null | undefined): string {
   return JSON.stringify(obj, null, 2);
 }
 
-function DetailModal({ log, onClose }: DetailModalProps) {
+function DetailModal({ log, onClose, userEmailById }: DetailModalProps) {
+  const userEmail = log.user_id ? userEmailById[log.user_id] : null;
+
   return (
     <div className='fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center sm:p-4'>
       <div className='max-h-[90vh] w-full overflow-y-auto rounded-t-xl bg-white p-4 shadow-xl sm:max-w-2xl sm:rounded-xl sm:p-6'>
@@ -150,8 +154,10 @@ function DetailModal({ log, onClose }: DetailModalProps) {
               </p>
             </div>
             <div>
-              <span className='font-medium text-slate-500'>User ID</span>
-              <p className='mt-1 break-all font-mono text-xs'>{log.user_id || '—'}</p>
+              <span className='font-medium text-slate-500'>User Email</span>
+              <p className='mt-1 break-all font-mono text-xs'>
+                {userEmail || '—'}
+              </p>
             </div>
             <div>
               <span className='font-medium text-slate-500'>Request ID</span>
@@ -228,21 +234,100 @@ function formatDate(dateStr: string | null | undefined) {
   });
 }
 
+function formatGmtOffset(date: Date = new Date()) {
+  const offsetMinutes = -date.getTimezoneOffset();
+  const sign = offsetMinutes >= 0 ? '+' : '-';
+  const absMinutes = Math.abs(offsetMinutes);
+  const hours = Math.floor(absMinutes / 60);
+  const minutes = absMinutes % 60;
+  const minuteSuffix = minutes
+    ? `:${minutes.toString().padStart(2, '0')}`
+    : '';
+  return `GMT${sign}${hours}${minuteSuffix}`;
+}
+
 export function AuditLogsPanel() {
   const [items, setItems] = useState<AuditLog[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
+  const [userLookupError, setUserLookupError] = useState('');
+  const [userEmailById, setUserEmailById] = useState<
+    Record<string, string>
+  >({});
+  const userLookupPromise = useRef<
+    Promise<{
+      emailById: Record<string, string>;
+      idByEmail: Record<string, string>;
+    }> | null
+  >(null);
+  const userLookupRef = useRef<{
+    emailById: Record<string, string>;
+    idByEmail: Record<string, string>;
+  }>({ emailById: {}, idByEmail: {} });
+  const isMountedRef = useRef(true);
 
   // Filter state
   const [actionFilter, setActionFilter] = useState<ActionFilter>('all');
   const [tableFilter, setTableFilter] = useState<TableFilter>('all');
-  const [userIdFilter, setUserIdFilter] = useState('');
+  const [userEmailFilter, setUserEmailFilter] = useState('');
   const [recordIdFilter, setRecordIdFilter] = useState('');
   const [timeRange, setTimeRange] = useState('24h');
 
-  const buildFilters = useCallback((): AuditLogsFilters => {
+  const loadCognitoUsers = useCallback(
+    async (showError = false) => {
+      if (Object.keys(userLookupRef.current.emailById).length > 0) {
+        return userLookupRef.current;
+      }
+      if (userLookupPromise.current) {
+        return userLookupPromise.current;
+      }
+
+      userLookupPromise.current = (async () => {
+        try {
+          const emailById: Record<string, string> = {};
+          const idByEmail: Record<string, string> = {};
+          let paginationToken: string | undefined;
+
+          do {
+            const response = await listCognitoUsers(paginationToken, 60);
+            for (const user of response.items) {
+              if (!user.email) continue;
+              const normalizedEmail = user.email.trim().toLowerCase();
+              emailById[user.sub] = user.email;
+              if (!idByEmail[normalizedEmail]) {
+                idByEmail[normalizedEmail] = user.sub;
+              }
+            }
+            paginationToken = response.pagination_token ?? undefined;
+          } while (paginationToken);
+
+          userLookupRef.current = { emailById, idByEmail };
+          if (isMountedRef.current) {
+            setUserEmailById(emailById);
+          }
+          return userLookupRef.current;
+        } catch (err) {
+          if (showError && isMountedRef.current) {
+            setUserLookupError(
+              err instanceof ApiError
+                ? err.message
+                : 'Failed to load user directory.'
+            );
+          }
+          return { emailById: {}, idByEmail: {} };
+        } finally {
+          userLookupPromise.current = null;
+        }
+      })();
+
+      return userLookupPromise.current;
+    },
+    []
+  );
+
+  const buildFilters = useCallback(async (): Promise<AuditLogsFilters> => {
     const filters: AuditLogsFilters = {};
     if (actionFilter !== 'all') {
       filters.action = actionFilter;
@@ -250,8 +335,15 @@ export function AuditLogsPanel() {
     if (tableFilter !== 'all') {
       filters.table = tableFilter;
     }
-    if (userIdFilter.trim()) {
-      filters.user_id = userIdFilter.trim();
+    if (userEmailFilter.trim()) {
+      const email = userEmailFilter.trim().toLowerCase();
+      const userMaps = await loadCognitoUsers(true);
+      const userId = userMaps.idByEmail[email];
+      if (userId) {
+        filters.user_id = userId;
+      } else {
+        filters.user_id = '__no_match__';
+      }
     }
     if (recordIdFilter.trim()) {
       filters.record_id = recordIdFilter.trim();
@@ -261,14 +353,22 @@ export function AuditLogsPanel() {
       filters.since = since;
     }
     return filters;
-  }, [actionFilter, tableFilter, userIdFilter, recordIdFilter, timeRange]);
+  }, [
+    actionFilter,
+    tableFilter,
+    userEmailFilter,
+    recordIdFilter,
+    timeRange,
+    loadCognitoUsers,
+  ]);
 
   const loadItems = useCallback(
     async (cursor?: string, reset = false) => {
       setIsLoading(true);
       setError('');
+      setUserLookupError('');
       try {
-        const filters = buildFilters();
+        const filters = await buildFilters();
         const response = await listAuditLogs(filters, cursor, 50);
         setItems((prev) =>
           reset || !cursor ? response.items : [...prev, ...response.items]
@@ -285,6 +385,16 @@ export function AuditLogsPanel() {
     [buildFilters]
   );
 
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    void loadCognitoUsers(false);
+  }, [loadCognitoUsers]);
+
   // Load on mount and when filters change
   useEffect(() => {
     loadItems(undefined, true);
@@ -297,15 +407,24 @@ export function AuditLogsPanel() {
   const handleClearFilters = () => {
     setActionFilter('all');
     setTableFilter('all');
-    setUserIdFilter('');
+    setUserEmailFilter('');
     setRecordIdFilter('');
     setTimeRange('24h');
   };
 
+  const timestampHeader = `Timestamp ${formatGmtOffset()}`;
+  const getUserEmail = useCallback(
+    (userId: string | null | undefined) => {
+      if (!userId) return '—';
+      return userEmailById[userId] || '—';
+    },
+    [userEmailById]
+  );
+
   const columns = [
     {
       key: 'timestamp',
-      header: 'Timestamp',
+      header: timestampHeader,
       secondary: true,
       render: (item: AuditLog) => (
         <span className='text-slate-600'>{formatDate(item.timestamp)}</span>
@@ -326,17 +445,12 @@ export function AuditLogsPanel() {
     },
     {
       key: 'user-id',
-      header: 'User ID',
+      header: 'User Email',
       render: (item: AuditLog) => (
         <span className='font-mono text-xs text-slate-600'>
-          {item.user_id || '—'}
+          {getUserEmail(item.user_id)}
         </span>
       ),
-    },
-    {
-      key: 'source',
-      header: 'Source',
-      render: (item: AuditLog) => <SourceBadge source={item.source} />,
     },
     {
       key: 'changed-fields',
@@ -378,6 +492,13 @@ export function AuditLogsPanel() {
           <div className='mb-4'>
             <StatusBanner variant='error' title='Error'>
               {error}
+            </StatusBanner>
+          </div>
+        )}
+        {userLookupError && (
+          <div className='mb-4'>
+            <StatusBanner variant='error' title='User Lookup'>
+              {userLookupError}
             </StatusBanner>
           </div>
         )}
@@ -431,13 +552,13 @@ export function AuditLogsPanel() {
             </div>
 
             <div>
-              <Label htmlFor='user-filter'>User ID</Label>
+              <Label htmlFor='user-email-filter'>User Email</Label>
               <Input
-                id='user-filter'
+                id='user-email-filter'
                 type='text'
-                placeholder='Filter by user...'
-                value={userIdFilter}
-                onChange={(e) => setUserIdFilter(e.target.value)}
+                placeholder='Filter by user email...'
+                value={userEmailFilter}
+                onChange={(e) => setUserEmailFilter(e.target.value)}
               />
             </div>
           </div>
@@ -503,7 +624,11 @@ export function AuditLogsPanel() {
       </Card>
 
       {selectedLog && (
-        <DetailModal log={selectedLog} onClose={() => setSelectedLog(null)} />
+        <DetailModal
+          log={selectedLog}
+          onClose={() => setSelectedLog(null)}
+          userEmailById={userEmailById}
+        />
       )}
     </div>
   );
