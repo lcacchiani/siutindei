@@ -19,11 +19,13 @@ test.describe('Admin Dashboard', () => {
       'Organizations',
       'Media',
       'Locations',
+      'Activity Categories',
       'Activities',
       'Pricing',
       'Schedules',
-      'Access Requests',
+      'Tickets',
       'Users',
+      'Audit Logs',
     ];
 
     for (const section of expectedSections) {
@@ -74,6 +76,18 @@ test.describe('Admin Dashboard', () => {
     await expect(adminPage.getByRole('heading', { name: /Activities/i }).first()).toBeVisible();
   });
 
+  test('should navigate to Activity Categories section', async ({ adminPage }) => {
+    await adminPage.goto('/');
+
+    // Click Activity Categories
+    await adminPage.getByRole('button', { name: 'Activity Categories' }).click();
+
+    // Should show Activity Categories panel content
+    await expect(
+      adminPage.getByRole('heading', { name: 'Activity Categories' })
+    ).toBeVisible();
+  });
+
   test('should navigate to Pricing section', async ({ adminPage }) => {
     await adminPage.goto('/');
 
@@ -94,14 +108,16 @@ test.describe('Admin Dashboard', () => {
     await expect(adminPage.getByText(/Schedule/i).first()).toBeVisible();
   });
 
-  test('should navigate to Access Requests section', async ({ adminPage }) => {
+  test('should navigate to Tickets section', async ({ adminPage }) => {
     await adminPage.goto('/');
 
-    // Click Access Requests
-    await adminPage.getByRole('button', { name: 'Access Requests' }).click();
+    // Click Tickets
+    await adminPage.getByRole('button', { name: 'Tickets' }).click();
 
-    // Should show Access Requests panel content
-    await expect(adminPage.getByText(/Access Request/i).first()).toBeVisible();
+    // Should show Tickets panel content
+    await expect(
+      adminPage.getByRole('heading', { name: 'Tickets' })
+    ).toBeVisible();
   });
 
   test('should navigate to Users section', async ({ adminPage }) => {
@@ -160,7 +176,7 @@ test.describe('Admin Dashboard Layout', () => {
 
     // Check that nav element exists with buttons
     const navButtons = adminPage.locator('nav button');
-    await expect(navButtons).toHaveCount(8); // 8 navigation sections
+    await expect(navButtons).toHaveCount(10); // 10 navigation sections
   });
 
   test('should have main content area', async ({ adminPage }) => {
@@ -171,7 +187,7 @@ test.describe('Admin Dashboard Layout', () => {
     await expect(mainContent).toBeVisible();
   });
 
-  test('should display divider before Access Requests section', async ({ adminPage }) => {
+  test('should display divider before Tickets section', async ({ adminPage }) => {
     await adminPage.goto('/');
 
     // Check that a horizontal rule exists in the navigation
