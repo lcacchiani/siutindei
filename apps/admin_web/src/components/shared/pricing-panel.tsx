@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react';
 
+import currencyCodes from 'currency-codes';
+
 import { useResourcePanel } from '../../hooks/use-resource-panel';
 import {
   listResource,
@@ -70,27 +72,6 @@ interface CurrencyOption {
 }
 
 const defaultCurrencyCode = 'HKD';
-const fallbackCurrencies = [
-  'HKD',
-  'USD',
-  'EUR',
-  'GBP',
-  'CNY',
-  'JPY',
-  'SGD',
-  'AUD',
-  'CAD',
-  'CHF',
-  'NZD',
-  'TWD',
-  'KRW',
-  'THB',
-  'MYR',
-  'PHP',
-  'IDR',
-  'INR',
-  'VND',
-];
 
 const emptyForm: PricingFormState = {
   activity_id: '',
@@ -161,34 +142,36 @@ export function PricingPanel({ mode }: PricingPanelProps) {
   const [searchQuery, setSearchQuery] = useState('');
 
   const currencyOptions = useMemo<CurrencyOption[]>(() => {
-    const supportedCurrencies =
-      typeof Intl !== 'undefined' &&
-      typeof Intl.supportedValuesOf === 'function'
-        ? Intl.supportedValuesOf('currency')
-        : [];
     const display =
       typeof Intl !== 'undefined' &&
       typeof Intl.DisplayNames === 'function'
         ? new Intl.DisplayNames(['en'], { type: 'currency' })
         : null;
-    const codes =
-      supportedCurrencies.length > 0
-        ? supportedCurrencies
-        : fallbackCurrencies;
-    const uniqueCodes = Array.from(
-      new Set([...codes, defaultCurrencyCode])
+    const optionsMap = new Map<string, CurrencyOption>();
+    for (const record of currencyCodes.data) {
+      const code = record.code?.toUpperCase();
+      if (!code) {
+        continue;
+      }
+      const name = display?.of(code) ?? record.currency ?? code;
+      optionsMap.set(code, {
+        code,
+        name,
+        label: `${name} (${code})`,
+      });
+    }
+    if (!optionsMap.has(defaultCurrencyCode)) {
+      const name =
+        display?.of(defaultCurrencyCode) ?? defaultCurrencyCode;
+      optionsMap.set(defaultCurrencyCode, {
+        code: defaultCurrencyCode,
+        name,
+        label: `${name} (${defaultCurrencyCode})`,
+      });
+    }
+    return Array.from(optionsMap.values()).sort((a, b) =>
+      a.label.localeCompare(b.label)
     );
-    return uniqueCodes
-      .map((code) => {
-        const upper = code.toUpperCase();
-        const name = display?.of(upper) ?? upper;
-        return {
-          code: upper,
-          name,
-          label: `${name} (${upper})`,
-        };
-      })
-      .sort((a, b) => a.label.localeCompare(b.label));
   }, []);
 
   const currencyNameByCode = useMemo(() => {
