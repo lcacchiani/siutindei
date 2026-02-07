@@ -126,9 +126,7 @@ def upgrade() -> None:
 def downgrade() -> None:
     """Remove activity categories and category_id from activities."""
     op.drop_index("activities_category_idx", table_name="activities")
-    op.drop_constraint(
-        "fk_activities_category_id", "activities", type_="foreignkey"
-    )
+    op.drop_constraint("fk_activities_category_id", "activities", type_="foreignkey")
     op.drop_column("activities", "category_id")
 
     op.execute(

@@ -510,6 +510,13 @@ def _parse_uuid(value: str) -> UUID:
         raise ValidationError(f"Invalid UUID: {value}", field="id") from e
 
 
+def _to_uuid(value: UUID | str) -> UUID:
+    """Normalize a UUID from UUID or string input."""
+    if isinstance(value, UUID):
+        return value
+    return _parse_uuid(value)
+
+
 # --- Authorization ---
 
 
@@ -2055,9 +2062,7 @@ def _build_activity_category_tree(
 
 def _sort_activity_category_tree(nodes: list[dict[str, Any]]) -> None:
     """Sort category nodes by display_order then name."""
-    nodes.sort(
-        key=lambda n: (n["display_order"], n["name"].lower(), n["id"])
-    )
+    nodes.sort(key=lambda n: (n["display_order"], n["name"].lower(), n["id"]))
     for node in nodes:
         _sort_activity_category_tree(node["children"])
 
@@ -2820,13 +2825,14 @@ def _parse_display_order(value: Any) -> int:
 
 def _validate_category_parent(
     repo: ActivityCategoryRepository,
-    category_id: Optional[UUID],
+    category_id: Optional[UUID | str],
     parent_id: Optional[UUID],
 ) -> None:
     """Validate that a parent exists and does not create cycles."""
+    category_uuid = _to_uuid(category_id) if category_id is not None else None
     if parent_id is None:
         return
-    if category_id is not None and parent_id == category_id:
+    if category_uuid is not None and parent_id == category_uuid:
         raise ValidationError(
             "parent_id cannot reference the same category",
             field="parent_id",
@@ -2835,7 +2841,7 @@ def _validate_category_parent(
     if repo.get_by_id(parent_id) is None:
         raise ValidationError("parent_id not found", field="parent_id")
 
-    if category_id is None:
+    if category_uuid is None:
         return
 
     categories = repo.get_all_flat()
@@ -2846,7 +2852,7 @@ def _validate_category_parent(
         pid = str(category.parent_id)
         children_by_parent.setdefault(pid, []).append(str(category.id))
 
-    stack = [str(category_id)]
+    stack = [str(category_uuid)]
     descendants: set[str] = set()
     while stack:
         current = stack.pop()

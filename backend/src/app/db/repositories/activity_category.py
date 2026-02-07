@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Optional
 from typing import Sequence
 from uuid import UUID
 
@@ -32,13 +31,10 @@ class ActivityCategoryRepository(BaseRepository[ActivityCategory]):
         Returns:
             Categories ordered by display_order then name.
         """
-        query = (
-            select(ActivityCategory)
-            .order_by(
-                ActivityCategory.display_order,
-                ActivityCategory.name,
-                ActivityCategory.id,
-            )
+        query = select(ActivityCategory).order_by(
+            ActivityCategory.display_order,
+            ActivityCategory.name,
+            ActivityCategory.id,
         )
         return self._session.execute(query).scalars().all()
 
@@ -74,12 +70,13 @@ class ActivityCategoryRepository(BaseRepository[ActivityCategory]):
 
     def delete(self, entity: ActivityCategory) -> None:
         """Delete a category if it has no children or activities."""
-        if self._has_children(entity.id):
+        category_id = _to_uuid(entity.id)
+        if self._has_children(category_id):
             raise ValidationError(
                 "Cannot delete a category with subcategories",
                 field="id",
             )
-        if self._has_activities(entity.id):
+        if self._has_activities(category_id):
             raise ValidationError(
                 "Cannot delete a category assigned to activities",
                 field="id",
@@ -97,9 +94,12 @@ class ActivityCategoryRepository(BaseRepository[ActivityCategory]):
 
     def _has_activities(self, category_id: UUID) -> bool:
         """Return True if any activity uses the category."""
-        query = (
-            select(Activity.id)
-            .where(Activity.category_id == category_id)
-            .limit(1)
-        )
+        query = select(Activity.id).where(Activity.category_id == category_id).limit(1)
         return self._session.execute(query).scalar() is not None
+
+
+def _to_uuid(value: UUID | str) -> UUID:
+    """Normalize a UUID value from str or UUID."""
+    if isinstance(value, UUID):
+        return value
+    return UUID(str(value))
