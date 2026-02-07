@@ -172,6 +172,13 @@ repo root
 - The single source of truth for endpoints is the OpenAPI spec.
 - When in doubt, update the docs. Stale documentation is worse than no documentation.
 
+### E2E testing requirements (MANDATORY)
+- When UI or API changes affect admin_web flows, UPDATE Playwright e2e tests
+  and fixtures under apps/admin_web/e2e to match required fields, labels,
+  and endpoints.
+- Keep e2e mock responses aligned with current OpenAPI schemas and recent UI
+  behavior; no shipping UI changes without corresponding e2e updates.
+
 ### Security requirements (MANDATORY - see docs/architecture/security.md)
 - NEVER hardcode secrets, API keys, passwords, or tokens in source code.
 - NEVER log PII (emails, names) without masking. Use mask_email() and mask_pii() from app.utils.logging.
