@@ -1852,6 +1852,7 @@ export class ApiStack extends cdk.Stack {
     const adminResources = [
       "organizations",
       "locations",
+      "activity-categories",
       "activities",
       "pricing",
       "schedules",
@@ -2033,6 +2034,13 @@ export class ApiStack extends cdk.Stack {
     // Geographic areas (any authenticated user can fetch the area tree)
     const userAreas = user.addResource("areas");
     userAreas.addMethod("GET", adminIntegration, {
+      authorizationType: apigateway.AuthorizationType.CUSTOM,
+      authorizer: userAuthorizer,
+    });
+
+    // Activity categories (any authenticated user can fetch the tree)
+    const userActivityCategories = user.addResource("activity-categories");
+    userActivityCategories.addMethod("GET", adminIntegration, {
       authorizationType: apigateway.AuthorizationType.CUSTOM,
       authorizer: userAuthorizer,
     });

@@ -275,6 +275,93 @@ paths:
         "404":
           description: Location not found
 
+  /v1/admin/activity-categories:
+    get:
+      summary: List activity categories
+      description: Retrieve a paginated list of activity categories.
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of activity categories
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityCategoryListResponse'
+    post:
+      summary: Create activity category
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ActivityCategoryCreate'
+      responses:
+        "201":
+          description: Activity category created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityCategory'
+        "400":
+          description: Validation error
+
+  /v1/admin/activity-categories/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      summary: Get activity category
+      responses:
+        "200":
+          description: Activity category details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityCategory'
+        "404":
+          description: Activity category not found
+    put:
+      summary: Update activity category
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ActivityCategoryUpdate'
+      responses:
+        "200":
+          description: Activity category updated
+        "400":
+          description: Validation error
+        "404":
+          description: Activity category not found
+    delete:
+      summary: Delete activity category
+      responses:
+        "204":
+          description: Activity category deleted
+        "400":
+          description: Validation error
+        "404":
+          description: Activity category not found
+
   /v1/admin/activities:
     get:
       summary: List activities
@@ -1283,6 +1370,20 @@ paths:
               schema:
                 $ref: '#/components/schemas/AreaTreeResponse'
 
+  /v1/user/activity-categories:
+    get:
+      summary: List activity categories
+      description: |
+        Returns the activity category tree for use in selection UIs.
+        Available to any authenticated user.
+      responses:
+        "200":
+          description: Activity category tree
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityCategoryTreeResponse'
+
   /v1/user/access-request:
     get:
       summary: Check access request status
@@ -1755,6 +1856,7 @@ components:
       type: object
       required:
         - org_id
+        - category_id
         - name
         - age_min
         - age_max
@@ -1763,6 +1865,10 @@ components:
           type: string
           format: uuid
           description: Organization UUID (required)
+        category_id:
+          type: string
+          format: uuid
+          description: Activity category UUID (required)
         name:
           type: string
           maxLength: 200
@@ -1785,6 +1891,10 @@ components:
     ActivityUpdate:
       type: object
       properties:
+        category_id:
+          type: string
+          format: uuid
+          description: Activity category UUID
         name:
           type: string
           maxLength: 200
@@ -1806,12 +1916,16 @@ components:
 
     Activity:
       type: object
-      required: [id, org_id, name, age_min, age_max, created_at, updated_at]
+      required:
+        [id, org_id, category_id, name, age_min, age_max, created_at, updated_at]
       properties:
         id:
           type: string
           format: uuid
         org_id:
+          type: string
+          format: uuid
+        category_id:
           type: string
           format: uuid
         name:
@@ -2384,6 +2498,84 @@ components:
         next_cursor:
           type: string
           nullable: true
+
+    # Activity Category schemas
+    ActivityCategory:
+      type: object
+      required: [id, name, display_order]
+      properties:
+        id:
+          type: string
+          format: uuid
+        parent_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: NULL for root category nodes
+        name:
+          type: string
+          description: Category name
+        display_order:
+          type: integer
+        children:
+          type: array
+          items:
+            $ref: '#/components/schemas/ActivityCategory'
+          description: Nested child categories (tree responses)
+
+    ActivityCategoryCreate:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          maxLength: 200
+          description: Category name (required)
+        parent_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Optional parent category UUID
+        display_order:
+          type: integer
+          description: Sort order within the parent
+
+    ActivityCategoryUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 200
+          description: Category name
+        parent_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Parent category UUID or null for root
+        display_order:
+          type: integer
+          description: Sort order within the parent
+
+    ActivityCategoryListResponse:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ActivityCategory'
+        next_cursor:
+          type: string
+          nullable: true
+
+    ActivityCategoryTreeResponse:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ActivityCategory'
 
     # Geographic Area schemas
     GeographicArea:

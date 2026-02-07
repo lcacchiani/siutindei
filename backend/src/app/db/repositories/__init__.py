@@ -9,6 +9,7 @@ from app.db.repositories.geographic_area import GeographicAreaRepository
 from app.db.repositories.organization import OrganizationRepository
 from app.db.repositories.location import LocationRepository
 from app.db.repositories.activity import ActivityRepository
+from app.db.repositories.activity_category import ActivityCategoryRepository
 from app.db.repositories.pricing import ActivityPricingRepository
 from app.db.repositories.schedule import ActivityScheduleRepository
 from app.db.repositories.ticket import TicketRepository
@@ -19,6 +20,7 @@ __all__ = [
     "OrganizationRepository",
     "LocationRepository",
     "ActivityRepository",
+    "ActivityCategoryRepository",
     "ActivityPricingRepository",
     "ActivityScheduleRepository",
     "TicketRepository",

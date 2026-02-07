@@ -35,6 +35,7 @@ from app.services.aws_proxy import invoke as aws_proxy
 
 from app.db.engine import get_engine
 from app.db.models import Activity
+from app.db.models import ActivityCategory
 from app.db.models import ActivityPricing
 from app.db.models import ActivitySchedule
 from app.db.models import AuditLog
@@ -48,6 +49,7 @@ from app.db.models import TicketStatus
 from app.db.models import TicketType
 from app.db.audit import AuditLogRepository, set_audit_context
 from app.db.repositories import (
+    ActivityCategoryRepository,
     ActivityPricingRepository,
     ActivityRepository,
     ActivityScheduleRepository,
@@ -723,6 +725,13 @@ def _handle_user_routes(
     if resource == "areas" and method == "GET":
         return _safe_handler(
             lambda: _handle_list_areas(event, active_only=True),
+            event,
+        )
+
+    # Activity categories - any logged-in user can fetch the tree
+    if resource == "activity-categories" and method == "GET":
+        return _safe_handler(
+            lambda: _handle_list_activity_categories(event),
             event,
         )
 
@@ -2005,6 +2014,54 @@ def _serialize_area(area: GeographicArea) -> dict[str, Any]:
     }
 
 
+# --- Activity Categories ---
+
+
+def _handle_list_activity_categories(
+    event: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Return the activity category tree."""
+    with Session(get_engine()) as session:
+        repo = ActivityCategoryRepository(session)
+        categories = repo.get_all_flat()
+
+    tree = _build_activity_category_tree(categories)
+    return json_response(200, {"items": tree}, event=event)
+
+
+def _build_activity_category_tree(
+    categories: Sequence[ActivityCategory],
+) -> list[dict[str, Any]]:
+    """Build a nested tree from a flat category list."""
+    categories_by_id: dict[str, dict[str, Any]] = {}
+    roots: list[dict[str, Any]] = []
+
+    for category in categories:
+        node = _serialize_activity_category(category)
+        node["children"] = []
+        categories_by_id[str(category.id)] = node
+
+    for category in categories:
+        node = categories_by_id[str(category.id)]
+        parent_key = str(category.parent_id) if category.parent_id else None
+        if parent_key and parent_key in categories_by_id:
+            categories_by_id[parent_key]["children"].append(node)
+        else:
+            roots.append(node)
+
+    _sort_activity_category_tree(roots)
+    return roots
+
+
+def _sort_activity_category_tree(nodes: list[dict[str, Any]]) -> None:
+    """Sort category nodes by display_order then name."""
+    nodes.sort(
+        key=lambda n: (n["display_order"], n["name"].lower(), n["id"])
+    )
+    for node in nodes:
+        _sort_activity_category_tree(node["children"])
+
+
 # --- Cognito proxy helper ---
 
 
@@ -2730,12 +2787,139 @@ def _serialize_location(entity: Location) -> dict[str, Any]:
     }
 
 
+def _serialize_activity_category(
+    entity: ActivityCategory,
+) -> dict[str, Any]:
+    """Serialize an activity category."""
+    return {
+        "id": str(entity.id),
+        "parent_id": str(entity.parent_id) if entity.parent_id else None,
+        "name": entity.name,
+        "display_order": entity.display_order,
+    }
+
+
+def _parse_display_order(value: Any) -> int:
+    """Parse and validate display_order."""
+    if value is None:
+        return 0
+    try:
+        parsed = int(value)
+    except (ValueError, TypeError) as exc:
+        raise ValidationError(
+            "display_order must be a valid integer",
+            field="display_order",
+        ) from exc
+    if parsed < 0:
+        raise ValidationError(
+            "display_order must be at least 0",
+            field="display_order",
+        )
+    return parsed
+
+
+def _validate_category_parent(
+    repo: ActivityCategoryRepository,
+    category_id: Optional[UUID],
+    parent_id: Optional[UUID],
+) -> None:
+    """Validate that a parent exists and does not create cycles."""
+    if parent_id is None:
+        return
+    if category_id is not None and parent_id == category_id:
+        raise ValidationError(
+            "parent_id cannot reference the same category",
+            field="parent_id",
+        )
+
+    if repo.get_by_id(parent_id) is None:
+        raise ValidationError("parent_id not found", field="parent_id")
+
+    if category_id is None:
+        return
+
+    categories = repo.get_all_flat()
+    children_by_parent: dict[str, list[str]] = {}
+    for category in categories:
+        if category.parent_id is None:
+            continue
+        pid = str(category.parent_id)
+        children_by_parent.setdefault(pid, []).append(str(category.id))
+
+    stack = [str(category_id)]
+    descendants: set[str] = set()
+    while stack:
+        current = stack.pop()
+        for child_id in children_by_parent.get(current, []):
+            if child_id in descendants:
+                continue
+            descendants.add(child_id)
+            stack.append(child_id)
+
+    if str(parent_id) in descendants:
+        raise ValidationError(
+            "parent_id cannot be a descendant category",
+            field="parent_id",
+        )
+
+
+def _create_activity_category(
+    repo: ActivityCategoryRepository,
+    body: dict[str, Any],
+) -> ActivityCategory:
+    """Create an activity category."""
+    name = _validate_string_length(
+        body.get("name"),
+        "name",
+        MAX_NAME_LENGTH,
+        required=True,
+    )
+    parent_id_raw = body.get("parent_id")
+    parent_id = _parse_uuid(parent_id_raw) if parent_id_raw else None
+    _validate_category_parent(repo, None, parent_id)
+    display_order = _parse_display_order(body.get("display_order"))
+
+    return ActivityCategory(
+        name=name,
+        parent_id=parent_id,
+        display_order=display_order,
+    )
+
+
+def _update_activity_category(
+    repo: ActivityCategoryRepository,
+    entity: ActivityCategory,
+    body: dict[str, Any],
+) -> ActivityCategory:
+    """Update an activity category."""
+    if "name" in body:
+        name = _validate_string_length(
+            body["name"], "name", MAX_NAME_LENGTH, required=True
+        )
+        entity.name = name  # type: ignore[assignment]
+
+    if "parent_id" in body:
+        parent_id_raw = body["parent_id"]
+        parent_id = _parse_uuid(parent_id_raw) if parent_id_raw else None
+        _validate_category_parent(repo, entity.id, parent_id)
+        entity.parent_id = parent_id  # type: ignore[assignment]
+
+    if "display_order" in body:
+        entity.display_order = _parse_display_order(body["display_order"])
+
+    return entity
+
+
 def _create_activity(repo: ActivityRepository, body: dict[str, Any]) -> Activity:
     """Create an activity."""
 
     org_id = body.get("org_id")
     if not org_id:
         raise ValidationError("org_id is required", field="org_id")
+
+    category_id = body.get("category_id")
+    if not category_id:
+        raise ValidationError("category_id is required", field="category_id")
 
     name = _validate_string_length(
         body.get("name"), "name", MAX_NAME_LENGTH, required=True
@@ -2752,8 +2936,14 @@ def _create_activity(repo: ActivityRepository, body: dict[str, Any]) -> Activity
     _validate_age_range(age_min, age_max)
     age_range = Range(int(age_min), int(age_max), bounds="[]")
 
+    category_uuid = _parse_uuid(category_id)
+    category_repo = ActivityCategoryRepository(repo.session)
+    if category_repo.get_by_id(category_uuid) is None:
+        raise ValidationError("category_id not found", field="category_id")
+
     return Activity(
         org_id=_parse_uuid(org_id),
+        category_id=category_uuid,
         name=name,
         description=description,
         age_range=age_range,
@@ -2777,6 +2967,15 @@ def _update_activity(
         entity.description = _validate_string_length(
             body["description"], "description", MAX_DESCRIPTION_LENGTH
         )
+    if "category_id" in body:
+        category_id = body["category_id"]
+        if not category_id:
+            raise ValidationError("category_id is required", field="category_id")
+        category_uuid = _parse_uuid(category_id)
+        category_repo = ActivityCategoryRepository(repo.session)
+        if category_repo.get_by_id(category_uuid) is None:
+            raise ValidationError("category_id not found", field="category_id")
+        entity.category_id = category_uuid  # type: ignore[assignment]
     if "age_min" in body or "age_max" in body:
         age_min = body.get("age_min")
         age_max = body.get("age_max")
@@ -2819,6 +3018,7 @@ def _serialize_activity(entity: Activity) -> dict[str, Any]:
     return {
         "id": str(entity.id),
         "org_id": str(entity.org_id),
+        "category_id": str(entity.category_id),
         "name": entity.name,
         "description": entity.description,
         "age_min": age_min,
@@ -3607,6 +3807,14 @@ _RESOURCE_CONFIG = {
         serializer=_serialize_location,
         create_handler=_create_location,
         update_handler=_update_location,
+    ),
+    "activity-categories": ResourceConfig(
+        name="activity-categories",
+        model=ActivityCategory,
+        repository_class=ActivityCategoryRepository,
+        serializer=_serialize_activity_category,
+        create_handler=_create_activity_category,
+        update_handler=_update_activity_category,
     ),
     "activities": ResourceConfig(
         name="activities",
