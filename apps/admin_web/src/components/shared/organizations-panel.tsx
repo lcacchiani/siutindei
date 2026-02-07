@@ -593,7 +593,7 @@ export function OrganizationsPanel({ mode }: OrganizationsPanelProps) {
                 handles or URLs.
               </p>
             </div>
-            <div>
+            <div className='md:col-span-2'>
               <Label htmlFor='org-email'>Email</Label>
               <Input
                 id='org-email'
@@ -627,7 +627,7 @@ export function OrganizationsPanel({ mode }: OrganizationsPanelProps) {
                 ))}
               </Select>
             </div>
-            <div className='md:col-span-2'>
+            <div>
               <Label htmlFor='org-phone-number'>Phone number</Label>
               <Input
                 id='org-phone-number'
