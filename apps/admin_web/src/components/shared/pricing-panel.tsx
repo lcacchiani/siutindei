@@ -7,7 +7,10 @@ import currencyCodes from 'currency-codes';
 import { useActivitiesByMode } from '../../hooks/use-activities-by-mode';
 import { useLocationsByMode } from '../../hooks/use-locations-by-mode';
 import { useResourcePanel } from '../../hooks/use-resource-panel';
-import { parseOptionalNumber } from '../../lib/number-parsers';
+import {
+  formatPriceAmount,
+  parseOptionalNumber,
+} from '../../lib/number-parsers';
 import type { ApiMode } from '../../lib/resource-api';
 import type { ActivityPricing } from '../../types/admin';
 import { Button } from '../ui/button';
@@ -142,16 +145,6 @@ export function PricingPanel({ mode }: PricingPanelProps) {
     return normalizeCurrencyCode(value);
   }
 
-  function formatAmount(value: number): string {
-    if (!Number.isFinite(value)) {
-      return String(value);
-    }
-    return new Intl.NumberFormat('en-US', {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 2,
-    }).format(value);
-  }
-
   function getCurrencySearchText(value?: string | null): string {
     const normalized = normalizeCurrencyCode(value);
     const name = currencyNameByCode.get(normalized);
@@ -243,7 +236,8 @@ export function PricingPanel({ mode }: PricingPanelProps) {
       header: 'Amount',
       render: (item: ActivityPricing) => (
         <span className='text-slate-600'>
-          {getCurrencyDisplay(item.currency)} {formatAmount(item.amount)}
+          {getCurrencyDisplay(item.currency)}{' '}
+          {formatPriceAmount(item.amount)}
         </span>
       ),
     },
@@ -261,11 +255,14 @@ export function PricingPanel({ mode }: PricingPanelProps) {
     const pricingTypeSearch =
       `${pricingTypeLabel} ${item.pricing_type}`.toLowerCase();
     const currencySearch = getCurrencySearchText(item.currency).toLowerCase();
+    const amountSearch = String(item.amount).toLowerCase();
+    const formattedAmountSearch = formatPriceAmount(item.amount).toLowerCase();
     return (
       activityName.toLowerCase().includes(query) ||
       locationName.toLowerCase().includes(query) ||
       pricingTypeSearch.includes(query) ||
-      String(item.amount).toLowerCase().includes(query) ||
+      amountSearch.includes(query) ||
+      formattedAmountSearch.includes(query) ||
       currencySearch.includes(query)
     );
   });
