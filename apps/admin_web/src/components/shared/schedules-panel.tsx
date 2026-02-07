@@ -251,7 +251,7 @@ export function SchedulesPanel({ mode }: SchedulesPanelProps) {
     if (!searchQuery.trim()) return true;
     const query = searchQuery.toLowerCase();
     const activityName = activities.find((a) => a.id === item.activity_id)?.name?.toLowerCase() || '';
-    const locationName = locations.find((l) => l.id === item.location_id)?.district?.toLowerCase() || '';
+    const locationName = (locations.find((l) => l.id === item.location_id)?.address ?? '').toLowerCase();
     const languagesStr = item.languages?.join(', ')?.toLowerCase() || '';
     return (
       activityName.includes(query) ||
@@ -307,7 +307,7 @@ export function SchedulesPanel({ mode }: SchedulesPanelProps) {
               <option value=''>Select location</option>
               {locations.map((location) => (
                 <option key={location.id} value={location.id}>
-                  {location.district}
+                  {location.address || location.area_id}
                 </option>
               ))}
             </Select>
@@ -547,7 +547,7 @@ export function SchedulesPanel({ mode }: SchedulesPanelProps) {
                     activities.find((a) => a.id === item.activity_id)?.name ||
                     item.activity_id;
                   const locationName =
-                    locations.find((l) => l.id === item.location_id)?.district ||
+                    locations.find((l) => l.id === item.location_id)?.address ||
                     item.location_id;
                   return (
                     <tr key={item.id} className='border-b border-slate-100'>
@@ -597,7 +597,7 @@ export function SchedulesPanel({ mode }: SchedulesPanelProps) {
                   activities.find((a) => a.id === item.activity_id)?.name ||
                   item.activity_id;
                 const locationName =
-                  locations.find((l) => l.id === item.location_id)?.district ||
+                  locations.find((l) => l.id === item.location_id)?.address ||
                   item.location_id;
                 return (
                   <div

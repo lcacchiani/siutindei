@@ -2,12 +2,19 @@
 
 import { useEffect, useState } from 'react';
 
+import { useGeographicAreas } from '../../hooks/use-geographic-areas';
 import { useResourcePanel } from '../../hooks/use-resource-panel';
 import { listResource, listManagerOrganizations } from '../../lib/api-client';
+import type { GeographicAreaNode } from '../../lib/api-client';
 import type { ApiMode } from '../../lib/resource-api';
 import type { Location, Organization } from '../../types/admin';
+import {
+  AddressAutocomplete,
+  type AddressSelection,
+} from '../ui/address-autocomplete';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
+import { CascadingAreaSelect } from '../ui/cascading-area-select';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { SearchInput } from '../ui/search-input';
@@ -52,7 +59,7 @@ function DeleteIcon({ className }: { className?: string }) {
 
 interface LocationFormState {
   org_id: string;
-  district: string;
+  area_id: string;
   address: string;
   lat: string;
   lng: string;
@@ -60,7 +67,7 @@ interface LocationFormState {
 
 const emptyForm: LocationFormState = {
   org_id: '',
-  district: '',
+  area_id: '',
   address: '',
   lat: '',
   lng: '',
@@ -69,7 +76,7 @@ const emptyForm: LocationFormState = {
 function itemToForm(item: Location): LocationFormState {
   return {
     org_id: item.org_id ?? '',
-    district: item.district ?? '',
+    area_id: item.area_id ?? '',
     address: item.address ?? '',
     lat: item.lat !== undefined && item.lat !== null ? `${item.lat}` : '',
     lng: item.lng !== undefined && item.lng !== null ? `${item.lng}` : '',
@@ -96,8 +103,22 @@ export function LocationsPanel({ mode }: LocationsPanelProps) {
     itemToForm
   );
 
+  // Geographic area tree for cascading dropdowns
+  const { tree, countryCodes, matchNominatimResult } = useGeographicAreas();
+
   // Load organizations for the dropdown
   const [organizations, setOrganizations] = useState<Organization[]>([]);
+
+  // Build a flat area name lookup for display
+  const areaNameById = new Map<string, string>();
+  function walkTree(nodes: GeographicAreaNode[]) {
+    for (const n of nodes) {
+      areaNameById.set(n.id, n.name);
+      if (n.children) walkTree(n.children);
+    }
+  }
+  walkTree(tree);
+  const getAreaName = (areaId?: string) => (areaId ? areaNameById.get(areaId) : undefined) ?? '—';
 
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
@@ -136,16 +157,33 @@ export function LocationsPanel({ mode }: LocationsPanelProps) {
     loadOrganizations();
   }, [isAdmin, setFormState]);
 
+  const handleAddressSelect = (selection: AddressSelection) => {
+    // Try to reverse-match the Nominatim result to the area tree
+    const match = matchNominatimResult(selection.raw);
+    panel.setFormState((prev) => ({
+      ...prev,
+      address: selection.displayName,
+      lat: `${selection.lat}`,
+      lng: `${selection.lng}`,
+      // Auto-fill area_id if we found a match in the tree
+      area_id: match ? match.areaId : prev.area_id,
+    }));
+  };
+
+  const handleAreaChange = (areaId: string, _chain: GeographicAreaNode[]) => {
+    panel.setFormState((prev) => ({ ...prev, area_id: areaId }));
+  };
+
   const validate = () => {
-    if (!panel.formState.org_id || !panel.formState.district.trim()) {
-      return 'Organization and district are required.';
+    if (!panel.formState.org_id || !panel.formState.area_id) {
+      return 'Organization and area are required.';
     }
     return null;
   };
 
   const formToPayload = (form: LocationFormState) => ({
     org_id: form.org_id,
-    district: form.district.trim(),
+    area_id: form.area_id,
     address: form.address.trim() || null,
     lat: parseOptionalNumber(form.lat),
     lng: parseOptionalNumber(form.lng),
@@ -158,8 +196,9 @@ export function LocationsPanel({ mode }: LocationsPanelProps) {
     if (!searchQuery.trim()) return true;
     const query = searchQuery.toLowerCase();
     const orgName = organizations.find((org) => org.id === item.org_id)?.name?.toLowerCase() || '';
+    const areaName = getAreaName(item.area_id).toLowerCase();
     return (
-      item.district?.toLowerCase().includes(query) ||
+      areaName.includes(query) ||
       item.address?.toLowerCase().includes(query) ||
       orgName.includes(query)
     );
@@ -197,30 +236,27 @@ export function LocationsPanel({ mode }: LocationsPanelProps) {
               ))}
             </Select>
           </div>
-          <div>
-            <Label htmlFor='location-district'>District</Label>
-            <Input
-              id='location-district'
-              value={panel.formState.district}
-              onChange={(e) =>
-                panel.setFormState((prev) => ({
-                  ...prev,
-                  district: e.target.value,
-                }))
-              }
+          <div className='md:col-span-2'>
+            <CascadingAreaSelect
+              tree={tree}
+              value={panel.formState.area_id}
+              onChange={handleAreaChange}
             />
           </div>
           <div className='md:col-span-2'>
             <Label htmlFor='location-address'>Address</Label>
-            <Input
+            <AddressAutocomplete
               id='location-address'
               value={panel.formState.address}
-              onChange={(e) =>
+              onChange={(val) =>
                 panel.setFormState((prev) => ({
                   ...prev,
-                  address: e.target.value,
+                  address: val,
                 }))
               }
+              onSelect={handleAddressSelect}
+              placeholder='Start typing an address...'
+              countryCodes={countryCodes}
             />
           </div>
           <div>
@@ -301,7 +337,7 @@ export function LocationsPanel({ mode }: LocationsPanelProps) {
             <table className='w-full text-left text-sm'>
               <thead className='border-b border-slate-200 text-slate-500'>
                 <tr>
-                  <th className='py-2'>District</th>
+                  <th className='py-2'>Area</th>
                   {isAdmin && <th className='py-2'>Organization</th>}
                   <th className='py-2'>Address</th>
                   <th className='py-2 text-right'>Actions</th>
@@ -310,7 +346,7 @@ export function LocationsPanel({ mode }: LocationsPanelProps) {
               <tbody>
                 {filteredItems.map((item) => (
                   <tr key={item.id} className='border-b border-slate-100'>
-                    <td className='py-2 font-medium'>{item.district}</td>
+                    <td className='py-2 font-medium'>{getAreaName(item.area_id)}</td>
                     {isAdmin && (
                       <td className='py-2 text-slate-600'>
                         {organizations.find((org) => org.id === item.org_id)
@@ -338,7 +374,7 @@ export function LocationsPanel({ mode }: LocationsPanelProps) {
                           onClick={() =>
                             panel.handleDelete({
                               ...item,
-                              name: item.district,
+                              name: getAreaName(item.area_id),
                             })
                           }
                           title='Delete'
@@ -360,7 +396,7 @@ export function LocationsPanel({ mode }: LocationsPanelProps) {
                   key={item.id}
                   className='rounded-lg border border-slate-200 bg-slate-50 p-3'
                 >
-                  <div className='font-medium text-slate-900'>{item.district}</div>
+                  <div className='font-medium text-slate-900'>{getAreaName(item.area_id)}</div>
                   {isAdmin && (
                     <div className='mt-1 text-sm text-slate-600'>
                       {organizations.find((org) => org.id === item.org_id)?.name || item.org_id}
@@ -387,7 +423,7 @@ export function LocationsPanel({ mode }: LocationsPanelProps) {
                       onClick={() =>
                         panel.handleDelete({
                           ...item,
-                          name: item.district,
+                          name: getAreaName(item.area_id),
                         })
                       }
                       className='flex-1'

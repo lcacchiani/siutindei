@@ -42,7 +42,7 @@ class ActivitySearchFilters:
     """Filters for activity search queries."""
 
     age: int | None = None
-    district: str | None = None
+    area_id: UUID | None = None
     pricing_type: PricingType | None = None
     price_min: Decimal | None = None
     price_max: Decimal | None = None
@@ -126,8 +126,8 @@ def build_activity_search_query(filters: ActivitySearchFilters) -> Select:
     if filters.age is not None:
         conditions.append(Activity.age_range.contains(filters.age))
 
-    if filters.district:
-        conditions.append(Location.district == filters.district)
+    if filters.area_id is not None:
+        conditions.append(Location.area_id == filters.area_id)
 
     if filters.pricing_type is not None:
         conditions.append(ActivityPricing.pricing_type == filters.pricing_type)

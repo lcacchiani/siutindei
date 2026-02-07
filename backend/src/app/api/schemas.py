@@ -29,7 +29,7 @@ class LocationSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: str
-    district: str
+    area_id: str
     address: Optional[str]
     lat: Optional[Decimal]
     lng: Optional[Decimal]

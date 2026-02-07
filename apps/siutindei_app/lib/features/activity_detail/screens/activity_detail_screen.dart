@@ -288,7 +288,7 @@ class ActivityDetailScreen extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _DetailRow(label: 'District', value: location.district, semantic: semantic),
+          _DetailRow(label: 'Area', value: location.areaId, semantic: semantic),
           if (location.address != null)
             _DetailRow(label: 'Address', value: location.address!, semantic: semantic),
           if (location.hasCoordinates)

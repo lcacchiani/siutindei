@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from decimal import Decimal
 from typing import Optional
 from typing import Sequence
 from uuid import UUID
@@ -46,92 +45,24 @@ class LocationRepository(BaseRepository[Location]):
             query = query.where(Location.id > cursor)
         return self._session.execute(query.limit(limit)).scalars().all()
 
-    def find_by_district(
+    def find_by_area(
         self,
-        district: str,
+        area_id: UUID,
         limit: int = 50,
     ) -> Sequence[Location]:
-        """Find locations by district.
+        """Find locations by geographic area.
 
         Args:
-            district: The district name.
+            area_id: The geographic area UUID.
             limit: Maximum results to return.
 
         Returns:
-            Locations in the specified district.
+            Locations in the specified area.
         """
         query = (
             select(Location)
-            .where(Location.district == district)
+            .where(Location.area_id == area_id)
             .order_by(Location.id)
             .limit(limit)
         )
         return self._session.execute(query).scalars().all()
-
-    def get_distinct_districts(self) -> Sequence[str]:
-        """Get all distinct district names.
-
-        Returns:
-            List of unique district names.
-        """
-        query = select(Location.district).distinct().order_by(Location.district)
-        return self._session.execute(query).scalars().all()
-
-    def create_location(
-        self,
-        org_id: UUID,
-        district: str,
-        address: Optional[str] = None,
-        lat: Optional[Decimal] = None,
-        lng: Optional[Decimal] = None,
-    ) -> Location:
-        """Create a new location.
-
-        Args:
-            org_id: Organization UUID.
-            district: District name.
-            address: Optional address.
-            lat: Optional latitude.
-            lng: Optional longitude.
-
-        Returns:
-            The created location.
-        """
-        location = Location(
-            org_id=org_id,
-            district=district,
-            address=address,
-            lat=lat,
-            lng=lng,
-        )
-        return self.create(location)
-
-    def update_location(
-        self,
-        location: Location,
-        district: Optional[str] = None,
-        address: Optional[str] = None,
-        lat: Optional[Decimal] = None,
-        lng: Optional[Decimal] = None,
-    ) -> Location:
-        """Update a location.
-
-        Args:
-            location: The location to update.
-            district: New district (if provided).
-            address: New address (if provided).
-            lat: New latitude (if provided).
-            lng: New longitude (if provided).
-
-        Returns:
-            The updated location.
-        """
-        if district is not None:
-            location.district = district
-        if address is not None:
-            location.address = address
-        if lat is not None:
-            location.lat = lat
-        if lng is not None:
-            location.lng = lng
-        return self.update(location)

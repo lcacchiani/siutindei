@@ -33,7 +33,7 @@ class ActivityMapper {
   static LocationEntity locationToEntity(Location model) {
     return LocationEntity(
       id: model.id,
-      district: model.district,
+      areaId: model.areaId,
       address: model.address,
       latitude: model.lat,
       longitude: model.lng,
@@ -101,7 +101,7 @@ class SearchFiltersMapper {
     return ActivitySearchFilters(
       searchQuery: filters.searchQuery,
       age: filters.age,
-      district: filters.district,
+      areaId: filters.areaId,
       pricingType: filters.pricingType?.toApiString(),
       priceMin: filters.priceMin,
       priceMax: filters.priceMax,

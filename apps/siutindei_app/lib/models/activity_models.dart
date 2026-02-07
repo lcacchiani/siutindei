@@ -1,7 +1,7 @@
 class ActivitySearchFilters {
   ActivitySearchFilters({
     this.age,
-    this.district,
+    this.areaId,
     this.pricingType,
     this.priceMin,
     this.priceMax,
@@ -19,7 +19,7 @@ class ActivitySearchFilters {
   });
 
   final int? age;
-  final String? district;
+  final String? areaId;
   final String? pricingType;
   final double? priceMin;
   final double? priceMax;
@@ -38,7 +38,7 @@ class ActivitySearchFilters {
   /// Creates a copy of this filters with the given fields replaced.
   ActivitySearchFilters copyWith({
     int? age,
-    String? district,
+    String? areaId,
     String? pricingType,
     double? priceMin,
     double? priceMax,
@@ -54,7 +54,7 @@ class ActivitySearchFilters {
     int? limit,
     String? searchQuery,
     bool clearAge = false,
-    bool clearDistrict = false,
+    bool clearAreaId = false,
     bool clearPricingType = false,
     bool clearPriceMin = false,
     bool clearPriceMax = false,
@@ -70,7 +70,7 @@ class ActivitySearchFilters {
   }) {
     return ActivitySearchFilters(
       age: clearAge ? null : (age ?? this.age),
-      district: clearDistrict ? null : (district ?? this.district),
+      areaId: clearAreaId ? null : (areaId ?? this.areaId),
       pricingType: clearPricingType ? null : (pricingType ?? this.pricingType),
       priceMin: clearPriceMin ? null : (priceMin ?? this.priceMin),
       priceMax: clearPriceMax ? null : (priceMax ?? this.priceMax),
@@ -95,7 +95,7 @@ class ActivitySearchFilters {
   /// Returns true if any filter is active.
   bool get hasActiveFilters =>
       age != null ||
-      district != null ||
+      areaId != null ||
       pricingType != null ||
       priceMin != null ||
       priceMax != null ||
@@ -112,7 +112,7 @@ class ActivitySearchFilters {
   int get activeFilterCount {
     int count = 0;
     if (age != null) count++;
-    if (district != null) count++;
+    if (areaId != null) count++;
     if (pricingType != null) count++;
     if (priceMin != null || priceMax != null) count++;
     if (scheduleType != null) count++;
@@ -136,7 +136,7 @@ class ActivitySearchFilters {
     }
 
     setParam('age', age);
-    setParam('district', district);
+    setParam('area_id', areaId);
     setParam('pricing_type', pricingType);
     setParam('price_min', priceMin);
     setParam('price_max', priceMax);
@@ -157,7 +157,7 @@ class ActivitySearchFilters {
 
   @override
   String toString() {
-    return 'ActivitySearchFilters(age: $age, district: $district, '
+    return 'ActivitySearchFilters(age: $age, areaId: $areaId, '
         'pricingType: $pricingType, languages: $languages)';
   }
 }
@@ -254,10 +254,16 @@ class Organization {
 }
 
 class Location {
-  Location({required this.id, required this.district, this.address, this.lat, this.lng});
+  Location({
+    required this.id,
+    required this.areaId,
+    this.address,
+    this.lat,
+    this.lng,
+  });
 
   final String id;
-  final String district;
+  final String areaId;
   final String? address;
   final double? lat;
   final double? lng;
@@ -265,7 +271,7 @@ class Location {
   factory Location.fromJson(Map<String, dynamic> json) {
     return Location(
       id: json['id'] as String,
-      district: json['district'] as String,
+      areaId: json['area_id'] as String,
       address: json['address'] as String?,
       lat: (json['lat'] as num?)?.toDouble(),
       lng: (json['lng'] as num?)?.toDouble(),

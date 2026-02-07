@@ -472,6 +472,19 @@ export class ApiStack extends cdk.Stack {
     // ---------------------------------------------------------------------
     // Migration Parameters
     // ---------------------------------------------------------------------
+    const activeCountryCodes = new cdk.CfnParameter(
+      this,
+      "ActiveCountryCodes",
+      {
+        type: "String",
+        default: "HK",
+        description:
+          "Comma-separated ISO 3166-1 alpha-2 country codes to activate " +
+          "in the geographic_areas table (e.g., 'HK' or 'HK,SG'). " +
+          "Countries not in this list will be deactivated on deploy.",
+      }
+    );
+
     const runSeedData = new cdk.CfnParameter(this, "RunSeedData", {
       type: "String",
       default: "false",
@@ -1240,6 +1253,7 @@ export class ApiStack extends cdk.Stack {
         SEED_FILE_PATH: "/var/task/db/seed/seed_data.sql",
         COGNITO_USER_POOL_ID: userPool.userPoolId,
         FALLBACK_MANAGER_EMAIL: fallbackManagerEmail.valueAsString,
+        ACTIVE_COUNTRY_CODES: activeCountryCodes.valueAsString,
       },
     });
     database.grantSecretRead(migrationFunction);
@@ -1793,7 +1807,7 @@ export class ApiStack extends cdk.Stack {
 
     const cacheKeyParameters = [
       "method.request.querystring.age",
-      "method.request.querystring.district",
+      "method.request.querystring.area_id",
       "method.request.querystring.pricing_type",
       "method.request.querystring.price_min",
       "method.request.querystring.price_max",
@@ -1933,6 +1947,17 @@ export class ApiStack extends cdk.Stack {
       authorizer: adminAuthorizer,
     });
 
+    // Geographic areas management (admin can list all or toggle active)
+    const adminAreas = admin.addResource("areas");
+    adminAreas.addMethod("GET", adminIntegration, {
+      authorizationType: apigateway.AuthorizationType.CUSTOM,
+      authorizer: adminAuthorizer,
+    });
+    const adminAreaById = adminAreas.addResource("{id}");
+    adminAreaById.addMethod("PATCH", adminIntegration, {
+      authorizationType: apigateway.AuthorizationType.CUSTOM,
+      authorizer: adminAuthorizer,
+    });
 
     // Manager-specific routes at /v1/manager (accessible by users in 'admin' OR 'manager' group)
     // All manager routes are filtered by organization management in the Lambda
@@ -2001,6 +2026,13 @@ export class ApiStack extends cdk.Stack {
       authorizer: userAuthorizer,
     });
     userOrgSuggestion.addMethod("POST", adminIntegration, {
+      authorizationType: apigateway.AuthorizationType.CUSTOM,
+      authorizer: userAuthorizer,
+    });
+
+    // Geographic areas (any authenticated user can fetch the area tree)
+    const userAreas = user.addResource("areas");
+    userAreas.addMethod("GET", adminIntegration, {
       authorizationType: apigateway.AuthorizationType.CUSTOM,
       authorizer: userAuthorizer,
     });

@@ -79,14 +79,14 @@ class OrganizationEntity {
 class LocationEntity {
   const LocationEntity({
     required this.id,
-    required this.district,
+    required this.areaId,
     this.address,
     this.latitude,
     this.longitude,
   });
 
   final String id;
-  final String district;
+  final String areaId;
   final String? address;
   final double? latitude;
   final double? longitude;
@@ -99,14 +99,14 @@ class LocationEntity {
       identical(this, other) ||
       (other is LocationEntity &&
           other.id == id &&
-          other.district == district &&
+          other.areaId == areaId &&
           other.address == address);
 
   @override
-  int get hashCode => Object.hash(id, district, address);
+  int get hashCode => Object.hash(id, areaId, address);
 
   @override
-  String toString() => 'LocationEntity(id: $id, district: $district)';
+  String toString() => 'LocationEntity(id: $id, areaId: $areaId)';
 }
 
 /// Domain entity representing pricing information.

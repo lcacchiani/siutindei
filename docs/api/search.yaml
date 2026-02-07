@@ -50,12 +50,13 @@ paths:
           schema:
             type: integer
             minimum: 0
-        - name: district
+        - name: area_id
           in: query
           required: false
-          description: Filter by district name (exact match)
+          description: Filter by geographic area UUID
           schema:
             type: string
+            format: uuid
         - name: pricing_type
           in: query
           required: false
@@ -245,13 +246,15 @@ components:
             type: string
     Location:
       type: object
-      required: [id, district]
+      required: [id, area_id]
       properties:
         id:
           type: string
           format: uuid
-        district:
+        area_id:
           type: string
+          format: uuid
+          description: Geographic area UUID (leaf node)
         address:
           type: string
           nullable: true

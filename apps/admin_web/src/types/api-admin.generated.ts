@@ -2427,6 +2427,145 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/areas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List all geographic areas
+         * @description Returns the full geographic area tree including inactive countries.
+         *     Admin-only endpoint for managing area activation.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Full area tree */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AreaTreeResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/areas/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Toggle area active status
+         * @description Activate or deactivate a geographic area (typically a country).
+         *     When a country is deactivated, it and its children are hidden
+         *     from user-facing endpoints.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** @description New active state */
+                        active: boolean;
+                    };
+                };
+            };
+            responses: {
+                /** @description Area updated */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["GeographicArea"];
+                    };
+                };
+                /** @description Area not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/v1/user/areas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List active geographic areas
+         * @description Returns the geographic area tree for active countries only.
+         *     Used by frontend for cascading country/district dropdowns.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Active area tree */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AreaTreeResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/user/access-request": {
         parameters: {
             query?: never;
@@ -2702,8 +2841,11 @@ export interface components {
              * @description Organization UUID (required)
              */
             org_id: string;
-            /** @description District name (required, max 100 characters) */
-            district: string;
+            /**
+             * Format: uuid
+             * @description Geographic area UUID (required, must be a leaf node)
+             */
+            area_id: string;
             /** @description Full address (optional, max 500 characters) */
             address?: string;
             /** @description Latitude (-90 to 90) */
@@ -2712,8 +2854,11 @@ export interface components {
             lng?: number;
         };
         LocationUpdate: {
-            /** @description District name (max 100 characters) */
-            district?: string;
+            /**
+             * Format: uuid
+             * @description Geographic area UUID (must be a leaf node)
+             */
+            area_id?: string;
             /** @description Full address (max 500 characters) */
             address?: string;
             /** @description Latitude (-90 to 90) */
@@ -2726,7 +2871,11 @@ export interface components {
             id: string;
             /** Format: uuid */
             org_id: string;
-            district: string;
+            /**
+             * Format: uuid
+             * @description Geographic area UUID (leaf node)
+             */
+            area_id: string;
             address?: string | null;
             lat?: number | null;
             lng?: number | null;
@@ -3071,6 +3220,29 @@ export interface components {
         AuditLogListResponse: {
             items: components["schemas"]["AuditLogEntry"][];
             next_cursor?: string | null;
+        };
+        GeographicArea: {
+            /** Format: uuid */
+            id: string;
+            /**
+             * Format: uuid
+             * @description NULL for root (country) nodes
+             */
+            parent_id?: string | null;
+            /** @description Area name (e.g., 'Hong Kong', 'Wan Chai') */
+            name: string;
+            /** @enum {string} */
+            level: "country" | "region" | "city" | "district";
+            /** @description ISO 3166-1 alpha-2 for countries (HK, SG, AE) */
+            code?: string | null;
+            /** @description Whether this area (and its children) is available */
+            active: boolean;
+            display_order: number;
+            /** @description Nested child areas (populated in tree responses) */
+            children?: components["schemas"]["GeographicArea"][];
+        };
+        AreaTreeResponse: {
+            items: components["schemas"]["GeographicArea"][];
         };
         OrganizationSuggestionCreate: {
             /** @description Suggested organization name (required) */

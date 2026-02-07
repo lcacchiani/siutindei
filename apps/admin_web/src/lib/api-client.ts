@@ -369,6 +369,27 @@ export async function submitOrganizationSuggestion(
   );
 }
 
+// --- Geographic Areas ---
+
+/** A node in the geographic area tree. */
+export interface GeographicAreaNode {
+  id: string;
+  parent_id: string | null;
+  name: string;
+  level: 'country' | 'region' | 'city' | 'district';
+  code: string | null;
+  active: boolean;
+  display_order: number;
+  children: GeographicAreaNode[];
+}
+
+/**
+ * Fetch the active geographic area tree (for any authenticated user).
+ */
+export async function fetchActiveAreas(): Promise<{ items: GeographicAreaNode[] }> {
+  return request<{ items: GeographicAreaNode[] }>(buildUserUrl('areas'));
+}
+
 /**
  * List organizations managed by the current user.
  */

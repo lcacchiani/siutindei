@@ -31,6 +31,27 @@ Relationships:
 - One organization has many locations.
 - One organization has many activities.
 
+## Table: geographic_areas
+
+Purpose: Hierarchical lookup of valid geographic areas (country > region > city > district).
+
+Columns:
+- `id` (UUID, PK, default `gen_random_uuid()`)
+- `parent_id` (UUID, FK -> geographic_areas.id, cascade delete, nullable for countries)
+- `name` (text, required)
+- `level` (text, required — `country`, `region`, `city`, or `district`)
+- `code` (text, optional — ISO 3166-1 alpha-2 for countries)
+- `active` (boolean, default true — controls country visibility)
+- `display_order` (integer, default 0)
+
+Constraints:
+- UNIQUE(`parent_id`, `name`)
+
+Indexes:
+- `geo_areas_parent_idx` on `parent_id`
+- `geo_areas_level_idx` on `level`
+- `geo_areas_code_idx` on `code`
+
 ## Table: locations
 
 Purpose: Physical or logical locations for an organization.
@@ -38,7 +59,7 @@ Purpose: Physical or logical locations for an organization.
 Columns:
 - `id` (UUID, PK, default `gen_random_uuid()`)
 - `org_id` (UUID, FK -> organizations.id, cascade delete)
-- `district` (text, required)
+- `area_id` (UUID, FK -> geographic_areas.id, required)
 - `address` (text, optional)
 - `lat` (numeric(9,6), optional)
 - `lng` (numeric(9,6), optional)
@@ -48,6 +69,7 @@ Columns:
 Indexes:
 - `locations_district_idx` on `district`
 - `locations_org_idx` on `org_id`
+- `locations_area_idx` on `area_id`
 
 ## Table: activities
 

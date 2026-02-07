@@ -36,6 +36,7 @@ from app.db.models import Activity
 from app.db.models import ActivityPricing
 from app.db.models import ActivitySchedule
 from app.db.models import AuditLog
+from app.db.models import GeographicArea
 from app.db.models import Location
 from app.db.models import Organization
 from app.db.models import PricingType
@@ -48,6 +49,7 @@ from app.db.repositories import (
     ActivityPricingRepository,
     ActivityRepository,
     ActivityScheduleRepository,
+    GeographicAreaRepository,
     LocationRepository,
     OrganizationRepository,
     TicketRepository,
@@ -156,6 +158,19 @@ def lambda_handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
         return _handle_admin_tickets(event, method, resource_id)
     if resource == "audit-logs" and method == "GET":
         return _safe_handler(lambda: _handle_audit_logs(event, resource_id), event)
+
+    # Geographic areas management (admin can list all or toggle active)
+    if resource == "areas":
+        if method == "GET":
+            return _safe_handler(
+                lambda: _handle_list_areas(event, active_only=False),
+                event,
+            )
+        if method == "PATCH" and resource_id:
+            return _safe_handler(
+                lambda: _handle_toggle_area(event, resource_id),
+                event,
+            )
 
     # Standard admin CRUD routes (no ownership filtering)
     config = _RESOURCE_CONFIG.get(resource)
@@ -702,6 +717,13 @@ def _handle_user_routes(
             event,
         )
 
+    # Geographic areas - any logged-in user can fetch the area tree
+    if resource == "areas" and method == "GET":
+        return _safe_handler(
+            lambda: _handle_list_areas(event, active_only=True),
+            event,
+        )
+
     return json_response(404, {"error": "Not found"}, event=event)
 
 
@@ -1236,14 +1258,32 @@ def _review_ticket(
             org_repo.create(organization)
 
             if ticket.suggested_district:
-                location = Location(
-                    org_id=organization.id,
-                    district=ticket.suggested_district,
-                    address=ticket.suggested_address,
-                    lat=ticket.suggested_lat,
-                    lng=ticket.suggested_lng,
+                # Resolve area_id from the suggested district name
+                geo_repo = GeographicAreaRepository(session)
+                all_areas = geo_repo.get_all_flat(active_only=False)
+                matched_area = next(
+                    (
+                        a
+                        for a in all_areas
+                        if a.level == "district" and a.name == ticket.suggested_district
+                    ),
+                    None,
                 )
-                location_repo.create(location)
+                if matched_area is None:
+                    matched_area = next(
+                        (a for a in all_areas if a.level == "district"),
+                        None,
+                    )
+
+                if matched_area is not None:
+                    location = Location(
+                        org_id=organization.id,
+                        area_id=matched_area.id,
+                        address=ticket.suggested_address,
+                        lat=ticket.suggested_lat,
+                        lng=ticket.suggested_lng,
+                    )
+                    location_repo.create(location)
 
             ticket.created_organization_id = organization.id
             logger.info(
@@ -1477,7 +1517,7 @@ def _submit_organization_suggestion(
     suggested_district = _validate_string_length(
         body.get("suggested_district"),
         "suggested_district",
-        MAX_DISTRICT_LENGTH,
+        100,
         required=False,
     )
     suggested_address = _validate_string_length(
@@ -1887,6 +1927,79 @@ def _redact_sensitive_fields(values: dict[str, Any]) -> dict[str, Any]:
         else:
             result[key] = value
     return result
+
+
+# --- Geographic Areas ---
+
+
+def _handle_list_areas(
+    event: Mapping[str, Any],
+    active_only: bool = True,
+) -> dict[str, Any]:
+    """Return the geographic area tree.
+
+    When active_only=True (user route), only active countries and their
+    children are returned.  When active_only=False (admin route), all
+    countries are returned so admins can toggle activation.
+    """
+    with Session(get_engine()) as session:
+        repo = GeographicAreaRepository(session)
+        areas = repo.get_all_flat(active_only=active_only)
+
+    # Build a nested tree from the flat list
+    areas_by_id: dict[str, dict[str, Any]] = {}
+    roots: list[dict[str, Any]] = []
+
+    for area in areas:
+        node = _serialize_area(area)
+        node["children"] = []
+        areas_by_id[str(area.id)] = node
+
+    for area in areas:
+        node = areas_by_id[str(area.id)]
+        parent_key = str(area.parent_id) if area.parent_id else None
+        if parent_key and parent_key in areas_by_id:
+            areas_by_id[parent_key]["children"].append(node)
+        elif parent_key is None:
+            roots.append(node)
+
+    return json_response(200, {"items": roots}, event=event)
+
+
+def _handle_toggle_area(
+    event: Mapping[str, Any],
+    area_id_str: str,
+) -> dict[str, Any]:
+    """Toggle the active flag on a geographic area (admin only)."""
+    area_uuid = _parse_uuid(area_id_str)
+
+    body = _parse_body(event)
+    active = body.get("active")
+    if active is None or not isinstance(active, bool):
+        raise ValidationError("active (boolean) is required", field="active")
+
+    with Session(get_engine()) as session:
+        _set_session_audit_context(session, event)
+        repo = GeographicAreaRepository(session)
+        area = repo.toggle_active(area_uuid, active)
+        if area is None:
+            raise NotFoundError("geographic_area", area_id_str)
+        session.commit()
+        session.refresh(area)
+        return json_response(200, _serialize_area(area), event=event)
+
+
+def _serialize_area(area: GeographicArea) -> dict[str, Any]:
+    """Serialize a geographic area for the API response."""
+    return {
+        "id": str(area.id),
+        "parent_id": str(area.parent_id) if area.parent_id else None,
+        "name": area.name,
+        "level": area.level,
+        "code": area.code,
+        "active": area.active,
+        "display_order": area.display_order,
+    }
 
 
 # --- Cognito proxy helper ---
@@ -2456,9 +2569,16 @@ def _create_location(repo: LocationRepository, body: dict[str, Any]) -> Location
     if not org_id:
         raise ValidationError("org_id is required", field="org_id")
 
-    district = _validate_string_length(
-        body.get("district"), "district", MAX_DISTRICT_LENGTH, required=True
-    )
+    area_id_raw = body.get("area_id")
+    if not area_id_raw:
+        raise ValidationError("area_id is required", field="area_id")
+    area_uuid = _parse_uuid(area_id_raw)
+
+    # Validate area_id exists
+    geo_repo = GeographicAreaRepository(repo._session)
+    if geo_repo.get_by_id(area_uuid) is None:
+        raise ValidationError("area_id not found", field="area_id")
+
     address = _validate_string_length(
         body.get("address"), "address", MAX_ADDRESS_LENGTH
     )
@@ -2469,7 +2589,7 @@ def _create_location(repo: LocationRepository, body: dict[str, Any]) -> Location
 
     return Location(
         org_id=_parse_uuid(org_id),
-        district=district,
+        area_id=area_uuid,
         address=address,
         lat=lat,
         lng=lng,
@@ -2483,12 +2603,13 @@ def _update_location(
 ) -> Location:
     """Update a location."""
 
-    if "district" in body:
-        district = _validate_string_length(
-            body["district"], "district", MAX_DISTRICT_LENGTH, required=True
-        )
-        # _validate_string_length with required=True always returns str
-        entity.district = district  # type: ignore[assignment]
+    if "area_id" in body:
+        area_uuid = _parse_uuid(body["area_id"])
+        geo_repo = GeographicAreaRepository(repo._session)
+        if geo_repo.get_by_id(area_uuid) is None:
+            raise ValidationError("area_id not found", field="area_id")
+        entity.area_id = area_uuid  # type: ignore[assignment]
+
     if "address" in body:
         entity.address = _validate_string_length(
             body["address"], "address", MAX_ADDRESS_LENGTH
@@ -2539,7 +2660,7 @@ def _serialize_location(entity: Location) -> dict[str, Any]:
     return {
         "id": str(entity.id),
         "org_id": str(entity.org_id),
-        "district": entity.district,
+        "area_id": str(entity.area_id),
         "address": entity.address,
         "lat": entity.lat,
         "lng": entity.lng,
@@ -2747,7 +2868,6 @@ def _validate_sessions_count(sessions_count: Any) -> None:
 MAX_NAME_LENGTH = 200
 MAX_DESCRIPTION_LENGTH = 5000
 MAX_ADDRESS_LENGTH = 500
-MAX_DISTRICT_LENGTH = 100
 MAX_URL_LENGTH = 2048
 MAX_LANGUAGE_CODE_LENGTH = 10
 MAX_LANGUAGES_COUNT = 20
