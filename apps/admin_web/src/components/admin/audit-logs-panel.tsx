@@ -8,8 +8,10 @@ import {
   type AuditLogsFilters,
 } from '../../lib/api-client';
 import type { AuditLog } from '../../types/admin';
+import { ViewIcon } from '../icons/action-icons';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
+import { DataTable } from '../ui/data-table';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Select } from '../ui/select';
@@ -214,23 +216,6 @@ function DetailModal({ log, onClose }: DetailModalProps) {
   );
 }
 
-function ViewIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      viewBox='0 0 24 24'
-      fill='none'
-      stroke='currentColor'
-      strokeWidth='2'
-      strokeLinecap='round'
-      strokeLinejoin='round'
-    >
-      <path d='M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z' />
-      <circle cx='12' cy='12' r='3' />
-    </svg>
-  );
-}
-
 function formatDate(dateStr: string | null | undefined) {
   if (!dateStr) return '—';
   return new Date(dateStr).toLocaleDateString('en-US', {
@@ -316,6 +301,72 @@ export function AuditLogsPanel() {
     setRecordIdFilter('');
     setTimeRange('24h');
   };
+
+  const columns = [
+    {
+      key: 'timestamp',
+      header: 'Timestamp',
+      secondary: true,
+      render: (item: AuditLog) => (
+        <span className='text-slate-600'>{formatDate(item.timestamp)}</span>
+      ),
+    },
+    {
+      key: 'table',
+      header: 'Table',
+      primary: true,
+      render: (item: AuditLog) => (
+        <span className='font-medium'>{item.table_name}</span>
+      ),
+    },
+    {
+      key: 'action',
+      header: 'Action',
+      render: (item: AuditLog) => <ActionBadge action={item.action} />,
+    },
+    {
+      key: 'user-id',
+      header: 'User ID',
+      render: (item: AuditLog) => (
+        <span className='font-mono text-xs text-slate-600'>
+          {item.user_id || '—'}
+        </span>
+      ),
+    },
+    {
+      key: 'source',
+      header: 'Source',
+      render: (item: AuditLog) => <SourceBadge source={item.source} />,
+    },
+    {
+      key: 'changed-fields',
+      header: 'Changed Fields',
+      headerClassName: 'md:hidden',
+      cellClassName: 'md:hidden',
+      render: (item: AuditLog) => (
+        <span className='text-slate-500'>
+          {item.changed_fields?.length
+            ? item.changed_fields.join(', ')
+            : '—'}
+        </span>
+      ),
+    },
+  ];
+
+  function renderActions(item: AuditLog, context: 'desktop' | 'mobile') {
+    return (
+      <Button
+        type='button'
+        size='sm'
+        variant='ghost'
+        onClick={() => setSelectedLog(item)}
+        className={context === 'mobile' ? 'flex-1' : undefined}
+        aria-label='View details'
+      >
+        <ViewIcon className='h-4 w-4' />
+      </Button>
+    );
+  }
 
   return (
     <div className='space-y-6'>
@@ -433,112 +484,17 @@ export function AuditLogsPanel() {
           </p>
         ) : (
           <div className='space-y-4'>
-            {/* Desktop table view */}
-            <div className='hidden overflow-x-auto md:block'>
-              <table className='w-full text-left text-sm'>
-                <thead className='border-b border-slate-200 text-slate-500'>
-                  <tr>
-                    <th className='py-2'>Timestamp</th>
-                    <th className='py-2'>Table</th>
-                    <th className='py-2'>Action</th>
-                    <th className='py-2'>User ID</th>
-                    <th className='py-2'>Source</th>
-                    <th className='py-2 text-right'>Details</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {items.map((item) => (
-                    <tr key={item.id} className='border-b border-slate-100'>
-                      <td className='py-2 text-slate-600'>
-                        {formatDate(item.timestamp)}
-                      </td>
-                      <td className='py-2 font-medium'>{item.table_name}</td>
-                      <td className='py-2'>
-                        <ActionBadge action={item.action} />
-                      </td>
-                      <td className='max-w-[120px] truncate py-2 font-mono text-xs text-slate-600'>
-                        {item.user_id || '—'}
-                      </td>
-                      <td className='py-2'>
-                        <SourceBadge source={item.source} />
-                      </td>
-                      <td className='py-2 text-right'>
-                        <Button
-                          type='button'
-                          size='sm'
-                          variant='ghost'
-                          onClick={() => setSelectedLog(item)}
-                          aria-label='View details'
-                        >
-                          <ViewIcon className='h-4 w-4' />
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Mobile card view */}
-            <div className='space-y-3 md:hidden'>
-              {items.map((item) => (
-                <div
-                  key={item.id}
-                  className='rounded-lg border border-slate-200 bg-slate-50 p-3'
-                >
-                  <div className='flex items-start justify-between gap-2'>
-                    <div>
-                      <div className='font-medium text-slate-900'>
-                        {item.table_name}
-                      </div>
-                      <div className='mt-0.5 text-xs text-slate-500'>
-                        {formatDate(item.timestamp)}
-                      </div>
-                    </div>
-                    <ActionBadge action={item.action} />
-                  </div>
-                  <div className='mt-2 space-y-1 text-sm'>
-                    {item.user_id && (
-                      <div className='truncate font-mono text-xs text-slate-500'>
-                        User: {item.user_id}
-                      </div>
-                    )}
-                    {item.changed_fields && item.changed_fields.length > 0 && (
-                      <div className='text-xs text-slate-500'>
-                        Changed: {item.changed_fields.join(', ')}
-                      </div>
-                    )}
-                  </div>
-                  <div className='mt-3 flex items-center justify-between border-t border-slate-200 pt-3'>
-                    <SourceBadge source={item.source} />
-                    <Button
-                      type='button'
-                      size='sm'
-                      variant='ghost'
-                      onClick={() => setSelectedLog(item)}
-                      aria-label='View details'
-                    >
-                      <ViewIcon className='h-4 w-4' />
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {nextCursor && (
-              <div className='mt-4'>
-                <Button
-                  type='button'
-                  variant='secondary'
-                  onClick={() => loadItems(nextCursor)}
-                  disabled={isLoading}
-                  className='w-full sm:w-auto'
-                >
-                  {isLoading ? 'Loading...' : 'Load more'}
-                </Button>
-              </div>
-            )}
-
+            <DataTable
+              columns={columns}
+              data={items}
+              keyExtractor={(item) => item.id}
+              renderActions={renderActions}
+              actionsHeader='Details'
+              nextCursor={nextCursor}
+              onLoadMore={() => loadItems(nextCursor ?? undefined)}
+              isLoading={isLoading}
+              emptyMessage='No audit logs found.'
+            />
             <div className='text-xs text-slate-500'>
               Showing {items.length} entries
             </div>

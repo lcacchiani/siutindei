@@ -14,8 +14,10 @@ import {
   type ReviewTicketPayload,
 } from '../../lib/api-client';
 import type { CognitoUser, Organization } from '../../types/admin';
+import { ReviewIcon } from '../icons/action-icons';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
+import { DataTable } from '../ui/data-table';
 import { Label } from '../ui/label';
 import { SearchInput } from '../ui/search-input';
 import { Select } from '../ui/select';
@@ -309,23 +311,6 @@ function ReviewModal({ ticket, onClose, onReviewed }: ReviewModalProps) {
 
 // --- Badges ---
 
-function ReviewIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      viewBox='0 0 24 24'
-      fill='none'
-      stroke='currentColor'
-      strokeWidth='2'
-      strokeLinecap='round'
-      strokeLinejoin='round'
-    >
-      <path d='M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z' />
-      <circle cx='12' cy='12' r='3' />
-    </svg>
-  );
-}
-
 function StatusBadge({ status }: { status: TicketStatus }) {
   const colors = {
     pending: 'bg-yellow-100 text-yellow-800',
@@ -428,6 +413,93 @@ export function TicketsPanel() {
     );
   });
 
+  const columns = [
+    {
+      key: 'ticket-id',
+      header: 'Ticket ID',
+      secondary: true,
+      render: (item: Ticket) => (
+        <span className='font-mono text-xs text-slate-600'>
+          {item.ticket_id}
+        </span>
+      ),
+    },
+    {
+      key: 'type',
+      header: 'Type',
+      render: (item: Ticket) => <TicketTypeBadge type={item.ticket_type} />,
+    },
+    {
+      key: 'organization',
+      header: 'Organization',
+      primary: true,
+      render: (item: Ticket) => (
+        <span className='font-medium'>{item.organization_name}</span>
+      ),
+    },
+    {
+      key: 'district',
+      header: 'District',
+      headerClassName: 'md:hidden',
+      cellClassName: 'md:hidden',
+      render: (item: Ticket) => (
+        <span className='text-slate-600'>
+          {item.suggested_district || '—'}
+        </span>
+      ),
+    },
+    {
+      key: 'submitted-by',
+      header: 'Submitted By',
+      render: (item: Ticket) => (
+        <span className='text-slate-600'>{item.submitter_email}</span>
+      ),
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      render: (item: Ticket) => <StatusBadge status={item.status} />,
+    },
+    {
+      key: 'submitted',
+      header: 'Submitted',
+      render: (item: Ticket) => (
+        <span className='text-slate-600'>{formatDate(item.created_at)}</span>
+      ),
+    },
+  ];
+
+  function renderActions(item: Ticket, context: 'desktop' | 'mobile') {
+    if (item.status === 'pending') {
+      return (
+        <Button
+          type='button'
+          size='sm'
+          variant='ghost'
+          onClick={() => setReviewingTicket(item)}
+          className={context === 'mobile' ? 'flex-1' : undefined}
+          aria-label='Review ticket'
+        >
+          <ReviewIcon className='h-4 w-4' />
+        </Button>
+      );
+    }
+    const reviewedLabel = item.reviewed_at
+      ? `Reviewed ${formatDate(item.reviewed_at)}`
+      : '—';
+    return (
+      <span
+        className={
+          context === 'mobile'
+            ? 'flex-1 text-center text-xs text-slate-400'
+            : 'text-xs text-slate-400'
+        }
+      >
+        {reviewedLabel}
+      </span>
+    );
+  }
+
   return (
     <div className='space-y-6'>
       <Card
@@ -493,143 +565,16 @@ export function TicketsPanel() {
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
-            {filteredItems.length === 0 ? (
-              <p className='text-sm text-slate-600'>
-                No tickets match your search.
-              </p>
-            ) : (
-              <>
-                {/* Desktop table */}
-                <div className='hidden overflow-x-auto md:block'>
-                  <table className='w-full text-left text-sm'>
-                    <thead className='border-b border-slate-200 text-slate-500'>
-                      <tr>
-                        <th className='py-2'>Ticket ID</th>
-                        <th className='py-2'>Type</th>
-                        <th className='py-2'>Organization</th>
-                        <th className='py-2'>Submitted By</th>
-                        <th className='py-2'>Status</th>
-                        <th className='py-2'>Submitted</th>
-                        <th className='py-2 text-right'>Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredItems.map((item) => (
-                        <tr key={item.id} className='border-b border-slate-100'>
-                          <td className='py-2 font-mono text-xs'>
-                            {item.ticket_id}
-                          </td>
-                          <td className='py-2'>
-                            <TicketTypeBadge type={item.ticket_type} />
-                          </td>
-                          <td className='max-w-[200px] truncate py-2 font-medium'>
-                            {item.organization_name}
-                          </td>
-                          <td className='max-w-[180px] truncate py-2 text-slate-600'>
-                            {item.submitter_email}
-                          </td>
-                          <td className='py-2'>
-                            <StatusBadge status={item.status} />
-                          </td>
-                          <td className='py-2 text-slate-600'>
-                            {formatDate(item.created_at)}
-                          </td>
-                          <td className='py-2 text-right'>
-                            {item.status === 'pending' ? (
-                              <Button
-                                type='button'
-                                size='sm'
-                                variant='ghost'
-                                onClick={() => setReviewingTicket(item)}
-                                aria-label='Review ticket'
-                              >
-                                <ReviewIcon className='h-4 w-4' />
-                              </Button>
-                            ) : (
-                              <span className='text-xs text-slate-400'>
-                                {item.reviewed_at
-                                  ? `Reviewed ${formatDate(item.reviewed_at)}`
-                                  : '\u2014'}
-                              </span>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* Mobile cards */}
-                <div className='space-y-3 md:hidden'>
-                  {filteredItems.map((item) => (
-                    <div
-                      key={item.id}
-                      className='rounded-lg border border-slate-200 bg-slate-50 p-3'
-                    >
-                      <div className='flex items-start justify-between gap-2'>
-                        <div>
-                          <div className='font-medium text-slate-900'>
-                            {item.organization_name}
-                          </div>
-                          <div className='mt-0.5 flex items-center gap-2 text-sm text-slate-500'>
-                            {item.ticket_id}
-                            <TicketTypeBadge type={item.ticket_type} />
-                          </div>
-                        </div>
-                        <StatusBadge status={item.status} />
-                      </div>
-                      <div className='mt-2 space-y-1 text-sm'>
-                        <div className='truncate text-slate-600'>
-                          {item.submitter_email}
-                        </div>
-                        {item.suggested_district && (
-                          <div className='text-slate-600'>
-                            District: {item.suggested_district}
-                          </div>
-                        )}
-                        <div className='text-slate-500'>
-                          Submitted: {formatDate(item.created_at)}
-                        </div>
-                      </div>
-                      <div className='mt-3 border-t border-slate-200 pt-3'>
-                        {item.status === 'pending' ? (
-                          <Button
-                            type='button'
-                            size='sm'
-                            variant='ghost'
-                            onClick={() => setReviewingTicket(item)}
-                            className='w-full'
-                            aria-label='Review ticket'
-                          >
-                            <ReviewIcon className='h-4 w-4' />
-                          </Button>
-                        ) : (
-                          <span className='block text-center text-xs text-slate-400'>
-                            {item.reviewed_at
-                              ? `Reviewed ${formatDate(item.reviewed_at)}`
-                              : '\u2014'}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                {nextCursor && (
-                  <div className='mt-4'>
-                    <Button
-                      type='button'
-                      variant='secondary'
-                      onClick={() => loadItems(nextCursor)}
-                      disabled={isLoading}
-                      className='w-full sm:w-auto'
-                    >
-                      {isLoading ? 'Loading...' : 'Load more'}
-                    </Button>
-                  </div>
-                )}
-              </>
-            )}
+            <DataTable
+              columns={columns}
+              data={filteredItems}
+              keyExtractor={(item) => item.id}
+              renderActions={renderActions}
+              nextCursor={nextCursor}
+              onLoadMore={() => loadItems(nextCursor ?? undefined)}
+              isLoading={isLoading}
+              emptyMessage='No tickets match your search.'
+            />
           </div>
         )}
       </Card>

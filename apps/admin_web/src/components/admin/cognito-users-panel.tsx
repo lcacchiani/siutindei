@@ -12,8 +12,10 @@ import {
 } from '../../lib/api-client';
 import type { CognitoUser } from '../../types/admin';
 import { useAuth } from '../auth-provider';
+import { DeleteIcon } from '../icons/action-icons';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
+import { DataTable } from '../ui/data-table';
 import { SearchInput } from '../ui/search-input';
 import { StatusBanner } from '../status-banner';
 
@@ -85,25 +87,6 @@ function EmailIcon({ className }: { className?: string }) {
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <rect x="2" y="4" width="20" height="16" rx="2"/>
       <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
-    </svg>
-  );
-}
-
-function DeleteIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <polyline points="3 6 5 6 21 6" />
-      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-      <line x1="10" y1="11" x2="10" y2="17" />
-      <line x1="14" y1="11" x2="14" y2="17" />
     </svg>
   );
 }
@@ -325,6 +308,147 @@ export function CognitoUsersPanel() {
     );
   });
 
+  const columns = [
+    {
+      key: 'email',
+      header: 'Email',
+      primary: true,
+      render: (cognitoUser: CognitoUser) => {
+        const isCurrent = isCurrentUser(cognitoUser);
+        return (
+          <div className='min-w-0'>
+            <div className='flex items-center gap-2'>
+              <span className='truncate font-medium'>
+                {cognitoUser.email || cognitoUser.username || 'Unknown'}
+              </span>
+              <IdentityProviderBadge username={cognitoUser.username} />
+              {isCurrent && (
+                <span className='rounded bg-slate-200 px-1.5 py-0.5 text-xs text-slate-600'>
+                  You
+                </span>
+              )}
+            </div>
+            {cognitoUser.name && (
+              <div className='text-xs text-slate-500'>
+                {cognitoUser.name}
+              </div>
+            )}
+          </div>
+        );
+      },
+    },
+    {
+      key: 'roles',
+      header: 'Roles',
+      render: (cognitoUser: CognitoUser) => {
+        const hasAdminRole = cognitoUser.groups?.includes('admin') || false;
+        const hasManagerRole = cognitoUser.groups?.includes('manager') || false;
+        return (
+          <div className='flex gap-1'>
+            <RoleBadge role='admin' isActive={hasAdminRole} />
+            <RoleBadge role='manager' isActive={hasManagerRole} />
+          </div>
+        );
+      },
+    },
+    {
+      key: 'last-login',
+      header: 'Last Login',
+      render: (cognitoUser: CognitoUser) => (
+        <span className='text-slate-600'>
+          {formatDateTime(cognitoUser.last_auth_time)}
+        </span>
+      ),
+    },
+    {
+      key: 'created',
+      header: 'Created',
+      render: (cognitoUser: CognitoUser) => (
+        <span className='text-slate-600'>
+          {formatDate(cognitoUser.created_at)}
+        </span>
+      ),
+    },
+  ];
+
+  function renderActions(
+    cognitoUser: CognitoUser,
+    context: 'desktop' | 'mobile'
+  ) {
+    const hasAdminRole = cognitoUser.groups?.includes('admin') || false;
+    const hasManagerRole = cognitoUser.groups?.includes('manager') || false;
+    const isCurrent = isCurrentUser(cognitoUser);
+
+    if (isCurrent) {
+      return (
+        <span
+          className={
+            context === 'mobile'
+              ? 'flex-1 text-center text-xs text-slate-400'
+              : 'text-xs text-slate-400'
+          }
+        >
+          Cannot modify your own account
+        </span>
+      );
+    }
+
+    const buttons = (
+      <>
+        <Button
+          type='button'
+          size='sm'
+          variant={hasAdminRole ? 'danger' : 'secondary'}
+          onClick={() => handleToggleRole(cognitoUser, 'admin', hasAdminRole)}
+          disabled={actionLoading === `${cognitoUser.sub}-admin`}
+          title={hasAdminRole ? 'Remove Admin' : 'Make Admin'}
+        >
+          {actionLoading === `${cognitoUser.sub}-admin` ? (
+            '...'
+          ) : (
+            <ShieldIcon className='h-4 w-4' />
+          )}
+        </Button>
+        <Button
+          type='button'
+          size='sm'
+          variant={hasManagerRole ? 'danger' : 'secondary'}
+          onClick={() =>
+            handleToggleRole(cognitoUser, 'manager', hasManagerRole)
+          }
+          disabled={actionLoading === `${cognitoUser.sub}-manager`}
+          title={hasManagerRole ? 'Remove Manager' : 'Make Manager'}
+        >
+          {actionLoading === `${cognitoUser.sub}-manager` ? (
+            '...'
+          ) : (
+            <BriefcaseIcon className='h-4 w-4' />
+          )}
+        </Button>
+        <Button
+          type='button'
+          size='sm'
+          variant='danger'
+          onClick={() => setDeleteConfirm(cognitoUser)}
+          disabled={actionLoading === `delete-${cognitoUser.sub}`}
+          title='Delete User'
+        >
+          {actionLoading === `delete-${cognitoUser.sub}` ? (
+            '...'
+          ) : (
+            <DeleteIcon className='h-4 w-4' />
+          )}
+        </Button>
+      </>
+    );
+
+    if (context === 'mobile') {
+      return <div className='flex flex-1 justify-center gap-2'>{buttons}</div>;
+    }
+
+    return buttons;
+  }
+
   return (
     <div className='space-y-6'>
       <Card
@@ -360,231 +484,20 @@ export function CognitoUsersPanel() {
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
-            {filteredUsers.length === 0 ? (
-              <p className='text-sm text-slate-600'>No users match your search.</p>
-            ) : (
-            <>
-            {/* Desktop table view */}
-            <div className='hidden overflow-x-auto lg:block'>
-            <table className='w-full text-left text-sm'>
-              <thead className='border-b border-slate-200 text-slate-500'>
-                <tr>
-                  <th className='py-2'>Email</th>
-                  <th className='py-2'>Roles</th>
-                  <th className='py-2'>Last Login</th>
-                  <th className='py-2'>Created</th>
-                  <th className='py-2 text-right'>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredUsers.map((cognitoUser) => {
-                  const hasAdminRole = cognitoUser.groups?.includes('admin') || false;
-                  const hasManagerRole = cognitoUser.groups?.includes('manager') || false;
-                  const isCurrent = isCurrentUser(cognitoUser);
-
-                  return (
-                    <tr key={cognitoUser.sub} className='border-b border-slate-100'>
-                      <td className='py-2'>
-                        <div className='flex items-center gap-2'>
-                          <span className='font-medium'>
-                            {cognitoUser.email || cognitoUser.username || 'Unknown'}
-                          </span>
-                          <IdentityProviderBadge username={cognitoUser.username} />
-                          {isCurrent && (
-                            <span className='rounded bg-slate-200 px-1.5 py-0.5 text-xs text-slate-600'>
-                              You
-                            </span>
-                          )}
-                        </div>
-                        {cognitoUser.name && (
-                          <div className='text-xs text-slate-500'>
-                            {cognitoUser.name}
-                          </div>
-                        )}
-                      </td>
-                      <td className='py-2'>
-                        <div className='flex gap-1'>
-                          <RoleBadge role='admin' isActive={hasAdminRole} />
-                          <RoleBadge role='manager' isActive={hasManagerRole} />
-                        </div>
-                      </td>
-                      <td className='py-2 text-slate-600'>
-                        {formatDateTime(cognitoUser.last_auth_time)}
-                      </td>
-                      <td className='py-2 text-slate-600'>
-                        {formatDate(cognitoUser.created_at)}
-                      </td>
-                      <td className='py-2 text-right'>
-                        {isCurrent ? (
-                          <span className='text-xs text-slate-400'>
-                            Cannot modify your own account
-                          </span>
-                        ) : (
-                          <div className='flex justify-end gap-2'>
-                            <Button
-                              type='button'
-                              size='sm'
-                              variant={hasAdminRole ? 'danger' : 'secondary'}
-                              onClick={() =>
-                                handleToggleRole(cognitoUser, 'admin', hasAdminRole)
-                              }
-                              disabled={actionLoading === `${cognitoUser.sub}-admin`}
-                              title={hasAdminRole ? 'Remove Admin' : 'Make Admin'}
-                            >
-                              {actionLoading === `${cognitoUser.sub}-admin`
-                                ? '...'
-                                : <ShieldIcon className='h-4 w-4' />}
-                            </Button>
-                            <Button
-                              type='button'
-                              size='sm'
-                              variant={hasManagerRole ? 'danger' : 'secondary'}
-                              onClick={() =>
-                                handleToggleRole(cognitoUser, 'manager', hasManagerRole)
-                              }
-                              disabled={actionLoading === `${cognitoUser.sub}-manager`}
-                              title={hasManagerRole ? 'Remove Manager' : 'Make Manager'}
-                            >
-                              {actionLoading === `${cognitoUser.sub}-manager`
-                                ? '...'
-                                : <BriefcaseIcon className='h-4 w-4' />}
-                            </Button>
-                            <Button
-                              type='button'
-                              size='sm'
-                              variant='danger'
-                              onClick={() => setDeleteConfirm(cognitoUser)}
-                              disabled={actionLoading === `delete-${cognitoUser.sub}`}
-                              title='Delete'
-                            >
-                              {actionLoading === `delete-${cognitoUser.sub}`
-                                ? '...'
-                                : <DeleteIcon className='h-4 w-4' />}
-                            </Button>
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-            </div>
-
-            {/* Mobile/tablet card view */}
-            <div className='space-y-3 lg:hidden'>
-              {filteredUsers.map((cognitoUser) => {
-                const hasAdminRole = cognitoUser.groups?.includes('admin') || false;
-                const hasManagerRole = cognitoUser.groups?.includes('manager') || false;
-                const isCurrent = isCurrentUser(cognitoUser);
-
-                return (
-                  <div
-                    key={cognitoUser.sub}
-                    className='rounded-lg border border-slate-200 bg-slate-50 p-3'
-                  >
-                    <div className='min-w-0'>
-                      <div className='flex items-center gap-2'>
-                        <span className='truncate font-medium text-slate-900'>
-                          {cognitoUser.email || cognitoUser.username || 'Unknown'}
-                        </span>
-                        <IdentityProviderBadge username={cognitoUser.username} />
-                        {isCurrent && (
-                          <span className='shrink-0 rounded bg-slate-200 px-1.5 py-0.5 text-xs text-slate-600'>
-                            You
-                          </span>
-                        )}
-                      </div>
-                      {cognitoUser.name && (
-                        <div className='mt-0.5 text-sm text-slate-500'>
-                          {cognitoUser.name}
-                        </div>
-                      )}
-                    </div>
-                    <div className='mt-2 flex items-center justify-between text-sm'>
-                      <div className='flex gap-1'>
-                        <RoleBadge role='admin' isActive={hasAdminRole} />
-                        <RoleBadge role='manager' isActive={hasManagerRole} />
-                      </div>
-                      <span className='text-slate-500'>
-                        Created: {formatDate(cognitoUser.created_at)}
-                      </span>
-                    </div>
-                    {cognitoUser.last_auth_time && (
-                      <div className='mt-1 text-xs text-slate-500'>
-                        Last login: {formatDateTime(cognitoUser.last_auth_time)}
-                      </div>
-                    )}
-                    <div className='mt-3 border-t border-slate-200 pt-3'>
-                      {isCurrent ? (
-                        <span className='block text-center text-xs text-slate-400'>
-                          Cannot modify your own account
-                        </span>
-                      ) : (
-                        <div className='flex justify-center gap-2'>
-                          <Button
-                            type='button'
-                            size='sm'
-                            variant={hasAdminRole ? 'danger' : 'secondary'}
-                            onClick={() =>
-                              handleToggleRole(cognitoUser, 'admin', hasAdminRole)
-                            }
-                            disabled={actionLoading === `${cognitoUser.sub}-admin`}
-                            title={hasAdminRole ? 'Remove Admin' : 'Make Admin'}
-                          >
-                            {actionLoading === `${cognitoUser.sub}-admin`
-                              ? '...'
-                              : <ShieldIcon className='h-4 w-4' />}
-                          </Button>
-                          <Button
-                            type='button'
-                            size='sm'
-                            variant={hasManagerRole ? 'danger' : 'secondary'}
-                            onClick={() =>
-                              handleToggleRole(cognitoUser, 'manager', hasManagerRole)
-                            }
-                            disabled={actionLoading === `${cognitoUser.sub}-manager`}
-                            title={hasManagerRole ? 'Remove Manager' : 'Make Manager'}
-                          >
-                            {actionLoading === `${cognitoUser.sub}-manager`
-                              ? '...'
-                              : <BriefcaseIcon className='h-4 w-4' />}
-                          </Button>
-                          <Button
-                            type='button'
-                            size='sm'
-                            variant='danger'
-                            onClick={() => setDeleteConfirm(cognitoUser)}
-                            disabled={actionLoading === `delete-${cognitoUser.sub}`}
-                            title='Delete User'
-                          >
-                            {actionLoading === `delete-${cognitoUser.sub}`
-                              ? '...'
-                              : <DeleteIcon className='h-4 w-4' />}
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            {paginationToken && (
-              <div className='mt-4'>
-                <Button
-                  type='button'
-                  variant='secondary'
-                  onClick={() => loadUsers(paginationToken)}
-                  disabled={isLoading}
-                  className='w-full sm:w-auto'
-                >
-                  {isLoading ? 'Loading...' : 'Load more'}
-                </Button>
-              </div>
-            )}
-            </>
-            )}
+            <DataTable
+              columns={columns}
+              data={filteredUsers}
+              keyExtractor={(item) => item.sub}
+              renderActions={renderActions}
+              nextCursor={paginationToken}
+              onLoadMore={() => loadUsers(paginationToken ?? undefined)}
+              isLoading={isLoading}
+              emptyMessage={
+                searchQuery.trim()
+                  ? 'No users match your search.'
+                  : 'No users found.'
+              }
+            />
           </div>
         )}
       </Card>
