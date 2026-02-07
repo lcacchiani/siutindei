@@ -57,38 +57,36 @@ function DeleteIcon({ className }: { className?: string }) {
   );
 }
 
-function MapIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M21 10c0 6-9 12-9 12s-9-6-9-12a9 9 0 1 1 18 0z" />
-      <circle cx="12" cy="10" r="3" />
-    </svg>
-  );
+const MAP_ICON_BASE_URL =
+  'https://api.iconify.design/simple-icons';
+
+function buildMapIconUrl(slug: string, color: string): string {
+  return `${MAP_ICON_BASE_URL}/${slug}.svg?color=%23${color}`;
 }
 
-function AppleMapIcon({ className }: { className?: string }) {
+const MAP_ICONS = {
+  googleMaps: buildMapIconUrl('googlemaps', '4285F4'),
+  appleMaps: buildMapIconUrl('apple', '000000'),
+};
+
+function MapServiceIcon({
+  className,
+  src,
+}: {
+  className?: string;
+  src: string;
+}) {
   return (
-    <svg
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
       className={className}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3z" />
-      <line x1="9" y1="3" x2="9" y2="18" />
-      <line x1="15" y1="6" x2="15" y2="21" />
-    </svg>
+      src={src}
+      alt=""
+      aria-hidden="true"
+      loading="lazy"
+      width={16}
+      height={16}
+    />
   );
 }
 
@@ -442,7 +440,10 @@ export function LocationsPanel({ mode }: LocationsPanelProps) {
                                   aria-label='Open in Google Maps'
                                   className='text-slate-500 hover:text-slate-900'
                                 >
-                                  <MapIcon className='h-4 w-4' />
+                                  <MapServiceIcon
+                                    className='h-4 w-4'
+                                    src={MAP_ICONS.googleMaps}
+                                  />
                                 </a>
                               )}
                               {appleMapsUrl && (
@@ -454,7 +455,10 @@ export function LocationsPanel({ mode }: LocationsPanelProps) {
                                   aria-label='Open in Apple Maps'
                                   className='text-slate-500 hover:text-slate-900'
                                 >
-                                  <AppleMapIcon className='h-4 w-4' />
+                                  <MapServiceIcon
+                                    className='h-4 w-4'
+                                    src={MAP_ICONS.appleMaps}
+                                  />
                                 </a>
                               )}
                             </span>
@@ -529,7 +533,10 @@ export function LocationsPanel({ mode }: LocationsPanelProps) {
                                 aria-label='Open in Google Maps'
                                 className='text-slate-500 hover:text-slate-900'
                               >
-                                <MapIcon className='h-4 w-4' />
+                                <MapServiceIcon
+                                  className='h-4 w-4'
+                                  src={MAP_ICONS.googleMaps}
+                                />
                               </a>
                             )}
                             {appleMapsUrl && (
@@ -541,7 +548,10 @@ export function LocationsPanel({ mode }: LocationsPanelProps) {
                                 aria-label='Open in Apple Maps'
                                 className='text-slate-500 hover:text-slate-900'
                               >
-                                <AppleMapIcon className='h-4 w-4' />
+                                <MapServiceIcon
+                                  className='h-4 w-4'
+                                  src={MAP_ICONS.appleMaps}
+                                />
                               </a>
                             )}
                           </span>
