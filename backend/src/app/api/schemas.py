@@ -19,6 +19,8 @@ class OrganizationSchema(BaseModel):
     id: str
     name: str
     description: Optional[str]
+    name_translations: dict[str, str]
+    description_translations: dict[str, str]
     manager_id: str
     media_urls: List[str]
 
@@ -43,6 +45,8 @@ class ActivitySchema(BaseModel):
     id: str
     name: str
     description: Optional[str]
+    name_translations: dict[str, str]
+    description_translations: dict[str, str]
     age_min: Optional[int]
     age_max: Optional[int]
 

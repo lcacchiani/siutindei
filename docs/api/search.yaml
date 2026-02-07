@@ -227,7 +227,13 @@ components:
           $ref: "#/components/schemas/Schedule"
     Organization:
       type: object
-      required: [id, name, manager_id, media_urls]
+      required:
+        - id
+        - name
+        - name_translations
+        - description_translations
+        - manager_id
+        - media_urls
       properties:
         id:
           type: string
@@ -237,6 +243,10 @@ components:
         description:
           type: string
           nullable: true
+        name_translations:
+          $ref: "#/components/schemas/TranslationMap"
+        description_translations:
+          $ref: "#/components/schemas/TranslationMap"
         manager_id:
           type: string
           description: Cognito user sub of the organization manager
@@ -266,7 +276,7 @@ components:
           nullable: true
     Activity:
       type: object
-      required: [id, name]
+      required: [id, name, name_translations, description_translations]
       properties:
         id:
           type: string
@@ -276,6 +286,10 @@ components:
         description:
           type: string
           nullable: true
+        name_translations:
+          $ref: "#/components/schemas/TranslationMap"
+        description_translations:
+          $ref: "#/components/schemas/TranslationMap"
         age_min:
           type: integer
           nullable: true
@@ -327,3 +341,10 @@ components:
           type: array
           items:
             type: string
+    TranslationMap:
+      type: object
+      additionalProperties:
+        type: string
+      description: |
+        Language map for translated text. The server always includes English
+        as "en" and may include additional languages like "zh" or "yue".

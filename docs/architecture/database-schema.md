@@ -22,6 +22,8 @@ Columns:
 - `id` (UUID, PK, default `gen_random_uuid()`)
 - `name` (text, required)
 - `description` (text, optional)
+- `name_translations` (jsonb, default `{}`) — non-English name translations
+- `description_translations` (jsonb, default `{}`) — non-English description translations
 - `manager_id` (text, required) — Cognito user sub of the organization manager
 - `phone_country_code` (text, optional) — ISO 3166-1 alpha-2 country code
 - `phone_number` (text, optional) — national phone number digits
@@ -49,6 +51,7 @@ Columns:
 - `id` (UUID, PK, default `gen_random_uuid()`)
 - `parent_id` (UUID, FK -> geographic_areas.id, cascade delete, nullable for countries)
 - `name` (text, required)
+- `name_translations` (jsonb, default `{}`) — non-English name translations
 - `level` (text, required — `country`, `region`, `city`, or `district`)
 - `code` (text, optional — ISO 3166-1 alpha-2 for countries)
 - `active` (boolean, default true — controls country visibility)
@@ -70,6 +73,7 @@ Columns:
 - `id` (UUID, PK, default `gen_random_uuid()`)
 - `parent_id` (UUID, FK -> activity_categories.id, nullable for roots)
 - `name` (text, required)
+- `name_translations` (jsonb, default `{}`) — non-English name translations
 - `display_order` (integer, default 0)
 
 Constraints:
@@ -108,6 +112,8 @@ Columns:
 - `category_id` (UUID, FK -> activity_categories.id, restrict delete)
 - `name` (text, required)
 - `description` (text, optional)
+- `name_translations` (jsonb, default `{}`) — non-English name translations
+- `description_translations` (jsonb, default `{}`) — non-English description translations
 - `age_range` (int4range, required)
 - `created_at` (timestamptz, default `now()`)
 - `updated_at` (timestamptz, default `now()`)

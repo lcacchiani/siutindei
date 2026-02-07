@@ -18,6 +18,7 @@ from sqlalchemy import Text
 from sqlalchemy import text
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.dialects.postgresql import INT4RANGE
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped
 from sqlalchemy.orm import mapped_column
@@ -49,6 +50,13 @@ class GeographicArea(Base):
         comment="NULL for root (country) nodes",
     )
     name: Mapped[str] = mapped_column(Text(), nullable=False)
+    name_translations: Mapped[dict[str, str]] = mapped_column(
+        JSONB(),
+        nullable=False,
+        default=dict,
+        server_default=text("'{}'::jsonb"),
+        comment="Language map for non-English name translations",
+    )
     level: Mapped[str] = mapped_column(
         Text(),
         nullable=False,
@@ -99,6 +107,13 @@ class ActivityCategory(Base):
         comment="NULL for root category nodes",
     )
     name: Mapped[str] = mapped_column(Text(), nullable=False)
+    name_translations: Mapped[dict[str, str]] = mapped_column(
+        JSONB(),
+        nullable=False,
+        default=dict,
+        server_default=text("'{}'::jsonb"),
+        comment="Language map for non-English name translations",
+    )
     display_order: Mapped[int] = mapped_column(
         Integer(),
         nullable=False,
@@ -161,6 +176,20 @@ class Organization(Base):
     )
     name: Mapped[str] = mapped_column(Text(), nullable=False)
     description: Mapped[Optional[str]] = mapped_column(Text(), nullable=True)
+    name_translations: Mapped[dict[str, str]] = mapped_column(
+        JSONB(),
+        nullable=False,
+        default=dict,
+        server_default=text("'{}'::jsonb"),
+        comment="Language map for non-English name translations",
+    )
+    description_translations: Mapped[dict[str, str]] = mapped_column(
+        JSONB(),
+        nullable=False,
+        default=dict,
+        server_default=text("'{}'::jsonb"),
+        comment="Language map for non-English description translations",
+    )
     manager_id: Mapped[str] = mapped_column(
         Text(),
         nullable=False,
@@ -280,6 +309,20 @@ class Activity(Base):
     )
     name: Mapped[str] = mapped_column(Text(), nullable=False)
     description: Mapped[Optional[str]] = mapped_column(Text(), nullable=True)
+    name_translations: Mapped[dict[str, str]] = mapped_column(
+        JSONB(),
+        nullable=False,
+        default=dict,
+        server_default=text("'{}'::jsonb"),
+        comment="Language map for non-English name translations",
+    )
+    description_translations: Mapped[dict[str, str]] = mapped_column(
+        JSONB(),
+        nullable=False,
+        default=dict,
+        server_default=text("'{}'::jsonb"),
+        comment="Language map for non-English description translations",
+    )
     age_range: Mapped[object] = mapped_column(INT4RANGE(), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True),

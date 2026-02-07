@@ -63,6 +63,7 @@ from app.exceptions import NotFoundError, ValidationError
 from app.utils import json_response, parse_datetime, parse_int
 from app.utils.logging import configure_logging, get_logger, set_request_context
 from app.utils.responses import validate_content_type
+from app.utils.translations import build_translation_map
 
 
 class RepositoryProtocol(Protocol):
@@ -821,6 +822,16 @@ def _update_organization_for_manager(
     if "description" in body:
         entity.description = _validate_string_length(
             body["description"], "description", MAX_DESCRIPTION_LENGTH
+        )
+    if "name_translations" in body:
+        entity.name_translations = _validate_translations_map(
+            body["name_translations"], "name_translations", MAX_NAME_LENGTH
+        )
+    if "description_translations" in body:
+        entity.description_translations = _validate_translations_map(
+            body["description_translations"],
+            "description_translations",
+            MAX_DESCRIPTION_LENGTH,
         )
     if "media_urls" in body:
         media_urls = _parse_media_urls(body["media_urls"])
@@ -2015,6 +2026,9 @@ def _serialize_area(area: GeographicArea) -> dict[str, Any]:
         "id": str(area.id),
         "parent_id": str(area.parent_id) if area.parent_id else None,
         "name": area.name,
+        "name_translations": build_translation_map(
+            area.name, area.name_translations
+        ),
         "level": area.level,
         "code": area.code,
         "active": area.active,
@@ -2618,6 +2632,14 @@ def _create_organization(
     description = _validate_string_length(
         body.get("description"), "description", MAX_DESCRIPTION_LENGTH
     )
+    name_translations = _validate_translations_map(
+        body.get("name_translations"), "name_translations", MAX_NAME_LENGTH
+    )
+    description_translations = _validate_translations_map(
+        body.get("description_translations"),
+        "description_translations",
+        MAX_DESCRIPTION_LENGTH,
+    )
     manager_id = _validate_manager_id(body.get("manager_id"), required=True)
     media_urls = _parse_media_urls(body.get("media_urls"))
     if media_urls:
@@ -2627,6 +2649,8 @@ def _create_organization(
     return Organization(
         name=name,
         description=description,
+        name_translations=name_translations,
+        description_translations=description_translations,
         manager_id=manager_id,
         media_urls=media_urls,
         **contact_fields,
@@ -2650,6 +2674,16 @@ def _update_organization(
         entity.description = _validate_string_length(
             body["description"], "description", MAX_DESCRIPTION_LENGTH
         )
+    if "name_translations" in body:
+        entity.name_translations = _validate_translations_map(
+            body["name_translations"], "name_translations", MAX_NAME_LENGTH
+        )
+    if "description_translations" in body:
+        entity.description_translations = _validate_translations_map(
+            body["description_translations"],
+            "description_translations",
+            MAX_DESCRIPTION_LENGTH,
+        )
     if "manager_id" in body:
         # manager_id is required, so if provided it must be a valid UUID
         entity.manager_id = _validate_manager_id(body["manager_id"], required=True)  # type: ignore[assignment]
@@ -2669,6 +2703,12 @@ def _serialize_organization(entity: Organization) -> dict[str, Any]:
         "id": str(entity.id),
         "name": entity.name,
         "description": entity.description,
+        "name_translations": build_translation_map(
+            entity.name, entity.name_translations
+        ),
+        "description_translations": build_translation_map(
+            entity.description, entity.description_translations
+        ),
         "manager_id": entity.manager_id,
         "phone_country_code": entity.phone_country_code,
         "phone_number": entity.phone_number,
@@ -2801,6 +2841,9 @@ def _serialize_activity_category(
         "id": str(entity.id),
         "parent_id": str(entity.parent_id) if entity.parent_id else None,
         "name": entity.name,
+        "name_translations": build_translation_map(
+            entity.name, entity.name_translations
+        ),
         "display_order": entity.display_order,
     }
 
@@ -2881,6 +2924,9 @@ def _create_activity_category(
         MAX_NAME_LENGTH,
         required=True,
     )
+    name_translations = _validate_translations_map(
+        body.get("name_translations"), "name_translations", MAX_NAME_LENGTH
+    )
     parent_id_raw = body.get("parent_id")
     parent_id = _parse_uuid(parent_id_raw) if parent_id_raw else None
     _validate_category_parent(repo, None, parent_id)
@@ -2888,6 +2934,7 @@ def _create_activity_category(
 
     return ActivityCategory(
         name=name,
+        name_translations=name_translations,
         parent_id=parent_id,
         display_order=display_order,
     )
@@ -2904,6 +2951,10 @@ def _update_activity_category(
             body["name"], "name", MAX_NAME_LENGTH, required=True
         )
         entity.name = name  # type: ignore[assignment]
+    if "name_translations" in body:
+        entity.name_translations = _validate_translations_map(
+            body["name_translations"], "name_translations", MAX_NAME_LENGTH
+        )
 
     if "parent_id" in body:
         parent_id_raw = body["parent_id"]
@@ -2934,6 +2985,14 @@ def _create_activity(repo: ActivityRepository, body: dict[str, Any]) -> Activity
     description = _validate_string_length(
         body.get("description"), "description", MAX_DESCRIPTION_LENGTH
     )
+    name_translations = _validate_translations_map(
+        body.get("name_translations"), "name_translations", MAX_NAME_LENGTH
+    )
+    description_translations = _validate_translations_map(
+        body.get("description_translations"),
+        "description_translations",
+        MAX_DESCRIPTION_LENGTH,
+    )
 
     age_min = body.get("age_min")
     age_max = body.get("age_max")
@@ -2953,6 +3012,8 @@ def _create_activity(repo: ActivityRepository, body: dict[str, Any]) -> Activity
         category_id=category_uuid,
         name=name,
         description=description,
+        name_translations=name_translations,
+        description_translations=description_translations,
         age_range=age_range,
     )
 
@@ -2973,6 +3034,16 @@ def _update_activity(
     if "description" in body:
         entity.description = _validate_string_length(
             body["description"], "description", MAX_DESCRIPTION_LENGTH
+        )
+    if "name_translations" in body:
+        entity.name_translations = _validate_translations_map(
+            body["name_translations"], "name_translations", MAX_NAME_LENGTH
+        )
+    if "description_translations" in body:
+        entity.description_translations = _validate_translations_map(
+            body["description_translations"],
+            "description_translations",
+            MAX_DESCRIPTION_LENGTH,
         )
     if "category_id" in body:
         category_id = body["category_id"]
@@ -3028,6 +3099,12 @@ def _serialize_activity(entity: Activity) -> dict[str, Any]:
         "category_id": str(entity.category_id),
         "name": entity.name,
         "description": entity.description,
+        "name_translations": build_translation_map(
+            entity.name, entity.name_translations
+        ),
+        "description_translations": build_translation_map(
+            entity.description, entity.description_translations
+        ),
         "age_min": age_min,
         "age_max": age_max,
         "created_at": entity.created_at,
@@ -3567,6 +3644,36 @@ def _validate_languages(languages: list[str]) -> list[str]:
                 validated.append(code)
                 seen.add(code)
     return validated
+
+
+def _validate_translations_map(
+    value: Any,
+    field_name: str,
+    max_length: int,
+) -> dict[str, str]:
+    """Validate a language translation map."""
+    if value is None:
+        return {}
+
+    if not isinstance(value, dict):
+        raise ValidationError(f"{field_name} must be an object", field=field_name)
+
+    if len(value) > MAX_LANGUAGES_COUNT:
+        raise ValidationError(
+            f"{field_name} cannot have more than {MAX_LANGUAGES_COUNT} items",
+            field=field_name,
+        )
+
+    cleaned: dict[str, str] = {}
+    for key, raw in value.items():
+        code = _validate_language_code(str(key), f"{field_name}.{key}")
+        if code == "en":
+            continue
+        text = _validate_string_length(raw, f"{field_name}.{code}", max_length)
+        if text is None:
+            continue
+        cleaned[code] = text
+    return cleaned
 
 
 def _serialize_pricing(entity: ActivityPricing) -> dict[str, Any]:
