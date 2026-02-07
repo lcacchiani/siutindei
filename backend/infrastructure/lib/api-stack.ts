@@ -1069,7 +1069,6 @@ export class ApiStack extends cdk.Stack {
       "cognito-idp:list_users",
       "cognito-idp:admin_get_user",
       "cognito-idp:admin_delete_user",
-      "cognito-idp:admin_update_user_attributes",
       "cognito-idp:admin_add_user_to_group",
       "cognito-idp:admin_remove_user_from_group",
       "cognito-idp:admin_list_groups_for_user",
@@ -1097,7 +1096,6 @@ export class ApiStack extends cdk.Stack {
           "cognito-idp:ListUsers",
           "cognito-idp:AdminGetUser",
           "cognito-idp:AdminDeleteUser",
-          "cognito-idp:AdminUpdateUserAttributes",
           "cognito-idp:AdminAddUserToGroup",
           "cognito-idp:AdminRemoveUserFromGroup",
           "cognito-idp:AdminListGroupsForUser",
@@ -1341,11 +1339,14 @@ export class ApiStack extends cdk.Stack {
       handler: "lambda/auth/post_authentication/handler.lambda_handler",
       memorySize: 256,
       timeout: cdk.Duration.seconds(10),
-      environment: {
-        AWS_PROXY_FUNCTION_ARN: awsProxyFunction.functionArn,
-      },
+      noVpc: true,
     });
-    awsProxyFunction.grantInvoke(postAuthFunction);
+    postAuthFunction.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["cognito-idp:AdminUpdateUserAttributes"],
+        resources: ["*"],
+      })
+    );
 
     // Register Cognito triggers
     userPool.addTrigger(
