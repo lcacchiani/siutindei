@@ -91,14 +91,6 @@ export function ActivitiesPanel({ mode }: ActivitiesPanelProps) {
 
   const { setFormState } = panel;
 
-  function getOrganizationName(orgId: string | undefined) {
-    if (!orgId) {
-      return '';
-    }
-    const match = organizations.find((org) => org.id === orgId);
-    return match?.name ?? orgId;
-  }
-
   useEffect(() => {
     if (isAdmin || organizations.length !== 1) {
       return;
@@ -139,31 +131,41 @@ export function ActivitiesPanel({ mode }: ActivitiesPanelProps) {
 
   const handleSubmit = () => panel.handleSubmit(formToPayload, validate);
 
-  const columns = useMemo(
-    () => [
+  const columns = useMemo(() => {
+    const getOrgName = (orgId?: string) => {
+      if (!orgId) {
+        return '';
+      }
+      const match = organizations.find((org) => org.id === orgId);
+      return match?.name ?? orgId;
+    };
+
+    const getCategoryLabel = (categoryId?: string) =>
+      (categoryId ? categoryPathById.get(categoryId) : undefined) ?? '—';
+
+    return [
       {
         key: 'name',
         header: isAdmin ? 'Organization / Activity' : 'Name',
         primary: true,
         render: (item: Activity) =>
           isAdmin
-            ? `${getOrganizationName(item.org_id)} - ${item.name}`
+            ? `${getOrgName(item.org_id)} - ${item.name}`
             : item.name,
       },
       {
         key: 'category',
         header: 'Category',
         secondary: true,
-        render: (item: Activity) => getCategoryPath(item.category_id),
+        render: (item: Activity) => getCategoryLabel(item.category_id),
       },
       {
         key: 'age-range',
         header: 'Age Range',
         render: (item: Activity) => `${item.age_min} - ${item.age_max}`,
       },
-    ],
-    [getCategoryPath, getOrganizationName, isAdmin]
-  );
+    ];
+  }, [categoryPathById, isAdmin, organizations]);
 
   // Filter items based on search query
   const filteredItems = panel.items.filter((item) => {
