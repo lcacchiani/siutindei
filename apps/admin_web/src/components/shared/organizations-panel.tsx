@@ -108,32 +108,18 @@ function EmailIcon({ className }: IconProps) {
   );
 }
 
-function LetterIcon({
-  className,
-  label,
-}: IconProps & { label: string }) {
+function ServiceIcon({ className, src }: IconProps & { src: string }) {
   return (
-    <svg
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
       className={className}
-      viewBox='0 0 24 24'
-      fill='none'
-      stroke='currentColor'
-      strokeWidth='1.5'
+      src={src}
+      alt=''
       aria-hidden='true'
-    >
-      <rect x='3' y='3' width='18' height='18' rx='4' />
-      <text
-        x='12'
-        y='12'
-        textAnchor='middle'
-        dominantBaseline='middle'
-        fontSize='9'
-        fill='currentColor'
-        fontFamily='inherit'
-      >
-        {label}
-      </text>
-    </svg>
+      loading='lazy'
+      width={16}
+      height={16}
+    />
   );
 }
 
@@ -286,18 +272,53 @@ type SocialFieldKey =
   | 'xiaohongshu'
   | 'wechat';
 
+const SOCIAL_ICON_BASE_URL =
+  'https://api.iconify.design/simple-icons';
+
+function buildSocialIconUrl(slug: string, color: string): string {
+  return `${SOCIAL_ICON_BASE_URL}/${slug}.svg?color=%23${color}`;
+}
+
 const SOCIAL_FIELDS: Array<{
   key: SocialFieldKey;
   label: string;
-  iconLabel: string;
+  iconSrc: string;
 }> = [
-  { key: 'whatsapp', label: 'WhatsApp', iconLabel: 'WA' },
-  { key: 'facebook', label: 'Facebook', iconLabel: 'FB' },
-  { key: 'instagram', label: 'Instagram', iconLabel: 'IG' },
-  { key: 'tiktok', label: 'TikTok', iconLabel: 'TT' },
-  { key: 'twitter', label: 'X', iconLabel: 'X' },
-  { key: 'xiaohongshu', label: 'Xiaohongshu', iconLabel: 'XHS' },
-  { key: 'wechat', label: 'WeChat', iconLabel: 'WC' },
+  {
+    key: 'whatsapp',
+    label: 'WhatsApp',
+    iconSrc: buildSocialIconUrl('whatsapp', '25D366'),
+  },
+  {
+    key: 'facebook',
+    label: 'Facebook',
+    iconSrc: buildSocialIconUrl('facebook', '1877F2'),
+  },
+  {
+    key: 'instagram',
+    label: 'Instagram',
+    iconSrc: buildSocialIconUrl('instagram', 'E4405F'),
+  },
+  {
+    key: 'tiktok',
+    label: 'TikTok',
+    iconSrc: buildSocialIconUrl('tiktok', '000000'),
+  },
+  {
+    key: 'twitter',
+    label: 'X',
+    iconSrc: buildSocialIconUrl('x', '000000'),
+  },
+  {
+    key: 'xiaohongshu',
+    label: 'Xiaohongshu',
+    iconSrc: buildSocialIconUrl('xiaohongshu', 'FF2442'),
+  },
+  {
+    key: 'wechat',
+    label: 'WeChat',
+    iconSrc: buildSocialIconUrl('wechat', '07C160'),
+  },
 ];
 
 function getManagerDisplayName(managerId: string, users: CognitoUser[]): string {
@@ -490,7 +511,7 @@ export function OrganizationsPanel({ mode }: OrganizationsPanelProps) {
       }
       icons.push(
         <ContactIcon key={field.key} label={field.label}>
-          <LetterIcon className='h-4 w-4' label={field.iconLabel} />
+          <ServiceIcon className='h-4 w-4' src={field.iconSrc} />
         </ContactIcon>
       );
     }
