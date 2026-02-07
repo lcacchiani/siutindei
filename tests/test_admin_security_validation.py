@@ -176,6 +176,7 @@ class TestValidateCurrency:
         assert _validate_currency("HKD") == "HKD"
         assert _validate_currency("USD") == "USD"
         assert _validate_currency("EUR") == "EUR"
+        assert _validate_currency("AED") == "AED"
 
     def test_lowercase_normalized(self) -> None:
         """Lowercase codes should be normalized to uppercase."""
@@ -190,7 +191,7 @@ class TestValidateCurrency:
     def test_invalid_currency(self) -> None:
         """Invalid currency code should raise error."""
         with pytest.raises(ValidationError) as exc_info:
-            _validate_currency("XXX")
+            _validate_currency("ZZZ")
         assert "valid ISO 4217 code" in str(exc_info.value)
 
     def test_sql_injection_attempt(self) -> None:
