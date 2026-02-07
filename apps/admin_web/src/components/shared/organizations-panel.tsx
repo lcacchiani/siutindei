@@ -636,6 +636,12 @@ export function OrganizationsPanel({ mode }: OrganizationsPanelProps) {
                 placeholder='1234 5678'
               />
             </div>
+            <div className='md:col-span-2 border-t border-slate-100 pt-4'>
+              <p className='text-sm font-medium text-slate-700'>Social</p>
+              <p className='text-xs text-slate-500'>
+                Use @handle or https:// URLs for each network.
+              </p>
+            </div>
             {SOCIAL_FIELDS.map((field) => (
               <div key={field.key}>
                 <Label htmlFor={`org-${field.key}`}>{field.label}</Label>
