@@ -68,6 +68,12 @@ their primary responsibilities.
 - Trigger: Cognito User Pool VERIFY_AUTH_CHALLENGE_RESPONSE
 - Purpose: validate passwordless challenge response
 
+### Post authentication
+- Function: AuthPostAuthFunction
+- Handler: backend/lambda/auth/post_authentication/handler.py
+- Trigger: Cognito User Pool POST_AUTHENTICATION
+- Purpose: update `custom:last_auth_time` after successful login
+
 ### Device attestation authorizer
 - Function: DeviceAttestationAuthorizer
 - Handler: backend/lambda/authorizers/device_attestation/handler.py
