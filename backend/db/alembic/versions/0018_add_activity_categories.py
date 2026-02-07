@@ -105,9 +105,12 @@ def upgrade() -> None:
         ),
     )
 
-    op.execute(
-        "UPDATE activities SET category_id = :category_id "
-        "WHERE category_id IS NULL;",
+    bind = op.get_bind()
+    bind.execute(
+        sa.text(
+            "UPDATE activities SET category_id = :category_id "
+            "WHERE category_id IS NULL;"
+        ),
         {"category_id": SPORT_CATEGORY_ID},
     )
 
