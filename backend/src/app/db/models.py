@@ -133,12 +133,12 @@ class Organization(Base):
     phone_country_code: Mapped[Optional[str]] = mapped_column(
         Text(),
         nullable=True,
-        comment='ISO 3166-1 alpha-2 country code for phone number',
+        comment="ISO 3166-1 alpha-2 country code for phone number",
     )
     phone_number: Mapped[Optional[str]] = mapped_column(
         Text(),
         nullable=True,
-        comment='National phone number digits (no country code)',
+        comment="National phone number digits (no country code)",
     )
     email: Mapped[Optional[str]] = mapped_column(Text(), nullable=True)
     whatsapp: Mapped[Optional[str]] = mapped_column(Text(), nullable=True)

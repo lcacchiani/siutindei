@@ -373,14 +373,8 @@ class TestValidateSocialValue:
 
     def test_valid_handle(self) -> None:
         """Valid handles should pass."""
-        assert (
-            _validate_social_value("@example_user", "instagram")
-            == "@example_user"
-        )
-        assert (
-            _validate_social_value("example.user", "twitter")
-            == "example.user"
-        )
+        assert _validate_social_value("@example_user", "instagram") == "@example_user"
+        assert _validate_social_value("example.user", "twitter") == "example.user"
 
     def test_valid_url(self) -> None:
         """Valid URLs should pass."""

@@ -3144,8 +3144,7 @@ def _validate_social_value(value: Any, field_name: str) -> Optional[str]:
         return _normalize_social_url(raw, field_name)
     if len(raw) > MAX_SOCIAL_HANDLE_LENGTH:
         message = (
-            f"{field_name} handle must be at most "
-            f"{MAX_SOCIAL_HANDLE_LENGTH} characters"
+            f"{field_name} handle must be at most {MAX_SOCIAL_HANDLE_LENGTH} characters"
         )
         raise ValidationError(
             message,
