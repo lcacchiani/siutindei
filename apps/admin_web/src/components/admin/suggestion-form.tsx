@@ -168,15 +168,6 @@ export function SuggestionForm({ onSuggestionSubmitted }: SuggestionFormProps) {
         </div>
 
         <div>
-          <Label>Location</Label>
-          <CascadingAreaSelect
-            tree={tree}
-            value={areaId}
-            onChange={handleAreaChange}
-          />
-        </div>
-
-        <div>
           <Label htmlFor='address'>Address</Label>
           <AddressAutocomplete
             id='address'
@@ -186,6 +177,16 @@ export function SuggestionForm({ onSuggestionSubmitted }: SuggestionFormProps) {
             placeholder='Start typing the address...'
             maxLength={500}
             countryCodes={countryCodes}
+          />
+        </div>
+        <div>
+          <Label>Location</Label>
+          <CascadingAreaSelect
+            tree={tree}
+            value={areaId}
+            onChange={handleAreaChange}
+            disableCountry
+            showCountryLast
           />
         </div>
 

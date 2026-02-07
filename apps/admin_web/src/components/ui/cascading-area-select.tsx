@@ -15,6 +15,10 @@ interface CascadingAreaSelectProps {
   onChange: (areaId: string, chain: GeographicAreaNode[]) => void;
   /** Whether the controls are disabled. */
   disabled?: boolean;
+  /** Whether to disable the country dropdown. */
+  disableCountry?: boolean;
+  /** Whether to render the country dropdown last. */
+  showCountryLast?: boolean;
 }
 
 /**
@@ -30,6 +34,8 @@ export function CascadingAreaSelect({
   value,
   onChange,
   disabled,
+  disableCountry,
+  showCountryLast,
 }: CascadingAreaSelectProps) {
   // Track user-driven overrides and the last external value they were
   // computed from, so we can reset when the parent changes `value`.
@@ -75,12 +81,19 @@ export function CascadingAreaSelect({
       : derivedSelections;
 
   // Get the options at each level
-  const levels: { label: string; options: GeographicAreaNode[] }[] = [];
+  const levels: {
+    label: string;
+    options: GeographicAreaNode[];
+    index: number;
+    isCountry?: boolean;
+  }[] = [];
 
   // Level 0: countries (root nodes)
   levels.push({
     label: 'Country',
     options: tree,
+    index: 0,
+    isCountry: true,
   });
 
   // Subsequent levels: children of the selected node at each depth
@@ -100,6 +113,7 @@ export function CascadingAreaSelect({
     levels.push({
       label: levelLabel,
       options: parent.children,
+      index: depth,
     });
 
     parentId = selections[depth];
@@ -128,28 +142,43 @@ export function CascadingAreaSelect({
     }
   };
 
+  const orderedLevels =
+    showCountryLast && levels.length > 1
+      ? [...levels.slice(1), levels[0]]
+      : levels;
+
   return (
     <div className='grid gap-4 md:grid-cols-2'>
-      {levels.map((level, index) => (
-        <div key={index}>
-          <Label htmlFor={`area-level-${index}`}>{level.label}</Label>
-          <Select
-            id={`area-level-${index}`}
-            value={selections[index] || ''}
-            onChange={(e) => handleSelect(index, e.target.value)}
-            disabled={disabled || (index > 0 && !selections[index - 1])}
-          >
-            {level.options.length === 1 ? null : (
-              <option value=''>Select {level.label.toLowerCase()}</option>
-            )}
-            {level.options.map((opt) => (
-              <option key={opt.id} value={opt.id}>
-                {opt.name}
-              </option>
-            ))}
-          </Select>
-        </div>
-      ))}
+      {orderedLevels.map(function renderLevel(level) {
+        const isLevelDisabled =
+          disabled ||
+          (level.index > 0 && !selections[level.index - 1]) ||
+          (level.isCountry && disableCountry);
+        return (
+          <div key={`${level.label}-${level.index}`}>
+            <Label htmlFor={`area-level-${level.index}`}>
+              {level.label}
+            </Label>
+            <Select
+              id={`area-level-${level.index}`}
+              value={selections[level.index] || ''}
+              onChange={(e) => handleSelect(level.index, e.target.value)}
+              disabled={isLevelDisabled}
+            >
+              {level.options.length === 1 ? null : (
+                <option value=''>
+                  Select {level.label.toLowerCase()}
+                </option>
+              )}
+              {level.options.map((opt) => (
+                <option key={opt.id} value={opt.id}>
+                  {opt.name}
+                </option>
+              ))}
+            </Select>
+          </div>
+        );
+      })}
     </div>
   );
 }
