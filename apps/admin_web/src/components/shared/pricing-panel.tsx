@@ -183,8 +183,7 @@ export function PricingPanel({ mode }: PricingPanelProps) {
   }, [currencyOptions]);
 
   function getCurrencyDisplay(value?: string | null): string {
-    const normalized = normalizeCurrencyCode(value);
-    return currencyNameByCode.get(normalized) ?? normalized;
+    return normalizeCurrencyCode(value);
   }
 
   function getCurrencySearchText(value?: string | null): string {
@@ -331,46 +330,56 @@ export function PricingPanel({ mode }: PricingPanelProps) {
               ))}
             </Select>
           </div>
-          <div>
-            <Label htmlFor='pricing-type'>Pricing Type</Label>
-            <Select
-              id='pricing-type'
-              value={panel.formState.pricing_type}
-              onChange={(e) =>
-                panel.setFormState((prev) => ({
-                  ...prev,
-                  pricing_type: e.target.value,
-                  sessions_count:
-                    e.target.value === 'per_sessions'
-                      ? prev.sessions_count
-                      : '',
-                }))
+          <div className='md:col-span-2'>
+            <div
+              className={
+                showSessionsField ? 'grid gap-4 sm:grid-cols-2' : 'grid gap-4'
               }
             >
-              {pricingOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </Select>
-          </div>
-          <div className='md:col-span-2'>
-            <div className='grid gap-4 sm:grid-cols-2'>
               <div>
-                <Label htmlFor='pricing-amount'>Amount</Label>
-                <Input
-                  id='pricing-amount'
-                  type='number'
-                  step='0.01'
-                  value={panel.formState.amount}
+                <Label htmlFor='pricing-type'>Pricing Type</Label>
+                <Select
+                  id='pricing-type'
+                  value={panel.formState.pricing_type}
                   onChange={(e) =>
                     panel.setFormState((prev) => ({
                       ...prev,
-                      amount: e.target.value,
+                      pricing_type: e.target.value,
+                      sessions_count:
+                        e.target.value === 'per_sessions'
+                          ? prev.sessions_count
+                          : '',
                     }))
                   }
-                />
+                >
+                  {pricingOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </Select>
               </div>
+              {showSessionsField && (
+                <div>
+                  <Label htmlFor='pricing-sessions'>Sessions Count</Label>
+                  <Input
+                    id='pricing-sessions'
+                    type='number'
+                    min='1'
+                    value={panel.formState.sessions_count}
+                    onChange={(e) =>
+                      panel.setFormState((prev) => ({
+                        ...prev,
+                        sessions_count: e.target.value,
+                      }))
+                    }
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+          <div className='md:col-span-2'>
+            <div className='grid gap-4 sm:grid-cols-2'>
               <div>
                 <Label htmlFor='pricing-currency'>Currency</Label>
                 <Select
@@ -390,25 +399,23 @@ export function PricingPanel({ mode }: PricingPanelProps) {
                   ))}
                 </Select>
               </div>
+              <div>
+                <Label htmlFor='pricing-amount'>Amount</Label>
+                <Input
+                  id='pricing-amount'
+                  type='number'
+                  step='0.01'
+                  value={panel.formState.amount}
+                  onChange={(e) =>
+                    panel.setFormState((prev) => ({
+                      ...prev,
+                      amount: e.target.value,
+                    }))
+                  }
+                />
+              </div>
             </div>
           </div>
-          {showSessionsField && (
-            <div>
-              <Label htmlFor='pricing-sessions'>Sessions Count</Label>
-              <Input
-                id='pricing-sessions'
-                type='number'
-                min='1'
-                value={panel.formState.sessions_count}
-                onChange={(e) =>
-                  panel.setFormState((prev) => ({
-                    ...prev,
-                    sessions_count: e.target.value,
-                  }))
-                }
-              />
-            </div>
-          )}
         </div>
         <div className='mt-4 flex flex-wrap gap-3'>
           <Button
