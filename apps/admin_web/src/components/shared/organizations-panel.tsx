@@ -4,6 +4,7 @@ import {
   useEffect,
   useMemo,
   useState,
+  type ReactElement,
   type ReactNode,
 } from 'react';
 
@@ -467,7 +468,7 @@ export function OrganizationsPanel({ mode }: OrganizationsPanelProps) {
   });
 
   const renderContactIcons = (item: Organization) => {
-    const icons: JSX.Element[] = [];
+    const icons: ReactElement[] = [];
     if (hasValue(item.phone_country_code) && hasValue(item.phone_number)) {
       icons.push(
         <ContactIcon key='phone' label='Phone'>
