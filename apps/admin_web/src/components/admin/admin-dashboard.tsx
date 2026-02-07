@@ -9,6 +9,7 @@ import { StatusBanner } from '../status-banner';
 import {
   OrganizationsPanel,
   LocationsPanel,
+  ActivityCategoriesPanel,
   ActivitiesPanel,
   PricingPanel,
   SchedulesPanel,
@@ -24,6 +25,7 @@ const sectionLabels = [
   { key: 'organizations', label: 'Organizations' },
   { key: 'media', label: 'Media' },
   { key: 'locations', label: 'Locations' },
+  { key: 'activity-categories', label: 'Activity Categories' },
   { key: 'activities', label: 'Activities' },
   { key: 'pricing', label: 'Pricing' },
   { key: 'schedules', label: 'Schedules' },
@@ -42,6 +44,8 @@ export function AdminDashboard() {
         return <MediaPanel />;
       case 'locations':
         return <LocationsPanel mode='admin' />;
+      case 'activity-categories':
+        return <ActivityCategoriesPanel />;
       case 'activities':
         return <ActivitiesPanel mode='admin' />;
       case 'pricing':

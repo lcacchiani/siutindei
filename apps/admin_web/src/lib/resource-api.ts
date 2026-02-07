@@ -38,6 +38,7 @@ export type ApiMode = 'admin' | 'manager';
 export type ResourceType =
   | 'organizations'
   | 'locations'
+  | 'activity-categories'
   | 'activities'
   | 'pricing'
   | 'schedules';
