@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { useResourcePanel } from '../../hooks/use-resource-panel';
 import {
@@ -63,12 +63,41 @@ interface PricingFormState {
   sessions_count: string;
 }
 
+interface CurrencyOption {
+  code: string;
+  name: string;
+  label: string;
+}
+
+const defaultCurrencyCode = 'HKD';
+const fallbackCurrencies = [
+  'HKD',
+  'USD',
+  'EUR',
+  'GBP',
+  'CNY',
+  'JPY',
+  'SGD',
+  'AUD',
+  'CAD',
+  'CHF',
+  'NZD',
+  'TWD',
+  'KRW',
+  'THB',
+  'MYR',
+  'PHP',
+  'IDR',
+  'INR',
+  'VND',
+];
+
 const emptyForm: PricingFormState = {
   activity_id: '',
   location_id: '',
   pricing_type: 'per_class',
   amount: '',
-  currency: 'HKD',
+  currency: defaultCurrencyCode,
   sessions_count: '',
 };
 
@@ -78,13 +107,21 @@ const pricingOptions = [
   { value: 'per_sessions', label: 'Per sessions' },
 ];
 
+const pricingTypeLabelByValue = new Map(
+  pricingOptions.map((option) => [option.value, option.label])
+);
+
+function getPricingTypeLabel(value: string): string {
+  return pricingTypeLabelByValue.get(value) ?? value;
+}
+
 function itemToForm(item: ActivityPricing): PricingFormState {
   return {
     activity_id: item.activity_id ?? '',
     location_id: item.location_id ?? '',
     pricing_type: item.pricing_type,
     amount: item.amount != null ? String(item.amount) : '',
-    currency: item.currency ?? 'HKD',
+    currency: normalizeCurrencyCode(item.currency),
     sessions_count: item.sessions_count ? `${item.sessions_count}` : '',
   };
 }
@@ -94,6 +131,14 @@ function parseOptionalNumber(value: string): number | null {
   if (!trimmed) return null;
   const parsed = Number(trimmed);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function normalizeCurrencyCode(value?: string | null): string {
+  const trimmed = value?.trim();
+  if (!trimmed) {
+    return defaultCurrencyCode;
+  }
+  return trimmed.toUpperCase();
 }
 
 interface PricingPanelProps {
@@ -114,6 +159,56 @@ export function PricingPanel({ mode }: PricingPanelProps) {
 
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
+
+  const currencyOptions = useMemo<CurrencyOption[]>(() => {
+    const supportedCurrencies =
+      typeof Intl !== 'undefined' &&
+      typeof Intl.supportedValuesOf === 'function'
+        ? Intl.supportedValuesOf('currency')
+        : [];
+    const display =
+      typeof Intl !== 'undefined' &&
+      typeof Intl.DisplayNames === 'function'
+        ? new Intl.DisplayNames(['en'], { type: 'currency' })
+        : null;
+    const codes =
+      supportedCurrencies.length > 0
+        ? supportedCurrencies
+        : fallbackCurrencies;
+    const uniqueCodes = Array.from(
+      new Set([...codes, defaultCurrencyCode])
+    );
+    return uniqueCodes
+      .map((code) => {
+        const upper = code.toUpperCase();
+        const name = display?.of(upper) ?? upper;
+        return {
+          code: upper,
+          name,
+          label: `${name} (${upper})`,
+        };
+      })
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, []);
+
+  const currencyNameByCode = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const option of currencyOptions) {
+      map.set(option.code, option.name);
+    }
+    return map;
+  }, [currencyOptions]);
+
+  function getCurrencyDisplay(value?: string | null): string {
+    const normalized = normalizeCurrencyCode(value);
+    return currencyNameByCode.get(normalized) ?? normalized;
+  }
+
+  function getCurrencySearchText(value?: string | null): string {
+    const normalized = normalizeCurrencyCode(value);
+    const name = currencyNameByCode.get(normalized);
+    return name ? `${name} ${normalized}` : normalized;
+  }
 
   useEffect(() => {
     const loadReferences = async () => {
@@ -166,7 +261,7 @@ export function PricingPanel({ mode }: PricingPanelProps) {
     location_id: form.location_id,
     pricing_type: form.pricing_type,
     amount: form.amount.trim(),
-    currency: form.currency.trim() || 'HKD',
+    currency: normalizeCurrencyCode(form.currency),
     sessions_count:
       form.pricing_type === 'per_sessions'
         ? parseOptionalNumber(form.sessions_count)
@@ -179,16 +274,26 @@ export function PricingPanel({ mode }: PricingPanelProps) {
 
   // Filter items based on search query
   const filteredItems = panel.items.filter((item) => {
-    if (!searchQuery.trim()) return true;
+    if (!searchQuery.trim()) {
+      return true;
+    }
     const query = searchQuery.toLowerCase();
-    const activityName = activities.find((a) => a.id === item.activity_id)?.name?.toLowerCase() || '';
-    const locationName = (locations.find((l) => l.id === item.location_id)?.address ?? '').toLowerCase();
+    const activityName =
+      activities.find((activity) => activity.id === item.activity_id)?.name ??
+      '';
+    const locationName =
+      locations.find((location) => location.id === item.location_id)?.address ??
+      '';
+    const pricingTypeLabel = getPricingTypeLabel(item.pricing_type);
+    const pricingTypeSearch =
+      `${pricingTypeLabel} ${item.pricing_type}`.toLowerCase();
+    const currencySearch = getCurrencySearchText(item.currency).toLowerCase();
     return (
-      activityName.includes(query) ||
-      locationName.includes(query) ||
-      item.pricing_type?.toLowerCase().includes(query) ||
+      activityName.toLowerCase().includes(query) ||
+      locationName.toLowerCase().includes(query) ||
+      pricingTypeSearch.includes(query) ||
       String(item.amount).toLowerCase().includes(query) ||
-      item.currency?.toLowerCase().includes(query)
+      currencySearch.includes(query)
     );
   });
 
@@ -266,33 +371,43 @@ export function PricingPanel({ mode }: PricingPanelProps) {
               ))}
             </Select>
           </div>
-          <div>
-            <Label htmlFor='pricing-amount'>Amount</Label>
-            <Input
-              id='pricing-amount'
-              type='number'
-              step='0.01'
-              value={panel.formState.amount}
-              onChange={(e) =>
-                panel.setFormState((prev) => ({
-                  ...prev,
-                  amount: e.target.value,
-                }))
-              }
-            />
-          </div>
-          <div>
-            <Label htmlFor='pricing-currency'>Currency</Label>
-            <Input
-              id='pricing-currency'
-              value={panel.formState.currency}
-              onChange={(e) =>
-                panel.setFormState((prev) => ({
-                  ...prev,
-                  currency: e.target.value,
-                }))
-              }
-            />
+          <div className='md:col-span-2'>
+            <div className='grid gap-4 sm:grid-cols-2'>
+              <div>
+                <Label htmlFor='pricing-amount'>Amount</Label>
+                <Input
+                  id='pricing-amount'
+                  type='number'
+                  step='0.01'
+                  value={panel.formState.amount}
+                  onChange={(e) =>
+                    panel.setFormState((prev) => ({
+                      ...prev,
+                      amount: e.target.value,
+                    }))
+                  }
+                />
+              </div>
+              <div>
+                <Label htmlFor='pricing-currency'>Currency</Label>
+                <Select
+                  id='pricing-currency'
+                  value={panel.formState.currency}
+                  onChange={(e) =>
+                    panel.setFormState((prev) => ({
+                      ...prev,
+                      currency: normalizeCurrencyCode(e.target.value),
+                    }))
+                  }
+                >
+                  {currencyOptions.map((option) => (
+                    <option key={option.code} value={option.code}>
+                      {option.label}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+            </div>
           </div>
           {showSessionsField && (
             <div>
@@ -369,18 +484,26 @@ export function PricingPanel({ mode }: PricingPanelProps) {
               <tbody>
                 {filteredItems.map((item) => {
                   const activityName =
-                    activities.find((a) => a.id === item.activity_id)?.name ||
-                    item.activity_id;
+                    activities.find(
+                      (activity) => activity.id === item.activity_id
+                    )?.name ?? item.activity_id;
                   const locationName =
-                    locations.find((l) => l.id === item.location_id)?.address ||
-                    item.location_id;
+                    locations.find(
+                      (location) => location.id === item.location_id
+                    )?.address ?? item.location_id;
+                  const pricingTypeLabel = getPricingTypeLabel(
+                    item.pricing_type
+                  );
+                  const currencyDisplay = getCurrencyDisplay(item.currency);
                   return (
                     <tr key={item.id} className='border-b border-slate-100'>
                       <td className='py-2 font-medium'>{activityName}</td>
                       <td className='py-2 text-slate-600'>{locationName}</td>
-                      <td className='py-2 text-slate-600'>{item.pricing_type}</td>
                       <td className='py-2 text-slate-600'>
-                        {item.amount} {item.currency}
+                        {pricingTypeLabel}
+                      </td>
+                      <td className='py-2 text-slate-600'>
+                        {currencyDisplay} {item.amount}
                       </td>
                       <td className='py-2 text-right'>
                         <div className='flex justify-end gap-2'>
@@ -398,7 +521,10 @@ export function PricingPanel({ mode }: PricingPanelProps) {
                             size='sm'
                             variant='danger'
                             onClick={() =>
-                              panel.handleDelete({ ...item, name: activityName })
+                              panel.handleDelete({
+                                ...item,
+                                name: activityName,
+                              })
                             }
                             title='Delete'
                           >
@@ -417,26 +543,39 @@ export function PricingPanel({ mode }: PricingPanelProps) {
             <div className='space-y-3 md:hidden'>
               {filteredItems.map((item) => {
                 const activityName =
-                  activities.find((a) => a.id === item.activity_id)?.name ||
-                  item.activity_id;
+                  activities.find(
+                    (activity) => activity.id === item.activity_id
+                  )?.name ?? item.activity_id;
                 const locationName =
-                  locations.find((l) => l.id === item.location_id)?.address ||
-                  item.location_id;
+                  locations.find(
+                    (location) => location.id === item.location_id
+                  )?.address ?? item.location_id;
+                const pricingTypeLabel = getPricingTypeLabel(
+                  item.pricing_type
+                );
+                const currencyDisplay = getCurrencyDisplay(item.currency);
                 return (
                   <div
                     key={item.id}
                     className='rounded-lg border border-slate-200 bg-slate-50 p-3'
                   >
-                    <div className='font-medium text-slate-900'>{activityName}</div>
-                    <div className='mt-1 text-sm text-slate-600'>{locationName}</div>
+                    <div className='font-medium text-slate-900'>
+                      {activityName}
+                    </div>
+                    <div className='mt-1 text-sm text-slate-600'>
+                      {locationName}
+                    </div>
                     <div className='mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm'>
                       <span className='text-slate-500'>
-                        Type: <span className='text-slate-700'>{item.pricing_type}</span>
+                        Type:{' '}
+                        <span className='text-slate-700'>
+                          {pricingTypeLabel}
+                        </span>
                       </span>
                       <span className='text-slate-500'>
                         Amount:{' '}
                         <span className='font-medium text-slate-900'>
-                          {item.amount} {item.currency}
+                          {currencyDisplay} {item.amount}
                         </span>
                       </span>
                     </div>
@@ -456,7 +595,10 @@ export function PricingPanel({ mode }: PricingPanelProps) {
                         size='sm'
                         variant='danger'
                         onClick={() =>
-                          panel.handleDelete({ ...item, name: activityName })
+                          panel.handleDelete({
+                            ...item,
+                            name: activityName,
+                          })
                         }
                         className='flex-1'
                         title='Delete'
