@@ -186,6 +186,16 @@ export function PricingPanel({ mode }: PricingPanelProps) {
     return normalizeCurrencyCode(value);
   }
 
+  function formatAmount(value: number): string {
+    if (!Number.isFinite(value)) {
+      return String(value);
+    }
+    return new Intl.NumberFormat('en-US', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
+    }).format(value);
+  }
+
   function getCurrencySearchText(value?: string | null): string {
     const normalized = normalizeCurrencyCode(value);
     const name = currencyNameByCode.get(normalized);
@@ -331,11 +341,7 @@ export function PricingPanel({ mode }: PricingPanelProps) {
             </Select>
           </div>
           <div className='md:col-span-2'>
-            <div
-              className={
-                showSessionsField ? 'grid gap-4 sm:grid-cols-2' : 'grid gap-4'
-              }
-            >
+            <div className='grid gap-4 sm:grid-cols-2'>
               <div>
                 <Label htmlFor='pricing-type'>Pricing Type</Label>
                 <Select
@@ -493,7 +499,7 @@ export function PricingPanel({ mode }: PricingPanelProps) {
                         {pricingTypeLabel}
                       </td>
                       <td className='py-2 text-slate-600'>
-                        {currencyDisplay} {item.amount}
+                        {currencyDisplay} {formatAmount(item.amount)}
                       </td>
                       <td className='py-2 text-right'>
                         <div className='flex justify-end gap-2'>
@@ -565,7 +571,7 @@ export function PricingPanel({ mode }: PricingPanelProps) {
                       <span className='text-slate-500'>
                         Amount:{' '}
                         <span className='font-medium text-slate-900'>
-                          {currencyDisplay} {item.amount}
+                          {currencyDisplay} {formatAmount(item.amount)}
                         </span>
                       </span>
                     </div>
