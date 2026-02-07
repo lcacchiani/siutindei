@@ -24,6 +24,8 @@ from urllib.parse import urlparse
 from uuid import UUID, uuid4
 
 import boto3
+import phonenumbers
+from phonenumbers.phonenumberutil import NumberParseException
 from psycopg.types.range import Range
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -808,6 +810,7 @@ def _update_organization_for_manager(
         if media_urls:
             media_urls = _validate_media_urls(media_urls)
         entity.media_urls = media_urls
+    _apply_organization_contact_fields(entity, body)
     return entity
 
 
@@ -2496,6 +2499,51 @@ def _decode_cursor(cursor: str) -> dict[str, Any]:
 # --- Entity creation handlers (using repositories) ---
 
 
+def _parse_organization_contact_fields(body: dict[str, Any]) -> dict[str, Any]:
+    """Parse organization contact fields."""
+    phone_country_code, phone_number = _validate_phone_fields(
+        body.get("phone_country_code"),
+        body.get("phone_number"),
+    )
+    return {
+        "phone_country_code": phone_country_code,
+        "phone_number": phone_number,
+        "email": _validate_email(body.get("email")),
+        "whatsapp": _validate_social_value(body.get("whatsapp"), "whatsapp"),
+        "facebook": _validate_social_value(body.get("facebook"), "facebook"),
+        "instagram": _validate_social_value(body.get("instagram"), "instagram"),
+        "tiktok": _validate_social_value(body.get("tiktok"), "tiktok"),
+        "twitter": _validate_social_value(body.get("twitter"), "twitter"),
+        "xiaohongshu": _validate_social_value(
+            body.get("xiaohongshu"),
+            "xiaohongshu",
+        ),
+        "wechat": _validate_social_value(body.get("wechat"), "wechat"),
+    }
+
+
+def _apply_organization_contact_fields(
+    entity: Organization,
+    body: dict[str, Any],
+) -> None:
+    """Apply organization contact updates."""
+    if "phone_country_code" in body or "phone_number" in body:
+        country_code = body.get("phone_country_code", entity.phone_country_code)
+        number = body.get("phone_number", entity.phone_number)
+        country_code, number = _validate_phone_fields(country_code, number)
+        entity.phone_country_code = country_code
+        entity.phone_number = number
+    if "email" in body:
+        entity.email = _validate_email(body["email"])
+    for field in SOCIAL_FIELDS:
+        if field in body:
+            setattr(
+                entity,
+                field,
+                _validate_social_value(body[field], field),
+            )
+
+
 def _create_organization(
     repo: OrganizationRepository, body: dict[str, Any]
 ) -> Organization:
@@ -2511,12 +2559,14 @@ def _create_organization(
     media_urls = _parse_media_urls(body.get("media_urls"))
     if media_urls:
         media_urls = _validate_media_urls(media_urls)
+    contact_fields = _parse_organization_contact_fields(body)
 
     return Organization(
         name=name,
         description=description,
         manager_id=manager_id,
         media_urls=media_urls,
+        **contact_fields,
     )
 
 
@@ -2545,6 +2595,7 @@ def _update_organization(
         if media_urls:
             media_urls = _validate_media_urls(media_urls)
         entity.media_urls = media_urls
+    _apply_organization_contact_fields(entity, body)
     return entity
 
 
@@ -2556,6 +2607,16 @@ def _serialize_organization(entity: Organization) -> dict[str, Any]:
         "name": entity.name,
         "description": entity.description,
         "manager_id": entity.manager_id,
+        "phone_country_code": entity.phone_country_code,
+        "phone_number": entity.phone_number,
+        "email": entity.email,
+        "whatsapp": entity.whatsapp,
+        "facebook": entity.facebook,
+        "instagram": entity.instagram,
+        "tiktok": entity.tiktok,
+        "twitter": entity.twitter,
+        "xiaohongshu": entity.xiaohongshu,
+        "wechat": entity.wechat,
         "media_urls": entity.media_urls or [],
         "created_at": entity.created_at,
         "updated_at": entity.updated_at,
@@ -2869,9 +2930,14 @@ MAX_NAME_LENGTH = 200
 MAX_DESCRIPTION_LENGTH = 5000
 MAX_ADDRESS_LENGTH = 500
 MAX_URL_LENGTH = 2048
+MAX_EMAIL_LENGTH = 320
+MAX_PHONE_COUNTRY_CODE_LENGTH = 2
+MAX_PHONE_NUMBER_LENGTH = 20
 MAX_LANGUAGE_CODE_LENGTH = 10
 MAX_LANGUAGES_COUNT = 20
 MAX_MEDIA_URLS_COUNT = 20
+MAX_SOCIAL_VALUE_LENGTH = 2048
+MAX_SOCIAL_HANDLE_LENGTH = 64
 
 # Valid ISO 4217 currency codes (common ones)
 VALID_CURRENCIES = frozenset(
@@ -2924,6 +2990,19 @@ VALID_LANGUAGE_CODES = frozenset(
         "yue",  # Cantonese
     ]
 )
+
+SOCIAL_FIELDS = (
+    "whatsapp",
+    "facebook",
+    "instagram",
+    "tiktok",
+    "twitter",
+    "xiaohongshu",
+    "wechat",
+)
+
+EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+SOCIAL_HANDLE_RE = re.compile(r"^@?[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
 
 
 def _validate_string_length(
@@ -3036,6 +3115,133 @@ def _validate_media_urls(urls: list[str]) -> list[str]:
         if url and url.strip():  # Skip empty or whitespace-only strings
             validated.append(_validate_url(url.strip(), f"media_urls[{i}]"))
     return validated
+
+
+def _looks_like_url(value: str) -> bool:
+    """Return True when the value looks like a URL."""
+    lower = value.lower()
+    if lower.startswith("http://") or lower.startswith("https://"):
+        return True
+    if lower.startswith("www."):
+        return True
+    return "/" in value
+
+
+def _normalize_social_url(value: str, field_name: str) -> str:
+    """Normalize social URL values to include scheme."""
+    normalized = value.strip()
+    if not normalized.lower().startswith(("http://", "https://")):
+        normalized = f"https://{normalized}"
+    return _validate_url(normalized, field_name)
+
+
+def _validate_social_value(value: Any, field_name: str) -> Optional[str]:
+    """Validate a social handle or URL."""
+    raw = _validate_string_length(value, field_name, MAX_SOCIAL_VALUE_LENGTH)
+    if raw is None:
+        return None
+    if _looks_like_url(raw):
+        return _normalize_social_url(raw, field_name)
+    if len(raw) > MAX_SOCIAL_HANDLE_LENGTH:
+        message = (
+            f"{field_name} handle must be at most {MAX_SOCIAL_HANDLE_LENGTH} characters"
+        )
+        raise ValidationError(
+            message,
+            field=field_name,
+        )
+    if not SOCIAL_HANDLE_RE.match(raw):
+        raise ValidationError(
+            f"{field_name} must be a valid handle or URL",
+            field=field_name,
+        )
+    return raw
+
+
+def _validate_email(value: Any) -> Optional[str]:
+    """Validate an email address."""
+    email = _validate_string_length(value, "email", MAX_EMAIL_LENGTH)
+    if email is None:
+        return None
+    if not EMAIL_RE.match(email):
+        raise ValidationError(
+            "email must be a valid email address",
+            field="email",
+        )
+    return email
+
+
+def _validate_phone_country_code(value: Any) -> Optional[str]:
+    """Validate the phone country code (ISO 3166-1 alpha-2)."""
+    code = _validate_string_length(
+        value,
+        "phone_country_code",
+        MAX_PHONE_COUNTRY_CODE_LENGTH,
+    )
+    if code is None:
+        return None
+    code = code.upper()
+    if code not in phonenumbers.SUPPORTED_REGIONS:
+        raise ValidationError(
+            "phone_country_code must be a valid ISO country code",
+            field="phone_country_code",
+        )
+    return code
+
+
+def _normalize_phone_number(value: Any) -> Optional[str]:
+    """Normalize a phone number to digits only."""
+    raw = _validate_string_length(
+        value,
+        "phone_number",
+        MAX_PHONE_NUMBER_LENGTH,
+    )
+    if raw is None:
+        return None
+    digits = re.sub(r"\D", "", raw)
+    if not digits:
+        raise ValidationError(
+            "phone_number must contain digits",
+            field="phone_number",
+        )
+    return digits
+
+
+def _validate_phone_fields(
+    phone_country_code: Any,
+    phone_number: Any,
+) -> tuple[Optional[str], Optional[str]]:
+    """Validate phone fields together."""
+    country_code = _validate_phone_country_code(phone_country_code)
+    number = _normalize_phone_number(phone_number)
+
+    if country_code is None and number is None:
+        return None, None
+    if country_code is None:
+        raise ValidationError(
+            "phone_country_code is required when phone_number is set",
+            field="phone_country_code",
+        )
+    if number is None:
+        raise ValidationError(
+            "phone_number is required when phone_country_code is set",
+            field="phone_number",
+        )
+
+    try:
+        parsed = phonenumbers.parse(number, country_code)
+    except NumberParseException as exc:
+        raise ValidationError(
+            "phone_number is not valid for phone_country_code",
+            field="phone_number",
+        ) from exc
+    if not phonenumbers.is_valid_number(parsed):
+        raise ValidationError(
+            "phone_number is not valid for phone_country_code",
+            field="phone_number",
+        )
+
+    return country_code, number
 
 
 def _validate_currency(currency: str) -> str:

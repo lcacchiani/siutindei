@@ -15,6 +15,10 @@ info:
     |-------|-----------|
     | name | 200 characters |
     | description | 5,000 characters |
+    | email | 320 characters |
+    | phone_country_code | 2 characters |
+    | phone_number | 20 characters |
+    | social handles / URLs | 64 (handles) / 2,048 (URLs) |
     | address | 500 characters |
     | media_urls (each) | 2,048 characters |
 
@@ -45,6 +49,12 @@ info:
     | languages | en, zh, ja, ko, fr, de, es, pt, it, ru, ar, hi, th, vi, id, ms, tl, nl, pl, tr, yue |
     | pricing_type | per_class, per_month, per_sessions |
     | schedule_type | weekly, monthly, date_specific |
+
+    ### Contact Validation
+    - phone_country_code must be an ISO 3166-1 alpha-2 country code.
+    - phone_number must be valid for the selected phone_country_code.
+    - email must be a valid email address.
+    - social fields accept either an http/https URL or a handle.
 
 paths:
   /v1/admin/organizations:
@@ -1455,6 +1465,46 @@ components:
         manager_id:
           type: string
           description: Cognito user sub of the organization manager (required)
+        phone_country_code:
+          type: string
+          maxLength: 2
+          description: ISO 3166-1 alpha-2 country code for phone number
+        phone_number:
+          type: string
+          maxLength: 20
+          description: National phone number digits (no country code)
+        email:
+          type: string
+          maxLength: 320
+          description: Contact email address
+        whatsapp:
+          type: string
+          maxLength: 2048
+          description: WhatsApp handle or URL
+        facebook:
+          type: string
+          maxLength: 2048
+          description: Facebook handle or URL
+        instagram:
+          type: string
+          maxLength: 2048
+          description: Instagram handle or URL
+        tiktok:
+          type: string
+          maxLength: 2048
+          description: TikTok handle or URL
+        twitter:
+          type: string
+          maxLength: 2048
+          description: X handle or URL
+        xiaohongshu:
+          type: string
+          maxLength: 2048
+          description: Xiaohongshu handle or URL
+        wechat:
+          type: string
+          maxLength: 2048
+          description: WeChat handle or URL
         media_urls:
           type: array
           maxItems: 20
@@ -1480,6 +1530,46 @@ components:
         manager_id:
           type: string
           description: Cognito user sub of the organization manager
+        phone_country_code:
+          type: string
+          maxLength: 2
+          description: ISO 3166-1 alpha-2 country code for phone number
+        phone_number:
+          type: string
+          maxLength: 20
+          description: National phone number digits (no country code)
+        email:
+          type: string
+          maxLength: 320
+          description: Contact email address
+        whatsapp:
+          type: string
+          maxLength: 2048
+          description: WhatsApp handle or URL
+        facebook:
+          type: string
+          maxLength: 2048
+          description: Facebook handle or URL
+        instagram:
+          type: string
+          maxLength: 2048
+          description: Instagram handle or URL
+        tiktok:
+          type: string
+          maxLength: 2048
+          description: TikTok handle or URL
+        twitter:
+          type: string
+          maxLength: 2048
+          description: X handle or URL
+        xiaohongshu:
+          type: string
+          maxLength: 2048
+          description: Xiaohongshu handle or URL
+        wechat:
+          type: string
+          maxLength: 2048
+          description: WeChat handle or URL
         media_urls:
           type: array
           maxItems: 20
@@ -1503,6 +1593,46 @@ components:
         manager_id:
           type: string
           description: Cognito user sub of the organization manager
+        phone_country_code:
+          type: string
+          nullable: true
+          description: ISO 3166-1 alpha-2 country code for phone number
+        phone_number:
+          type: string
+          nullable: true
+          description: National phone number digits (no country code)
+        email:
+          type: string
+          nullable: true
+          description: Contact email address
+        whatsapp:
+          type: string
+          nullable: true
+          description: WhatsApp handle or URL
+        facebook:
+          type: string
+          nullable: true
+          description: Facebook handle or URL
+        instagram:
+          type: string
+          nullable: true
+          description: Instagram handle or URL
+        tiktok:
+          type: string
+          nullable: true
+          description: TikTok handle or URL
+        twitter:
+          type: string
+          nullable: true
+          description: X handle or URL
+        xiaohongshu:
+          type: string
+          nullable: true
+          description: Xiaohongshu handle or URL
+        wechat:
+          type: string
+          nullable: true
+          description: WeChat handle or URL
         media_urls:
           type: array
           items:

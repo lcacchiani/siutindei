@@ -14,8 +14,11 @@ sys.path.append(str(Path(__file__).resolve().parents[1] / "backend" / "src"))
 from app.api.admin import (  # noqa: E402
     _validate_age_range,
     _validate_coordinates,
+    _validate_email,
     _validate_manager_id,
+    _validate_phone_fields,
     _validate_pricing_amount,
+    _validate_social_value,
     _validate_sessions_count,
 )
 from app.exceptions import ValidationError  # noqa: E402
@@ -304,3 +307,85 @@ class TestValidateManagerId:
         test_uuid = str(uuid4())
         result = _validate_manager_id(test_uuid, required=True)
         assert result == test_uuid
+
+
+class TestValidateEmail:
+    """Tests for email validation."""
+
+    def test_valid_email(self) -> None:
+        """Valid email should pass."""
+        assert _validate_email("admin@example.com") == "admin@example.com"
+
+    def test_invalid_email(self) -> None:
+        """Invalid email should raise ValidationError."""
+        with pytest.raises(ValidationError) as exc_info:
+            _validate_email("not-an-email")
+        assert "email must be a valid email address" in str(exc_info.value)
+        assert exc_info.value.field == "email"
+
+    def test_empty_email(self) -> None:
+        """Empty email should return None."""
+        assert _validate_email("") is None
+
+
+class TestValidatePhoneFields:
+    """Tests for phone field validation."""
+
+    def test_valid_phone_fields_hk(self) -> None:
+        """Valid HK phone should pass."""
+        code, number = _validate_phone_fields("HK", "9123 4567")
+        assert code == "HK"
+        assert number == "91234567"
+
+    def test_missing_country_code(self) -> None:
+        """Missing country code should raise ValidationError."""
+        with pytest.raises(ValidationError) as exc_info:
+            _validate_phone_fields(None, "91234567")
+        assert "phone_country_code is required" in str(exc_info.value)
+        assert exc_info.value.field == "phone_country_code"
+
+    def test_missing_phone_number(self) -> None:
+        """Missing phone number should raise ValidationError."""
+        with pytest.raises(ValidationError) as exc_info:
+            _validate_phone_fields("HK", None)
+        assert "phone_number is required" in str(exc_info.value)
+        assert exc_info.value.field == "phone_number"
+
+    def test_invalid_country_code(self) -> None:
+        """Invalid country code should raise ValidationError."""
+        with pytest.raises(ValidationError) as exc_info:
+            _validate_phone_fields("ZZ", "91234567")
+        assert "phone_country_code must be a valid ISO country code" in str(
+            exc_info.value
+        )
+        assert exc_info.value.field == "phone_country_code"
+
+    def test_invalid_phone_number(self) -> None:
+        """Invalid phone number should raise ValidationError."""
+        with pytest.raises(ValidationError) as exc_info:
+            _validate_phone_fields("HK", "1234")
+        assert "phone_number is not valid" in str(exc_info.value)
+        assert exc_info.value.field == "phone_number"
+
+
+class TestValidateSocialValue:
+    """Tests for social handle/URL validation."""
+
+    def test_valid_handle(self) -> None:
+        """Valid handles should pass."""
+        assert _validate_social_value("@example_user", "instagram") == "@example_user"
+        assert _validate_social_value("example.user", "twitter") == "example.user"
+
+    def test_valid_url(self) -> None:
+        """Valid URLs should pass."""
+        assert (
+            _validate_social_value("https://example.com/user", "facebook")
+            == "https://example.com/user"
+        )
+
+    def test_invalid_handle(self) -> None:
+        """Invalid handles should raise ValidationError."""
+        with pytest.raises(ValidationError) as exc_info:
+            _validate_social_value("bad handle", "whatsapp")
+        assert "whatsapp must be a valid handle or URL" in str(exc_info.value)
+        assert exc_info.value.field == "whatsapp"

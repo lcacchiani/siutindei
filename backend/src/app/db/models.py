@@ -130,6 +130,24 @@ class Organization(Base):
         nullable=False,
         comment="Cognito user sub (subject) identifier of the organization manager",
     )
+    phone_country_code: Mapped[Optional[str]] = mapped_column(
+        Text(),
+        nullable=True,
+        comment="ISO 3166-1 alpha-2 country code for phone number",
+    )
+    phone_number: Mapped[Optional[str]] = mapped_column(
+        Text(),
+        nullable=True,
+        comment="National phone number digits (no country code)",
+    )
+    email: Mapped[Optional[str]] = mapped_column(Text(), nullable=True)
+    whatsapp: Mapped[Optional[str]] = mapped_column(Text(), nullable=True)
+    facebook: Mapped[Optional[str]] = mapped_column(Text(), nullable=True)
+    instagram: Mapped[Optional[str]] = mapped_column(Text(), nullable=True)
+    tiktok: Mapped[Optional[str]] = mapped_column(Text(), nullable=True)
+    twitter: Mapped[Optional[str]] = mapped_column(Text(), nullable=True)
+    xiaohongshu: Mapped[Optional[str]] = mapped_column(Text(), nullable=True)
+    wechat: Mapped[Optional[str]] = mapped_column(Text(), nullable=True)
     media_urls: Mapped[List[str]] = mapped_column(
         ARRAY(Text()),
         nullable=False,
