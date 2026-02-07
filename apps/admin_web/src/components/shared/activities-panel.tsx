@@ -245,18 +245,6 @@ export function ActivitiesPanel({ mode }: ActivitiesPanelProps) {
               ))}
             </Select>
           </div>
-          <div className='md:col-span-2'>
-            <CascadingCategorySelect
-              tree={categoryTree}
-              value={panel.formState.category_id}
-              onChange={(categoryId, _chain) =>
-                panel.setFormState((prev) => ({
-                  ...prev,
-                  category_id: categoryId,
-                }))
-              }
-            />
-          </div>
           <div>
             <Label htmlFor='activity-name'>Name</Label>
             <Input
@@ -266,6 +254,18 @@ export function ActivitiesPanel({ mode }: ActivitiesPanelProps) {
                 panel.setFormState((prev) => ({
                   ...prev,
                   name: e.target.value,
+                }))
+              }
+            />
+          </div>
+          <div className='md:col-span-2'>
+            <CascadingCategorySelect
+              tree={categoryTree}
+              value={panel.formState.category_id}
+              onChange={(categoryId, _chain) =>
+                panel.setFormState((prev) => ({
+                  ...prev,
+                  category_id: categoryId,
                 }))
               }
             />

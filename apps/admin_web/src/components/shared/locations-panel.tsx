@@ -57,6 +57,23 @@ function DeleteIcon({ className }: { className?: string }) {
   );
 }
 
+function MapIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M21 10c0 6-9 12-9 12s-9-6-9-12a9 9 0 1 1 18 0z" />
+      <circle cx="12" cy="10" r="3" />
+    </svg>
+  );
+}
+
 interface LocationFormState {
   org_id: string;
   area_id: string;
@@ -88,6 +105,23 @@ function parseOptionalNumber(value: string): number | null {
   if (!trimmed) return null;
   const parsed = Number(trimmed);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function buildGoogleMapsUrl(location: Location): string | null {
+  const { address, lat, lng } = location;
+  const hasCoords =
+    typeof lat === 'number' &&
+    typeof lng === 'number' &&
+    Number.isFinite(lat) &&
+    Number.isFinite(lng);
+  const trimmedAddress = address?.trim();
+  const query = hasCoords ? `${lat},${lng}` : trimmedAddress ?? '';
+  if (!query) {
+    return null;
+  }
+  const encodedQuery = encodeURIComponent(query);
+  const baseUrl = 'https://www.google.com/maps/search/?api=1&query=';
+  return `${baseUrl}${encodedQuery}`;
 }
 
 interface LocationsPanelProps {
@@ -345,96 +379,135 @@ export function LocationsPanel({ mode }: LocationsPanelProps) {
                 </tr>
               </thead>
               <tbody>
-                {filteredItems.map((item) => (
-                  <tr key={item.id} className='border-b border-slate-100'>
-                    <td className='py-2 font-medium'>{getAreaName(item.area_id)}</td>
-                    {isAdmin && (
-                      <td className='py-2 text-slate-600'>
-                        {organizations.find((org) => org.id === item.org_id)
-                          ?.name || item.org_id}
+                {filteredItems.map((item) => {
+                  const mapsUrl = buildGoogleMapsUrl(item);
+                  return (
+                    <tr key={item.id} className='border-b border-slate-100'>
+                      <td className='py-2 font-medium'>
+                        {getAreaName(item.area_id)}
                       </td>
-                    )}
-                    <td className='py-2 text-slate-600'>
-                      {item.address || '—'}
-                    </td>
-                    <td className='py-2 text-right'>
-                      <div className='flex justify-end gap-2'>
-                        <Button
-                          type='button'
-                          size='sm'
-                          variant='secondary'
-                          onClick={() => panel.startEdit(item)}
-                          title='Edit'
-                        >
-                          <EditIcon className='h-4 w-4' />
-                        </Button>
-                        <Button
-                          type='button'
-                          size='sm'
-                          variant='danger'
-                          onClick={() =>
-                            panel.handleDelete({
-                              ...item,
-                              name: getAreaName(item.area_id),
-                            })
-                          }
-                          title='Delete'
-                        >
-                          <DeleteIcon className='h-4 w-4' />
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                      {isAdmin && (
+                        <td className='py-2 text-slate-600'>
+                          {organizations.find((org) => org.id === item.org_id)
+                            ?.name || item.org_id}
+                        </td>
+                      )}
+                      <td className='py-2 text-slate-600'>
+                        <div className='flex items-center gap-2'>
+                          <span>{item.address || '—'}</span>
+                          {mapsUrl && (
+                            <a
+                              href={mapsUrl}
+                              target='_blank'
+                              rel='noreferrer'
+                              title='Open in Google Maps'
+                              aria-label='Open in Google Maps'
+                              className='text-slate-500 hover:text-slate-900'
+                            >
+                              <MapIcon className='h-4 w-4' />
+                            </a>
+                          )}
+                        </div>
+                      </td>
+                      <td className='py-2 text-right'>
+                        <div className='flex justify-end gap-2'>
+                          <Button
+                            type='button'
+                            size='sm'
+                            variant='secondary'
+                            onClick={() => panel.startEdit(item)}
+                            title='Edit'
+                          >
+                            <EditIcon className='h-4 w-4' />
+                          </Button>
+                          <Button
+                            type='button'
+                            size='sm'
+                            variant='danger'
+                            onClick={() =>
+                              panel.handleDelete({
+                                ...item,
+                                name: getAreaName(item.area_id),
+                              })
+                            }
+                            title='Delete'
+                          >
+                            <DeleteIcon className='h-4 w-4' />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
             </div>
 
             {/* Mobile card view */}
             <div className='space-y-3 md:hidden'>
-              {filteredItems.map((item) => (
-                <div
-                  key={item.id}
-                  className='rounded-lg border border-slate-200 bg-slate-50 p-3'
-                >
-                  <div className='font-medium text-slate-900'>{getAreaName(item.area_id)}</div>
-                  {isAdmin && (
-                    <div className='mt-1 text-sm text-slate-600'>
-                      {organizations.find((org) => org.id === item.org_id)?.name || item.org_id}
+              {filteredItems.map((item) => {
+                const mapsUrl = buildGoogleMapsUrl(item);
+                return (
+                  <div
+                    key={item.id}
+                    className='rounded-lg border border-slate-200 bg-slate-50 p-3'
+                  >
+                    <div className='font-medium text-slate-900'>
+                      {getAreaName(item.area_id)}
                     </div>
-                  )}
-                  {item.address && (
-                    <div className='mt-1 text-sm text-slate-500'>{item.address}</div>
-                  )}
-                  <div className='mt-3 flex gap-2 border-t border-slate-200 pt-3'>
-                    <Button
-                      type='button'
-                      size='sm'
-                      variant='secondary'
-                      onClick={() => panel.startEdit(item)}
-                      className='flex-1'
-                      title='Edit'
-                    >
-                      <EditIcon className='h-4 w-4' />
-                    </Button>
-                    <Button
-                      type='button'
-                      size='sm'
-                      variant='danger'
-                      onClick={() =>
-                        panel.handleDelete({
-                          ...item,
-                          name: getAreaName(item.area_id),
-                        })
-                      }
-                      className='flex-1'
-                      title='Delete'
-                    >
-                      <DeleteIcon className='h-4 w-4' />
-                    </Button>
+                    {isAdmin && (
+                      <div className='mt-1 text-sm text-slate-600'>
+                        {organizations.find((org) => org.id === item.org_id)
+                          ?.name || item.org_id}
+                      </div>
+                    )}
+                    {(item.address || mapsUrl) && (
+                      <div className='mt-1 flex items-center gap-2 text-sm text-slate-500'>
+                        <span>{item.address || '—'}</span>
+                        {mapsUrl && (
+                          <a
+                            href={mapsUrl}
+                            target='_blank'
+                            rel='noreferrer'
+                            title='Open in Google Maps'
+                            aria-label='Open in Google Maps'
+                            className='text-slate-500 hover:text-slate-900'
+                          >
+                            <MapIcon className='h-4 w-4' />
+                          </a>
+                        )}
+                      </div>
+                    )}
+                    <div className='mt-3 flex gap-2 border-t border-slate-200 pt-3'>
+                      <Button
+                        type='button'
+                        size='sm'
+                        variant='secondary'
+                        onClick={() => panel.startEdit(item)}
+                        className='flex-1'
+                        title='Edit'
+                      >
+                        <EditIcon className='h-4 w-4' />
+                      </Button>
+                      <Button
+                        type='button'
+                        size='sm'
+                        variant='danger'
+                        onClick={() =>
+                          panel.handleDelete({
+                            ...item,
+                            name: getAreaName(item.area_id),
+                          })
+                        }
+                        className='flex-1'
+                        title='Delete'
+                      >
+                        <DeleteIcon className='h-4 w-4' />
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             {panel.nextCursor && (
