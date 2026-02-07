@@ -586,14 +586,7 @@ export function OrganizationsPanel({ mode }: OrganizationsPanelProps) {
                 }
               />
             </div>
-            <div className='md:col-span-2 border-t border-slate-100 pt-4'>
-              <p className='text-sm font-medium text-slate-700'>Contact</p>
-              <p className='text-xs text-slate-500'>
-                Phone numbers are validated by country. Social fields accept
-                handles or URLs.
-              </p>
-            </div>
-            <div>
+            <div className='md:col-span-2'>
               <Label htmlFor='org-email'>Email</Label>
               <Input
                 id='org-email'
@@ -627,7 +620,7 @@ export function OrganizationsPanel({ mode }: OrganizationsPanelProps) {
                 ))}
               </Select>
             </div>
-            <div className='md:col-span-2'>
+            <div>
               <Label htmlFor='org-phone-number'>Phone number</Label>
               <Input
                 id='org-phone-number'
@@ -642,12 +635,6 @@ export function OrganizationsPanel({ mode }: OrganizationsPanelProps) {
                 }
                 placeholder='1234 5678'
               />
-            </div>
-            <div className='md:col-span-2 border-t border-slate-100 pt-4'>
-              <p className='text-sm font-medium text-slate-700'>Social</p>
-              <p className='text-xs text-slate-500'>
-                Use @handle or https:// URLs for each network.
-              </p>
             </div>
             {SOCIAL_FIELDS.map((field) => (
               <div key={field.key}>
