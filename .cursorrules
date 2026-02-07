@@ -5,6 +5,11 @@
 # - rules/react-redux-typescript-cursorrules-prompt-file
 # - rules/nextjs-react-tailwind-cursorrules-prompt-file
 
+### Planning and approval (MANDATORY)
+- Before taking any action, write a brief plan for the task.
+- Ask questions to validate requirements and uncover hidden assumptions.
+- Wait for explicit user approval before making any changes.
+
 ### Flutter development guidelines
 ### Repository structure
 repo root
