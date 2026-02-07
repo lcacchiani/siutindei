@@ -19,7 +19,7 @@ test.describe('Admin Dashboard', () => {
       'Organizations',
       'Media',
       'Locations',
-      'Activity Categories',
+      'Categories',
       'Activities',
       'Pricing',
       'Schedules',
@@ -76,15 +76,15 @@ test.describe('Admin Dashboard', () => {
     await expect(adminPage.getByRole('heading', { name: /Activities/i }).first()).toBeVisible();
   });
 
-  test('should navigate to Activity Categories section', async ({ adminPage }) => {
+  test('should navigate to Categories section', async ({ adminPage }) => {
     await adminPage.goto('/');
 
-    // Click Activity Categories
-    await adminPage.getByRole('button', { name: 'Activity Categories' }).click();
+    // Click Categories
+    await adminPage.getByRole('button', { name: 'Categories' }).click();
 
-    // Should show Activity Categories panel content
+    // Should show Categories panel content
     await expect(
-      adminPage.getByRole('heading', { name: 'Activity Categories' })
+      adminPage.getByRole('heading', { name: 'Categories' })
     ).toBeVisible();
   });
 

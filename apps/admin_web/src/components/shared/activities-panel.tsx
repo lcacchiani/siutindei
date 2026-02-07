@@ -133,6 +133,14 @@ export function ActivitiesPanel({ mode }: ActivitiesPanelProps) {
   // Extract setFormState for stable reference in useEffect
   const { setFormState } = panel;
 
+  function getOrganizationName(orgId: string | undefined) {
+    if (!orgId) {
+      return '';
+    }
+    const match = organizations.find((org) => org.id === orgId);
+    return match?.name ?? orgId;
+  }
+
   useEffect(() => {
     const loadOrganizations = async () => {
       try {
@@ -238,7 +246,6 @@ export function ActivitiesPanel({ mode }: ActivitiesPanelProps) {
             </Select>
           </div>
           <div className='md:col-span-2'>
-            <Label htmlFor='activity-category'>Category</Label>
             <CascadingCategorySelect
               tree={categoryTree}
               value={panel.formState.category_id}
@@ -355,9 +362,10 @@ export function ActivitiesPanel({ mode }: ActivitiesPanelProps) {
             <table className='w-full text-left text-sm'>
               <thead className='border-b border-slate-200 text-slate-500'>
                 <tr>
-                  <th className='py-2'>Name</th>
+                  <th className='py-2'>
+                    {isAdmin ? 'Organization / Activity' : 'Name'}
+                  </th>
                   <th className='py-2'>Category</th>
-                  {isAdmin && <th className='py-2'>Organization</th>}
                   <th className='py-2'>Age Range</th>
                   <th className='py-2 text-right'>Actions</th>
                 </tr>
@@ -365,16 +373,14 @@ export function ActivitiesPanel({ mode }: ActivitiesPanelProps) {
               <tbody>
                 {filteredItems.map((item) => (
                   <tr key={item.id} className='border-b border-slate-100'>
-                    <td className='py-2 font-medium'>{item.name}</td>
+                    <td className='py-2 font-medium'>
+                      {isAdmin
+                        ? `${getOrganizationName(item.org_id)} - ${item.name}`
+                        : item.name}
+                    </td>
                     <td className='py-2 text-slate-600'>
                       {getCategoryPath(item.category_id)}
                     </td>
-                    {isAdmin && (
-                      <td className='py-2 text-slate-600'>
-                        {organizations.find((org) => org.id === item.org_id)
-                          ?.name || item.org_id}
-                      </td>
-                    )}
                     <td className='py-2 text-slate-600'>
                       {item.age_min} - {item.age_max}
                     </td>
@@ -413,15 +419,14 @@ export function ActivitiesPanel({ mode }: ActivitiesPanelProps) {
                   key={item.id}
                   className='rounded-lg border border-slate-200 bg-slate-50 p-3'
                 >
-                  <div className='font-medium text-slate-900'>{item.name}</div>
+                  <div className='font-medium text-slate-900'>
+                    {isAdmin
+                      ? `${getOrganizationName(item.org_id)} - ${item.name}`
+                      : item.name}
+                  </div>
                   <div className='mt-1 text-sm text-slate-600'>
                     {getCategoryPath(item.category_id)}
                   </div>
-                  {isAdmin && (
-                    <div className='mt-1 text-sm text-slate-600'>
-                      {organizations.find((org) => org.id === item.org_id)?.name || item.org_id}
-                    </div>
-                  )}
                   <div className='mt-1 text-sm text-slate-500'>
                     Ages: {item.age_min} - {item.age_max}
                   </div>

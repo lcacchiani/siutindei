@@ -186,7 +186,6 @@ export function SuggestionForm({ onSuggestionSubmitted }: SuggestionFormProps) {
             value={areaId}
             onChange={handleAreaChange}
             disableCountry
-            showCountryLast
           />
         </div>
 

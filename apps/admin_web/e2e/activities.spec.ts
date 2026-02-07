@@ -28,9 +28,10 @@ test.describe('Activities Panel', () => {
     await expect(adminPage.getByRole('heading', { name: 'Existing Activities' })).toBeVisible();
 
     // Check for table headers
-    await expect(adminPage.getByRole('columnheader', { name: 'Name' })).toBeVisible();
+    await expect(
+      adminPage.getByRole('columnheader', { name: 'Organization / Activity' })
+    ).toBeVisible();
     await expect(adminPage.getByRole('columnheader', { name: 'Category' })).toBeVisible();
-    await expect(adminPage.getByRole('columnheader', { name: 'Organization' })).toBeVisible();
     await expect(adminPage.getByRole('columnheader', { name: 'Age Range' })).toBeVisible();
     await expect(adminPage.getByRole('columnheader', { name: 'Actions' })).toBeVisible();
 

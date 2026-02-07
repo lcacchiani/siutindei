@@ -25,12 +25,12 @@ const sectionLabels = [
   { key: 'organizations', label: 'Organizations' },
   { key: 'media', label: 'Media' },
   { key: 'locations', label: 'Locations' },
-  { key: 'activity-categories', label: 'Activity Categories' },
   { key: 'activities', label: 'Activities' },
   { key: 'pricing', label: 'Pricing' },
   { key: 'schedules', label: 'Schedules' },
   { key: 'tickets', label: 'Tickets', dividerBefore: true },
   { key: 'cognito-users', label: 'Users' },
+  { key: 'activity-categories', label: 'Categories' },
   { key: 'audit-logs', label: 'Audit Logs' },
 ];
 
