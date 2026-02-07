@@ -1496,7 +1496,7 @@ components:
         twitter:
           type: string
           maxLength: 2048
-          description: Twitter handle or URL
+          description: X handle or URL
         xiaohongshu:
           type: string
           maxLength: 2048
@@ -1561,7 +1561,7 @@ components:
         twitter:
           type: string
           maxLength: 2048
-          description: Twitter handle or URL
+          description: X handle or URL
         xiaohongshu:
           type: string
           maxLength: 2048
@@ -1624,7 +1624,7 @@ components:
         twitter:
           type: string
           nullable: true
-          description: Twitter handle or URL
+          description: X handle or URL
         xiaohongshu:
           type: string
           nullable: true

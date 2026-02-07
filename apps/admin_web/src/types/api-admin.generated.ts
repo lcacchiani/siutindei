@@ -2817,7 +2817,7 @@ export interface components {
             instagram?: string;
             /** @description TikTok handle or URL */
             tiktok?: string;
-            /** @description Twitter handle or URL */
+            /** @description X handle or URL */
             twitter?: string;
             /** @description Xiaohongshu handle or URL */
             xiaohongshu?: string;
@@ -2850,7 +2850,7 @@ export interface components {
             instagram?: string;
             /** @description TikTok handle or URL */
             tiktok?: string;
-            /** @description Twitter handle or URL */
+            /** @description X handle or URL */
             twitter?: string;
             /** @description Xiaohongshu handle or URL */
             xiaohongshu?: string;
@@ -2879,7 +2879,7 @@ export interface components {
             instagram?: string | null;
             /** @description TikTok handle or URL */
             tiktok?: string | null;
-            /** @description Twitter handle or URL */
+            /** @description X handle or URL */
             twitter?: string | null;
             /** @description Xiaohongshu handle or URL */
             xiaohongshu?: string | null;

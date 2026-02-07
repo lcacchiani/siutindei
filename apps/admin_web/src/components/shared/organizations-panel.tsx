@@ -294,7 +294,7 @@ const SOCIAL_FIELDS: Array<{
   { key: 'facebook', label: 'Facebook', iconLabel: 'FB' },
   { key: 'instagram', label: 'Instagram', iconLabel: 'IG' },
   { key: 'tiktok', label: 'TikTok', iconLabel: 'TT' },
-  { key: 'twitter', label: 'Twitter', iconLabel: 'X' },
+  { key: 'twitter', label: 'X', iconLabel: 'X' },
   { key: 'xiaohongshu', label: 'Xiaohongshu', iconLabel: 'XHS' },
   { key: 'wechat', label: 'WeChat', iconLabel: 'WC' },
 ];
