@@ -2803,6 +2803,26 @@ export interface components {
             description?: string;
             /** @description Cognito user sub of the organization manager (required) */
             manager_id: string;
+            /** @description ISO 3166-1 alpha-2 country code for phone number */
+            phone_country_code?: string;
+            /** @description National phone number digits (no country code) */
+            phone_number?: string;
+            /** @description Contact email address */
+            email?: string;
+            /** @description WhatsApp handle or URL */
+            whatsapp?: string;
+            /** @description Facebook handle or URL */
+            facebook?: string;
+            /** @description Instagram handle or URL */
+            instagram?: string;
+            /** @description TikTok handle or URL */
+            tiktok?: string;
+            /** @description Twitter handle or URL */
+            twitter?: string;
+            /** @description Little Red Book handle or URL */
+            little_red_book?: string;
+            /** @description WeChat handle or URL */
+            wechat?: string;
             /**
              * @description List of media URLs (optional, max 20 URLs).
              *     Each URL must use http or https scheme and be max 2,048 characters.
@@ -2816,6 +2836,26 @@ export interface components {
             description?: string;
             /** @description Cognito user sub of the organization manager */
             manager_id?: string;
+            /** @description ISO 3166-1 alpha-2 country code for phone number */
+            phone_country_code?: string;
+            /** @description National phone number digits (no country code) */
+            phone_number?: string;
+            /** @description Contact email address */
+            email?: string;
+            /** @description WhatsApp handle or URL */
+            whatsapp?: string;
+            /** @description Facebook handle or URL */
+            facebook?: string;
+            /** @description Instagram handle or URL */
+            instagram?: string;
+            /** @description TikTok handle or URL */
+            tiktok?: string;
+            /** @description Twitter handle or URL */
+            twitter?: string;
+            /** @description Little Red Book handle or URL */
+            little_red_book?: string;
+            /** @description WeChat handle or URL */
+            wechat?: string;
             media_urls?: string[];
         };
         Organization: {
@@ -2825,6 +2865,26 @@ export interface components {
             description?: string | null;
             /** @description Cognito user sub of the organization manager */
             manager_id: string;
+            /** @description ISO 3166-1 alpha-2 country code for phone number */
+            phone_country_code?: string | null;
+            /** @description National phone number digits (no country code) */
+            phone_number?: string | null;
+            /** @description Contact email address */
+            email?: string | null;
+            /** @description WhatsApp handle or URL */
+            whatsapp?: string | null;
+            /** @description Facebook handle or URL */
+            facebook?: string | null;
+            /** @description Instagram handle or URL */
+            instagram?: string | null;
+            /** @description TikTok handle or URL */
+            tiktok?: string | null;
+            /** @description Twitter handle or URL */
+            twitter?: string | null;
+            /** @description Little Red Book handle or URL */
+            little_red_book?: string | null;
+            /** @description WeChat handle or URL */
+            wechat?: string | null;
             media_urls: string[];
             /** Format: date-time */
             created_at: string;
