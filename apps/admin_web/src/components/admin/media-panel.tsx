@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ChangeEvent } from 'react';
 import Image, { type ImageLoaderProps } from 'next/image';
 
@@ -107,6 +107,7 @@ export function MediaPanel({ mode = 'admin' }: MediaPanelProps) {
     []
   );
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const isMediaBusy = isSaving || isProcessingMedia;
 
@@ -460,15 +461,26 @@ export function MediaPanel({ mode = 'admin' }: MediaPanelProps) {
                 <PlusIcon className='h-4 w-4' />
               </Button>
             </div>
-            <div className='flex flex-col gap-2 sm:flex-row'>
-              <Input
+            <div className='flex flex-col gap-2 sm:flex-row sm:items-center'>
+              <input
                 id='media-upload'
+                ref={fileInputRef}
                 type='file'
                 accept='image/*'
                 multiple
                 onChange={handleMediaFiles}
                 disabled={isMediaBusy}
+                className='sr-only'
               />
+              <Button
+                type='button'
+                variant='secondary'
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isMediaBusy}
+                className='w-fit'
+              >
+                Choose files
+              </Button>
               <p className='text-xs text-slate-500 sm:self-center'>
                 Upload files or add URLs. Save to apply changes.
               </p>
