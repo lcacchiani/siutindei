@@ -74,6 +74,24 @@ function MapIcon({ className }: { className?: string }) {
   );
 }
 
+function AppleMapIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3z" />
+      <line x1="9" y1="3" x2="9" y2="18" />
+      <line x1="15" y1="6" x2="15" y2="21" />
+    </svg>
+  );
+}
+
 interface LocationFormState {
   org_id: string;
   area_id: string;
@@ -107,7 +125,7 @@ function parseOptionalNumber(value: string): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-function buildGoogleMapsUrl(location: Location): string | null {
+function buildMapQuery(location: Location): string | null {
   const { address, lat, lng } = location;
   const hasCoords =
     typeof lat === 'number' &&
@@ -119,8 +137,24 @@ function buildGoogleMapsUrl(location: Location): string | null {
   if (!query) {
     return null;
   }
-  const encodedQuery = encodeURIComponent(query);
+  return encodeURIComponent(query);
+}
+
+function buildGoogleMapsUrl(location: Location): string | null {
+  const encodedQuery = buildMapQuery(location);
+  if (!encodedQuery) {
+    return null;
+  }
   const baseUrl = 'https://www.google.com/maps/search/?api=1&query=';
+  return `${baseUrl}${encodedQuery}`;
+}
+
+function buildAppleMapsUrl(location: Location): string | null {
+  const encodedQuery = buildMapQuery(location);
+  if (!encodedQuery) {
+    return null;
+  }
+  const baseUrl = 'https://maps.apple.com/?q=';
   return `${baseUrl}${encodedQuery}`;
 }
 
@@ -380,7 +414,9 @@ export function LocationsPanel({ mode }: LocationsPanelProps) {
               </thead>
               <tbody>
                 {filteredItems.map((item) => {
-                  const mapsUrl = buildGoogleMapsUrl(item);
+                  const googleMapsUrl = buildGoogleMapsUrl(item);
+                  const appleMapsUrl = buildAppleMapsUrl(item);
+                  const hasMapLinks = googleMapsUrl || appleMapsUrl;
                   return (
                     <tr key={item.id} className='border-b border-slate-100'>
                       <td className='py-2 font-medium'>
@@ -395,17 +431,33 @@ export function LocationsPanel({ mode }: LocationsPanelProps) {
                       <td className='py-2 text-slate-600'>
                         <div className='flex items-center gap-2'>
                           <span>{item.address || '—'}</span>
-                          {mapsUrl && (
-                            <a
-                              href={mapsUrl}
-                              target='_blank'
-                              rel='noreferrer'
-                              title='Open in Google Maps'
-                              aria-label='Open in Google Maps'
-                              className='text-slate-500 hover:text-slate-900'
-                            >
-                              <MapIcon className='h-4 w-4' />
-                            </a>
+                          {hasMapLinks && (
+                            <span className='inline-flex items-center gap-2'>
+                              {googleMapsUrl && (
+                                <a
+                                  href={googleMapsUrl}
+                                  target='_blank'
+                                  rel='noreferrer'
+                                  title='Open in Google Maps'
+                                  aria-label='Open in Google Maps'
+                                  className='text-slate-500 hover:text-slate-900'
+                                >
+                                  <MapIcon className='h-4 w-4' />
+                                </a>
+                              )}
+                              {appleMapsUrl && (
+                                <a
+                                  href={appleMapsUrl}
+                                  target='_blank'
+                                  rel='noreferrer'
+                                  title='Open in Apple Maps'
+                                  aria-label='Open in Apple Maps'
+                                  className='text-slate-500 hover:text-slate-900'
+                                >
+                                  <AppleMapIcon className='h-4 w-4' />
+                                </a>
+                              )}
+                            </span>
                           )}
                         </div>
                       </td>
@@ -446,7 +498,9 @@ export function LocationsPanel({ mode }: LocationsPanelProps) {
             {/* Mobile card view */}
             <div className='space-y-3 md:hidden'>
               {filteredItems.map((item) => {
-                const mapsUrl = buildGoogleMapsUrl(item);
+                const googleMapsUrl = buildGoogleMapsUrl(item);
+                const appleMapsUrl = buildAppleMapsUrl(item);
+                const hasMapLinks = googleMapsUrl || appleMapsUrl;
                 return (
                   <div
                     key={item.id}
@@ -461,20 +515,36 @@ export function LocationsPanel({ mode }: LocationsPanelProps) {
                           ?.name || item.org_id}
                       </div>
                     )}
-                    {(item.address || mapsUrl) && (
+                    {(item.address || hasMapLinks) && (
                       <div className='mt-1 flex items-center gap-2 text-sm text-slate-500'>
                         <span>{item.address || '—'}</span>
-                        {mapsUrl && (
-                          <a
-                            href={mapsUrl}
-                            target='_blank'
-                            rel='noreferrer'
-                            title='Open in Google Maps'
-                            aria-label='Open in Google Maps'
-                            className='text-slate-500 hover:text-slate-900'
-                          >
-                            <MapIcon className='h-4 w-4' />
-                          </a>
+                        {hasMapLinks && (
+                          <span className='inline-flex items-center gap-2'>
+                            {googleMapsUrl && (
+                              <a
+                                href={googleMapsUrl}
+                                target='_blank'
+                                rel='noreferrer'
+                                title='Open in Google Maps'
+                                aria-label='Open in Google Maps'
+                                className='text-slate-500 hover:text-slate-900'
+                              >
+                                <MapIcon className='h-4 w-4' />
+                              </a>
+                            )}
+                            {appleMapsUrl && (
+                              <a
+                                href={appleMapsUrl}
+                                target='_blank'
+                                rel='noreferrer'
+                                title='Open in Apple Maps'
+                                aria-label='Open in Apple Maps'
+                                className='text-slate-500 hover:text-slate-900'
+                              >
+                                <AppleMapIcon className='h-4 w-4' />
+                              </a>
+                            )}
+                          </span>
                         )}
                       </div>
                     )}
