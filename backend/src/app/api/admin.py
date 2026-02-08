@@ -2026,9 +2026,7 @@ def _serialize_area(area: GeographicArea) -> dict[str, Any]:
         "id": str(area.id),
         "parent_id": str(area.parent_id) if area.parent_id else None,
         "name": area.name,
-        "name_translations": build_translation_map(
-            area.name, area.name_translations
-        ),
+        "name_translations": build_translation_map(area.name, area.name_translations),
         "level": area.level,
         "code": area.code,
         "active": area.active,
