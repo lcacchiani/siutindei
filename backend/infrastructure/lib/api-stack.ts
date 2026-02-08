@@ -134,6 +134,8 @@ export class ApiStack extends cdk.Stack {
       parseOptionalBoolean(
         process.env.SKIP_DB_CLUSTER_IMMUTABLE_UPDATES
       ) ?? false;
+    const enableDataApi =
+      parseOptionalBoolean(process.env.ENABLE_DATA_API) ?? false;
 
     // ---------------------------------------------------------------------
     // VPC and Security Groups
@@ -304,6 +306,7 @@ export class ApiStack extends cdk.Stack {
       dbProxyArn: existingDbProxyArn,
       dbProxyEndpoint: existingDbProxyEndpoint,
       manageSecurityGroupRules: manageDbSecurityGroupRules,
+      enableDataApi,
       applyImmutableSettings: !skipImmutableDbUpdates,
     });
 
