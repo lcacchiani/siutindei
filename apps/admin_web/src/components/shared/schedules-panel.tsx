@@ -834,7 +834,7 @@ export function SchedulesPanel({ mode }: SchedulesPanelProps) {
                       key={option.code}
                       type='button'
                       onClick={() => toggleLanguage(option.code)}
-                      className={`relative flex items-center justify-center rounded border px-1 py-0.5 transition ${
+                      className={`relative flex items-center justify-center rounded border px-2 py-1 transition ${
                         isSelected
                           ? 'border-slate-400 bg-slate-50 ring-2 ring-slate-200'
                           : 'border-slate-200 hover:border-slate-300'
@@ -847,8 +847,8 @@ export function SchedulesPanel({ mode }: SchedulesPanelProps) {
                       <img
                         src={option.flagSrc}
                         alt={`${option.label} flag`}
-                        width={20}
-                        height={14}
+                        width={40}
+                        height={28}
                         loading='lazy'
                       />
                     </button>
