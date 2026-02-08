@@ -93,6 +93,7 @@ class AppConstants {
     'per_sessions': 'Per Term',
     'per_hour': 'Hourly',
     'per_day': 'Daily',
+    'free': 'Free',
   };
 
   // ============================================================

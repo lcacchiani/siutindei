@@ -47,7 +47,7 @@ info:
     |-------|---------------|
     | currency | HKD, USD, EUR, GBP, CNY, JPY, SGD, AUD, CAD, CHF, NZD, TWD, KRW, THB, MYR, PHP, IDR, INR, VND |
     | languages | en, zh, ja, ko, fr, de, es, pt, it, ru, ar, hi, th, vi, id, ms, tl, nl, pl, tr, yue |
-    | pricing_type | per_class, per_sessions, per_hour, per_day |
+    | pricing_type | per_class, per_sessions, per_hour, per_day, free |
     | schedule_type | weekly, monthly, date_specific |
 
     ### Contact Validation
@@ -2034,13 +2034,14 @@ components:
           description: Location UUID (required)
         pricing_type:
           type: string
-          enum: [per_class, per_sessions, per_hour, per_day]
+          enum: [per_class, per_sessions, per_hour, per_day, free]
           description: |
             Pricing type (required):
             - per_class: Price per individual class
             - per_sessions: Per term pricing (requires sessions_count)
             - per_hour: Hourly price
             - per_day: Daily price
+            - free: Free pricing
         amount:
           type: number
           minimum: 0
@@ -2066,7 +2067,7 @@ components:
       properties:
         pricing_type:
           type: string
-          enum: [per_class, per_sessions, per_hour, per_day]
+          enum: [per_class, per_sessions, per_hour, per_day, free]
         amount:
           type: number
           minimum: 0

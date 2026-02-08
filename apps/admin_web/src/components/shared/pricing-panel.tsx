@@ -56,6 +56,7 @@ const pricingOptions = [
   { value: 'per_sessions', label: 'Per term' },
   { value: 'per_hour', label: 'Hourly' },
   { value: 'per_day', label: 'Daily' },
+  { value: 'free', label: 'Free' },
 ];
 
 const pricingTypeLabelByValue = new Map(
@@ -71,7 +72,12 @@ function itemToForm(item: ActivityPricing): PricingFormState {
     activity_id: item.activity_id ?? '',
     location_id: item.location_id ?? '',
     pricing_type: item.pricing_type,
-    amount: item.amount != null ? String(item.amount) : '',
+    amount:
+      item.pricing_type === 'free'
+        ? ''
+        : item.amount != null
+          ? String(item.amount)
+          : '',
     currency: normalizeCurrencyCode(item.currency),
     sessions_count: item.sessions_count ? `${item.sessions_count}` : '',
     free_trial_class_offered: Boolean(item.free_trial_class_offered),
@@ -155,42 +161,55 @@ export function PricingPanel({ mode }: PricingPanelProps) {
     return name ? `${name} ${normalized}` : normalized;
   }
 
+  const isFreeType = panel.formState.pricing_type === 'free';
+  const showSessionsField = panel.formState.pricing_type === 'per_sessions';
+  const showFreeTrialToggle = showSessionsField;
+
   const validate = () => {
     if (!panel.formState.activity_id || !panel.formState.location_id) {
       return 'Activity and location are required.';
     }
-    if (!panel.formState.amount.trim()) {
-      return 'Amount is required.';
-    }
-    const amountValue = Number(panel.formState.amount);
-    if (!Number.isFinite(amountValue)) {
-      return 'Amount must be numeric.';
+    if (!isFreeType) {
+      if (!panel.formState.amount.trim()) {
+        return 'Amount is required.';
+      }
+      const amountValue = Number(panel.formState.amount);
+      if (!Number.isFinite(amountValue)) {
+        return 'Amount must be numeric.';
+      }
     }
     if (panel.formState.pricing_type === 'per_sessions') {
-      const sessionsCount = parseOptionalNumber(panel.formState.sessions_count);
+      const sessionsCount = parseOptionalNumber(
+        panel.formState.sessions_count
+      );
       if (sessionsCount === null || sessionsCount <= 0) {
-        return 'Sessions count is required for per-sessions pricing.';
+        return 'Classes within term is required for per-term pricing.';
       }
     }
     return null;
   };
 
-  const formToPayload = (form: PricingFormState) => ({
-    activity_id: form.activity_id,
-    location_id: form.location_id,
-    pricing_type: form.pricing_type,
-    amount: form.amount.trim(),
-    currency: normalizeCurrencyCode(form.currency),
-    sessions_count:
-      form.pricing_type === 'per_sessions'
+  const formToPayload = (form: PricingFormState) => {
+    const isFree = form.pricing_type === 'free';
+    const isPerTerm = form.pricing_type === 'per_sessions';
+    return {
+      activity_id: form.activity_id,
+      location_id: form.location_id,
+      pricing_type: form.pricing_type,
+      amount: isFree ? '0' : form.amount.trim(),
+      currency: isFree
+        ? defaultCurrencyCode
+        : normalizeCurrencyCode(form.currency),
+      sessions_count: isPerTerm
         ? parseOptionalNumber(form.sessions_count)
         : null,
-    free_trial_class_offered: form.free_trial_class_offered,
-  });
+      free_trial_class_offered: isPerTerm
+        ? form.free_trial_class_offered
+        : false,
+    };
+  };
 
   const handleSubmit = () => panel.handleSubmit(formToPayload, validate);
-
-  const showSessionsField = panel.formState.pricing_type === 'per_sessions';
 
   function getActivityName(activityId: string) {
     return (
@@ -340,14 +359,26 @@ export function PricingPanel({ mode }: PricingPanelProps) {
                   id='pricing-type'
                   value={panel.formState.pricing_type}
                   onChange={(e) =>
-                    panel.setFormState((prev) => ({
-                      ...prev,
-                      pricing_type: e.target.value,
-                      sessions_count:
-                        e.target.value === 'per_sessions'
-                          ? prev.sessions_count
-                          : '',
-                    }))
+                    panel.setFormState((prev) => {
+                      const nextType = e.target.value;
+                      return {
+                        ...prev,
+                        pricing_type: nextType,
+                        sessions_count:
+                          nextType === 'per_sessions'
+                            ? prev.sessions_count
+                            : '',
+                        free_trial_class_offered:
+                          nextType === 'per_sessions'
+                            ? prev.free_trial_class_offered
+                            : false,
+                        amount: nextType === 'free' ? '' : prev.amount,
+                        currency:
+                          nextType === 'free'
+                            ? defaultCurrencyCode
+                            : prev.currency,
+                      };
+                    })
                   }
                 >
                   {pricingOptions.map((option) => (
@@ -376,23 +407,25 @@ export function PricingPanel({ mode }: PricingPanelProps) {
                   />
                 </div>
               )}
-              <div className='sm:col-span-2'>
-                <label className='flex items-center gap-2 text-sm'>
-                  <input
-                    id='pricing-free-trial'
-                    type='checkbox'
-                    checked={panel.formState.free_trial_class_offered}
-                    onChange={(e) =>
-                      panel.setFormState((prev) => ({
-                        ...prev,
-                        free_trial_class_offered: e.target.checked,
-                      }))
-                    }
-                    className='h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-500'
-                  />
-                  <span>Free trial class offered</span>
-                </label>
-              </div>
+              {showFreeTrialToggle && (
+                <div className='sm:col-span-2'>
+                  <label className='flex items-center gap-2 text-sm'>
+                    <input
+                      id='pricing-free-trial'
+                      type='checkbox'
+                      checked={panel.formState.free_trial_class_offered}
+                      onChange={(e) =>
+                        panel.setFormState((prev) => ({
+                          ...prev,
+                          free_trial_class_offered: e.target.checked,
+                        }))
+                      }
+                      className='h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-500'
+                    />
+                    <span>Free trial class offered</span>
+                  </label>
+                </div>
+              )}
             </div>
           </div>
           <div className='md:col-span-2'>
@@ -402,6 +435,7 @@ export function PricingPanel({ mode }: PricingPanelProps) {
                 <Select
                   id='pricing-currency'
                   value={panel.formState.currency}
+                  disabled={isFreeType}
                   onChange={(e) =>
                     panel.setFormState((prev) => ({
                       ...prev,
@@ -423,6 +457,7 @@ export function PricingPanel({ mode }: PricingPanelProps) {
                   type='number'
                   step='0.01'
                   value={panel.formState.amount}
+                  disabled={isFreeType}
                   onChange={(e) =>
                     panel.setFormState((prev) => ({
                       ...prev,

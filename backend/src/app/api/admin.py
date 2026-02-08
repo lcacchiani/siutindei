@@ -3118,14 +3118,25 @@ def _create_pricing(
     activity_id = body.get("activity_id")
     location_id = body.get("location_id")
     pricing_type = body.get("pricing_type")
-    amount = body.get("amount")
-    if not activity_id or not location_id or not pricing_type or amount is None:
+    if not activity_id or not location_id or not pricing_type:
         raise ValidationError(
-            "activity_id, location_id, pricing_type, and amount are required"
+            "activity_id, location_id, and pricing_type are required"
         )
 
-    _validate_pricing_amount(amount)
-    currency = _validate_currency(body.get("currency") or "HKD")
+    pricing_enum = PricingType(pricing_type)
+    amount = body.get("amount")
+    if pricing_enum == PricingType.FREE:
+        amount_value = Decimal("0")
+        currency = _validate_currency("HKD")
+    else:
+        if amount is None:
+            raise ValidationError(
+                "amount is required unless pricing_type is free",
+                field="amount",
+            )
+        _validate_pricing_amount(amount)
+        amount_value = Decimal(str(amount))
+        currency = _validate_currency(body.get("currency") or "HKD")
     free_trial_class_offered = body.get("free_trial_class_offered", False)
     if not isinstance(free_trial_class_offered, bool):
         raise ValidationError(
@@ -3133,20 +3144,22 @@ def _create_pricing(
             field="free_trial_class_offered",
         )
 
-    pricing_enum = PricingType(pricing_type)
     sessions_count = body.get("sessions_count")
     if pricing_enum == PricingType.PER_SESSIONS:
         if sessions_count is None:
-            raise ValidationError("sessions_count is required for per_sessions pricing")
+            raise ValidationError(
+                "sessions_count is required for per_sessions pricing"
+            )
         _validate_sessions_count(sessions_count)
     else:
         sessions_count = None
+        free_trial_class_offered = False
 
     return ActivityPricing(
         activity_id=_parse_uuid(activity_id),
         location_id=_parse_uuid(location_id),
         pricing_type=pricing_enum,
-        amount=Decimal(str(amount)),
+        amount=amount_value,
         currency=currency,
         sessions_count=sessions_count,
         free_trial_class_offered=free_trial_class_offered,
@@ -3162,11 +3175,16 @@ def _update_pricing(
 
     if "pricing_type" in body:
         entity.pricing_type = PricingType(body["pricing_type"])
-    if "amount" in body:
-        _validate_pricing_amount(body["amount"])
-        entity.amount = Decimal(str(body["amount"]))
-    if "currency" in body:
-        entity.currency = _validate_currency(body["currency"])
+    pricing_type = entity.pricing_type
+    if pricing_type == PricingType.FREE:
+        entity.amount = Decimal("0")
+        entity.currency = _validate_currency("HKD")
+    else:
+        if "amount" in body:
+            _validate_pricing_amount(body["amount"])
+            entity.amount = Decimal(str(body["amount"]))
+        if "currency" in body:
+            entity.currency = _validate_currency(body["currency"])
     if "sessions_count" in body:
         if body["sessions_count"] is not None:
             _validate_sessions_count(body["sessions_count"])
@@ -3179,8 +3197,9 @@ def _update_pricing(
                 field="free_trial_class_offered",
             )
         entity.free_trial_class_offered = free_trial_class_offered
-    if entity.pricing_type != PricingType.PER_SESSIONS:
+    if pricing_type != PricingType.PER_SESSIONS:
         entity.sessions_count = None
+        entity.free_trial_class_offered = False
     return entity
 
 

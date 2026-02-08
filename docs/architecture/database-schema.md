@@ -9,7 +9,8 @@ Seed data lives in `backend/db/seed/seed_data.sql`.
 ## Extensions and enums
 
 - Extension: `pgcrypto` (used by `gen_random_uuid()` defaults).
-- Enum `pricing_type`: `per_class`, `per_sessions`, `per_hour`, `per_day`.
+- Enum `pricing_type`: `per_class`, `per_sessions`, `per_hour`, `per_day`,
+  `free`.
 - Enum `schedule_type`: `weekly`, `monthly`, `date_specific`.
 - Enum `ticket_type`: `access_request`, `organization_suggestion`.
 - Enum `ticket_status`: `pending`, `approved`, `rejected`.

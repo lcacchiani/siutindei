@@ -144,6 +144,7 @@ class PricingEntity {
             : '$priceStr/term',
       PricingType.perHour => '$priceStr/hour',
       PricingType.perDay => '$priceStr/day',
+      PricingType.free => 'Free',
     };
   }
 }
@@ -152,13 +153,15 @@ enum PricingType {
   perClass,
   perSessions,
   perHour,
-  perDay;
+  perDay,
+  free;
 
   static PricingType fromString(String value) => switch (value) {
     'per_class' => PricingType.perClass,
     'per_sessions' => PricingType.perSessions,
     'per_hour' => PricingType.perHour,
     'per_day' => PricingType.perDay,
+    'free' => PricingType.free,
     _ => PricingType.perClass,
   };
 
@@ -167,6 +170,7 @@ enum PricingType {
     PricingType.perSessions => 'per_sessions',
     PricingType.perHour => 'per_hour',
     PricingType.perDay => 'per_day',
+    PricingType.free => 'free',
   };
 }
 ```

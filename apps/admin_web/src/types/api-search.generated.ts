@@ -29,8 +29,9 @@ export interface paths {
                      *     - per_sessions: Per term pricing
                      *     - per_hour: Hourly pricing
                      *     - per_day: Daily pricing
+                     *     - free: Free pricing
                      */
-                    pricing_type?: "per_class" | "per_sessions" | "per_hour" | "per_day";
+                    pricing_type?: "per_class" | "per_sessions" | "per_hour" | "per_day" | "free";
                     /** @description Minimum price filter (>= 0) */
                     price_min?: number;
                     /** @description Maximum price filter (>= 0) */
@@ -157,7 +158,7 @@ export interface components {
         };
         Pricing: {
             /** @enum {string} */
-            pricing_type: "per_class" | "per_sessions" | "per_hour" | "per_day";
+            pricing_type: "per_class" | "per_sessions" | "per_hour" | "per_day" | "free";
             amount: number;
             currency: string;
             sessions_count?: number | null;

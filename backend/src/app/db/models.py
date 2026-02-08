@@ -140,6 +140,7 @@ class PricingType(str, enum.Enum):
     PER_SESSIONS = "per_sessions"
     PER_HOUR = "per_hour"
     PER_DAY = "per_day"
+    FREE = "free"
 
 
 class ScheduleType(str, enum.Enum):

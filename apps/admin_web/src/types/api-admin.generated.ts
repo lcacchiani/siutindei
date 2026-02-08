@@ -3279,9 +3279,10 @@ export interface components {
              *     - per_sessions: Per term pricing (requires sessions_count)
              *     - per_hour: Hourly price
              *     - per_day: Daily price
+             *     - free: Free pricing
              * @enum {string}
              */
-            pricing_type: "per_class" | "per_sessions" | "per_hour" | "per_day";
+            pricing_type: "per_class" | "per_sessions" | "per_hour" | "per_day" | "free";
             /** @description Price amount (required, must be >= 0) */
             amount: number;
             /**
@@ -3299,7 +3300,7 @@ export interface components {
         };
         PricingUpdate: {
             /** @enum {string} */
-            pricing_type?: "per_class" | "per_sessions" | "per_hour" | "per_day";
+            pricing_type?: "per_class" | "per_sessions" | "per_hour" | "per_day" | "free";
             /** @description Price amount (must be >= 0) */
             amount?: number;
             /** @description ISO 4217 currency code (case-insensitive) */
