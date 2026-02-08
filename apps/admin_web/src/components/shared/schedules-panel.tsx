@@ -7,6 +7,8 @@ import { useLocationsByMode } from '../../hooks/use-locations-by-mode';
 import { useResourcePanel } from '../../hooks/use-resource-panel';
 import { parseOptionalNumber } from '../../lib/number-parsers';
 import type { ApiMode } from '../../lib/resource-api';
+import type { LanguageCode } from '../../lib/translations';
+import { languageOptions } from '../../lib/translations';
 import type { ActivitySchedule } from '../../types/admin';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
@@ -28,7 +30,7 @@ interface ScheduleFormState {
   end_minutes_utc: string;
   start_at_utc: string;
   end_at_utc: string;
-  languages: string;
+  languages: LanguageCode[];
 }
 
 const emptyForm: ScheduleFormState = {
@@ -41,7 +43,7 @@ const emptyForm: ScheduleFormState = {
   end_minutes_utc: '',
   start_at_utc: '',
   end_at_utc: '',
-  languages: '',
+  languages: [],
 };
 
 const scheduleOptions = [
@@ -67,11 +69,19 @@ function toUtcIso(value: string): string | null {
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
 }
 
-function parseLanguages(value: string): string[] {
-  return value
-    .split(',')
-    .map((item) => item.trim())
-    .filter((item) => item.length > 0);
+const languageCodeSet = new Set<LanguageCode>(
+  languageOptions.map((option) => option.code)
+);
+
+function toLanguageCodes(value?: string[] | null): LanguageCode[] {
+  if (!value) return [];
+  return value.filter((code): code is LanguageCode =>
+    languageCodeSet.has(code as LanguageCode)
+  );
+}
+
+function getLanguageOption(code: string) {
+  return languageOptions.find((option) => option.code === code) ?? null;
 }
 
 function itemToForm(item: ActivitySchedule): ScheduleFormState {
@@ -97,7 +107,7 @@ function itemToForm(item: ActivitySchedule): ScheduleFormState {
         : '',
     start_at_utc: toUtcInputValue(item.start_at_utc),
     end_at_utc: toUtcInputValue(item.end_at_utc),
-    languages: item.languages?.join(', ') ?? '',
+    languages: toLanguageCodes(item.languages),
   };
 }
 
@@ -156,6 +166,9 @@ export function SchedulesPanel({ mode }: SchedulesPanelProps) {
         return 'Date-specific schedules need a valid time range.';
       }
     }
+    if (form.languages.length === 0) {
+      return 'Select at least one language.';
+    }
     return null;
   };
 
@@ -169,12 +182,13 @@ export function SchedulesPanel({ mode }: SchedulesPanelProps) {
     end_minutes_utc: parseOptionalNumber(form.end_minutes_utc),
     start_at_utc: toUtcIso(form.start_at_utc),
     end_at_utc: toUtcIso(form.end_at_utc),
-    languages: parseLanguages(form.languages),
+    languages: form.languages,
   });
 
   const handleSubmit = () => panel.handleSubmit(formToPayload, validate);
 
   const scheduleType = panel.formState.schedule_type;
+  const selectedLanguages = new Set(panel.formState.languages);
 
   function getActivityName(activityId: string) {
     return activities.find((activity) => activity.id === activityId)?.name ??
@@ -184,6 +198,16 @@ export function SchedulesPanel({ mode }: SchedulesPanelProps) {
   function getLocationName(locationId: string) {
     return locations.find((location) => location.id === locationId)?.address ??
       locationId;
+  }
+
+  function toggleLanguage(code: LanguageCode) {
+    panel.setFormState((prev) => {
+      const isSelected = prev.languages.includes(code);
+      const nextLanguages = isSelected
+        ? prev.languages.filter((language) => language !== code)
+        : [...prev.languages, code];
+      return { ...prev, languages: nextLanguages };
+    });
   }
 
   const columns = [
@@ -218,9 +242,38 @@ export function SchedulesPanel({ mode }: SchedulesPanelProps) {
       key: 'languages',
       header: 'Languages',
       render: (item: ActivitySchedule) => (
-        <span className='text-slate-600'>
-          {item.languages?.length ? item.languages.join(', ') : '—'}
-        </span>
+        <div className='flex flex-wrap items-center gap-2 text-slate-600'>
+          {item.languages?.length ? (
+            item.languages.map((language) => {
+              const option = getLanguageOption(language);
+              if (!option) {
+                return (
+                  <span key={language} className='text-xs uppercase'>
+                    {language}
+                  </span>
+                );
+              }
+              return (
+                <span
+                  key={option.code}
+                  className='inline-flex items-center justify-center rounded border border-slate-200 bg-white px-1.5 py-1'
+                  title={option.label}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={option.flagSrc}
+                    alt={`${option.label} flag`}
+                    width={20}
+                    height={14}
+                    loading='lazy'
+                  />
+                </span>
+              );
+            })
+          ) : (
+            <span>—</span>
+          )}
+        </div>
       ),
     },
   ];
@@ -453,17 +506,49 @@ export function SchedulesPanel({ mode }: SchedulesPanelProps) {
             </>
           )}
           <div className='md:col-span-2'>
-            <Label htmlFor='schedule-languages'>Languages (comma-separated)</Label>
-            <Input
-              id='schedule-languages'
-              value={panel.formState.languages}
-              onChange={(e) =>
-                panel.setFormState((prev) => ({
-                  ...prev,
-                  languages: e.target.value,
-                }))
-              }
-            />
+            <div className='space-y-2'>
+              <Label id='schedule-languages-label'>Languages</Label>
+              <p
+                id='schedule-languages-help'
+                className='text-xs text-slate-500'
+              >
+                Select one or more flags.
+              </p>
+              <div
+                role='group'
+                aria-labelledby='schedule-languages-label'
+                aria-describedby='schedule-languages-help'
+                className='flex flex-wrap items-center gap-2'
+              >
+                {languageOptions.map((option) => {
+                  const isSelected = selectedLanguages.has(option.code);
+                  return (
+                    <button
+                      key={option.code}
+                      type='button'
+                      onClick={() => toggleLanguage(option.code)}
+                      className={`relative flex items-center justify-center rounded border px-1.5 py-1 transition ${
+                        isSelected
+                          ? 'border-slate-400 bg-slate-50 ring-2 ring-slate-200'
+                          : 'border-slate-200 hover:border-slate-300'
+                      }`}
+                      aria-pressed={isSelected}
+                      aria-label={`Toggle ${option.label}`}
+                      title={option.label}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={option.flagSrc}
+                        alt={`${option.label} flag`}
+                        width={24}
+                        height={16}
+                        loading='lazy'
+                      />
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         </div>
         <div className='mt-4 flex flex-wrap gap-3'>
