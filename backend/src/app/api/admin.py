@@ -3126,6 +3126,12 @@ def _create_pricing(
 
     _validate_pricing_amount(amount)
     currency = _validate_currency(body.get("currency") or "HKD")
+    free_trial_class_offered = body.get("free_trial_class_offered", False)
+    if not isinstance(free_trial_class_offered, bool):
+        raise ValidationError(
+            "free_trial_class_offered must be a boolean",
+            field="free_trial_class_offered",
+        )
 
     pricing_enum = PricingType(pricing_type)
     sessions_count = body.get("sessions_count")
@@ -3143,6 +3149,7 @@ def _create_pricing(
         amount=Decimal(str(amount)),
         currency=currency,
         sessions_count=sessions_count,
+        free_trial_class_offered=free_trial_class_offered,
     )
 
 
@@ -3164,6 +3171,14 @@ def _update_pricing(
         if body["sessions_count"] is not None:
             _validate_sessions_count(body["sessions_count"])
         entity.sessions_count = body["sessions_count"]
+    if "free_trial_class_offered" in body:
+        free_trial_class_offered = body["free_trial_class_offered"]
+        if not isinstance(free_trial_class_offered, bool):
+            raise ValidationError(
+                "free_trial_class_offered must be a boolean",
+                field="free_trial_class_offered",
+            )
+        entity.free_trial_class_offered = free_trial_class_offered
     if entity.pricing_type != PricingType.PER_SESSIONS:
         entity.sessions_count = None
     return entity
@@ -3685,6 +3700,7 @@ def _serialize_pricing(entity: ActivityPricing) -> dict[str, Any]:
         "amount": entity.amount,
         "currency": entity.currency,
         "sessions_count": entity.sessions_count,
+        "free_trial_class_offered": entity.free_trial_class_offered,
     }
 
 

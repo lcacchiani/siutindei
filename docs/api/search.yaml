@@ -63,11 +63,12 @@ paths:
           description: |
             Filter by pricing type:
             - per_class: Individual class pricing
-            - per_month: Monthly subscription
-            - per_sessions: Package pricing
+            - per_sessions: Per term pricing
+            - per_hour: Hourly pricing
+            - per_day: Daily pricing
           schema:
             type: string
-            enum: [per_class, per_month, per_sessions]
+            enum: [per_class, per_sessions, per_hour, per_day]
         - name: price_min
           in: query
           required: false
@@ -298,11 +299,11 @@ components:
           nullable: true
     Pricing:
       type: object
-      required: [pricing_type, amount, currency]
+      required: [pricing_type, amount, currency, free_trial_class_offered]
       properties:
         pricing_type:
           type: string
-          enum: [per_class, per_month, per_sessions]
+          enum: [per_class, per_sessions, per_hour, per_day]
         amount:
           type: number
         currency:
@@ -310,6 +311,9 @@ components:
         sessions_count:
           type: integer
           nullable: true
+        free_trial_class_offered:
+          type: boolean
+          description: Whether a free trial class is offered
     Schedule:
       type: object
       required: [schedule_type, languages]

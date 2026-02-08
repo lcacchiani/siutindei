@@ -303,14 +303,14 @@ void main() {
 
     test('pricingToEntity converts pricing type correctly', () {
       final model = Pricing(
-        pricingType: 'per_month',
+        pricingType: 'per_hour',
         amount: 100,
         currency: 'USD',
       );
 
       final entity = ActivityMapper.pricingToEntity(model);
 
-      expect(entity.type, equals(PricingType.perMonth));
+      expect(entity.type, equals(PricingType.perHour));
     });
 
     test('scheduleToEntity parses DateTime correctly', () {
@@ -349,7 +349,7 @@ void main() {
       final filters = SearchFilters(
         searchQuery: 'swimming',
         age: 8,
-        pricingType: PricingType.perMonth,
+        pricingType: PricingType.perDay,
         dayOfWeekUtc: 1,
       );
 
@@ -357,7 +357,7 @@ void main() {
 
       expect(model.searchQuery, equals('swimming'));
       expect(model.age, equals(8));
-      expect(model.pricingType, equals('per_month'));
+      expect(model.pricingType, equals('per_day'));
       expect(model.dayOfWeekUtc, equals(1));
     });
 

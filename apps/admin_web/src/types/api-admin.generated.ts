@@ -3276,11 +3276,12 @@ export interface components {
             /**
              * @description Pricing type (required):
              *     - per_class: Price per individual class
-             *     - per_month: Monthly subscription price
-             *     - per_sessions: Price for a package of sessions (requires sessions_count)
+             *     - per_sessions: Per term pricing (requires sessions_count)
+             *     - per_hour: Hourly price
+             *     - per_day: Daily price
              * @enum {string}
              */
-            pricing_type: "per_class" | "per_month" | "per_sessions";
+            pricing_type: "per_class" | "per_sessions" | "per_hour" | "per_day";
             /** @description Price amount (required, must be >= 0) */
             amount: number;
             /**
@@ -3288,18 +3289,25 @@ export interface components {
              * @default HKD
              */
             currency: string;
-            /** @description Number of sessions (required when pricing_type is per_sessions, must be > 0) */
+            /** @description Classes within term (required for per_sessions, must be > 0) */
             sessions_count?: number;
+            /**
+             * @description Whether a free trial class is offered
+             * @default false
+             */
+            free_trial_class_offered: boolean;
         };
         PricingUpdate: {
             /** @enum {string} */
-            pricing_type?: "per_class" | "per_month" | "per_sessions";
+            pricing_type?: "per_class" | "per_sessions" | "per_hour" | "per_day";
             /** @description Price amount (must be >= 0) */
             amount?: number;
             /** @description ISO 4217 currency code (case-insensitive) */
             currency?: string;
-            /** @description Number of sessions (must be > 0) */
+            /** @description Classes within term (must be > 0) */
             sessions_count?: number;
+            /** @description Whether a free trial class is offered */
+            free_trial_class_offered?: boolean;
         };
         Pricing: {
             /** Format: uuid */
@@ -3312,6 +3320,7 @@ export interface components {
             amount: number;
             currency: string;
             sessions_count?: number | null;
+            free_trial_class_offered: boolean;
         };
         PricingListResponse: {
             items: components["schemas"]["Pricing"][];

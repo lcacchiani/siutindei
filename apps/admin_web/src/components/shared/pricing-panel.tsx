@@ -30,6 +30,7 @@ interface PricingFormState {
   amount: string;
   currency: string;
   sessions_count: string;
+  free_trial_class_offered: boolean;
 }
 
 interface CurrencyOption {
@@ -47,12 +48,14 @@ const emptyForm: PricingFormState = {
   amount: '',
   currency: defaultCurrencyCode,
   sessions_count: '',
+  free_trial_class_offered: false,
 };
 
 const pricingOptions = [
   { value: 'per_class', label: 'Per class' },
-  { value: 'per_month', label: 'Per month' },
-  { value: 'per_sessions', label: 'Per sessions' },
+  { value: 'per_sessions', label: 'Per term' },
+  { value: 'per_hour', label: 'Hourly' },
+  { value: 'per_day', label: 'Daily' },
 ];
 
 const pricingTypeLabelByValue = new Map(
@@ -71,6 +74,7 @@ function itemToForm(item: ActivityPricing): PricingFormState {
     amount: item.amount != null ? String(item.amount) : '',
     currency: normalizeCurrencyCode(item.currency),
     sessions_count: item.sessions_count ? `${item.sessions_count}` : '',
+    free_trial_class_offered: Boolean(item.free_trial_class_offered),
   };
 }
 
@@ -181,6 +185,7 @@ export function PricingPanel({ mode }: PricingPanelProps) {
       form.pricing_type === 'per_sessions'
         ? parseOptionalNumber(form.sessions_count)
         : null,
+    free_trial_class_offered: form.free_trial_class_offered,
   });
 
   const handleSubmit = () => panel.handleSubmit(formToPayload, validate);
@@ -238,6 +243,15 @@ export function PricingPanel({ mode }: PricingPanelProps) {
         <span className='text-slate-600'>
           {getCurrencyDisplay(item.currency)}{' '}
           {formatPriceAmount(item.amount)}
+        </span>
+      ),
+    },
+    {
+      key: 'freeTrial',
+      header: 'Free trial',
+      render: (item: ActivityPricing) => (
+        <span className='text-slate-600'>
+          {item.free_trial_class_offered ? 'Yes' : 'No'}
         </span>
       ),
     },
@@ -345,7 +359,9 @@ export function PricingPanel({ mode }: PricingPanelProps) {
               </div>
               {showSessionsField && (
                 <div>
-                  <Label htmlFor='pricing-sessions'>Sessions Count</Label>
+                  <Label htmlFor='pricing-sessions'>
+                    Classes within Term
+                  </Label>
                   <Input
                     id='pricing-sessions'
                     type='number'
@@ -360,6 +376,23 @@ export function PricingPanel({ mode }: PricingPanelProps) {
                   />
                 </div>
               )}
+              <div className='sm:col-span-2'>
+                <label className='flex items-center gap-2 text-sm'>
+                  <input
+                    id='pricing-free-trial'
+                    type='checkbox'
+                    checked={panel.formState.free_trial_class_offered}
+                    onChange={(e) =>
+                      panel.setFormState((prev) => ({
+                        ...prev,
+                        free_trial_class_offered: e.target.checked,
+                      }))
+                    }
+                    className='h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-500'
+                  />
+                  <span>Free trial class offered</span>
+                </label>
+              </div>
             </div>
           </div>
           <div className='md:col-span-2'>

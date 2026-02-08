@@ -113,6 +113,7 @@ class ActivityPricingRepository(BaseRepository[ActivityPricing]):
         amount: Decimal,
         currency: str = "HKD",
         sessions_count: Optional[int] = None,
+        free_trial_class_offered: bool = False,
     ) -> ActivityPricing:
         """Create new pricing.
 
@@ -123,6 +124,7 @@ class ActivityPricingRepository(BaseRepository[ActivityPricing]):
             amount: Price amount.
             currency: Currency code.
             sessions_count: Number of sessions (for per_sessions type).
+            free_trial_class_offered: Whether a free trial class is offered.
 
         Returns:
             The created pricing.
@@ -134,6 +136,7 @@ class ActivityPricingRepository(BaseRepository[ActivityPricing]):
             amount=amount,
             currency=currency,
             sessions_count=sessions_count,
+            free_trial_class_offered=free_trial_class_offered,
         )
         return self.create(pricing)
 
@@ -144,6 +147,7 @@ class ActivityPricingRepository(BaseRepository[ActivityPricing]):
         amount: Optional[Decimal] = None,
         currency: Optional[str] = None,
         sessions_count: Optional[int] = None,
+        free_trial_class_offered: Optional[bool] = None,
     ) -> ActivityPricing:
         """Update pricing.
 
@@ -153,6 +157,7 @@ class ActivityPricingRepository(BaseRepository[ActivityPricing]):
             amount: New amount (if provided).
             currency: New currency (if provided).
             sessions_count: New sessions count (if provided).
+            free_trial_class_offered: New free trial flag (if provided).
 
         Returns:
             The updated pricing.
@@ -165,4 +170,6 @@ class ActivityPricingRepository(BaseRepository[ActivityPricing]):
             pricing.currency = currency
         if sessions_count is not None:
             pricing.sessions_count = sessions_count
+        if free_trial_class_offered is not None:
+            pricing.free_trial_class_offered = free_trial_class_offered
         return self.update(pricing)

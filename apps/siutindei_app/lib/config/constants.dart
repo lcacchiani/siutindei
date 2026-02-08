@@ -90,8 +90,9 @@ class AppConstants {
   /// Pricing types with display names.
   static const Map<String, String> pricingTypes = {
     'per_class': 'Per Class',
-    'per_month': 'Monthly',
-    'per_sessions': 'Per Sessions',
+    'per_sessions': 'Per Term',
+    'per_hour': 'Hourly',
+    'per_day': 'Daily',
   };
 
   // ============================================================

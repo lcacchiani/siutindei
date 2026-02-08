@@ -137,8 +137,9 @@ class PricingType(str, enum.Enum):
     """Supported pricing types for activities."""
 
     PER_CLASS = "per_class"
-    PER_MONTH = "per_month"
     PER_SESSIONS = "per_sessions"
+    PER_HOUR = "per_hour"
+    PER_DAY = "per_day"
 
 
 class ScheduleType(str, enum.Enum):
@@ -402,6 +403,12 @@ class ActivityPricing(Base):
     amount: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
     currency: Mapped[str] = mapped_column(Text(), nullable=False, server_default="HKD")
     sessions_count: Mapped[Optional[int]] = mapped_column(Integer(), nullable=True)
+    free_trial_class_offered: Mapped[bool] = mapped_column(
+        sa.Boolean(),
+        nullable=False,
+        default=False,
+        server_default=text("false"),
+    )
 
     __table_args__ = (
         CheckConstraint(

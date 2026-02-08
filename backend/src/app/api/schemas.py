@@ -60,6 +60,7 @@ class PricingSchema(BaseModel):
     amount: Decimal
     currency: str
     sessions_count: Optional[int]
+    free_trial_class_offered: bool
 
 
 class ScheduleSchema(BaseModel):

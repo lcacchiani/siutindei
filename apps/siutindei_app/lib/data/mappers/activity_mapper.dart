@@ -47,6 +47,7 @@ class ActivityMapper {
       amount: model.amount,
       currency: model.currency,
       sessionsCount: model.sessionsCount,
+      freeTrialClassOffered: model.freeTrialClassOffered,
     );
   }
 
