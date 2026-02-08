@@ -22,7 +22,7 @@ import {
   buildTranslationsPayload,
   emptyTranslations,
   extractTranslations,
-  translationLanguages,
+  type LanguageCode,
   type TranslationLanguageCode,
 } from '../../lib/translations';
 import type { CognitoUser, Organization } from '../../types/admin';
@@ -32,9 +32,9 @@ import { Card } from '../ui/card';
 import { DataTable } from '../ui/data-table';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
+import { LanguageToggleInput } from '../ui/language-toggle-input';
 import { SearchInput } from '../ui/search-input';
 import { Select } from '../ui/select';
-import { Textarea } from '../ui/textarea';
 import { StatusBanner } from '../status-banner';
 
 
@@ -422,6 +422,34 @@ export function OrganizationsPanel({ mode }: OrganizationsPanelProps) {
     return null;
   };
 
+  const handleNameChange = (language: LanguageCode, value: string) => {
+    panel.setFormState((prev) =>
+      language === 'en'
+        ? { ...prev, name: value }
+        : {
+            ...prev,
+            name_translations: {
+              ...prev.name_translations,
+              [language]: value,
+            },
+          }
+    );
+  };
+
+  const handleDescriptionChange = (language: LanguageCode, value: string) => {
+    panel.setFormState((prev) =>
+      language === 'en'
+        ? { ...prev, description: value }
+        : {
+            ...prev,
+            description_translations: {
+              ...prev.description_translations,
+              [language]: value,
+            },
+          }
+    );
+  };
+
   const formToPayload = (form: OrganizationFormState) => {
     const existingOrg = panel.items.find((item) => item.id === panel.editingId);
     const phoneNumber = normalizePhoneNumber(form.phone_number);
@@ -568,16 +596,15 @@ export function OrganizationsPanel({ mode }: OrganizationsPanelProps) {
           )}
           <div className='grid gap-4 md:grid-cols-2'>
             <div>
-              <Label htmlFor='org-name'>Name</Label>
-              <Input
+              <LanguageToggleInput
                 id='org-name'
-                value={panel.formState.name}
-                onChange={(e) =>
-                  panel.setFormState((prev) => ({
-                    ...prev,
-                    name: e.target.value,
-                  }))
-                }
+                label='Name'
+                values={{
+                  en: panel.formState.name,
+                  zh: panel.formState.name_translations.zh,
+                  yue: panel.formState.name_translations.yue,
+                }}
+                onChange={handleNameChange}
               />
             </div>
             <div>
@@ -617,79 +644,19 @@ export function OrganizationsPanel({ mode }: OrganizationsPanelProps) {
               )}
             </div>
             <div className='md:col-span-2'>
-              <Label htmlFor='org-description'>Description</Label>
-              <Textarea
+              <LanguageToggleInput
                 id='org-description'
+                label='Description'
+                multiline
                 rows={3}
-                value={panel.formState.description}
-                onChange={(e) =>
-                  panel.setFormState((prev) => ({
-                    ...prev,
-                    description: e.target.value,
-                  }))
-                }
+                values={{
+                  en: panel.formState.description,
+                  zh: panel.formState.description_translations.zh,
+                  yue: panel.formState.description_translations.yue,
+                }}
+                onChange={handleDescriptionChange}
               />
             </div>
-            <div className='md:col-span-2 border-t border-slate-100 pt-4'>
-              <p className='text-sm font-medium text-slate-700'>
-                Name translations
-              </p>
-              <p className='text-xs text-slate-500'>
-                Provide non-English names for zh and yue.
-              </p>
-            </div>
-            {translationLanguages.map((language) => (
-              <div key={`org-name-${language.code}`}>
-                <Label htmlFor={`org-name-${language.code}`}>
-                  {language.label}
-                </Label>
-                <Input
-                  id={`org-name-${language.code}`}
-                  value={panel.formState.name_translations[language.code]}
-                  onChange={(e) =>
-                    panel.setFormState((prev) => ({
-                      ...prev,
-                      name_translations: {
-                        ...prev.name_translations,
-                        [language.code]: e.target.value,
-                      },
-                    }))
-                  }
-                />
-              </div>
-            ))}
-            <div className='md:col-span-2 border-t border-slate-100 pt-4'>
-              <p className='text-sm font-medium text-slate-700'>
-                Description translations
-              </p>
-              <p className='text-xs text-slate-500'>
-                Optional localized descriptions for zh and yue.
-              </p>
-            </div>
-            {translationLanguages.map((language) => (
-              <div
-                key={`org-description-${language.code}`}
-                className='md:col-span-2'
-              >
-                <Label htmlFor={`org-description-${language.code}`}>
-                  {language.label}
-                </Label>
-                <Textarea
-                  id={`org-description-${language.code}`}
-                  rows={2}
-                  value={panel.formState.description_translations[language.code]}
-                  onChange={(e) =>
-                    panel.setFormState((prev) => ({
-                      ...prev,
-                      description_translations: {
-                        ...prev.description_translations,
-                        [language.code]: e.target.value,
-                      },
-                    }))
-                  }
-                />
-              </div>
-            ))}
             <div className='md:col-span-2'>
               <Label htmlFor='org-email'>Email</Label>
               <Input

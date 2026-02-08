@@ -7,7 +7,7 @@ import {
   buildTranslationsPayload,
   emptyTranslations,
   extractTranslations,
-  translationLanguages,
+  type LanguageCode,
   type TranslationLanguageCode,
 } from '../../lib/translations';
 import type { ActivityCategory } from '../../types/admin';
@@ -16,6 +16,7 @@ import { Card } from '../ui/card';
 import { DataTable } from '../ui/data-table';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
+import { LanguageToggleInput } from '../ui/language-toggle-input';
 import { SearchInput } from '../ui/search-input';
 import { Select } from '../ui/select';
 import { StatusBanner } from '../status-banner';
@@ -142,6 +143,20 @@ export function ActivityCategoriesPanel() {
     return null;
   };
 
+  const handleNameChange = (language: LanguageCode, value: string) => {
+    panel.setFormState((prev) =>
+      language === 'en'
+        ? { ...prev, name: value }
+        : {
+            ...prev,
+            name_translations: {
+              ...prev.name_translations,
+              [language]: value,
+            },
+          }
+    );
+  };
+
   const formToPayload = (form: ActivityCategoryFormState) => ({
     name: form.name.trim(),
     name_translations: buildTranslationsPayload(form.name_translations),
@@ -195,46 +210,17 @@ export function ActivityCategoriesPanel() {
         )}
         <div className='grid gap-4 md:grid-cols-2'>
           <div>
-            <Label htmlFor='category-name'>Name</Label>
-            <Input
+            <LanguageToggleInput
               id='category-name'
-              value={panel.formState.name}
-              onChange={(e) =>
-                panel.setFormState((prev) => ({
-                  ...prev,
-                  name: e.target.value,
-                }))
-              }
+              label='Name'
+              values={{
+                en: panel.formState.name,
+                zh: panel.formState.name_translations.zh,
+                yue: panel.formState.name_translations.yue,
+              }}
+              onChange={handleNameChange}
             />
           </div>
-          <div className='md:col-span-2 border-t border-slate-100 pt-4'>
-            <p className='text-sm font-medium text-slate-700'>
-              Name translations
-            </p>
-            <p className='text-xs text-slate-500'>
-              Provide non-English names for zh and yue.
-            </p>
-          </div>
-          {translationLanguages.map((language) => (
-            <div key={`category-name-${language.code}`}>
-              <Label htmlFor={`category-name-${language.code}`}>
-                {language.label}
-              </Label>
-              <Input
-                id={`category-name-${language.code}`}
-                value={panel.formState.name_translations[language.code]}
-                onChange={(e) =>
-                  panel.setFormState((prev) => ({
-                    ...prev,
-                    name_translations: {
-                      ...prev.name_translations,
-                      [language.code]: e.target.value,
-                    },
-                  }))
-                }
-              />
-            </div>
-          ))}
           <div>
             <Label htmlFor='category-parent'>Parent</Label>
             <Select

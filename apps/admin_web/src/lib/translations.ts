@@ -6,6 +6,14 @@ export const translationLanguages = [
 export type TranslationLanguageCode =
   (typeof translationLanguages)[number]['code'];
 
+export const languageOptions = [
+  { code: 'en', label: 'English (en)', flagSrc: '/flags/gb.svg' },
+  { code: 'zh', label: 'Chinese (zh)', flagSrc: '/flags/cn.svg' },
+  { code: 'yue', label: 'Cantonese (yue)', flagSrc: '/flags/hk.svg' },
+] as const;
+
+export type LanguageCode = (typeof languageOptions)[number]['code'];
+
 export function emptyTranslations(): Record<TranslationLanguageCode, string> {
   return {
     zh: '',

@@ -11,7 +11,7 @@ import {
   buildTranslationsPayload,
   emptyTranslations,
   extractTranslations,
-  translationLanguages,
+  type LanguageCode,
   type TranslationLanguageCode,
 } from '../../lib/translations';
 import type { Activity } from '../../types/admin';
@@ -21,9 +21,9 @@ import { Card } from '../ui/card';
 import { DataTable } from '../ui/data-table';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
+import { LanguageToggleInput } from '../ui/language-toggle-input';
 import { SearchInput } from '../ui/search-input';
 import { Select } from '../ui/select';
-import { Textarea } from '../ui/textarea';
 import { StatusBanner } from '../status-banner';
 
 interface ActivityFormState {
@@ -131,6 +131,34 @@ export function ActivitiesPanel({ mode }: ActivitiesPanelProps) {
       return 'Age min must be less than age max.';
     }
     return null;
+  };
+
+  const handleNameChange = (language: LanguageCode, value: string) => {
+    panel.setFormState((prev) =>
+      language === 'en'
+        ? { ...prev, name: value }
+        : {
+            ...prev,
+            name_translations: {
+              ...prev.name_translations,
+              [language]: value,
+            },
+          }
+    );
+  };
+
+  const handleDescriptionChange = (language: LanguageCode, value: string) => {
+    panel.setFormState((prev) =>
+      language === 'en'
+        ? { ...prev, description: value }
+        : {
+            ...prev,
+            description_translations: {
+              ...prev.description_translations,
+              [language]: value,
+            },
+          }
+    );
   };
 
   const formToPayload = (form: ActivityFormState) => ({
@@ -244,16 +272,15 @@ export function ActivitiesPanel({ mode }: ActivitiesPanelProps) {
             </Select>
           </div>
           <div>
-            <Label htmlFor='activity-name'>Name</Label>
-            <Input
+            <LanguageToggleInput
               id='activity-name'
-              value={panel.formState.name}
-              onChange={(e) =>
-                panel.setFormState((prev) => ({
-                  ...prev,
-                  name: e.target.value,
-                }))
-              }
+              label='Name'
+              values={{
+                en: panel.formState.name,
+                zh: panel.formState.name_translations.zh,
+                yue: panel.formState.name_translations.yue,
+              }}
+              onChange={handleNameChange}
             />
           </div>
           <div className='md:col-span-2'>
@@ -269,79 +296,19 @@ export function ActivitiesPanel({ mode }: ActivitiesPanelProps) {
             />
           </div>
           <div className='md:col-span-2'>
-            <Label htmlFor='activity-description'>Description</Label>
-            <Textarea
+            <LanguageToggleInput
               id='activity-description'
+              label='Description'
+              multiline
               rows={3}
-              value={panel.formState.description}
-              onChange={(e) =>
-                panel.setFormState((prev) => ({
-                  ...prev,
-                  description: e.target.value,
-                }))
-              }
+              values={{
+                en: panel.formState.description,
+                zh: panel.formState.description_translations.zh,
+                yue: panel.formState.description_translations.yue,
+              }}
+              onChange={handleDescriptionChange}
             />
           </div>
-          <div className='md:col-span-2 border-t border-slate-100 pt-4'>
-            <p className='text-sm font-medium text-slate-700'>
-              Name translations
-            </p>
-            <p className='text-xs text-slate-500'>
-              Provide non-English names for zh and yue.
-            </p>
-          </div>
-          {translationLanguages.map((language) => (
-            <div key={`activity-name-${language.code}`}>
-              <Label htmlFor={`activity-name-${language.code}`}>
-                {language.label}
-              </Label>
-              <Input
-                id={`activity-name-${language.code}`}
-                value={panel.formState.name_translations[language.code]}
-                onChange={(e) =>
-                  panel.setFormState((prev) => ({
-                    ...prev,
-                    name_translations: {
-                      ...prev.name_translations,
-                      [language.code]: e.target.value,
-                    },
-                  }))
-                }
-              />
-            </div>
-          ))}
-          <div className='md:col-span-2 border-t border-slate-100 pt-4'>
-            <p className='text-sm font-medium text-slate-700'>
-              Description translations
-            </p>
-            <p className='text-xs text-slate-500'>
-              Optional localized descriptions for zh and yue.
-            </p>
-          </div>
-          {translationLanguages.map((language) => (
-            <div
-              key={`activity-description-${language.code}`}
-              className='md:col-span-2'
-            >
-              <Label htmlFor={`activity-description-${language.code}`}>
-                {language.label}
-              </Label>
-              <Textarea
-                id={`activity-description-${language.code}`}
-                rows={2}
-                value={panel.formState.description_translations[language.code]}
-                onChange={(e) =>
-                  panel.setFormState((prev) => ({
-                    ...prev,
-                    description_translations: {
-                      ...prev.description_translations,
-                      [language.code]: e.target.value,
-                    },
-                  }))
-                }
-              />
-            </div>
-          ))}
           <div>
             <Label htmlFor='activity-age-min'>Age Min</Label>
             <Input
