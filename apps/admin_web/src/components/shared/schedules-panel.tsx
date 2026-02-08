@@ -52,6 +52,16 @@ const scheduleOptions = [
   { value: 'date_specific', label: 'Date specific' },
 ];
 
+const dayOfWeekOptions = [
+  { value: '0', label: 'Sunday' },
+  { value: '1', label: 'Monday' },
+  { value: '2', label: 'Tuesday' },
+  { value: '3', label: 'Wednesday' },
+  { value: '4', label: 'Thursday' },
+  { value: '5', label: 'Friday' },
+  { value: '6', label: 'Saturday' },
+];
+
 function toUtcInputValue(value?: string | null): string {
   if (!value) return '';
   const date = new Date(value);
@@ -372,12 +382,9 @@ export function SchedulesPanel({ mode }: SchedulesPanelProps) {
           {scheduleType === 'weekly' && (
             <>
               <div>
-                <Label htmlFor='schedule-day'>Day of Week (0-6)</Label>
-                <Input
+                <Label htmlFor='schedule-day'>Day of Week (UTC)</Label>
+                <Select
                   id='schedule-day'
-                  type='number'
-                  min='0'
-                  max='6'
                   value={panel.formState.day_of_week_utc}
                   onChange={(e) =>
                     panel.setFormState((prev) => ({
@@ -385,7 +392,14 @@ export function SchedulesPanel({ mode }: SchedulesPanelProps) {
                       day_of_week_utc: e.target.value,
                     }))
                   }
-                />
+                >
+                  <option value=''>Select day</option>
+                  {dayOfWeekOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </Select>
               </div>
               <div>
                 <Label htmlFor='schedule-start'>Start Minutes (UTC)</Label>
