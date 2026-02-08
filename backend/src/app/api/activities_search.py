@@ -184,6 +184,7 @@ def map_row_to_result(row: Any) -> ActivitySearchResultSchema:
             amount=pricing.amount,
             currency=pricing.currency,
             sessions_count=pricing.sessions_count,
+            free_trial_class_offered=pricing.free_trial_class_offered,
         ),
         schedule=ScheduleSchema(
             schedule_type=schedule.schedule_type.value,

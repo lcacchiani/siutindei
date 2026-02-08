@@ -116,15 +116,17 @@ class PricingEntity {
     required this.amount,
     required this.currency,
     this.sessionsCount,
+    this.freeTrialClassOffered = false,
   });
 
   final PricingType type;
   final double amount;
   final String currency;
   final int? sessionsCount;
+  final bool freeTrialClassOffered;
 
   /// Returns true if this is free.
-  bool get isFree => amount == 0;
+  bool get isFree => type == PricingType.free || amount == 0;
 
   /// Returns a formatted price string.
   String get formattedPrice {
@@ -132,11 +134,13 @@ class PricingEntity {
     final priceStr = '${amount.toStringAsFixed(0)} $currency';
     return switch (type) {
       PricingType.perClass => '$priceStr/class',
-      PricingType.perMonth => '$priceStr/month',
       PricingType.perSessions =>
         sessionsCount != null
-            ? '$priceStr/$sessionsCount sessions'
-            : '$priceStr/package',
+            ? '$priceStr/$sessionsCount classes/term'
+            : '$priceStr/term',
+      PricingType.perHour => '$priceStr/hour',
+      PricingType.perDay => '$priceStr/day',
+      PricingType.free => 'Free',
     };
   }
 
@@ -154,26 +158,33 @@ class PricingEntity {
 
 /// Pricing type enumeration.
 ///
-/// Values must match the API enum: per_class, per_month, per_sessions
+/// Values must match the API enum: per_class, per_sessions, per_hour,
+/// per_day, free
 /// (defined in docs/api/search.yaml).
 enum PricingType {
   perClass,
-  perMonth,
-  perSessions;
+  perSessions,
+  perHour,
+  perDay,
+  free;
 
   /// Creates from API string value.
   static PricingType fromString(String value) => switch (value) {
         'per_class' => PricingType.perClass,
-        'per_month' => PricingType.perMonth,
         'per_sessions' => PricingType.perSessions,
+        'per_hour' => PricingType.perHour,
+        'per_day' => PricingType.perDay,
+        'free' => PricingType.free,
         _ => PricingType.perClass,
       };
 
   /// Returns the API string value.
   String toApiString() => switch (this) {
         PricingType.perClass => 'per_class',
-        PricingType.perMonth => 'per_month',
         PricingType.perSessions => 'per_sessions',
+        PricingType.perHour => 'per_hour',
+        PricingType.perDay => 'per_day',
+        PricingType.free => 'free',
       };
 }
 

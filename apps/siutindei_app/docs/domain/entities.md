@@ -121,50 +121,55 @@ class PricingEntity {
     required this.amount,
     required this.currency,
     this.sessionsCount,
+    this.freeTrialClassOffered = false,
   });
 
   final PricingType type;
   final double amount;
   final String currency;
   final int? sessionsCount;
+  final bool freeTrialClassOffered;
 
-  bool get isFree => type == PricingType.free || amount == 0;
+  bool get isFree => amount == 0;
 
   /// Returns formatted price string
   String get formattedPrice {
     if (isFree) return 'Free';
     final priceStr = '${amount.toStringAsFixed(0)} $currency';
     return switch (type) {
-      PricingType.perSession => '$priceStr/session',
-      PricingType.perMonth => '$priceStr/month',
-      PricingType.perYear => '$priceStr/year',
-      PricingType.oneTime => priceStr,
+      PricingType.perClass => '$priceStr/class',
+      PricingType.perSessions =>
+        sessionsCount != null
+            ? '$priceStr/$sessionsCount classes/term'
+            : '$priceStr/term',
+      PricingType.perHour => '$priceStr/hour',
+      PricingType.perDay => '$priceStr/day',
       PricingType.free => 'Free',
     };
   }
 }
 
 enum PricingType {
-  perSession,
-  perMonth,
-  perYear,
-  oneTime,
+  perClass,
+  perSessions,
+  perHour,
+  perDay,
   free;
 
   static PricingType fromString(String value) => switch (value) {
-    'per_session' => PricingType.perSession,
-    'per_month' => PricingType.perMonth,
-    'per_year' => PricingType.perYear,
-    'one_time' => PricingType.oneTime,
+    'per_class' => PricingType.perClass,
+    'per_sessions' => PricingType.perSessions,
+    'per_hour' => PricingType.perHour,
+    'per_day' => PricingType.perDay,
     'free' => PricingType.free,
-    _ => PricingType.oneTime,
+    _ => PricingType.perClass,
   };
 
   String toApiString() => switch (this) {
-    PricingType.perSession => 'per_session',
-    PricingType.perMonth => 'per_month',
-    PricingType.perYear => 'per_year',
-    PricingType.oneTime => 'one_time',
+    PricingType.perClass => 'per_class',
+    PricingType.perSessions => 'per_sessions',
+    PricingType.perHour => 'per_hour',
+    PricingType.perDay => 'per_day',
     PricingType.free => 'free',
   };
 }
@@ -329,7 +334,7 @@ print(activity.ageRangeDisplay); // "5-12 years"
 var filters = SearchFilters(
   age: 8,
   district: 'Central',
-  pricingType: PricingType.perMonth,
+  pricingType: PricingType.perDay,
 );
 
 // Update filters

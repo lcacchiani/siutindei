@@ -285,12 +285,14 @@ class Pricing {
     required this.amount,
     required this.currency,
     this.sessionsCount,
+    this.freeTrialClassOffered = false,
   });
 
   final String pricingType;
   final double amount;
   final String currency;
   final int? sessionsCount;
+  final bool freeTrialClassOffered;
 
   factory Pricing.fromJson(Map<String, dynamic> json) {
     return Pricing(
@@ -298,6 +300,8 @@ class Pricing {
       amount: (json['amount'] as num).toDouble(),
       currency: json['currency'] as String,
       sessionsCount: json['sessions_count'] as int?,
+      freeTrialClassOffered:
+          json['free_trial_class_offered'] as bool? ?? false,
     );
   }
 }

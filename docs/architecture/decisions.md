@@ -37,7 +37,8 @@ Flutter mobile app, Next.js admin console, and AWS serverless backend.
 
 **Decisions:**
 - District filter uses `locations.district` only.
-- Pricing is per location with `per_class`, `per_month`, or `per_sessions`.
+- Pricing is per location with `per_class`, `per_sessions`, `per_hour`,
+  `per_day`, or `free`.
 - Languages are session-specific (stored on schedule entries).
 - Times are stored in UTC.
 - DB changes are versioned with Alembic.

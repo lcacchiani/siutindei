@@ -306,8 +306,10 @@ class _ActivityCardTags extends StatelessWidget {
   String _getPricingTypeLabel(PricingType type) {
     return switch (type) {
       PricingType.perClass => 'Per Class',
-      PricingType.perMonth => 'Monthly',
-      PricingType.perSessions => 'Per Sessions',
+      PricingType.perSessions => 'Per Term',
+      PricingType.perHour => 'Hourly',
+      PricingType.perDay => 'Daily',
+      PricingType.free => 'Free',
     };
   }
 }

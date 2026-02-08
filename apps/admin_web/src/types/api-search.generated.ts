@@ -26,10 +26,12 @@ export interface paths {
                     /**
                      * @description Filter by pricing type:
                      *     - per_class: Individual class pricing
-                     *     - per_month: Monthly subscription
-                     *     - per_sessions: Package pricing
+                     *     - per_sessions: Per term pricing
+                     *     - per_hour: Hourly pricing
+                     *     - per_day: Daily pricing
+                     *     - free: Free pricing
                      */
-                    pricing_type?: "per_class" | "per_month" | "per_sessions";
+                    pricing_type?: "per_class" | "per_sessions" | "per_hour" | "per_day" | "free";
                     /** @description Minimum price filter (>= 0) */
                     price_min?: number;
                     /** @description Maximum price filter (>= 0) */
@@ -156,10 +158,12 @@ export interface components {
         };
         Pricing: {
             /** @enum {string} */
-            pricing_type: "per_class" | "per_month" | "per_sessions";
+            pricing_type: "per_class" | "per_sessions" | "per_hour" | "per_day" | "free";
             amount: number;
             currency: string;
             sessions_count?: number | null;
+            /** @description Whether a free trial class is offered */
+            free_trial_class_offered: boolean;
         };
         Schedule: {
             /** @enum {string} */

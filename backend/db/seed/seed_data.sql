@@ -89,25 +89,36 @@ WHERE NOT EXISTS (
     AND location_id = 'cccccccc-cccc-cccc-cccc-cccccccccccc'
 );
 
-INSERT INTO activity_pricing (id, activity_id, location_id, pricing_type, amount, currency, sessions_count)
+INSERT INTO activity_pricing (
+  id,
+  activity_id,
+  location_id,
+  pricing_type,
+  amount,
+  currency,
+  sessions_count,
+  free_trial_class_offered
+)
 SELECT 'f1111111-1111-1111-1111-111111111111', 'dddddddd-dddd-dddd-dddd-dddddddddddd',
-       'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'per_class', 280.00, 'HKD', NULL
+       'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'per_class', 280.00, 'HKD', NULL, false
 WHERE NOT EXISTS (
   SELECT 1 FROM activity_pricing WHERE id = 'f1111111-1111-1111-1111-111111111111'
 );
 
-INSERT INTO activity_pricing (id, activity_id, location_id, pricing_type, amount, currency, sessions_count)
+INSERT INTO activity_pricing (
+  id,
+  activity_id,
+  location_id,
+  pricing_type,
+  amount,
+  currency,
+  sessions_count,
+  free_trial_class_offered
+)
 SELECT 'f2222222-2222-2222-2222-222222222222', 'dddddddd-dddd-dddd-dddd-dddddddddddd',
-       'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'per_sessions', 1200.00, 'HKD', 6
+       'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'per_sessions', 1200.00, 'HKD', 6, true
 WHERE NOT EXISTS (
   SELECT 1 FROM activity_pricing WHERE id = 'f2222222-2222-2222-2222-222222222222'
-);
-
-INSERT INTO activity_pricing (id, activity_id, location_id, pricing_type, amount, currency, sessions_count)
-SELECT 'f3333333-3333-3333-3333-333333333333', 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
-       'cccccccc-cccc-cccc-cccc-cccccccccccc', 'per_month', 900.00, 'HKD', NULL
-WHERE NOT EXISTS (
-  SELECT 1 FROM activity_pricing WHERE id = 'f3333333-3333-3333-3333-333333333333'
 );
 
 INSERT INTO activity_schedule (
