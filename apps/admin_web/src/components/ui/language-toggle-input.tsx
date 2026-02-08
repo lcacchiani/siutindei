@@ -85,8 +85,8 @@ export function LanguageToggleInput({
                 <img
                   src={option.flagSrc}
                   alt={`${option.label} flag`}
-                  width={22}
-                  height={14}
+                  width={24}
+                  height={16}
                   loading='lazy'
                 />
                 {hasValue ? (
