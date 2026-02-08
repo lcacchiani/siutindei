@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { useActivitiesByMode } from '../../hooks/use-activities-by-mode';
 import { useLocationsByMode } from '../../hooks/use-locations-by-mode';
 import { useResourcePanel } from '../../hooks/use-resource-panel';
+import { appConfig } from '../../lib/config';
 import { parseOptionalNumber } from '../../lib/number-parsers';
 import type { ApiMode } from '../../lib/resource-api';
 import type { LanguageCode } from '../../lib/translations';
@@ -33,19 +34,6 @@ interface ScheduleFormState {
   languages: LanguageCode[];
 }
 
-const emptyForm: ScheduleFormState = {
-  activity_id: '',
-  location_id: '',
-  schedule_type: 'weekly',
-  day_of_week_local: '',
-  day_of_month_local: '',
-  start_minutes_local: '',
-  end_minutes_local: '',
-  start_at_utc: '',
-  end_at_utc: '',
-  languages: [],
-};
-
 const scheduleOptions = [
   { value: 'weekly', label: 'Weekly' },
   { value: 'monthly', label: 'Monthly' },
@@ -64,6 +52,23 @@ const dayOfWeekOptions = [
 
 const minutesPerDay = 24 * 60;
 const halfHourMinutes = 30;
+const defaultStartMinutes = 9 * 60;
+const defaultDurationMinutes = appConfig.scheduleDefaultDurationMinutes;
+const defaultEndMinutes =
+  (defaultStartMinutes + defaultDurationMinutes) % minutesPerDay;
+
+const emptyForm: ScheduleFormState = {
+  activity_id: '',
+  location_id: '',
+  schedule_type: 'weekly',
+  day_of_week_local: '',
+  day_of_month_local: '',
+  start_minutes_local: `${defaultStartMinutes}`,
+  end_minutes_local: `${defaultEndMinutes}`,
+  start_at_utc: '',
+  end_at_utc: '',
+  languages: [],
+};
 
 function formatTimeLabel(minutes: number): string {
   const hours = Math.floor(minutes / 60);
@@ -108,6 +113,15 @@ function getTimeOptions(value: string) {
   return [...timeOptions, extraOption].sort(
     (left, right) => Number(left.value) - Number(right.value)
   );
+}
+
+function normalizeMinutes(minutes: number): number {
+  const remainder = minutes % minutesPerDay;
+  return remainder < 0 ? remainder + minutesPerDay : remainder;
+}
+
+function addMinutes(startMinutes: number, durationMinutes: number): number {
+  return normalizeMinutes(startMinutes + durationMinutes);
 }
 
 function getLocalWeekdayBase(dayOfWeek: number): Date {
@@ -360,6 +374,7 @@ export function SchedulesPanel({ mode }: SchedulesPanelProps) {
 
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
+  const [isEndTimeAuto, setIsEndTimeAuto] = useState(true);
 
   const validate = () => {
     const form = panel.formState;
@@ -468,12 +483,47 @@ export function SchedulesPanel({ mode }: SchedulesPanelProps) {
 
   const handleSubmit = () => panel.handleSubmit(formToPayload, validate);
 
+  useEffect(() => {
+    setIsEndTimeAuto(panel.editingId === null);
+  }, [panel.editingId]);
+
   const scheduleType = panel.formState.schedule_type;
   const startTimeOptions = getTimeOptions(
     panel.formState.start_minutes_local
   );
   const endTimeOptions = getTimeOptions(panel.formState.end_minutes_local);
   const selectedLanguages = new Set(panel.formState.languages);
+
+  function getAutoEndValue(startValue: string) {
+    const startMinutes = parseOptionalNumber(startValue);
+    if (startMinutes === null) {
+      return null;
+    }
+    const nextEnd = addMinutes(startMinutes, defaultDurationMinutes);
+    return `${nextEnd}`;
+  }
+
+  function handleStartMinutesChange(value: string) {
+    panel.setFormState((prev) => {
+      const nextState = { ...prev, start_minutes_local: value };
+      if (!isEndTimeAuto) {
+        return nextState;
+      }
+      const nextEndValue = getAutoEndValue(value);
+      if (!nextEndValue) {
+        return nextState;
+      }
+      return { ...nextState, end_minutes_local: nextEndValue };
+    });
+  }
+
+  function handleEndMinutesChange(value: string) {
+    setIsEndTimeAuto(false);
+    panel.setFormState((prev) => ({
+      ...prev,
+      end_minutes_local: value,
+    }));
+  }
 
   function getActivityName(activityId: string) {
     return activities.find((activity) => activity.id === activityId)?.name ??
@@ -634,18 +684,19 @@ export function SchedulesPanel({ mode }: SchedulesPanelProps) {
             <Select
               id='schedule-type'
               value={panel.formState.schedule_type}
-              onChange={(e) =>
+              onChange={(e) => {
+                setIsEndTimeAuto(true);
                 panel.setFormState((prev) => ({
                   ...prev,
                   schedule_type: e.target.value,
                   day_of_week_local: '',
                   day_of_month_local: '',
-                  start_minutes_local: '',
-                  end_minutes_local: '',
+                  start_minutes_local: `${defaultStartMinutes}`,
+                  end_minutes_local: `${defaultEndMinutes}`,
                   start_at_utc: '',
                   end_at_utc: '',
-                }))
-              }
+                }));
+              }}
             >
               {scheduleOptions.map((option) => (
                 <option key={option.value} value={option.value}>
@@ -681,12 +732,7 @@ export function SchedulesPanel({ mode }: SchedulesPanelProps) {
                 <Select
                   id='schedule-start'
                   value={panel.formState.start_minutes_local}
-                  onChange={(e) =>
-                    panel.setFormState((prev) => ({
-                      ...prev,
-                      start_minutes_local: e.target.value,
-                    }))
-                  }
+                  onChange={(e) => handleStartMinutesChange(e.target.value)}
                 >
                   <option value=''>Select time</option>
                   {startTimeOptions.map((option) => (
@@ -701,12 +747,7 @@ export function SchedulesPanel({ mode }: SchedulesPanelProps) {
                 <Select
                   id='schedule-end'
                   value={panel.formState.end_minutes_local}
-                  onChange={(e) =>
-                    panel.setFormState((prev) => ({
-                      ...prev,
-                      end_minutes_local: e.target.value,
-                    }))
-                  }
+                  onChange={(e) => handleEndMinutesChange(e.target.value)}
                 >
                   <option value=''>Select time</option>
                   {endTimeOptions.map((option) => (
@@ -743,12 +784,7 @@ export function SchedulesPanel({ mode }: SchedulesPanelProps) {
                 <Select
                   id='schedule-month-start'
                   value={panel.formState.start_minutes_local}
-                  onChange={(e) =>
-                    panel.setFormState((prev) => ({
-                      ...prev,
-                      start_minutes_local: e.target.value,
-                    }))
-                  }
+                  onChange={(e) => handleStartMinutesChange(e.target.value)}
                 >
                   <option value=''>Select time</option>
                   {startTimeOptions.map((option) => (
@@ -763,12 +799,7 @@ export function SchedulesPanel({ mode }: SchedulesPanelProps) {
                 <Select
                   id='schedule-month-end'
                   value={panel.formState.end_minutes_local}
-                  onChange={(e) =>
-                    panel.setFormState((prev) => ({
-                      ...prev,
-                      end_minutes_local: e.target.value,
-                    }))
-                  }
+                  onChange={(e) => handleEndMinutesChange(e.target.value)}
                 >
                   <option value=''>Select time</option>
                   {endTimeOptions.map((option) => (

@@ -3,6 +3,24 @@ export interface AppConfig {
   cognitoDomain: string;
   cognitoClientId: string;
   cognitoUserPoolId: string;
+  scheduleDefaultDurationMinutes: number;
+}
+
+const defaultScheduleDurationMinutes = 60;
+const minutesPerDay = 24 * 60;
+
+function parseDurationMinutes(value: string | undefined): number | null {
+  if (!value) {
+    return null;
+  }
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    return null;
+  }
+  if (parsed <= 0 || parsed >= minutesPerDay) {
+    return null;
+  }
+  return Math.round(parsed);
 }
 
 export const appConfig: AppConfig = {
@@ -10,6 +28,10 @@ export const appConfig: AppConfig = {
   cognitoDomain: process.env.NEXT_PUBLIC_COGNITO_DOMAIN ?? '',
   cognitoClientId: process.env.NEXT_PUBLIC_COGNITO_CLIENT_ID ?? '',
   cognitoUserPoolId: process.env.NEXT_PUBLIC_COGNITO_USER_POOL_ID ?? '',
+  scheduleDefaultDurationMinutes:
+    parseDurationMinutes(
+      process.env.NEXT_PUBLIC_SCHEDULE_DEFAULT_DURATION_MINUTES
+    ) ?? defaultScheduleDurationMinutes,
 };
 
 function trimTrailingSlashes(value: string) {

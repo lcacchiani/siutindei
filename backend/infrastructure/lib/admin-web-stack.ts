@@ -33,6 +33,19 @@ export class AdminWebStack extends cdk.Stack {
       }
     );
 
+    const scheduleDefaultDurationMinutes = new cdk.CfnParameter(
+      this,
+      "AdminWebScheduleDefaultDurationMinutes",
+      {
+        type: "Number",
+        default: 60,
+        minValue: 1,
+        maxValue: 1439,
+        description:
+          "Default schedule duration in minutes for the admin web UI.",
+      }
+    );
+
     // -------------------------------------------------------------------------
     // WAF Web ACL ARN (created separately in us-east-1 via WafStack)
     // SECURITY: WAF WebACLs for CloudFront must be in us-east-1
@@ -196,6 +209,11 @@ export class AdminWebStack extends cdk.Stack {
     new cdk.CfnOutput(this, "AdminWebLoggingBucketName", {
       value: this.loggingBucket.bucketName,
       description: "S3 bucket for CloudFront and S3 access logs",
+    });
+
+    new cdk.CfnOutput(this, "AdminWebScheduleDefaultDurationMinutes", {
+      value: scheduleDefaultDurationMinutes.valueAsString,
+      description: "Default schedule duration in minutes for admin web.",
     });
   }
 }

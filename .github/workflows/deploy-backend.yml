@@ -564,7 +564,12 @@ jobs:
           admin_web_stack = "lxsoftware-siutindei-admin-web"
           api_stack = "lxsoftware-siutindei"
           waf_stack = "lxsoftware-siutindei-waf"
-          admin_web_params = {"AdminWebDomainName", "AdminWebCertificateArn", "WafWebAclArn"}
+          admin_web_params = {
+              "AdminWebDomainName",
+              "AdminWebCertificateArn",
+              "AdminWebScheduleDefaultDurationMinutes",
+              "WafWebAclArn",
+          }
           # WAF stack has no parameters that need to be passed
           waf_params = set()
           params = {}
