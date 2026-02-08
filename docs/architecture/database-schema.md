@@ -178,7 +178,8 @@ Constraints:
 - `schedule_day_of_month_range`: 1 to 31
 - `schedule_start_minutes_range`: 0 to 1439
 - `schedule_end_minutes_range`: 0 to 1439
-- `schedule_minutes_order`: start < end when both minutes present
+- `schedule_minutes_order`: start and end must differ when both present
+  (start > end indicates an overnight UTC range)
 - `schedule_date_order`: start < end when both timestamps present
 - `schedule_type_fields_check`:
   - `weekly`: day_of_week_utc + start/end minutes required

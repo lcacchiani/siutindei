@@ -171,12 +171,44 @@ def _apply_schedule_filters(filters: ActivitySearchFilters, conditions: list) ->
         conditions.append(ActivitySchedule.day_of_month == filters.day_of_month)
 
     if filters.start_minutes_utc is not None and filters.end_minutes_utc is not None:
-        conditions.append(ActivitySchedule.start_minutes_utc < filters.end_minutes_utc)
-        conditions.append(ActivitySchedule.end_minutes_utc > filters.start_minutes_utc)
+        normal_overlap = and_(
+            ActivitySchedule.start_minutes_utc < filters.end_minutes_utc,
+            ActivitySchedule.end_minutes_utc > filters.start_minutes_utc,
+        )
+        wrap_overlap = or_(
+            filters.end_minutes_utc > ActivitySchedule.start_minutes_utc,
+            filters.start_minutes_utc < ActivitySchedule.end_minutes_utc,
+        )
+        conditions.append(
+            or_(
+                and_(
+                    ActivitySchedule.start_minutes_utc
+                    < ActivitySchedule.end_minutes_utc,
+                    normal_overlap,
+                ),
+                and_(
+                    ActivitySchedule.start_minutes_utc
+                    > ActivitySchedule.end_minutes_utc,
+                    wrap_overlap,
+                ),
+            )
+        )
     elif filters.start_minutes_utc is not None:
-        conditions.append(ActivitySchedule.end_minutes_utc >= filters.start_minutes_utc)
+        conditions.append(
+            or_(
+                ActivitySchedule.start_minutes_utc
+                > ActivitySchedule.end_minutes_utc,
+                ActivitySchedule.end_minutes_utc >= filters.start_minutes_utc,
+            )
+        )
     elif filters.end_minutes_utc is not None:
-        conditions.append(ActivitySchedule.start_minutes_utc <= filters.end_minutes_utc)
+        conditions.append(
+            or_(
+                ActivitySchedule.start_minutes_utc
+                > ActivitySchedule.end_minutes_utc,
+                ActivitySchedule.start_minutes_utc <= filters.end_minutes_utc,
+            )
+        )
 
     if filters.start_at_utc is not None or filters.end_at_utc is not None:
         conditions.append(ActivitySchedule.schedule_type == ScheduleType.DATE_SPECIFIC)

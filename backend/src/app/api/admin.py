@@ -3865,14 +3865,14 @@ def _validate_schedule(schedule: ActivitySchedule) -> None:
                 field="end_minutes_utc",
             )
 
-    # Validate start_minutes_utc < end_minutes_utc
+    # Validate start_minutes_utc and end_minutes_utc are not equal
     if (
         schedule.start_minutes_utc is not None
         and schedule.end_minutes_utc is not None
-        and schedule.start_minutes_utc >= schedule.end_minutes_utc
+        and schedule.start_minutes_utc == schedule.end_minutes_utc
     ):
         raise ValidationError(
-            "start_minutes_utc must be less than end_minutes_utc",
+            "start_minutes_utc must not equal end_minutes_utc",
             field="start_minutes_utc",
         )
 

@@ -132,23 +132,24 @@ class TestValidateScheduleWeekly:
 
     def test_start_minutes_utc_equals_end_minutes_utc(self) -> None:
         """start_minutes_utc equal to end_minutes_utc should raise ValidationError."""
-        schedule = make_weekly_schedule(start_minutes_utc=600, end_minutes_utc=600)
+        schedule = make_weekly_schedule(
+            start_minutes_utc=600,
+            end_minutes_utc=600,
+        )
         with pytest.raises(ValidationError) as exc_info:
             _validate_schedule(schedule)
-        assert "start_minutes_utc must be less than end_minutes_utc" in str(
+        assert "start_minutes_utc must not equal end_minutes_utc" in str(
             exc_info.value
         )
         assert exc_info.value.field == "start_minutes_utc"
 
     def test_start_minutes_utc_greater_than_end_minutes_utc(self) -> None:
-        """start_minutes_utc greater than end_minutes_utc should raise ValidationError."""
-        schedule = make_weekly_schedule(start_minutes_utc=700, end_minutes_utc=600)
-        with pytest.raises(ValidationError) as exc_info:
-            _validate_schedule(schedule)
-        assert "start_minutes_utc must be less than end_minutes_utc" in str(
-            exc_info.value
+        """start_minutes_utc greater than end_minutes_utc should be valid."""
+        schedule = make_weekly_schedule(
+            start_minutes_utc=700,
+            end_minutes_utc=600,
         )
-        assert exc_info.value.field == "start_minutes_utc"
+        _validate_schedule(schedule)  # Should not raise
 
 
 class TestValidateScheduleMonthly:
@@ -185,6 +186,14 @@ class TestValidateScheduleMonthly:
         with pytest.raises(ValidationError) as exc_info:
             _validate_schedule(schedule)
         assert "end_minutes_utc must be between 0 and 1439" in str(exc_info.value)
+
+    def test_monthly_schedule_allows_overnight_minutes(self) -> None:
+        """Monthly schedule should allow overnight minutes."""
+        schedule = make_monthly_schedule(
+            start_minutes_utc=900,
+            end_minutes_utc=600,
+        )
+        _validate_schedule(schedule)  # Should not raise
 
 
 class TestValidateScheduleDateSpecific:
