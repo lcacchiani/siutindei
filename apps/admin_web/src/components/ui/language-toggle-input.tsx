@@ -73,7 +73,7 @@ export function LanguageToggleInput({
                 key={option.code}
                 type='button'
                 onClick={() => setActiveLanguage(option.code)}
-                className={`relative flex h-5 items-center justify-center rounded border px-1 py-0 box-border transition ${
+                className={`relative flex h-4 items-center justify-center rounded border px-1 py-0 box-border transition ${
                   isActive
                     ? 'border-slate-400 bg-slate-50 ring-2 ring-slate-200'
                     : 'border-slate-200 hover:border-slate-300'
