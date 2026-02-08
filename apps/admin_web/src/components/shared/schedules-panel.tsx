@@ -24,10 +24,10 @@ interface ScheduleFormState {
   activity_id: string;
   location_id: string;
   schedule_type: string;
-  day_of_week_utc: string;
-  day_of_month: string;
-  start_minutes_utc: string;
-  end_minutes_utc: string;
+  day_of_week_local: string;
+  day_of_month_local: string;
+  start_minutes_local: string;
+  end_minutes_local: string;
   start_at_utc: string;
   end_at_utc: string;
   languages: LanguageCode[];
@@ -37,10 +37,10 @@ const emptyForm: ScheduleFormState = {
   activity_id: '',
   location_id: '',
   schedule_type: 'weekly',
-  day_of_week_utc: '',
-  day_of_month: '',
-  start_minutes_utc: '',
-  end_minutes_utc: '',
+  day_of_week_local: '',
+  day_of_month_local: '',
+  start_minutes_local: '',
+  end_minutes_local: '',
   start_at_utc: '',
   end_at_utc: '',
   languages: [],
@@ -61,6 +61,194 @@ const dayOfWeekOptions = [
   { value: '5', label: 'Friday' },
   { value: '6', label: 'Saturday' },
 ];
+
+const minutesPerDay = 24 * 60;
+const halfHourMinutes = 30;
+
+function formatTimeLabel(minutes: number): string {
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  const paddedHours = `${hours}`.padStart(2, '0');
+  const paddedMinutes = `${mins}`.padStart(2, '0');
+  return `${paddedHours}:${paddedMinutes}`;
+}
+
+const timeOptions = Array.from(
+  { length: minutesPerDay / halfHourMinutes },
+  (_, index) => {
+    const minutes = index * halfHourMinutes;
+    return { value: `${minutes}`, label: formatTimeLabel(minutes) };
+  }
+);
+
+function getTimeOptions(value: string) {
+  if (!value) {
+    return timeOptions;
+  }
+
+  if (timeOptions.some((option) => option.value === value)) {
+    return timeOptions;
+  }
+
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return timeOptions;
+  }
+
+  if (numeric < 0 || numeric >= minutesPerDay) {
+    return timeOptions;
+  }
+
+  const rounded = Math.round(numeric);
+  const extraOption = {
+    value,
+    label: formatTimeLabel(rounded),
+  };
+
+  return [...timeOptions, extraOption].sort(
+    (left, right) => Number(left.value) - Number(right.value)
+  );
+}
+
+function getLocalWeekdayBase(dayOfWeek: number): Date {
+  const today = new Date();
+  const todayDay = today.getDay();
+  const delta = dayOfWeek - todayDay;
+  const base = new Date(
+    today.getFullYear(),
+    today.getMonth(),
+    today.getDate()
+  );
+  base.setDate(base.getDate() + delta);
+  return base;
+}
+
+function getUtcWeekdayBase(dayOfWeek: number): Date {
+  const today = new Date();
+  const todayDay = today.getUTCDay();
+  const delta = dayOfWeek - todayDay;
+  const base = new Date(
+    Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate())
+  );
+  base.setUTCDate(base.getUTCDate() + delta);
+  return base;
+}
+
+function getLocalMonthBase(dayOfMonth: number): Date {
+  const year = new Date().getFullYear();
+  return new Date(year, 0, dayOfMonth);
+}
+
+function getUtcMonthBase(dayOfMonth: number): Date {
+  const year = new Date().getUTCFullYear();
+  return new Date(Date.UTC(year, 0, dayOfMonth));
+}
+
+function buildLocalDate(
+  base: Date,
+  minutes: number,
+  dayOffset: number
+): Date {
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  return new Date(
+    base.getFullYear(),
+    base.getMonth(),
+    base.getDate() + dayOffset,
+    hours,
+    mins
+  );
+}
+
+function buildUtcDate(base: Date, minutes: number, dayOffset: number): Date {
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  return new Date(
+    Date.UTC(
+      base.getUTCFullYear(),
+      base.getUTCMonth(),
+      base.getUTCDate() + dayOffset,
+      hours,
+      mins
+    )
+  );
+}
+
+function localMinutes(date: Date): number {
+  return date.getHours() * 60 + date.getMinutes();
+}
+
+function utcMinutes(date: Date): number {
+  return date.getUTCHours() * 60 + date.getUTCMinutes();
+}
+
+function toUtcWeekly(
+  localDayOfWeek: number,
+  localStartMinutes: number,
+  localEndMinutes: number
+) {
+  const base = getLocalWeekdayBase(localDayOfWeek);
+  const wraps = localStartMinutes > localEndMinutes;
+  const startLocal = buildLocalDate(base, localStartMinutes, 0);
+  const endLocal = buildLocalDate(base, localEndMinutes, wraps ? 1 : 0);
+  return {
+    dayOfWeek: startLocal.getUTCDay(),
+    startMinutes: utcMinutes(startLocal),
+    endMinutes: utcMinutes(endLocal),
+  };
+}
+
+function fromUtcWeekly(
+  utcDayOfWeek: number,
+  utcStartMinutes: number,
+  utcEndMinutes: number
+) {
+  const base = getUtcWeekdayBase(utcDayOfWeek);
+  const wraps = utcStartMinutes > utcEndMinutes;
+  const startUtc = buildUtcDate(base, utcStartMinutes, 0);
+  const endUtc = buildUtcDate(base, utcEndMinutes, wraps ? 1 : 0);
+  const startLocal = new Date(startUtc.getTime());
+  const endLocal = new Date(endUtc.getTime());
+  return {
+    dayOfWeek: startLocal.getDay(),
+    startMinutes: localMinutes(startLocal),
+    endMinutes: localMinutes(endLocal),
+  };
+}
+
+function toUtcMonthly(
+  localDayOfMonth: number,
+  localStartMinutes: number,
+  localEndMinutes: number
+) {
+  const base = getLocalMonthBase(localDayOfMonth);
+  const wraps = localStartMinutes > localEndMinutes;
+  const startLocal = buildLocalDate(base, localStartMinutes, 0);
+  const endLocal = buildLocalDate(base, localEndMinutes, wraps ? 1 : 0);
+  return {
+    dayOfMonth: startLocal.getUTCDate(),
+    startMinutes: utcMinutes(startLocal),
+    endMinutes: utcMinutes(endLocal),
+  };
+}
+
+function fromUtcMonthly(
+  utcDayOfMonth: number,
+  utcStartMinutes: number,
+  utcEndMinutes: number
+) {
+  const base = getUtcMonthBase(utcDayOfMonth);
+  const wraps = utcStartMinutes > utcEndMinutes;
+  const startUtc = buildUtcDate(base, utcStartMinutes, 0);
+  const endUtc = buildUtcDate(base, utcEndMinutes, wraps ? 1 : 0);
+  const startLocal = new Date(startUtc.getTime());
+  const endLocal = new Date(endUtc.getTime());
+  return {
+    dayOfMonth: startLocal.getDate(),
+    startMinutes: localMinutes(startLocal),
+    endMinutes: localMinutes(endLocal),
+  };
+}
 
 function toUtcInputValue(value?: string | null): string {
   if (!value) return '';
@@ -95,30 +283,64 @@ function getLanguageOption(code: string) {
 }
 
 function itemToForm(item: ActivitySchedule): ScheduleFormState {
-  return {
+  const baseForm: ScheduleFormState = {
     activity_id: item.activity_id ?? '',
     location_id: item.location_id ?? '',
     schedule_type: item.schedule_type,
-    day_of_week_utc:
-      item.day_of_week_utc !== undefined && item.day_of_week_utc !== null
-        ? `${item.day_of_week_utc}`
-        : '',
-    day_of_month:
-      item.day_of_month !== undefined && item.day_of_month !== null
-        ? `${item.day_of_month}`
-        : '',
-    start_minutes_utc:
-      item.start_minutes_utc !== undefined && item.start_minutes_utc !== null
-        ? `${item.start_minutes_utc}`
-        : '',
-    end_minutes_utc:
-      item.end_minutes_utc !== undefined && item.end_minutes_utc !== null
-        ? `${item.end_minutes_utc}`
-        : '',
+    day_of_week_local: '',
+    day_of_month_local: '',
+    start_minutes_local: '',
+    end_minutes_local: '',
     start_at_utc: toUtcInputValue(item.start_at_utc),
     end_at_utc: toUtcInputValue(item.end_at_utc),
     languages: toLanguageCodes(item.languages),
   };
+
+  if (
+    item.schedule_type === 'weekly' &&
+    item.day_of_week_utc !== null &&
+    item.day_of_week_utc !== undefined &&
+    item.start_minutes_utc !== null &&
+    item.start_minutes_utc !== undefined &&
+    item.end_minutes_utc !== null &&
+    item.end_minutes_utc !== undefined
+  ) {
+    const localSchedule = fromUtcWeekly(
+      item.day_of_week_utc,
+      item.start_minutes_utc,
+      item.end_minutes_utc
+    );
+    return {
+      ...baseForm,
+      day_of_week_local: `${localSchedule.dayOfWeek}`,
+      start_minutes_local: `${localSchedule.startMinutes}`,
+      end_minutes_local: `${localSchedule.endMinutes}`,
+    };
+  }
+
+  if (
+    item.schedule_type === 'monthly' &&
+    item.day_of_month !== null &&
+    item.day_of_month !== undefined &&
+    item.start_minutes_utc !== null &&
+    item.start_minutes_utc !== undefined &&
+    item.end_minutes_utc !== null &&
+    item.end_minutes_utc !== undefined
+  ) {
+    const localSchedule = fromUtcMonthly(
+      item.day_of_month,
+      item.start_minutes_utc,
+      item.end_minutes_utc
+    );
+    return {
+      ...baseForm,
+      day_of_month_local: `${localSchedule.dayOfMonth}`,
+      start_minutes_local: `${localSchedule.startMinutes}`,
+      end_minutes_local: `${localSchedule.endMinutes}`,
+    };
+  }
+
+  return baseForm;
 }
 
 interface SchedulesPanelProps {
@@ -145,25 +367,25 @@ export function SchedulesPanel({ mode }: SchedulesPanelProps) {
       return 'Activity and location are required.';
     }
     if (form.schedule_type === 'weekly') {
-      const dayOfWeek = parseOptionalNumber(form.day_of_week_utc);
-      const startMinutes = parseOptionalNumber(form.start_minutes_utc);
-      const endMinutes = parseOptionalNumber(form.end_minutes_utc);
+      const dayOfWeek = parseOptionalNumber(form.day_of_week_local);
+      const startMinutes = parseOptionalNumber(form.start_minutes_local);
+      const endMinutes = parseOptionalNumber(form.end_minutes_local);
       if (dayOfWeek === null || startMinutes === null || endMinutes === null) {
         return 'Weekly schedules need day and time range.';
       }
-      if (startMinutes >= endMinutes) {
-        return 'Weekly schedules need a valid time range.';
+      if (startMinutes === endMinutes) {
+        return 'Weekly schedules need a non-zero time range.';
       }
     }
     if (form.schedule_type === 'monthly') {
-      const dayOfMonth = parseOptionalNumber(form.day_of_month);
-      const startMinutes = parseOptionalNumber(form.start_minutes_utc);
-      const endMinutes = parseOptionalNumber(form.end_minutes_utc);
+      const dayOfMonth = parseOptionalNumber(form.day_of_month_local);
+      const startMinutes = parseOptionalNumber(form.start_minutes_local);
+      const endMinutes = parseOptionalNumber(form.end_minutes_local);
       if (dayOfMonth === null || startMinutes === null || endMinutes === null) {
         return 'Monthly schedules need day of month and time range.';
       }
-      if (startMinutes >= endMinutes) {
-        return 'Monthly schedules need a valid time range.';
+      if (startMinutes === endMinutes) {
+        return 'Monthly schedules need a non-zero time range.';
       }
     }
     if (form.schedule_type === 'date_specific') {
@@ -182,22 +404,75 @@ export function SchedulesPanel({ mode }: SchedulesPanelProps) {
     return null;
   };
 
-  const formToPayload = (form: ScheduleFormState) => ({
-    activity_id: form.activity_id,
-    location_id: form.location_id,
-    schedule_type: form.schedule_type,
-    day_of_week_utc: parseOptionalNumber(form.day_of_week_utc),
-    day_of_month: parseOptionalNumber(form.day_of_month),
-    start_minutes_utc: parseOptionalNumber(form.start_minutes_utc),
-    end_minutes_utc: parseOptionalNumber(form.end_minutes_utc),
-    start_at_utc: toUtcIso(form.start_at_utc),
-    end_at_utc: toUtcIso(form.end_at_utc),
-    languages: form.languages,
-  });
+  const formToPayload = (form: ScheduleFormState) => {
+    const payload = {
+      activity_id: form.activity_id,
+      location_id: form.location_id,
+      schedule_type: form.schedule_type,
+      day_of_week_utc: null as number | null,
+      day_of_month: null as number | null,
+      start_minutes_utc: null as number | null,
+      end_minutes_utc: null as number | null,
+      start_at_utc: null as string | null,
+      end_at_utc: null as string | null,
+      languages: form.languages,
+    };
+
+    if (form.schedule_type === 'weekly') {
+      const dayOfWeek = parseOptionalNumber(form.day_of_week_local);
+      const startMinutes = parseOptionalNumber(form.start_minutes_local);
+      const endMinutes = parseOptionalNumber(form.end_minutes_local);
+      if (
+        dayOfWeek !== null &&
+        startMinutes !== null &&
+        endMinutes !== null
+      ) {
+        const utcSchedule = toUtcWeekly(
+          dayOfWeek,
+          startMinutes,
+          endMinutes
+        );
+        payload.day_of_week_utc = utcSchedule.dayOfWeek;
+        payload.start_minutes_utc = utcSchedule.startMinutes;
+        payload.end_minutes_utc = utcSchedule.endMinutes;
+      }
+    }
+
+    if (form.schedule_type === 'monthly') {
+      const dayOfMonth = parseOptionalNumber(form.day_of_month_local);
+      const startMinutes = parseOptionalNumber(form.start_minutes_local);
+      const endMinutes = parseOptionalNumber(form.end_minutes_local);
+      if (
+        dayOfMonth !== null &&
+        startMinutes !== null &&
+        endMinutes !== null
+      ) {
+        const utcSchedule = toUtcMonthly(
+          dayOfMonth,
+          startMinutes,
+          endMinutes
+        );
+        payload.day_of_month = utcSchedule.dayOfMonth;
+        payload.start_minutes_utc = utcSchedule.startMinutes;
+        payload.end_minutes_utc = utcSchedule.endMinutes;
+      }
+    }
+
+    if (form.schedule_type === 'date_specific') {
+      payload.start_at_utc = toUtcIso(form.start_at_utc);
+      payload.end_at_utc = toUtcIso(form.end_at_utc);
+    }
+
+    return payload;
+  };
 
   const handleSubmit = () => panel.handleSubmit(formToPayload, validate);
 
   const scheduleType = panel.formState.schedule_type;
+  const startTimeOptions = getTimeOptions(
+    panel.formState.start_minutes_local
+  );
+  const endTimeOptions = getTimeOptions(panel.formState.end_minutes_local);
   const selectedLanguages = new Set(panel.formState.languages);
 
   function getActivityName(activityId: string) {
@@ -363,10 +638,10 @@ export function SchedulesPanel({ mode }: SchedulesPanelProps) {
                 panel.setFormState((prev) => ({
                   ...prev,
                   schedule_type: e.target.value,
-                  day_of_week_utc: '',
-                  day_of_month: '',
-                  start_minutes_utc: '',
-                  end_minutes_utc: '',
+                  day_of_week_local: '',
+                  day_of_month_local: '',
+                  start_minutes_local: '',
+                  end_minutes_local: '',
                   start_at_utc: '',
                   end_at_utc: '',
                 }))
@@ -382,14 +657,14 @@ export function SchedulesPanel({ mode }: SchedulesPanelProps) {
           {scheduleType === 'weekly' && (
             <>
               <div>
-                <Label htmlFor='schedule-day'>Day of Week</Label>
+                <Label htmlFor='schedule-day'>Day of Week (Local)</Label>
                 <Select
                   id='schedule-day'
-                  value={panel.formState.day_of_week_utc}
+                  value={panel.formState.day_of_week_local}
                   onChange={(e) =>
                     panel.setFormState((prev) => ({
                       ...prev,
-                      day_of_week_utc: e.target.value,
+                      day_of_week_local: e.target.value,
                     }))
                   }
                 >
@@ -402,88 +677,106 @@ export function SchedulesPanel({ mode }: SchedulesPanelProps) {
                 </Select>
               </div>
               <div>
-                <Label htmlFor='schedule-start'>Start Minutes (UTC)</Label>
-                <Input
+                <Label htmlFor='schedule-start'>Start Time (Local)</Label>
+                <Select
                   id='schedule-start'
-                  type='number'
-                  min='0'
-                  max='1439'
-                  value={panel.formState.start_minutes_utc}
+                  value={panel.formState.start_minutes_local}
                   onChange={(e) =>
                     panel.setFormState((prev) => ({
                       ...prev,
-                      start_minutes_utc: e.target.value,
+                      start_minutes_local: e.target.value,
                     }))
                   }
-                />
+                >
+                  <option value=''>Select time</option>
+                  {startTimeOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </Select>
               </div>
               <div>
-                <Label htmlFor='schedule-end'>End Minutes (UTC)</Label>
-                <Input
+                <Label htmlFor='schedule-end'>End Time (Local)</Label>
+                <Select
                   id='schedule-end'
-                  type='number'
-                  min='0'
-                  max='1439'
-                  value={panel.formState.end_minutes_utc}
+                  value={panel.formState.end_minutes_local}
                   onChange={(e) =>
                     panel.setFormState((prev) => ({
                       ...prev,
-                      end_minutes_utc: e.target.value,
+                      end_minutes_local: e.target.value,
                     }))
                   }
-                />
+                >
+                  <option value=''>Select time</option>
+                  {endTimeOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </Select>
               </div>
             </>
           )}
           {scheduleType === 'monthly' && (
             <>
               <div>
-                <Label htmlFor='schedule-month-day'>Day of Month (1-31)</Label>
+                <Label htmlFor='schedule-month-day'>
+                  Day of Month (Local, 1-31)
+                </Label>
                 <Input
                   id='schedule-month-day'
                   type='number'
                   min='1'
                   max='31'
-                  value={panel.formState.day_of_month}
+                  value={panel.formState.day_of_month_local}
                   onChange={(e) =>
                     panel.setFormState((prev) => ({
                       ...prev,
-                      day_of_month: e.target.value,
+                      day_of_month_local: e.target.value,
                     }))
                   }
                 />
               </div>
               <div>
-                <Label htmlFor='schedule-month-start'>Start Minutes (UTC)</Label>
-                <Input
+                <Label htmlFor='schedule-month-start'>Start Time (Local)</Label>
+                <Select
                   id='schedule-month-start'
-                  type='number'
-                  min='0'
-                  max='1439'
-                  value={panel.formState.start_minutes_utc}
+                  value={panel.formState.start_minutes_local}
                   onChange={(e) =>
                     panel.setFormState((prev) => ({
                       ...prev,
-                      start_minutes_utc: e.target.value,
+                      start_minutes_local: e.target.value,
                     }))
                   }
-                />
+                >
+                  <option value=''>Select time</option>
+                  {startTimeOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </Select>
               </div>
               <div>
-                <Label htmlFor='schedule-month-end'>End Minutes (UTC)</Label>
-                <Input
+                <Label htmlFor='schedule-month-end'>End Time (Local)</Label>
+                <Select
                   id='schedule-month-end'
-                  type='number'
-                  min='0'
-                  max='1439'
-                  value={panel.formState.end_minutes_utc}
+                  value={panel.formState.end_minutes_local}
                   onChange={(e) =>
                     panel.setFormState((prev) => ({
                       ...prev,
-                      end_minutes_utc: e.target.value,
+                      end_minutes_local: e.target.value,
                     }))
                   }
-                />
+                >
+                  <option value=''>Select time</option>
+                  {endTimeOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </Select>
               </div>
             </>
           )}

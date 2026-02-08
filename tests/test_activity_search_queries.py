@@ -33,6 +33,18 @@ def test_validate_filters_rejects_invalid_minutes() -> None:
         validate_filters(filters)
 
 
+def test_build_activity_search_query_includes_wrap_conditions() -> None:
+    """Ensure wrapped schedules are considered for time filters."""
+
+    filters = ActivitySearchFilters(start_minutes_utc=480, end_minutes_utc=600)
+    query = build_activity_search_query(filters)
+    where_clause = str(query.whereclause)
+    wrap_fragment = (
+        "activity_schedule.start_minutes_utc > "
+        "activity_schedule.end_minutes_utc"
+    )
+    assert wrap_fragment in where_clause
+
 def test_validate_filters_rejects_schedule_type_conflict() -> None:
     """Ensure schedule_type conflicts are rejected."""
 

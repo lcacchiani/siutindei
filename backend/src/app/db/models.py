@@ -478,7 +478,7 @@ class ActivitySchedule(Base):
         ),
         CheckConstraint(
             "start_minutes_utc IS NULL OR end_minutes_utc IS NULL OR "
-            "start_minutes_utc < end_minutes_utc",
+            "start_minutes_utc != end_minutes_utc",
             name="schedule_minutes_order",
         ),
         CheckConstraint(
