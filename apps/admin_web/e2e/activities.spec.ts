@@ -16,6 +16,21 @@ test.describe('Activities Panel', () => {
     await expect(adminPage.getByLabel('Category')).toBeVisible();
     await expect(adminPage.getByLabel('Name')).toBeVisible();
     await expect(adminPage.getByLabel('Description')).toBeVisible();
+    await expect(
+      adminPage
+        .getByRole('button', { name: 'Select English (en)' })
+        .first()
+    ).toBeVisible();
+    await expect(
+      adminPage
+        .getByRole('button', { name: 'Select Chinese (zh)' })
+        .first()
+    ).toBeVisible();
+    await expect(
+      adminPage
+        .getByRole('button', { name: 'Select Cantonese (yue)' })
+        .first()
+    ).toBeVisible();
     await expect(adminPage.getByLabel('Age Min')).toBeVisible();
     await expect(adminPage.getByLabel('Age Max')).toBeVisible();
 

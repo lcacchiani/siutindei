@@ -3,12 +3,20 @@
 import { useMemo, useState } from 'react';
 
 import { useResourcePanel } from '../../hooks/use-resource-panel';
+import {
+  buildTranslationsPayload,
+  emptyTranslations,
+  extractTranslations,
+  type LanguageCode,
+  type TranslationLanguageCode,
+} from '../../lib/translations';
 import type { ActivityCategory } from '../../types/admin';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
 import { DataTable } from '../ui/data-table';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
+import { LanguageToggleInput } from '../ui/language-toggle-input';
 import { SearchInput } from '../ui/search-input';
 import { Select } from '../ui/select';
 import { StatusBanner } from '../status-banner';
@@ -16,12 +24,14 @@ import { StatusBanner } from '../status-banner';
 
 interface ActivityCategoryFormState {
   name: string;
+  name_translations: Record<TranslationLanguageCode, string>;
   parent_id: string;
   display_order: string;
 }
 
 const emptyForm: ActivityCategoryFormState = {
   name: '',
+  name_translations: emptyTranslations(),
   parent_id: '',
   display_order: '0',
 };
@@ -29,6 +39,7 @@ const emptyForm: ActivityCategoryFormState = {
 function itemToForm(item: ActivityCategory): ActivityCategoryFormState {
   return {
     name: item.name ?? '',
+    name_translations: extractTranslations(item.name_translations),
     parent_id: item.parent_id ?? '',
     display_order:
       item.display_order !== undefined ? `${item.display_order}` : '0',
@@ -132,8 +143,23 @@ export function ActivityCategoriesPanel() {
     return null;
   };
 
+  const handleNameChange = (language: LanguageCode, value: string) => {
+    panel.setFormState((prev) =>
+      language === 'en'
+        ? { ...prev, name: value }
+        : {
+            ...prev,
+            name_translations: {
+              ...prev.name_translations,
+              [language]: value,
+            },
+          }
+    );
+  };
+
   const formToPayload = (form: ActivityCategoryFormState) => ({
     name: form.name.trim(),
+    name_translations: buildTranslationsPayload(form.name_translations),
     parent_id: form.parent_id || null,
     display_order: parseDisplayOrder(form.display_order),
   });
@@ -144,7 +170,14 @@ export function ActivityCategoriesPanel() {
     if (!searchQuery.trim()) return true;
     const query = searchQuery.toLowerCase();
     const path = categoryPathById.get(item.id)?.toLowerCase() ?? '';
-    return path.includes(query) || item.name.toLowerCase().includes(query);
+    const nameTranslations = Object.values(item.name_translations ?? {})
+      .join(' ')
+      .toLowerCase();
+    return (
+      path.includes(query) ||
+      item.name.toLowerCase().includes(query) ||
+      nameTranslations.includes(query)
+    );
   });
 
   const columns = [
@@ -177,16 +210,15 @@ export function ActivityCategoriesPanel() {
         )}
         <div className='grid gap-4 md:grid-cols-2'>
           <div>
-            <Label htmlFor='category-name'>Name</Label>
-            <Input
+            <LanguageToggleInput
               id='category-name'
-              value={panel.formState.name}
-              onChange={(e) =>
-                panel.setFormState((prev) => ({
-                  ...prev,
-                  name: e.target.value,
-                }))
-              }
+              label='Name'
+              values={{
+                en: panel.formState.name,
+                zh: panel.formState.name_translations.zh,
+                yue: panel.formState.name_translations.yue,
+              }}
+              onChange={handleNameChange}
             />
           </div>
           <div>

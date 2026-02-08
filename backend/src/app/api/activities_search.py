@@ -44,6 +44,7 @@ from app.utils import (
 from app.utils.logging import configure_logging, get_logger, set_request_context
 from app.utils.parsers import collect_query_params, first_param, parse_languages
 from app.utils.responses import get_cors_headers
+from app.utils.translations import build_translation_map
 
 # Configure logging on module load
 configure_logging()
@@ -149,6 +150,12 @@ def map_row_to_result(row: Any) -> ActivitySearchResultSchema:
             id=str(activity.id),
             name=activity.name,
             description=activity.description,
+            name_translations=build_translation_map(
+                activity.name, activity.name_translations
+            ),
+            description_translations=build_translation_map(
+                activity.description, activity.description_translations
+            ),
             age_min=age_min,
             age_max=age_max,
         ),
@@ -156,6 +163,12 @@ def map_row_to_result(row: Any) -> ActivitySearchResultSchema:
             id=str(organization.id),
             name=organization.name,
             description=organization.description,
+            name_translations=build_translation_map(
+                organization.name, organization.name_translations
+            ),
+            description_translations=build_translation_map(
+                organization.description, organization.description_translations
+            ),
             manager_id=organization.manager_id,
             media_urls=organization.media_urls or [],
         ),

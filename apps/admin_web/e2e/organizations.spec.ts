@@ -14,6 +14,21 @@ test.describe('Organizations Panel', () => {
     await expect(adminPage.getByLabel('Name')).toBeVisible();
     await expect(adminPage.getByLabel('Manager')).toBeVisible();
     await expect(adminPage.getByLabel('Description')).toBeVisible();
+    await expect(
+      adminPage
+        .getByRole('button', { name: 'Select English (en)' })
+        .first()
+    ).toBeVisible();
+    await expect(
+      adminPage
+        .getByRole('button', { name: 'Select Chinese (zh)' })
+        .first()
+    ).toBeVisible();
+    await expect(
+      adminPage
+        .getByRole('button', { name: 'Select Cantonese (yue)' })
+        .first()
+    ).toBeVisible();
     await expect(adminPage.getByLabel('Email')).toBeVisible();
     await expect(adminPage.getByLabel('Phone country')).toBeVisible();
     await expect(adminPage.getByLabel('Phone number')).toBeVisible();

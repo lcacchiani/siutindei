@@ -7,6 +7,13 @@ import { useOrganizationsByMode } from '../../hooks/use-organizations-by-mode';
 import { useResourcePanel } from '../../hooks/use-resource-panel';
 import { parseRequiredNumber } from '../../lib/number-parsers';
 import type { ApiMode } from '../../lib/resource-api';
+import {
+  buildTranslationsPayload,
+  emptyTranslations,
+  extractTranslations,
+  type LanguageCode,
+  type TranslationLanguageCode,
+} from '../../lib/translations';
 import type { Activity } from '../../types/admin';
 import { CascadingCategorySelect } from '../ui/cascading-category-select';
 import { Button } from '../ui/button';
@@ -14,9 +21,9 @@ import { Card } from '../ui/card';
 import { DataTable } from '../ui/data-table';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
+import { LanguageToggleInput } from '../ui/language-toggle-input';
 import { SearchInput } from '../ui/search-input';
 import { Select } from '../ui/select';
-import { Textarea } from '../ui/textarea';
 import { StatusBanner } from '../status-banner';
 
 interface ActivityFormState {
@@ -24,6 +31,8 @@ interface ActivityFormState {
   category_id: string;
   name: string;
   description: string;
+  name_translations: Record<TranslationLanguageCode, string>;
+  description_translations: Record<TranslationLanguageCode, string>;
   age_min: string;
   age_max: string;
 }
@@ -33,6 +42,8 @@ const emptyForm: ActivityFormState = {
   category_id: '',
   name: '',
   description: '',
+  name_translations: emptyTranslations(),
+  description_translations: emptyTranslations(),
   age_min: '',
   age_max: '',
 };
@@ -43,6 +54,8 @@ function itemToForm(item: Activity): ActivityFormState {
     category_id: item.category_id ?? '',
     name: item.name ?? '',
     description: item.description ?? '',
+    name_translations: extractTranslations(item.name_translations),
+    description_translations: extractTranslations(item.description_translations),
     age_min: item.age_min !== undefined ? `${item.age_min}` : '',
     age_max: item.age_max !== undefined ? `${item.age_max}` : '',
   };
@@ -120,11 +133,43 @@ export function ActivitiesPanel({ mode }: ActivitiesPanelProps) {
     return null;
   };
 
+  const handleNameChange = (language: LanguageCode, value: string) => {
+    panel.setFormState((prev) =>
+      language === 'en'
+        ? { ...prev, name: value }
+        : {
+            ...prev,
+            name_translations: {
+              ...prev.name_translations,
+              [language]: value,
+            },
+          }
+    );
+  };
+
+  const handleDescriptionChange = (language: LanguageCode, value: string) => {
+    panel.setFormState((prev) =>
+      language === 'en'
+        ? { ...prev, description: value }
+        : {
+            ...prev,
+            description_translations: {
+              ...prev.description_translations,
+              [language]: value,
+            },
+          }
+    );
+  };
+
   const formToPayload = (form: ActivityFormState) => ({
     org_id: form.org_id,
     category_id: form.category_id,
     name: form.name.trim(),
     description: form.description.trim() || null,
+    name_translations: buildTranslationsPayload(form.name_translations),
+    description_translations: buildTranslationsPayload(
+      form.description_translations
+    ),
     age_min: parseRequiredNumber(form.age_min),
     age_max: parseRequiredNumber(form.age_max),
   });
@@ -171,6 +216,14 @@ export function ActivitiesPanel({ mode }: ActivitiesPanelProps) {
   const filteredItems = panel.items.filter((item) => {
     if (!searchQuery.trim()) return true;
     const query = searchQuery.toLowerCase();
+    const nameTranslations = Object.values(item.name_translations ?? {})
+      .join(' ')
+      .toLowerCase();
+    const descriptionTranslations = Object.values(
+      item.description_translations ?? {}
+    )
+      .join(' ')
+      .toLowerCase();
     const orgName =
       organizations
         .find((org) => org.id === item.org_id)
@@ -179,6 +232,8 @@ export function ActivitiesPanel({ mode }: ActivitiesPanelProps) {
     return (
       item.name?.toLowerCase().includes(query) ||
       item.description?.toLowerCase().includes(query) ||
+      nameTranslations.includes(query) ||
+      descriptionTranslations.includes(query) ||
       orgName.includes(query) ||
       categoryPath.includes(query)
     );
@@ -217,16 +272,15 @@ export function ActivitiesPanel({ mode }: ActivitiesPanelProps) {
             </Select>
           </div>
           <div>
-            <Label htmlFor='activity-name'>Name</Label>
-            <Input
+            <LanguageToggleInput
               id='activity-name'
-              value={panel.formState.name}
-              onChange={(e) =>
-                panel.setFormState((prev) => ({
-                  ...prev,
-                  name: e.target.value,
-                }))
-              }
+              label='Name'
+              values={{
+                en: panel.formState.name,
+                zh: panel.formState.name_translations.zh,
+                yue: panel.formState.name_translations.yue,
+              }}
+              onChange={handleNameChange}
             />
           </div>
           <div className='md:col-span-2'>
@@ -242,17 +296,17 @@ export function ActivitiesPanel({ mode }: ActivitiesPanelProps) {
             />
           </div>
           <div className='md:col-span-2'>
-            <Label htmlFor='activity-description'>Description</Label>
-            <Textarea
+            <LanguageToggleInput
               id='activity-description'
+              label='Description'
+              multiline
               rows={3}
-              value={panel.formState.description}
-              onChange={(e) =>
-                panel.setFormState((prev) => ({
-                  ...prev,
-                  description: e.target.value,
-                }))
-              }
+              values={{
+                en: panel.formState.description,
+                zh: panel.formState.description_translations.zh,
+                yue: panel.formState.description_translations.yue,
+              }}
+              onChange={handleDescriptionChange}
             />
           </div>
           <div>

@@ -18,6 +18,13 @@ import {
 import { useResourcePanel } from '../../hooks/use-resource-panel';
 import { ApiError, listCognitoUsers } from '../../lib/api-client';
 import type { ApiMode } from '../../lib/resource-api';
+import {
+  buildTranslationsPayload,
+  emptyTranslations,
+  extractTranslations,
+  type LanguageCode,
+  type TranslationLanguageCode,
+} from '../../lib/translations';
 import type { CognitoUser, Organization } from '../../types/admin';
 import { useAuth } from '../auth-provider';
 import { Button } from '../ui/button';
@@ -25,9 +32,9 @@ import { Card } from '../ui/card';
 import { DataTable } from '../ui/data-table';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
+import { LanguageToggleInput } from '../ui/language-toggle-input';
 import { SearchInput } from '../ui/search-input';
 import { Select } from '../ui/select';
-import { Textarea } from '../ui/textarea';
 import { StatusBanner } from '../status-banner';
 
 
@@ -182,6 +189,8 @@ function isValidPhoneNumber(
 interface OrganizationFormState {
   name: string;
   description: string;
+  name_translations: Record<TranslationLanguageCode, string>;
+  description_translations: Record<TranslationLanguageCode, string>;
   manager_id: string;
   phone_country_code: string;
   phone_number: string;
@@ -198,6 +207,8 @@ interface OrganizationFormState {
 const emptyForm: OrganizationFormState = {
   name: '',
   description: '',
+  name_translations: emptyTranslations(),
+  description_translations: emptyTranslations(),
   manager_id: '',
   phone_country_code: 'HK',
   phone_number: '',
@@ -215,6 +226,8 @@ function itemToForm(item: Organization): OrganizationFormState {
   return {
     name: item.name ?? '',
     description: item.description ?? '',
+    name_translations: extractTranslations(item.name_translations),
+    description_translations: extractTranslations(item.description_translations),
     manager_id: item.manager_id ?? '',
     phone_country_code: item.phone_country_code ?? 'HK',
     phone_number: item.phone_number ?? '',
@@ -409,6 +422,34 @@ export function OrganizationsPanel({ mode }: OrganizationsPanelProps) {
     return null;
   };
 
+  const handleNameChange = (language: LanguageCode, value: string) => {
+    panel.setFormState((prev) =>
+      language === 'en'
+        ? { ...prev, name: value }
+        : {
+            ...prev,
+            name_translations: {
+              ...prev.name_translations,
+              [language]: value,
+            },
+          }
+    );
+  };
+
+  const handleDescriptionChange = (language: LanguageCode, value: string) => {
+    panel.setFormState((prev) =>
+      language === 'en'
+        ? { ...prev, description: value }
+        : {
+            ...prev,
+            description_translations: {
+              ...prev.description_translations,
+              [language]: value,
+            },
+          }
+    );
+  };
+
   const formToPayload = (form: OrganizationFormState) => {
     const existingOrg = panel.items.find((item) => item.id === panel.editingId);
     const phoneNumber = normalizePhoneNumber(form.phone_number);
@@ -416,6 +457,10 @@ export function OrganizationsPanel({ mode }: OrganizationsPanelProps) {
     const payload: Record<string, unknown> = {
       name: form.name.trim(),
       description: form.description.trim() || null,
+      name_translations: buildTranslationsPayload(form.name_translations),
+      description_translations: buildTranslationsPayload(
+        form.description_translations
+      ),
       media_urls: existingOrg?.media_urls ?? [],
       phone_country_code: phoneNumber
         ? form.phone_country_code.trim().toUpperCase()
@@ -446,10 +491,20 @@ export function OrganizationsPanel({ mode }: OrganizationsPanelProps) {
   const filteredItems = panel.items.filter((item) => {
     if (!searchQuery.trim()) return true;
     const query = searchQuery.toLowerCase();
+    const nameTranslations = Object.values(item.name_translations ?? {})
+      .join(' ')
+      .toLowerCase();
+    const descriptionTranslations = Object.values(
+      item.description_translations ?? {}
+    )
+      .join(' ')
+      .toLowerCase();
     const managerDisplay = getManagerDisplayName(item.manager_id, cognitoUsers).toLowerCase();
     return (
       item.name?.toLowerCase().includes(query) ||
       item.description?.toLowerCase().includes(query) ||
+      nameTranslations.includes(query) ||
+      descriptionTranslations.includes(query) ||
       managerDisplay.includes(query)
     );
   });
@@ -541,16 +596,15 @@ export function OrganizationsPanel({ mode }: OrganizationsPanelProps) {
           )}
           <div className='grid gap-4 md:grid-cols-2'>
             <div>
-              <Label htmlFor='org-name'>Name</Label>
-              <Input
+              <LanguageToggleInput
                 id='org-name'
-                value={panel.formState.name}
-                onChange={(e) =>
-                  panel.setFormState((prev) => ({
-                    ...prev,
-                    name: e.target.value,
-                  }))
-                }
+                label='Name'
+                values={{
+                  en: panel.formState.name,
+                  zh: panel.formState.name_translations.zh,
+                  yue: panel.formState.name_translations.yue,
+                }}
+                onChange={handleNameChange}
               />
             </div>
             <div>
@@ -590,17 +644,17 @@ export function OrganizationsPanel({ mode }: OrganizationsPanelProps) {
               )}
             </div>
             <div className='md:col-span-2'>
-              <Label htmlFor='org-description'>Description</Label>
-              <Textarea
+              <LanguageToggleInput
                 id='org-description'
+                label='Description'
+                multiline
                 rows={3}
-                value={panel.formState.description}
-                onChange={(e) =>
-                  panel.setFormState((prev) => ({
-                    ...prev,
-                    description: e.target.value,
-                  }))
-                }
+                values={{
+                  en: panel.formState.description,
+                  zh: panel.formState.description_translations.zh,
+                  yue: panel.formState.description_translations.yue,
+                }}
+                onChange={handleDescriptionChange}
               />
             </div>
             <div className='md:col-span-2'>

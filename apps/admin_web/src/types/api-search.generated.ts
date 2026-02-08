@@ -126,6 +126,8 @@ export interface components {
             id: string;
             name: string;
             description?: string | null;
+            name_translations: components["schemas"]["TranslationMap"];
+            description_translations: components["schemas"]["TranslationMap"];
             /** @description Cognito user sub of the organization manager */
             manager_id: string;
             media_urls: string[];
@@ -147,6 +149,8 @@ export interface components {
             id: string;
             name: string;
             description?: string | null;
+            name_translations: components["schemas"]["TranslationMap"];
+            description_translations: components["schemas"]["TranslationMap"];
             age_min?: number | null;
             age_max?: number | null;
         };
@@ -169,6 +173,13 @@ export interface components {
             /** Format: date-time */
             end_at_utc?: string | null;
             languages: string[];
+        };
+        /**
+         * @description Language map for translated text. The server always includes English
+         *     as "en" and may include additional languages like "zh" or "yue".
+         */
+        TranslationMap: {
+            [key: string]: string;
         };
     };
     responses: never;

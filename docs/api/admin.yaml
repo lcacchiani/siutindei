@@ -1548,6 +1548,14 @@ components:
           type: string
           description: Additional details (e.g., field name)
 
+    TranslationMap:
+      type: object
+      additionalProperties:
+        type: string
+      description: |
+        Language map for translated text. The server always includes English
+        as "en" and may include additional languages like "zh" or "yue".
+
     # Organization schemas
     OrganizationCreate:
       type: object
@@ -1563,6 +1571,12 @@ components:
           type: string
           maxLength: 5000
           description: Organization description (optional, max 5,000 characters)
+        name_translations:
+          $ref: '#/components/schemas/TranslationMap'
+          description: Non-English name translations (language map)
+        description_translations:
+          $ref: '#/components/schemas/TranslationMap'
+          description: Non-English description translations (language map)
         manager_id:
           type: string
           description: Cognito user sub of the organization manager (required)
@@ -1628,6 +1642,12 @@ components:
           type: string
           maxLength: 5000
           description: Organization description (max 5,000 characters)
+        name_translations:
+          $ref: '#/components/schemas/TranslationMap'
+          description: Non-English name translations (language map)
+        description_translations:
+          $ref: '#/components/schemas/TranslationMap'
+          description: Non-English description translations (language map)
         manager_id:
           type: string
           description: Cognito user sub of the organization manager
@@ -1681,7 +1701,15 @@ components:
 
     Organization:
       type: object
-      required: [id, name, manager_id, media_urls, created_at, updated_at]
+      required:
+        - id
+        - name
+        - name_translations
+        - description_translations
+        - manager_id
+        - media_urls
+        - created_at
+        - updated_at
       properties:
         id:
           type: string
@@ -1691,6 +1719,10 @@ components:
         description:
           type: string
           nullable: true
+        name_translations:
+          $ref: '#/components/schemas/TranslationMap'
+        description_translations:
+          $ref: '#/components/schemas/TranslationMap'
         manager_id:
           type: string
           description: Cognito user sub of the organization manager
@@ -1877,6 +1909,12 @@ components:
           type: string
           maxLength: 5000
           description: Activity description (optional, max 5,000 characters)
+        name_translations:
+          $ref: '#/components/schemas/TranslationMap'
+          description: Non-English name translations (language map)
+        description_translations:
+          $ref: '#/components/schemas/TranslationMap'
+          description: Non-English description translations (language map)
         age_min:
           type: integer
           minimum: 0
@@ -1903,6 +1941,12 @@ components:
           type: string
           maxLength: 5000
           description: Activity description (max 5,000 characters)
+        name_translations:
+          $ref: '#/components/schemas/TranslationMap'
+          description: Non-English name translations (language map)
+        description_translations:
+          $ref: '#/components/schemas/TranslationMap'
+          description: Non-English description translations (language map)
         age_min:
           type: integer
           minimum: 0
@@ -1917,7 +1961,18 @@ components:
     Activity:
       type: object
       required:
-        [id, org_id, category_id, name, age_min, age_max, created_at, updated_at]
+        [
+          id,
+          org_id,
+          category_id,
+          name,
+          name_translations,
+          description_translations,
+          age_min,
+          age_max,
+          created_at,
+          updated_at,
+        ]
       properties:
         id:
           type: string
@@ -1933,6 +1988,10 @@ components:
         description:
           type: string
           nullable: true
+        name_translations:
+          $ref: '#/components/schemas/TranslationMap'
+        description_translations:
+          $ref: '#/components/schemas/TranslationMap'
         age_min:
           type: integer
         age_max:
@@ -2507,7 +2566,7 @@ components:
     # Activity Category schemas
     ActivityCategory:
       type: object
-      required: [id, name, display_order]
+      required: [id, name, name_translations, display_order]
       properties:
         id:
           type: string
@@ -2520,6 +2579,8 @@ components:
         name:
           type: string
           description: Category name
+        name_translations:
+          $ref: '#/components/schemas/TranslationMap'
         display_order:
           type: integer
         children:
@@ -2536,6 +2597,9 @@ components:
           type: string
           maxLength: 200
           description: Category name (required)
+        name_translations:
+          $ref: '#/components/schemas/TranslationMap'
+          description: Non-English name translations (language map)
         parent_id:
           type: string
           format: uuid
@@ -2552,6 +2616,9 @@ components:
           type: string
           maxLength: 200
           description: Category name
+        name_translations:
+          $ref: '#/components/schemas/TranslationMap'
+          description: Non-English name translations (language map)
         parent_id:
           type: string
           format: uuid
@@ -2585,7 +2652,7 @@ components:
     # Geographic Area schemas
     GeographicArea:
       type: object
-      required: [id, name, level, active, display_order]
+      required: [id, name, name_translations, level, active, display_order]
       properties:
         id:
           type: string
@@ -2598,6 +2665,8 @@ components:
         name:
           type: string
           description: Area name (e.g., 'Hong Kong', 'Wan Chai')
+        name_translations:
+          $ref: '#/components/schemas/TranslationMap'
         level:
           type: string
           enum: [country, region, city, district]
