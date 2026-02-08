@@ -59,9 +59,11 @@ export function LanguageToggleInput({
   );
 
   return (
-    <div className='space-y-2'>
-      <div className='flex flex-wrap items-center justify-between gap-3'>
-        <Label htmlFor={id}>{label}</Label>
+    <div className='space-y-1'>
+      <div className='flex flex-wrap items-start justify-between gap-3'>
+        <Label className='mb-0' htmlFor={id}>
+          {label}
+        </Label>
         <div className='flex items-center gap-2'>
           {languageOptions.map((option) => {
             const isActive = option.code === activeLanguage;
@@ -71,7 +73,7 @@ export function LanguageToggleInput({
                 key={option.code}
                 type='button'
                 onClick={() => setActiveLanguage(option.code)}
-                className={`relative flex items-center justify-center rounded border px-1 py-0.5 transition ${
+                className={`relative flex h-5 items-center justify-center rounded border px-1 py-0 box-border transition ${
                   isActive
                     ? 'border-slate-400 bg-slate-50 ring-2 ring-slate-200'
                     : 'border-slate-200 hover:border-slate-300'
