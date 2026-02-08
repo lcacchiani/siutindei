@@ -3346,13 +3346,15 @@ export interface components {
             /**
              * @description Start time in minutes from midnight UTC (required for weekly/monthly).
              *     Range: 0-1439 (0 = 00:00, 1439 = 23:59).
-             *     Must be less than end_minutes_utc.
+             *     Must not equal end_minutes_utc.
+             *     If start_minutes_utc > end_minutes_utc, the schedule spans
+             *     midnight UTC into the next day.
              */
             start_minutes_utc?: number;
             /**
              * @description End time in minutes from midnight UTC (required for weekly/monthly).
              *     Range: 0-1439 (0 = 00:00, 1439 = 23:59).
-             *     Must be greater than start_minutes_utc.
+             *     Must not equal start_minutes_utc.
              */
             end_minutes_utc?: number;
             /**
