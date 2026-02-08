@@ -382,7 +382,7 @@ export function SchedulesPanel({ mode }: SchedulesPanelProps) {
           {scheduleType === 'weekly' && (
             <>
               <div>
-                <Label htmlFor='schedule-day'>Day of Week (UTC)</Label>
+                <Label htmlFor='schedule-day'>Day of Week</Label>
                 <Select
                   id='schedule-day'
                   value={panel.formState.day_of_week_utc}
