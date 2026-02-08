@@ -71,7 +71,7 @@ export function LanguageToggleInput({
                 key={option.code}
                 type='button'
                 onClick={() => setActiveLanguage(option.code)}
-                className={`relative flex items-center justify-center rounded border px-1.5 py-1 transition ${
+                className={`relative flex items-center justify-center rounded border px-1 py-0.5 transition ${
                   isActive
                     ? 'border-slate-400 bg-slate-50 ring-2 ring-slate-200'
                     : 'border-slate-200 hover:border-slate-300'
@@ -85,8 +85,8 @@ export function LanguageToggleInput({
                 <img
                   src={option.flagSrc}
                   alt={`${option.label} flag`}
-                  width={24}
-                  height={16}
+                  width={20}
+                  height={14}
                   loading='lazy'
                 />
                 {hasValue ? (
