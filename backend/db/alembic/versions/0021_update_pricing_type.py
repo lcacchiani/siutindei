@@ -25,9 +25,7 @@ def upgrade() -> None:
             server_default=sa.text("false"),
         ),
     )
-    op.execute(
-        "DELETE FROM activity_pricing WHERE pricing_type = 'per_month'"
-    )
+    op.execute("DELETE FROM activity_pricing WHERE pricing_type = 'per_month'")
     op.execute(
         "CREATE TYPE pricing_type_new AS ENUM "
         "('per_class', 'per_sessions', 'per_hour', 'per_day')"
@@ -44,8 +42,7 @@ def upgrade() -> None:
 def downgrade() -> None:
     """Revert pricing type enum and remove free trial flag."""
     op.execute(
-        "DELETE FROM activity_pricing "
-        "WHERE pricing_type IN ('per_hour', 'per_day')"
+        "DELETE FROM activity_pricing " "WHERE pricing_type IN ('per_hour', 'per_day')"
     )
     op.execute(
         "CREATE TYPE pricing_type_old AS ENUM "

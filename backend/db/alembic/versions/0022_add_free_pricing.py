@@ -30,9 +30,7 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     """Remove free pricing type."""
-    op.execute(
-        "DELETE FROM activity_pricing WHERE pricing_type = 'free'"
-    )
+    op.execute("DELETE FROM activity_pricing WHERE pricing_type = 'free'")
     op.execute(
         "CREATE TYPE pricing_type_old AS ENUM "
         "('per_class', 'per_sessions', 'per_hour', 'per_day')"
