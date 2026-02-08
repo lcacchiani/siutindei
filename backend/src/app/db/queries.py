@@ -196,16 +196,14 @@ def _apply_schedule_filters(filters: ActivitySearchFilters, conditions: list) ->
     elif filters.start_minutes_utc is not None:
         conditions.append(
             or_(
-                ActivitySchedule.start_minutes_utc
-                > ActivitySchedule.end_minutes_utc,
+                ActivitySchedule.start_minutes_utc > ActivitySchedule.end_minutes_utc,
                 ActivitySchedule.end_minutes_utc >= filters.start_minutes_utc,
             )
         )
     elif filters.end_minutes_utc is not None:
         conditions.append(
             or_(
-                ActivitySchedule.start_minutes_utc
-                > ActivitySchedule.end_minutes_utc,
+                ActivitySchedule.start_minutes_utc > ActivitySchedule.end_minutes_utc,
                 ActivitySchedule.start_minutes_utc <= filters.end_minutes_utc,
             )
         )
