@@ -231,26 +231,30 @@ class Organization {
     required this.name,
     this.description,
     this.mediaUrls = const [],
+    this.logoMediaUrl,
   });
 
   final String id;
   final String name;
   final String? description;
   final List<String> mediaUrls;
+  final String? logoMediaUrl;
 
   factory Organization.fromJson(Map<String, dynamic> json) {
     final mediaUrlsJson = json['media_urls'] as List<dynamic>? ?? [];
+    final logoMediaUrl = json['logo_media_url'] as String?;
     return Organization(
       id: json['id'] as String,
       name: json['name'] as String,
       description: json['description'] as String?,
       mediaUrls: mediaUrlsJson.map((e) => e as String).toList(),
+      logoMediaUrl: logoMediaUrl,
     );
   }
 
-  /// Returns the first media URL or null if none available.
+  /// Returns the logo URL or the first media URL when available.
   String? get primaryMediaUrl =>
-      mediaUrls.isNotEmpty ? mediaUrls.first : null;
+      logoMediaUrl ?? (mediaUrls.isNotEmpty ? mediaUrls.first : null);
 }
 
 class Location {

@@ -13,6 +13,7 @@ from app.api.admin import (  # noqa: E402
     _validate_currency,
     _validate_language_code,
     _validate_languages,
+    _validate_logo_media_url,
     _validate_media_urls,
     _validate_string_length,
     _validate_url,
@@ -166,6 +167,33 @@ class TestValidateMediaUrls:
         urls = ["https://example.com/image.png", "", "  "]
         result = _validate_media_urls(urls)
         assert len(result) == 1
+
+
+class TestValidateLogoMediaUrl:
+    """Tests for logo_media_url validation."""
+
+    def test_none_logo_allowed(self) -> None:
+        """None logo should return None."""
+        result = _validate_logo_media_url(None, [])
+        assert result is None
+
+    def test_valid_logo_in_media_list(self) -> None:
+        """Logo must match one of the media URLs."""
+        urls = [
+            "https://example.com/image.png",
+            "https://example.com/cover.png",
+        ]
+        result = _validate_logo_media_url(urls[1], urls)
+        assert result == urls[1]
+
+    def test_logo_not_in_list_raises(self) -> None:
+        """Logo not in media_urls should raise error."""
+        urls = ["https://example.com/image.png"]
+        with pytest.raises(ValidationError) as exc_info:
+            _validate_logo_media_url("https://example.com/other.png", urls)
+        assert "logo_media_url must match one of media_urls" in str(
+            exc_info.value
+        )
 
 
 class TestValidateCurrency:

@@ -21,6 +21,7 @@ info:
     | social handles / URLs | 64 (handles) / 2,048 (URLs) |
     | address | 500 characters |
     | media_urls (each) | 2,048 characters |
+    | logo_media_url | 2,048 characters |
 
     ### Array Limits
     | Field | Max Items |
@@ -1630,6 +1631,12 @@ components:
           description: |
             List of media URLs (optional, max 20 URLs).
             Each URL must use http or https scheme and be max 2,048 characters.
+        logo_media_url:
+          type: string
+          format: uri
+          maxLength: 2048
+          description: |
+            Optional logo media URL. Must match one of the media_urls values.
 
     OrganizationUpdate:
       type: object
@@ -1698,6 +1705,12 @@ components:
             type: string
             format: uri
             maxLength: 2048
+        logo_media_url:
+          type: string
+          format: uri
+          maxLength: 2048
+          description: |
+            Optional logo media URL. Must match one of the media_urls values.
 
     Organization:
       type: object
@@ -1770,6 +1783,11 @@ components:
           type: array
           items:
             type: string
+        logo_media_url:
+          type: string
+          format: uri
+          nullable: true
+          description: Optional logo media URL.
         created_at:
           type: string
           format: date-time

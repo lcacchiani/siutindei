@@ -3071,6 +3071,11 @@ export interface components {
              *     Each URL must use http or https scheme and be max 2,048 characters.
              */
             media_urls?: string[];
+            /**
+             * Format: uri
+             * @description Optional logo media URL. Must match one of the media_urls values.
+             */
+            logo_media_url?: string;
         };
         OrganizationUpdate: {
             /** @description Organization name (max 200 characters) */
@@ -3104,6 +3109,11 @@ export interface components {
             /** @description WeChat handle or URL */
             wechat?: string;
             media_urls?: string[];
+            /**
+             * Format: uri
+             * @description Optional logo media URL. Must match one of the media_urls values.
+             */
+            logo_media_url?: string;
         };
         Organization: {
             /** Format: uuid */
@@ -3135,6 +3145,11 @@ export interface components {
             /** @description WeChat handle or URL */
             wechat?: string | null;
             media_urls: string[];
+            /**
+             * Format: uri
+             * @description Optional logo media URL.
+             */
+            logo_media_url?: string | null;
             /** Format: date-time */
             created_at: string;
             /** Format: date-time */
