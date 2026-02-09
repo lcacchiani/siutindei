@@ -65,6 +65,54 @@ export function ActivityCategoriesPanel() {
   );
 
   const [searchQuery, setSearchQuery] = useState('');
+  const [touchedState, setTouchedState] = useState<{
+    key: string;
+    fields: Record<string, boolean>;
+  }>({ key: '', fields: {} });
+  const [submittedState, setSubmittedState] = useState<{
+    key: string;
+    value: boolean;
+  }>({ key: '', value: false });
+
+  const isFormEmpty =
+    panel.formState.name.trim() === '' &&
+    panel.formState.parent_id === '' &&
+    panel.formState.display_order.trim() === emptyForm.display_order &&
+    Object.values(panel.formState.name_translations).every(
+      (value) => !value.trim()
+    );
+
+  const formKey = panel.editingId ?? 'new';
+  const activeTouchedFields =
+    isFormEmpty || touchedState.key !== formKey ? {} : touchedState.fields;
+  const hasSubmitted =
+    isFormEmpty || submittedState.key !== formKey ? false : submittedState.value;
+
+  const errorInputClassName =
+    'border-red-500 focus:border-red-500 focus:ring-red-500';
+
+  const markTouched = (field: string) => {
+    setTouchedState((prev) => {
+      if (prev.key !== formKey) {
+        return { key: formKey, fields: { [field]: true } };
+      }
+      if (prev.fields[field]) {
+        return prev;
+      }
+      return { key: formKey, fields: { ...prev.fields, [field]: true } };
+    });
+    setSubmittedState((prev) => {
+      if (prev.key !== formKey || isFormEmpty) {
+        return { key: formKey, value: false };
+      }
+      return prev;
+    });
+  };
+  const shouldShowError = (field: string, message: string) =>
+    Boolean(
+      message &&
+        (hasSubmitted || activeTouchedFields[field])
+    );
 
   const childrenByParent = useMemo(() => {
     const map = new Map<string, ActivityCategory[]>();
@@ -143,7 +191,20 @@ export function ActivityCategoriesPanel() {
     return null;
   };
 
+  const nameError = panel.formState.name.trim()
+    ? ''
+    : 'Enter a category name.';
+
+  const displayOrderError = useMemo(() => {
+    const order = parseDisplayOrder(panel.formState.display_order);
+    if (order === null || order < 0) {
+      return 'Display order must be a whole number.';
+    }
+    return '';
+  }, [panel.formState.display_order]);
+
   const handleNameChange = (language: LanguageCode, value: string) => {
+    markTouched('name');
     panel.setFormState((prev) =>
       language === 'en'
         ? { ...prev, name: value }
@@ -164,7 +225,10 @@ export function ActivityCategoriesPanel() {
     display_order: parseDisplayOrder(form.display_order),
   });
 
-  const handleSubmit = () => panel.handleSubmit(formToPayload, validate);
+  const handleSubmit = () => {
+    setSubmittedState({ key: formKey, value: true });
+    return panel.handleSubmit(formToPayload, validate);
+  };
 
   const filteredItems = panel.items.filter((item) => {
     if (!searchQuery.trim()) return true;
@@ -179,6 +243,12 @@ export function ActivityCategoriesPanel() {
       nameTranslations.includes(query)
     );
   });
+
+  const showNameError = shouldShowError('name', nameError);
+  const showDisplayOrderError = shouldShowError(
+    'display_order',
+    displayOrderError
+  );
 
   const columns = [
     {
@@ -209,17 +279,23 @@ export function ActivityCategoriesPanel() {
           </div>
         )}
         <div className='grid gap-4 md:grid-cols-2'>
-          <div>
+          <div className='space-y-1'>
             <LanguageToggleInput
               id='category-name'
               label='Name'
+              required
               values={{
                 en: panel.formState.name,
                 zh: panel.formState.name_translations.zh,
                 yue: panel.formState.name_translations.yue,
               }}
               onChange={handleNameChange}
+              hasError={showNameError}
+              inputClassName={showNameError ? errorInputClassName : ''}
             />
+            {showNameError ? (
+              <p className='text-xs text-red-600'>{nameError}</p>
+            ) : null}
           </div>
           <div>
             <Label htmlFor='category-parent'>Parent</Label>
@@ -241,7 +317,7 @@ export function ActivityCategoriesPanel() {
               ))}
             </Select>
           </div>
-          <div>
+          <div className='space-y-1'>
             <Label htmlFor='category-order'>Display Order</Label>
             <Input
               id='category-order'
@@ -249,13 +325,19 @@ export function ActivityCategoriesPanel() {
               min='0'
               step='1'
               value={panel.formState.display_order}
-              onChange={(e) =>
+              onChange={(e) => {
+                markTouched('display_order');
                 panel.setFormState((prev) => ({
                   ...prev,
                   display_order: e.target.value,
-                }))
-              }
+                }));
+              }}
+              className={showDisplayOrderError ? errorInputClassName : ''}
+              aria-invalid={showDisplayOrderError || undefined}
             />
+            {showDisplayOrderError ? (
+              <p className='text-xs text-red-600'>{displayOrderError}</p>
+            ) : null}
           </div>
         </div>
         <div className='mt-4 flex flex-wrap gap-3'>

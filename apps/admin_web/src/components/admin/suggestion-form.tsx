@@ -37,6 +37,26 @@ export function SuggestionForm({ onSuggestionSubmitted }: SuggestionFormProps) {
   const [selectedLng, setSelectedLng] = useState<number | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [touchedFields, setTouchedFields] = useState<Record<string, boolean>>(
+    {}
+  );
+  const [hasSubmitted, setHasSubmitted] = useState(false);
+
+  const requiredIndicator = (
+    <span className='text-red-500' aria-hidden='true'>
+      *
+    </span>
+  );
+  const errorInputClassName =
+    'border-red-500 focus:border-red-500 focus:ring-red-500';
+
+  const orgNameError = organizationName.trim()
+    ? ''
+    : 'Enter an organization or place name.';
+  const showOrgNameError = Boolean(
+    orgNameError &&
+      (hasSubmitted || touchedFields.organizationName)
+  );
 
   const handleAddressSelect = (selection: import('../ui/address-autocomplete').AddressSelection) => {
     setAddress(selection.displayName);
@@ -55,6 +75,8 @@ export function SuggestionForm({ onSuggestionSubmitted }: SuggestionFormProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setHasSubmitted(true);
+    setTouchedFields((prev) => ({ ...prev, organizationName: true }));
 
     if (!organizationName.trim()) {
       setError('Organization name is required');
@@ -140,19 +162,37 @@ export function SuggestionForm({ onSuggestionSubmitted }: SuggestionFormProps) {
       )}
 
       <form onSubmit={handleSubmit} className='space-y-4'>
-        <div>
+        <div className='space-y-1'>
           <Label htmlFor='organization-name'>
-            Organization/Place Name <span className='text-red-500'>*</span>
+            Organization/Place Name{' '}
+            <span className='ml-1'>{requiredIndicator}</span>
           </Label>
           <Input
             id='organization-name'
             type='text'
             value={organizationName}
-            onChange={(e) => setOrganizationName(e.target.value)}
+            onChange={(e) => {
+              setTouchedFields((prev) => ({
+                ...prev,
+                organizationName: true,
+              }));
+              setOrganizationName(e.target.value);
+            }}
             placeholder='e.g., Happy Kids Dance Studio'
             required
             maxLength={200}
+            className={showOrgNameError ? errorInputClassName : ''}
+            aria-invalid={showOrgNameError || undefined}
+            onBlur={() =>
+              setTouchedFields((prev) => ({
+                ...prev,
+                organizationName: true,
+              }))
+            }
           />
+          {showOrgNameError ? (
+            <p className='text-xs text-red-600'>{orgNameError}</p>
+          ) : null}
         </div>
 
         <div>

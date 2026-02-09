@@ -268,6 +268,41 @@ export function SchedulesPanel({ mode }: SchedulesPanelProps) {
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
 
+  const [touchedState, setTouchedState] = useState<{
+    key: string;
+    fields: Record<string, boolean>;
+  }>({ key: '', fields: {} });
+  const [submittedState, setSubmittedState] = useState<{
+    key: string;
+    value: boolean;
+  }>({ key: '', value: false });
+
+  const requiredIndicator = (
+    <span className='text-red-500' aria-hidden='true'>
+      *
+    </span>
+  );
+  const errorInputClassName =
+    'border-red-500 focus:border-red-500 focus:ring-red-500';
+
+  const markTouched = (field: string) => {
+    setTouchedState((prev) => {
+      if (prev.key !== formKey) {
+        return { key: formKey, fields: { [field]: true } };
+      }
+      if (prev.fields[field]) {
+        return prev;
+      }
+      return { key: formKey, fields: { ...prev.fields, [field]: true } };
+    });
+    setSubmittedState((prev) => {
+      if (prev.key !== formKey || isFormEmpty) {
+        return { key: formKey, value: false };
+      }
+      return prev;
+    });
+  };
+
   useEffect(() => {
     if (editingId) {
       return;
@@ -307,6 +342,18 @@ export function SchedulesPanel({ mode }: SchedulesPanelProps) {
     setFormState,
   ]);
 
+  const isFormEmpty =
+    panel.formState.activity_id === '' &&
+    panel.formState.location_id === '' &&
+    panel.formState.weekly_entries.length === 0 &&
+    panel.formState.languages.length === 0;
+
+  const formKey = panel.editingId ?? 'new';
+  const activeTouchedFields =
+    isFormEmpty || touchedState.key !== formKey ? {} : touchedState.fields;
+  const hasSubmitted =
+    isFormEmpty || submittedState.key !== formKey ? false : submittedState.value;
+
   const validate = () => {
     const form = panel.formState;
     if (!form.activity_id || !form.location_id) {
@@ -331,6 +378,54 @@ export function SchedulesPanel({ mode }: SchedulesPanelProps) {
     }
     return null;
   };
+
+  const locationError = panel.formState.location_id
+    ? ''
+    : 'Select a location.';
+  const activityError = panel.formState.activity_id
+    ? ''
+    : 'Select an activity.';
+  const daysError =
+    panel.formState.weekly_entries.length > 0
+      ? ''
+      : 'Select at least one day.';
+  const languagesError =
+    panel.formState.languages.length > 0
+      ? ''
+      : 'Select at least one language.';
+
+  const entryErrors = useMemo(() => {
+    const errors: Record<
+      string,
+      { start: string; end: string; range: string }
+    > = {};
+    for (const entry of panel.formState.weekly_entries) {
+      const startMinutes = parseOptionalNumber(entry.start_minutes_local);
+      const endMinutes = parseOptionalNumber(entry.end_minutes_local);
+      let startError = '';
+      let endError = '';
+      let rangeError = '';
+      if (startMinutes === null) {
+        startError = 'Select a start time.';
+      }
+      if (endMinutes === null) {
+        endError = 'Select an end time.';
+      }
+      if (
+        startMinutes !== null &&
+        endMinutes !== null &&
+        startMinutes === endMinutes
+      ) {
+        rangeError = 'Timeslots need a non-zero time range.';
+      }
+      errors[entry.id] = {
+        start: startError,
+        end: endError,
+        range: rangeError,
+      };
+    }
+    return errors;
+  }, [panel.formState.weekly_entries]);
 
   const formToPayload = (form: ScheduleFormState) => {
     const weeklyEntries = form.weekly_entries
@@ -369,7 +464,10 @@ export function SchedulesPanel({ mode }: SchedulesPanelProps) {
     };
   };
 
-  const handleSubmit = () => panel.handleSubmit(formToPayload, validate);
+  const handleSubmit = () => {
+    setSubmittedState({ key: formKey, value: true });
+    return panel.handleSubmit(formToPayload, validate);
+  };
 
   const selectedLanguages = new Set(panel.formState.languages);
   const selectedDays = new Set(
@@ -401,6 +499,7 @@ export function SchedulesPanel({ mode }: SchedulesPanelProps) {
   });
 
   const toggleDay = (dayOfWeek: string) => {
+    markTouched('days');
     panel.setFormState((prev) => {
       const hasDay = prev.weekly_entries.some(
         (entry) => entry.day_of_week_local === dayOfWeek
@@ -440,6 +539,7 @@ export function SchedulesPanel({ mode }: SchedulesPanelProps) {
   };
 
   const updateEntryStartTime = (entryId: string, value: string) => {
+    markTouched(`entry-${entryId}-start`);
     const startMinutes = parseOptionalNumber(value);
     if (startMinutes === null) {
       updateEntry(entryId, {
@@ -475,6 +575,7 @@ export function SchedulesPanel({ mode }: SchedulesPanelProps) {
   }
 
   function toggleLanguage(code: LanguageCode) {
+    markTouched('languages');
     panel.setFormState((prev) => {
       const isSelected = prev.languages.includes(code);
       const nextLanguages = isSelected
@@ -633,6 +734,23 @@ export function SchedulesPanel({ mode }: SchedulesPanelProps) {
     );
   });
 
+  const showLocationError = Boolean(
+    locationError &&
+      (hasSubmitted || activeTouchedFields.location_id)
+  );
+  const showActivityError = Boolean(
+    activityError &&
+      (hasSubmitted || activeTouchedFields.activity_id)
+  );
+  const showDaysError = Boolean(
+    daysError &&
+      (hasSubmitted || activeTouchedFields.days)
+  );
+  const showLanguagesError = Boolean(
+    languagesError &&
+      (hasSubmitted || activeTouchedFields.languages)
+  );
+
   return (
     <div className='space-y-6'>
       <Card title='Schedules' description='Manage schedule entries.'>
@@ -644,17 +762,23 @@ export function SchedulesPanel({ mode }: SchedulesPanelProps) {
           </div>
         )}
         <div className='grid gap-4 md:grid-cols-2'>
-          <div>
-            <Label htmlFor='schedule-location'>Location</Label>
+          <div className='space-y-1'>
+            <Label htmlFor='schedule-location'>
+              Location{' '}
+              <span className='ml-1'>{requiredIndicator}</span>
+            </Label>
             <Select
               id='schedule-location'
               value={panel.formState.location_id}
-              onChange={(e) =>
+              onChange={(e) => {
+                markTouched('location_id');
                 panel.setFormState((prev) => ({
                   ...prev,
                   location_id: e.target.value,
-                }))
-              }
+                }));
+              }}
+              className={showLocationError ? errorInputClassName : ''}
+              aria-invalid={showLocationError || undefined}
             >
               <option value=''>Select location</option>
               {locations.map((location) => (
@@ -663,18 +787,27 @@ export function SchedulesPanel({ mode }: SchedulesPanelProps) {
                 </option>
               ))}
             </Select>
+            {showLocationError ? (
+              <p className='text-xs text-red-600'>{locationError}</p>
+            ) : null}
           </div>
-          <div>
-            <Label htmlFor='schedule-activity'>Activity</Label>
+          <div className='space-y-1'>
+            <Label htmlFor='schedule-activity'>
+              Activity{' '}
+              <span className='ml-1'>{requiredIndicator}</span>
+            </Label>
             <Select
               id='schedule-activity'
               value={panel.formState.activity_id}
-              onChange={(e) =>
+              onChange={(e) => {
+                markTouched('activity_id');
                 panel.setFormState((prev) => ({
                   ...prev,
                   activity_id: e.target.value,
-                }))
-              }
+                }));
+              }}
+              className={showActivityError ? errorInputClassName : ''}
+              aria-invalid={showActivityError || undefined}
             >
               <option value=''>Select activity</option>
               {activities.map((activity) => (
@@ -683,10 +816,16 @@ export function SchedulesPanel({ mode }: SchedulesPanelProps) {
                 </option>
               ))}
             </Select>
+            {showActivityError ? (
+              <p className='text-xs text-red-600'>{activityError}</p>
+            ) : null}
           </div>
           <div className='md:col-span-2'>
             <div className='space-y-2'>
-              <Label id='schedule-days-label'>Days of Week</Label>
+              <Label id='schedule-days-label'>
+                Days of Week{' '}
+                <span className='ml-1'>{requiredIndicator}</span>
+              </Label>
               <p id='schedule-days-help' className='text-xs text-slate-500'>
                 Select one or more days, then add timeslots.
               </p>
@@ -694,7 +833,9 @@ export function SchedulesPanel({ mode }: SchedulesPanelProps) {
                 role='group'
                 aria-labelledby='schedule-days-label'
                 aria-describedby='schedule-days-help'
-                className='flex flex-wrap items-center gap-2'
+                className={`flex flex-wrap items-center gap-2 ${
+                  showDaysError ? 'ring-1 ring-red-500 rounded-md p-2' : ''
+                }`}
               >
                 {dayOfWeekOptions.map((option) => {
                   const isSelected = selectedDays.has(option.value);
@@ -715,6 +856,9 @@ export function SchedulesPanel({ mode }: SchedulesPanelProps) {
                   );
                 })}
               </div>
+              {showDaysError ? (
+                <p className='text-xs text-red-600'>{daysError}</p>
+              ) : null}
             </div>
           </div>
           {entriesByDay
@@ -744,11 +888,34 @@ export function SchedulesPanel({ mode }: SchedulesPanelProps) {
                     {day.entries.map((entry) => {
                       const startId = `schedule-${day.value}-${entry.id}-start`;
                       const endId = `schedule-${day.value}-${entry.id}-end`;
+                      const startTouchedKey = `entry-${entry.id}-start`;
+                      const endTouchedKey = `entry-${entry.id}-end`;
                       const startOptions = getTimeOptions(
                         entry.start_minutes_local
                       );
                       const endOptions = getTimeOptions(
                         entry.end_minutes_local
+                      );
+                      const entryError = entryErrors[entry.id] ?? {
+                        start: '',
+                        end: '',
+                        range: '',
+                      };
+                      const showStartError = Boolean(
+                        entryError.start &&
+                          (hasSubmitted ||
+                            activeTouchedFields[startTouchedKey])
+                      );
+                      const showEndError = Boolean(
+                        entryError.end &&
+                          (hasSubmitted ||
+                            activeTouchedFields[endTouchedKey])
+                      );
+                      const showRangeError = Boolean(
+                        entryError.range &&
+                          (hasSubmitted ||
+                            activeTouchedFields[startTouchedKey] ||
+                            activeTouchedFields[endTouchedKey])
                       );
                       return (
                         <div
@@ -756,12 +923,23 @@ export function SchedulesPanel({ mode }: SchedulesPanelProps) {
                           className='grid gap-3 md:grid-cols-[1fr_1fr_auto]'
                         >
                           <div>
-                            <Label htmlFor={startId}>Start Time (Local)</Label>
+                            <Label htmlFor={startId}>
+                              Start Time (Local){' '}
+                              <span className='ml-1'>{requiredIndicator}</span>
+                            </Label>
                             <Select
                               id={startId}
                               value={entry.start_minutes_local}
                               onChange={(e) =>
                                 updateEntryStartTime(entry.id, e.target.value)
+                              }
+                              className={
+                                showStartError || showRangeError
+                                  ? errorInputClassName
+                                  : ''
+                              }
+                              aria-invalid={
+                                showStartError || showRangeError || undefined
                               }
                             >
                               <option value=''>Select time</option>
@@ -771,16 +949,33 @@ export function SchedulesPanel({ mode }: SchedulesPanelProps) {
                                 </option>
                               ))}
                             </Select>
+                            {showStartError ? (
+                              <p className='text-xs text-red-600'>
+                                {entryError.start}
+                              </p>
+                            ) : null}
                           </div>
                           <div>
-                            <Label htmlFor={endId}>End Time (Local)</Label>
+                            <Label htmlFor={endId}>
+                              End Time (Local){' '}
+                              <span className='ml-1'>{requiredIndicator}</span>
+                            </Label>
                             <Select
                               id={endId}
                               value={entry.end_minutes_local}
-                              onChange={(e) =>
+                              onChange={(e) => {
+                                markTouched(endTouchedKey);
                                 updateEntry(entry.id, {
                                   end_minutes_local: e.target.value,
-                                })
+                                });
+                              }}
+                              className={
+                                showEndError || showRangeError
+                                  ? errorInputClassName
+                                  : ''
+                              }
+                              aria-invalid={
+                                showEndError || showRangeError || undefined
                               }
                             >
                               <option value=''>Select time</option>
@@ -790,6 +985,15 @@ export function SchedulesPanel({ mode }: SchedulesPanelProps) {
                                 </option>
                               ))}
                             </Select>
+                            {showEndError ? (
+                              <p className='text-xs text-red-600'>
+                                {entryError.end}
+                              </p>
+                            ) : showRangeError ? (
+                              <p className='text-xs text-red-600'>
+                                {entryError.range}
+                              </p>
+                            ) : null}
                           </div>
                           <div className='flex items-end'>
                             <Button
@@ -820,7 +1024,10 @@ export function SchedulesPanel({ mode }: SchedulesPanelProps) {
             ))}
           <div className='md:col-span-2'>
             <div className='space-y-2'>
-              <Label id='schedule-languages-label'>Languages</Label>
+              <Label id='schedule-languages-label'>
+                Languages{' '}
+                <span className='ml-1'>{requiredIndicator}</span>
+              </Label>
               <p
                 id='schedule-languages-help'
                 className='text-xs text-slate-500'
@@ -831,7 +1038,9 @@ export function SchedulesPanel({ mode }: SchedulesPanelProps) {
                 role='group'
                 aria-labelledby='schedule-languages-label'
                 aria-describedby='schedule-languages-help'
-                className='flex flex-wrap items-center gap-2'
+                className={`flex flex-wrap items-center gap-2 ${
+                  showLanguagesError ? 'ring-1 ring-red-500 rounded-md p-2' : ''
+                }`}
               >
                 {languageOptions.map((option) => {
                   const isSelected = selectedLanguages.has(option.code);
@@ -861,6 +1070,9 @@ export function SchedulesPanel({ mode }: SchedulesPanelProps) {
                   );
                 })}
               </div>
+              {showLanguagesError ? (
+                <p className='text-xs text-red-600'>{languagesError}</p>
+              ) : null}
             </div>
           </div>
         </div>

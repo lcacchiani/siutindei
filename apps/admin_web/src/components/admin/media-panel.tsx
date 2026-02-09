@@ -128,6 +128,8 @@ export function MediaPanel({ mode = 'admin' }: MediaPanelProps) {
   } = useOrganizationsByMode(mode, { fetchAll: true, limit: 50 });
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [selectedOrgId, setSelectedOrgId] = useState<string>('');
+  const [orgTouched, setOrgTouched] = useState(false);
+  const [orgActionAttempted, setOrgActionAttempted] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isProcessingMedia, setIsProcessingMedia] = useState(false);
   const [error, setError] = useState('');
@@ -144,6 +146,18 @@ export function MediaPanel({ mode = 'admin' }: MediaPanelProps) {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+
+  const requiredIndicator = (
+    <span className='text-red-500' aria-hidden='true'>
+      *
+    </span>
+  );
+  const errorInputClassName =
+    'border-red-500 focus:border-red-500 focus:ring-red-500';
+
+  const showOrgError =
+    !selectedOrgId && (orgTouched || orgActionAttempted);
+  const orgErrorMessage = showOrgError ? 'Select an organization.' : '';
 
   const isMediaBusy = isSaving || isProcessingMedia;
 
@@ -163,6 +177,8 @@ export function MediaPanel({ mode = 'admin' }: MediaPanelProps) {
       const singleOrg = orgItems[0];
       const nextMediaUrls = singleOrg.media_urls ?? [];
       setSelectedOrgId(singleOrg.id);
+      setOrgTouched(false);
+      setOrgActionAttempted(false);
       setMediaUrls(nextMediaUrls);
       setLogoMediaUrl(
         resolveLogoMediaUrl(nextMediaUrls, singleOrg.logo_media_url)
@@ -187,6 +203,8 @@ export function MediaPanel({ mode = 'admin' }: MediaPanelProps) {
     }
 
     setSelectedOrgId(orgId);
+    setOrgTouched(true);
+    setOrgActionAttempted(false);
     setHasUnsavedChanges(false);
     setPendingMediaDeletes([]);
     setUploadedMediaUrls([]);
@@ -226,6 +244,7 @@ export function MediaPanel({ mode = 'admin' }: MediaPanelProps) {
       return;
     }
     if (!selectedOrgId) {
+      setOrgActionAttempted(true);
       setError('Please select an organization first.');
       target.value = '';
       return;
@@ -392,6 +411,7 @@ export function MediaPanel({ mode = 'admin' }: MediaPanelProps) {
 
   const handleSave = async () => {
     if (!selectedOrgId || !selectedOrganization) {
+      setOrgActionAttempted(true);
       setError('Please select an organization first.');
       return;
     }
@@ -503,8 +523,11 @@ export function MediaPanel({ mode = 'admin' }: MediaPanelProps) {
           </div>
         )}
         <div className='space-y-4'>
-          <div>
-            <Label htmlFor='org-select'>Organization</Label>
+          <div className='space-y-1'>
+            <Label htmlFor='org-select'>
+              Organization{' '}
+              <span className='ml-1'>{requiredIndicator}</span>
+            </Label>
             <Select
               id='org-select'
               value={selectedOrgId}
@@ -512,6 +535,8 @@ export function MediaPanel({ mode = 'admin' }: MediaPanelProps) {
                 handleSelectOrganization(event.target.value)
               }
               disabled={isLoadingOrgs || isMediaBusy || isSingleOrgManager}
+              className={showOrgError ? errorInputClassName : ''}
+              aria-invalid={showOrgError || undefined}
             >
               <option value=''>
                 {isLoadingOrgs
@@ -524,6 +549,9 @@ export function MediaPanel({ mode = 'admin' }: MediaPanelProps) {
                 </option>
               ))}
             </Select>
+            {showOrgError ? (
+              <p className='text-xs text-red-600'>{orgErrorMessage}</p>
+            ) : null}
           </div>
         </div>
       </Card>

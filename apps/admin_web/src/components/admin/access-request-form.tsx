@@ -23,9 +23,31 @@ export function AccessRequestForm({ onRequestSubmitted }: AccessRequestFormProps
   const [requestMessage, setRequestMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [touchedFields, setTouchedFields] = useState<Record<string, boolean>>(
+    {}
+  );
+  const [hasSubmitted, setHasSubmitted] = useState(false);
+
+  const requiredIndicator = (
+    <span className='text-red-500' aria-hidden='true'>
+      *
+    </span>
+  );
+  const errorInputClassName =
+    'border-red-500 focus:border-red-500 focus:ring-red-500';
+
+  const orgNameError = organizationName.trim()
+    ? ''
+    : 'Enter an organization name.';
+  const showOrgNameError = Boolean(
+    orgNameError &&
+      (hasSubmitted || touchedFields.organizationName)
+  );
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
+    setHasSubmitted(true);
+    setTouchedFields((prev) => ({ ...prev, organizationName: true }));
 
     if (!organizationName.trim()) {
       setError('Organization name is required.');
@@ -81,17 +103,40 @@ export function AccessRequestForm({ onRequestSubmitted }: AccessRequestFormProps
         )}
 
         <form onSubmit={handleSubmit} className='space-y-4'>
-          <div>
-            <Label htmlFor='organization-name'>Organization Name</Label>
+          <div className='space-y-1'>
+            <Label htmlFor='organization-name'>
+              Organization Name{' '}
+              <span className='ml-1'>{requiredIndicator}</span>
+            </Label>
             <Input
               id='organization-name'
               type='text'
               value={organizationName}
-              onChange={(e) => setOrganizationName(e.target.value)}
-              placeholder='Enter the name of the organization you want to join or create'
+              onChange={(e) => {
+                setTouchedFields((prev) => ({
+                  ...prev,
+                  organizationName: true,
+                }));
+                setOrganizationName(e.target.value);
+              }}
+              placeholder={
+                'Enter the name of the organization you want to join or ' +
+                'create'
+              }
               disabled={isSubmitting}
+              className={showOrgNameError ? errorInputClassName : ''}
+              aria-invalid={showOrgNameError || undefined}
+              onBlur={() =>
+                setTouchedFields((prev) => ({
+                  ...prev,
+                  organizationName: true,
+                }))
+              }
             />
-            <p className='mt-1 text-sm text-slate-500'>
+            {showOrgNameError ? (
+              <p className='text-xs text-red-600'>{orgNameError}</p>
+            ) : null}
+            <p className='text-sm text-slate-500'>
               Enter the exact name of an existing organization, or the name for a
               new organization you would like to create.
             </p>

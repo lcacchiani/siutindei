@@ -51,6 +51,12 @@ interface AddressAutocompleteProps {
   disabled?: boolean;
   /** Additional CSS classes for the wrapper div. */
   className?: string;
+  /** Additional CSS classes for the input element. */
+  inputClassName?: string;
+  /** Whether the input is in an error state. */
+  hasError?: boolean;
+  /** Called when the input loses focus. */
+  onBlur?: () => void;
   /**
    * Comma-separated ISO 3166-1 alpha-2 country codes to scope Nominatim
    * results (e.g., "hk,sg").  When empty, no country filtering is applied.
@@ -89,6 +95,9 @@ export function AddressAutocomplete({
   maxLength,
   disabled,
   className = '',
+  inputClassName = '',
+  hasError = false,
+  onBlur,
   countryCodes,
 }: AddressAutocompleteProps) {
   const [suggestions, setSuggestions] = useState<NominatimResult[]>([]);
@@ -240,12 +249,14 @@ export function AddressAutocomplete({
           placeholder={placeholder}
           maxLength={maxLength}
           disabled={disabled}
+          onBlur={onBlur}
+          aria-invalid={hasError || undefined}
           className={
             'h-10 w-full rounded-md border border-slate-300 px-3 text-base ' +
             'text-slate-900 shadow-sm placeholder:text-slate-400 ' +
             'focus:border-slate-500 focus:outline-none focus:ring-1 ' +
             'focus:ring-slate-500 disabled:cursor-not-allowed ' +
-            'disabled:bg-slate-100 sm:h-9 sm:text-sm'
+            `disabled:bg-slate-100 sm:h-9 sm:text-sm ${inputClassName}`
           }
         />
         {isLoading && (

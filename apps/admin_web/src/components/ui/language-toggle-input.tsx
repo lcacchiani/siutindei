@@ -16,6 +16,9 @@ interface LanguageToggleInputProps {
   description?: string;
   multiline?: boolean;
   rows?: number;
+  required?: boolean;
+  hasError?: boolean;
+  inputClassName?: string;
 }
 
 export function LanguageToggleInput({
@@ -26,6 +29,9 @@ export function LanguageToggleInput({
   description,
   multiline = false,
   rows = 3,
+  required = false,
+  hasError = false,
+  inputClassName = '',
 }: LanguageToggleInputProps) {
   const [activeLanguage, setActiveLanguage] = useState<LanguageCode>('en');
 
@@ -49,12 +55,16 @@ export function LanguageToggleInput({
       rows={rows}
       value={activeValue}
       onChange={(event) => onChange(activeLanguage, event.target.value)}
+      className={inputClassName}
+      aria-invalid={hasError || undefined}
     />
   ) : (
     <Input
       id={id}
       value={activeValue}
       onChange={(event) => onChange(activeLanguage, event.target.value)}
+      className={inputClassName}
+      aria-invalid={hasError || undefined}
     />
   );
 
@@ -63,6 +73,11 @@ export function LanguageToggleInput({
       <div className='flex flex-wrap items-start justify-between gap-3'>
         <Label className='mb-0' htmlFor={id}>
           {label}
+          {required ? (
+            <span className='ml-1 text-red-500' aria-hidden='true'>
+              *
+            </span>
+          ) : null}
         </Label>
         <div className='flex items-center gap-2'>
           {languageOptions.map((option) => {

@@ -60,6 +60,7 @@ export function ImportsPanel() {
   } = useOrganizationsByMode('admin', { limit: 200, fetchAll: true });
 
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [importTouched, setImportTouched] = useState(false);
   const [importStatus, setImportStatus] = useState<ImportStatus>('idle');
   const [importError, setImportError] = useState('');
   const [importResult, setImportResult] = useState<AdminImportResponse | null>(
@@ -74,6 +75,16 @@ export function ImportsPanel() {
   const isImportBusy =
     importStatus === 'uploading' || importStatus === 'processing';
   const isExportBusy = exportStatus === 'loading';
+
+  const requiredIndicator = (
+    <span className='text-red-500' aria-hidden='true'>
+      *
+    </span>
+  );
+  const showImportFileError = importTouched && !selectedFile;
+  const importFileError = showImportFileError
+    ? 'Select a JSON file to upload.'
+    : '';
 
   const failedResults = useMemo(() => {
     return importResult?.results.filter((result) =>
@@ -106,6 +117,7 @@ export function ImportsPanel() {
 
   async function handleImport() {
     if (!selectedFile) {
+      setImportTouched(true);
       setImportError('Select a JSON file to upload.');
       return;
     }
@@ -168,19 +180,28 @@ export function ImportsPanel() {
               {importError}
             </StatusBanner>
           )}
-          <div>
-            <Label htmlFor='admin-import-file'>JSON file</Label>
+          <div className='space-y-1'>
+            <Label htmlFor='admin-import-file'>
+              JSON file{' '}
+              <span className='ml-1'>{requiredIndicator}</span>
+            </Label>
             <FileUploadButton
               id='admin-import-file'
               accept='application/json,.json'
-              onChange={(event) =>
-                setSelectedFile(event.target.files?.[0] ?? null)
-              }
+              onChange={(event) => {
+                setImportTouched(true);
+                setSelectedFile(event.target.files?.[0] ?? null);
+              }}
               buttonLabel='Choose file'
               selectedFileName={selectedFile?.name ?? null}
               emptyLabel='No file selected'
-              fileNameClassName='text-sm text-slate-600'
+              fileNameClassName={
+                showImportFileError ? 'text-red-600' : 'text-slate-600'
+              }
             />
+            {showImportFileError ? (
+              <p className='text-xs text-red-600'>{importFileError}</p>
+            ) : null}
           </div>
           <div className='flex flex-wrap gap-3'>
             <Button

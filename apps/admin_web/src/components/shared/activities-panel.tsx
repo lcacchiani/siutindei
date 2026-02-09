@@ -65,6 +65,12 @@ function normalizeKey(value: string): string {
   return value.trim().toLowerCase();
 }
 
+function isTranslationsEmpty(
+  translations: Record<TranslationLanguageCode, string>
+): boolean {
+  return Object.values(translations).every((value) => !value.trim());
+}
+
 interface ActivitiesPanelProps {
   mode: ApiMode;
 }
@@ -103,6 +109,46 @@ export function ActivitiesPanel({ mode }: ActivitiesPanelProps) {
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
 
+  const [touchedState, setTouchedState] = useState<{
+    key: string;
+    fields: Record<string, boolean>;
+  }>({ key: '', fields: {} });
+  const [submittedState, setSubmittedState] = useState<{
+    key: string;
+    value: boolean;
+  }>({ key: '', value: false });
+
+  const requiredIndicator = (
+    <span className='text-red-500' aria-hidden='true'>
+      *
+    </span>
+  );
+  const errorInputClassName =
+    'border-red-500 focus:border-red-500 focus:ring-red-500';
+
+  const markTouched = (field: string) => {
+    setTouchedState((prev) => {
+      if (prev.key !== formKey) {
+        return { key: formKey, fields: { [field]: true } };
+      }
+      if (prev.fields[field]) {
+        return prev;
+      }
+      return { key: formKey, fields: { ...prev.fields, [field]: true } };
+    });
+    setSubmittedState((prev) => {
+      if (prev.key !== formKey || isFormEmpty) {
+        return { key: formKey, value: false };
+      }
+      return prev;
+    });
+  };
+  const shouldShowError = (field: string, message: string) =>
+    Boolean(
+      message &&
+        (hasSubmitted || activeTouchedFields[field])
+    );
+
   // For managers with a single org, auto-select and disable the dropdown
   const isSingleOrgManager = !isAdmin && organizations.length === 1;
 
@@ -117,6 +163,22 @@ export function ActivitiesPanel({ mode }: ActivitiesPanelProps) {
       prev.org_id === orgId ? prev : { ...prev, org_id: orgId }
     );
   }, [isAdmin, organizations, setFormState]);
+
+  const isFormEmpty =
+    panel.formState.org_id === '' &&
+    panel.formState.category_id === '' &&
+    panel.formState.name.trim() === '' &&
+    panel.formState.description.trim() === '' &&
+    panel.formState.age_min.trim() === '' &&
+    panel.formState.age_max.trim() === '' &&
+    isTranslationsEmpty(panel.formState.name_translations) &&
+    isTranslationsEmpty(panel.formState.description_translations);
+
+  const formKey = panel.editingId ?? 'new';
+  const activeTouchedFields =
+    isFormEmpty || touchedState.key !== formKey ? {} : touchedState.fields;
+  const hasSubmitted =
+    isFormEmpty || submittedState.key !== formKey ? false : submittedState.value;
 
   const validate = () => {
     const ageMin = parseRequiredNumber(panel.formState.age_min);
@@ -153,7 +215,64 @@ export function ActivitiesPanel({ mode }: ActivitiesPanelProps) {
     return null;
   };
 
+  const orgError = panel.formState.org_id ? '' : 'Select an organization.';
+
+  const nameError = useMemo(() => {
+    const trimmedName = panel.formState.name.trim();
+    if (!trimmedName) {
+      return 'Enter an activity name.';
+    }
+    const normalizedName = normalizeKey(trimmedName);
+    const hasDuplicate = panel.items.some((item) => {
+      if (!item.name) {
+        return false;
+      }
+      if (panel.editingId && item.id === panel.editingId) {
+        return false;
+      }
+      return (
+        item.org_id === panel.formState.org_id &&
+        normalizeKey(item.name) === normalizedName
+      );
+    });
+    if (hasDuplicate) {
+      return 'Name already exists for this organization.';
+    }
+    return '';
+  }, [
+    panel.editingId,
+    panel.formState.name,
+    panel.formState.org_id,
+    panel.items,
+  ]);
+
+  const categoryError = panel.formState.category_id
+    ? ''
+    : 'Select a category.';
+
+  const ageMinValue = parseRequiredNumber(panel.formState.age_min);
+  const ageMaxValue = parseRequiredNumber(panel.formState.age_max);
+  const ageMinError = useMemo(() => {
+    const trimmed = panel.formState.age_min.trim();
+    if (!trimmed) {
+      return 'Enter a minimum age.';
+    }
+    return ageMinValue === null ? 'Age min must be numeric.' : '';
+  }, [ageMinValue, panel.formState.age_min]);
+  const ageMaxError = useMemo(() => {
+    const trimmed = panel.formState.age_max.trim();
+    if (!trimmed) {
+      return 'Enter a maximum age.';
+    }
+    return ageMaxValue === null ? 'Age max must be numeric.' : '';
+  }, [ageMaxValue, panel.formState.age_max]);
+  const ageRangeError =
+    ageMinValue !== null && ageMaxValue !== null && ageMinValue >= ageMaxValue
+      ? 'Age min must be less than age max.'
+      : '';
+
   const handleNameChange = (language: LanguageCode, value: string) => {
+    markTouched('name');
     panel.setFormState((prev) =>
       language === 'en'
         ? { ...prev, name: value }
@@ -194,7 +313,10 @@ export function ActivitiesPanel({ mode }: ActivitiesPanelProps) {
     age_max: parseRequiredNumber(form.age_max),
   });
 
-  const handleSubmit = () => panel.handleSubmit(formToPayload, validate);
+  const handleSubmit = () => {
+    setSubmittedState({ key: formKey, value: true });
+    return panel.handleSubmit(formToPayload, validate);
+  };
 
   const columns = useMemo(() => {
     const getOrgName = (orgId?: string) => {
@@ -259,6 +381,18 @@ export function ActivitiesPanel({ mode }: ActivitiesPanelProps) {
     );
   });
 
+  const showOrgError = shouldShowError('org_id', orgError);
+  const showNameError = shouldShowError('name', nameError);
+  const showCategoryError = shouldShowError('category_id', categoryError);
+  const showAgeMinError = shouldShowError('age_min', ageMinError);
+  const showAgeMaxError = shouldShowError('age_max', ageMaxError);
+  const showAgeRangeError = Boolean(
+    ageRangeError &&
+      (hasSubmitted ||
+        activeTouchedFields.age_min ||
+        activeTouchedFields.age_max)
+  );
+
   return (
     <div className='space-y-6'>
       <Card title='Activities' description='Manage activity entries.'>
@@ -270,18 +404,24 @@ export function ActivitiesPanel({ mode }: ActivitiesPanelProps) {
           </div>
         )}
         <div className='grid gap-4 md:grid-cols-2'>
-          <div>
-            <Label htmlFor='activity-org'>Organization</Label>
+          <div className='space-y-1'>
+            <Label htmlFor='activity-org'>
+              Organization{' '}
+              <span className='ml-1'>{requiredIndicator}</span>
+            </Label>
             <Select
               id='activity-org'
               value={panel.formState.org_id}
-              onChange={(e) =>
+              onChange={(e) => {
+                markTouched('org_id');
                 panel.setFormState((prev) => ({
                   ...prev,
                   org_id: e.target.value,
-                }))
-              }
+                }));
+              }}
               disabled={isSingleOrgManager}
+              className={showOrgError ? errorInputClassName : ''}
+              aria-invalid={showOrgError || undefined}
             >
               <option value=''>Select organization</option>
               {organizations.map((org) => (
@@ -290,29 +430,42 @@ export function ActivitiesPanel({ mode }: ActivitiesPanelProps) {
                 </option>
               ))}
             </Select>
+            {showOrgError ? (
+              <p className='text-xs text-red-600'>{orgError}</p>
+            ) : null}
           </div>
-          <div>
+          <div className='space-y-1'>
             <LanguageToggleInput
               id='activity-name'
               label='Name'
+              required
               values={{
                 en: panel.formState.name,
                 zh: panel.formState.name_translations.zh,
                 yue: panel.formState.name_translations.yue,
               }}
               onChange={handleNameChange}
+              hasError={showNameError}
+              inputClassName={showNameError ? errorInputClassName : ''}
             />
+            {showNameError ? (
+              <p className='text-xs text-red-600'>{nameError}</p>
+            ) : null}
           </div>
           <div className='md:col-span-2'>
             <CascadingCategorySelect
               tree={categoryTree}
               value={panel.formState.category_id}
-              onChange={(categoryId, _chain) =>
+              onChange={(categoryId, _chain) => {
+                markTouched('category_id');
                 panel.setFormState((prev) => ({
                   ...prev,
                   category_id: categoryId,
-                }))
-              }
+                }));
+              }}
+              required
+              hasError={showCategoryError}
+              errorMessage={showCategoryError ? categoryError : undefined}
             />
           </div>
           <div className='md:col-span-2'>
@@ -329,35 +482,67 @@ export function ActivitiesPanel({ mode }: ActivitiesPanelProps) {
               onChange={handleDescriptionChange}
             />
           </div>
-          <div>
-            <Label htmlFor='activity-age-min'>Age Min</Label>
+          <div className='space-y-1'>
+            <Label htmlFor='activity-age-min'>
+              Age Min{' '}
+              <span className='ml-1'>{requiredIndicator}</span>
+            </Label>
             <Input
               id='activity-age-min'
               type='number'
               min='0'
               value={panel.formState.age_min}
-              onChange={(e) =>
+              onChange={(e) => {
+                markTouched('age_min');
                 panel.setFormState((prev) => ({
                   ...prev,
                   age_min: e.target.value,
-                }))
+                }));
+              }}
+              className={
+                showAgeMinError || showAgeRangeError
+                  ? errorInputClassName
+                  : ''
+              }
+              aria-invalid={
+                showAgeMinError || showAgeRangeError || undefined
               }
             />
+            {showAgeMinError ? (
+              <p className='text-xs text-red-600'>{ageMinError}</p>
+            ) : null}
           </div>
-          <div>
-            <Label htmlFor='activity-age-max'>Age Max</Label>
+          <div className='space-y-1'>
+            <Label htmlFor='activity-age-max'>
+              Age Max{' '}
+              <span className='ml-1'>{requiredIndicator}</span>
+            </Label>
             <Input
               id='activity-age-max'
               type='number'
               min='0'
               value={panel.formState.age_max}
-              onChange={(e) =>
+              onChange={(e) => {
+                markTouched('age_max');
                 panel.setFormState((prev) => ({
                   ...prev,
                   age_max: e.target.value,
-                }))
+                }));
+              }}
+              className={
+                showAgeMaxError || showAgeRangeError
+                  ? errorInputClassName
+                  : ''
+              }
+              aria-invalid={
+                showAgeMaxError || showAgeRangeError || undefined
               }
             />
+            {showAgeMaxError ? (
+              <p className='text-xs text-red-600'>{ageMaxError}</p>
+            ) : showAgeRangeError ? (
+              <p className='text-xs text-red-600'>{ageRangeError}</p>
+            ) : null}
           </div>
         </div>
         <div className='mt-4 flex flex-wrap gap-3'>
