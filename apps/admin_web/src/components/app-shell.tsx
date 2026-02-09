@@ -17,6 +17,7 @@ export interface AppShellProps {
   onLogout: () => void;
   userEmail?: string;
   lastAuthTime?: string;
+  headerDescription?: string;
   children: ReactNode;
 }
 
@@ -88,10 +89,13 @@ export function AppShell({
   onLogout,
   userEmail,
   lastAuthTime,
+  headerDescription,
   children,
 }: AppShellProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const formattedLastLogin = formatLastLogin(lastAuthTime);
+  const headerDescriptionText =
+    headerDescription ?? 'Manage organizations, activities, and schedules.';
 
   // Close mobile menu on escape key
   useEffect(() => {
@@ -148,7 +152,7 @@ export function AppShell({
                 Siu Tin Dei Admin
               </h1>
               <p className='hidden text-sm text-slate-500 sm:block'>
-                Manage organizations, activities, and schedules.
+                {headerDescriptionText}
               </p>
               {/* Show current section on mobile */}
               {activeLabel && (
