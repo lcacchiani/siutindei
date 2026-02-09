@@ -25,6 +25,11 @@ def upgrade() -> None:
             server_default=sa.text("false"),
         ),
     )
+    op.drop_constraint(
+        "pricing_sessions_count_check",
+        "activity_pricing",
+        type_="check",
+    )
     op.execute("DELETE FROM activity_pricing WHERE pricing_type = 'per_month'")
     op.execute(
         "CREATE TYPE pricing_type_new AS ENUM "
@@ -37,10 +42,21 @@ def upgrade() -> None:
     )
     op.execute("DROP TYPE pricing_type")
     op.execute("ALTER TYPE pricing_type_new RENAME TO pricing_type")
+    op.create_check_constraint(
+        "pricing_sessions_count_check",
+        "activity_pricing",
+        "(pricing_type <> 'per_sessions') OR "
+        "(sessions_count IS NOT NULL AND sessions_count > 0)",
+    )
 
 
 def downgrade() -> None:
     """Revert pricing type enum and remove free trial flag."""
+    op.drop_constraint(
+        "pricing_sessions_count_check",
+        "activity_pricing",
+        type_="check",
+    )
     op.execute(
         "DELETE FROM activity_pricing " "WHERE pricing_type IN ('per_hour', 'per_day')"
     )
@@ -55,4 +71,10 @@ def downgrade() -> None:
     )
     op.execute("DROP TYPE pricing_type")
     op.execute("ALTER TYPE pricing_type_old RENAME TO pricing_type")
+    op.create_check_constraint(
+        "pricing_sessions_count_check",
+        "activity_pricing",
+        "(pricing_type <> 'per_sessions') OR "
+        "(sessions_count IS NOT NULL AND sessions_count > 0)",
+    )
     op.drop_column("activity_pricing", "free_trial_class_offered")
