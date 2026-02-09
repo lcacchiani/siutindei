@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
-from typing import List, Optional
+from typing import TYPE_CHECKING, List, Optional
 
 import sqlalchemy as sa
 from sqlalchemy import (
@@ -22,6 +22,11 @@ from sqlalchemy.types import TIMESTAMP
 
 from app.db.base import Base
 from app.db.models.enums import PricingType, ScheduleType
+
+if TYPE_CHECKING:
+    from app.db.models.activity_category import ActivityCategory
+    from app.db.models.location import Location
+    from app.db.models.organization import Organization
 
 
 class Activity(Base):

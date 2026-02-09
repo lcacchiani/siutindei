@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import List, Optional
+from typing import TYPE_CHECKING, List, Optional
 
 from sqlalchemy import Text, text
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
@@ -11,6 +11,10 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.types import TIMESTAMP
 
 from app.db.base import Base
+
+if TYPE_CHECKING:
+    from app.db.models.activity import Activity
+    from app.db.models.location import Location
 
 
 class Organization(Base):

@@ -204,5 +204,5 @@ def _serialize_audit_log(entry: AuditLog) -> dict[str, Any]:
         "old_values": redact_values(old_values),
         "new_values": redact_values(new_values),
         "changed_fields": entry.changed_fields,
-        "created_at": entry.created_at,
+        "created_at": entry.timestamp,
     }

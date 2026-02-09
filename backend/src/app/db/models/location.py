@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
-from typing import List, Optional
+from typing import TYPE_CHECKING, List, Optional
 
 from sqlalchemy import ForeignKey, Numeric, Text, text
 from sqlalchemy.dialects.postgresql import UUID
@@ -12,6 +12,11 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.types import TIMESTAMP
 
 from app.db.base import Base
+
+if TYPE_CHECKING:
+    from app.db.models.activity import ActivityPricing, ActivitySchedule
+    from app.db.models.geographic_area import GeographicArea
+    from app.db.models.organization import Organization
 
 
 class Location(Base):
