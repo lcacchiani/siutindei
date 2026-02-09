@@ -7,12 +7,7 @@ from typing import Any, Mapping, Optional
 from sqlalchemy.orm import Session
 
 from app.api.admin_auth import _set_session_audit_context
-from app.api.admin_request import (
-    _encode_cursor,
-    _parse_cursor,
-    _parse_uuid,
-    _query_param,
-)
+from app.api.admin_request import _parse_cursor, _parse_uuid, _query_param
 from app.db.audit import AuditLogRepository
 from app.db.engine import get_engine
 from app.db.models import AuditLog
