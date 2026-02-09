@@ -3406,6 +3406,27 @@ export interface components {
             items: components["schemas"]["Pricing"][];
             next_cursor?: string | null;
         };
+        WeeklyScheduleEntry: {
+            /**
+             * @description Day of week in UTC:
+             *     0=Sunday, 1=Monday, 2=Tuesday, 3=Wednesday, 4=Thursday, 5=Friday, 6=Saturday
+             */
+            day_of_week_utc: number;
+            /**
+             * @description Start time in minutes from midnight UTC.
+             *     Range: 0-1439 (0 = 00:00, 1439 = 23:59).
+             *     Must not equal end_minutes_utc.
+             *     If start_minutes_utc > end_minutes_utc, the schedule spans
+             *     midnight UTC into the next day.
+             */
+            start_minutes_utc: number;
+            /**
+             * @description End time in minutes from midnight UTC.
+             *     Range: 0-1439 (0 = 00:00, 1439 = 23:59).
+             *     Must not equal start_minutes_utc.
+             */
+            end_minutes_utc: number;
+        };
         ScheduleCreate: {
             /**
              * Format: uuid
@@ -3418,44 +3439,12 @@ export interface components {
              */
             location_id: string;
             /**
-             * @description Schedule type (required):
-             *     - weekly: Recurring weekly (requires day_of_week_utc, start_minutes_utc, end_minutes_utc)
-             *     - monthly: Recurring monthly (requires day_of_month, start_minutes_utc, end_minutes_utc)
-             *     - date_specific: One-time event (requires start_at_utc, end_at_utc)
+             * @description Schedule type (required, weekly only).
              * @enum {string}
              */
-            schedule_type: "weekly" | "monthly" | "date_specific";
-            /**
-             * @description Day of week in UTC (required for weekly):
-             *     0=Sunday, 1=Monday, 2=Tuesday, 3=Wednesday, 4=Thursday, 5=Friday, 6=Saturday
-             */
-            day_of_week_utc?: number;
-            /** @description Day of month (required for monthly, 1-31) */
-            day_of_month?: number;
-            /**
-             * @description Start time in minutes from midnight UTC (required for weekly/monthly).
-             *     Range: 0-1439 (0 = 00:00, 1439 = 23:59).
-             *     Must not equal end_minutes_utc.
-             *     If start_minutes_utc > end_minutes_utc, the schedule spans
-             *     midnight UTC into the next day.
-             */
-            start_minutes_utc?: number;
-            /**
-             * @description End time in minutes from midnight UTC (required for weekly/monthly).
-             *     Range: 0-1439 (0 = 00:00, 1439 = 23:59).
-             *     Must not equal start_minutes_utc.
-             */
-            end_minutes_utc?: number;
-            /**
-             * Format: date-time
-             * @description Start datetime in UTC (required for date_specific, must be before end_at_utc)
-             */
-            start_at_utc?: string;
-            /**
-             * Format: date-time
-             * @description End datetime in UTC (required for date_specific, must be after start_at_utc)
-             */
-            end_at_utc?: string;
+            schedule_type: "weekly";
+            /** @description Weekly schedule entries (required). */
+            weekly_entries: components["schemas"]["WeeklyScheduleEntry"][];
             /**
              * @description ISO 639-1 language codes plus "yue" (Cantonese, ISO 639-3)
              *     (optional, max 20).
@@ -3469,15 +3458,8 @@ export interface components {
         };
         ScheduleUpdate: {
             /** @enum {string} */
-            schedule_type?: "weekly" | "monthly" | "date_specific";
-            day_of_week_utc?: number;
-            day_of_month?: number;
-            start_minutes_utc?: number;
-            end_minutes_utc?: number;
-            /** Format: date-time */
-            start_at_utc?: string;
-            /** Format: date-time */
-            end_at_utc?: string;
+            schedule_type?: "weekly";
+            weekly_entries?: components["schemas"]["WeeklyScheduleEntry"][];
             languages?: ("en" | "zh" | "ja" | "ko" | "fr" | "de" | "es" | "pt" | "it" | "ru" | "ar" | "hi" | "th" | "vi" | "id" | "ms" | "tl" | "nl" | "pl" | "tr" | "yue")[];
         };
         Schedule: {
@@ -3488,14 +3470,7 @@ export interface components {
             /** Format: uuid */
             location_id: string;
             schedule_type: string;
-            day_of_week_utc?: number | null;
-            day_of_month?: number | null;
-            start_minutes_utc?: number | null;
-            end_minutes_utc?: number | null;
-            /** Format: date-time */
-            start_at_utc?: string | null;
-            /** Format: date-time */
-            end_at_utc?: string | null;
+            weekly_entries: components["schemas"]["WeeklyScheduleEntry"][];
             languages: string[];
         };
         ScheduleListResponse: {

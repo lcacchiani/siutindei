@@ -14,7 +14,6 @@ info:
     | price_min | >= 0 | Minimum price filter |
     | price_max | >= 0 | Maximum price filter |
     | day_of_week_utc | 0-6 | Day of week (0=Sunday, 6=Saturday) |
-    | day_of_month | 1-31 | Day of month |
     | start_minutes_utc | 0-1439 | Start time in minutes from midnight UTC |
     | end_minutes_utc | 0-1439 | End time in minutes from midnight UTC |
     | limit | 1-200 | Results per page (default 50) |
@@ -27,10 +26,7 @@ info:
     - 1439 = 23:59
 
     ### Filter Combinations
-    - `day_of_week_utc` and `day_of_month` cannot be used together
-    - Date-specific filters (`start_at_utc`, `end_at_utc`) cannot be combined with weekly/monthly filters
     - `start_minutes_utc` must be less than `end_minutes_utc` when both provided
-    - `start_at_utc` must be before `end_at_utc` when both provided
 
 paths:
   /v1/activities/search:
@@ -92,30 +88,19 @@ paths:
           description: |
             Filter by schedule type:
             - weekly: Recurring weekly schedules
-            - monthly: Recurring monthly schedules
-            - date_specific: One-time events
           schema:
             type: string
-            enum: [weekly, monthly, date_specific]
+            enum: [weekly]
         - name: day_of_week_utc
           in: query
           required: false
           description: |
             Filter by day of week (0-6):
             0=Sunday, 1=Monday, 2=Tuesday, 3=Wednesday, 4=Thursday, 5=Friday, 6=Saturday.
-            Cannot be used with day_of_month.
           schema:
             type: integer
             minimum: 0
             maximum: 6
-        - name: day_of_month
-          in: query
-          required: false
-          description: Filter by day of month (1-31). Cannot be used with day_of_week_utc.
-          schema:
-            type: integer
-            minimum: 1
-            maximum: 31
         - name: start_minutes_utc
           in: query
           required: false
@@ -138,24 +123,6 @@ paths:
             type: integer
             minimum: 0
             maximum: 1439
-        - name: start_at_utc
-          in: query
-          required: false
-          description: |
-            Filter date-specific schedules starting at or after this time (ISO 8601).
-            Cannot be combined with day_of_week_utc or day_of_month.
-          schema:
-            type: string
-            format: date-time
-        - name: end_at_utc
-          in: query
-          required: false
-          description: |
-            Filter date-specific schedules ending at or before this time (ISO 8601).
-            Cannot be combined with day_of_week_utc or day_of_month.
-          schema:
-            type: string
-            format: date-time
         - name: language
           in: query
           required: false
@@ -321,33 +288,33 @@ components:
         free_trial_class_offered:
           type: boolean
           description: Whether a free trial class is offered
+    WeeklyScheduleEntry:
+      type: object
+      required: [day_of_week_utc, start_minutes_utc, end_minutes_utc]
+      properties:
+        day_of_week_utc:
+          type: integer
+          minimum: 0
+          maximum: 6
+        start_minutes_utc:
+          type: integer
+          minimum: 0
+          maximum: 1439
+        end_minutes_utc:
+          type: integer
+          minimum: 0
+          maximum: 1439
     Schedule:
       type: object
-      required: [schedule_type, languages]
+      required: [schedule_type, weekly_entries, languages]
       properties:
         schedule_type:
           type: string
-          enum: [weekly, monthly, date_specific]
-        day_of_week_utc:
-          type: integer
-          nullable: true
-        day_of_month:
-          type: integer
-          nullable: true
-        start_minutes_utc:
-          type: integer
-          nullable: true
-        end_minutes_utc:
-          type: integer
-          nullable: true
-        start_at_utc:
-          type: string
-          format: date-time
-          nullable: true
-        end_at_utc:
-          type: string
-          format: date-time
-          nullable: true
+          enum: [weekly]
+        weekly_entries:
+          type: array
+          items:
+            $ref: "#/components/schemas/WeeklyScheduleEntry"
         languages:
           type: array
           items:
