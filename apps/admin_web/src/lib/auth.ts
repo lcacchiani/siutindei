@@ -97,15 +97,28 @@ function clearLoginRedirect() {
   window.sessionStorage.removeItem(loginRedirectStorageKey);
 }
 
+function ensureTrailingSlash(path: string) {
+  if (path === '/') {
+    return '/';
+  }
+  const match = path.match(/^([^?#]*)(.*)$/);
+  const base = match ? match[1] : path;
+  const suffix = match ? match[2] : '';
+  if (base.endsWith('/')) {
+    return `${base}${suffix}`;
+  }
+  return `${base}/${suffix}`;
+}
+
 function resolveReturnTo(returnTo?: string) {
   if (typeof window === 'undefined') {
     return '/';
   }
   if (returnTo && returnTo.startsWith('/')) {
-    return returnTo;
+    return ensureTrailingSlash(returnTo);
   }
   const { pathname, search } = window.location;
-  return `${pathname}${search}`;
+  return ensureTrailingSlash(`${pathname}${search}`);
 }
 
 function resolveLoginRedirect() {
@@ -117,10 +130,11 @@ function resolveLoginRedirect() {
   if (!stored || !stored.startsWith('/')) {
     return '/';
   }
-  if (stored.startsWith('/auth/callback')) {
+  const normalized = ensureTrailingSlash(stored);
+  if (normalized.startsWith('/auth/callback')) {
     return '/';
   }
-  return stored;
+  return normalized;
 }
 
 function getClientId() {
@@ -135,7 +149,8 @@ function getRedirectUri() {
   if (typeof window === 'undefined') {
     return '';
   }
-  return `${window.location.origin}/auth/callback`;
+  const callbackPath = ensureTrailingSlash('/auth/callback');
+  return `${window.location.origin}${callbackPath}`;
 }
 
 function getLogoutRedirectUri() {
@@ -215,6 +230,11 @@ export async function completeLogin() {
     return '/';
   }
   const url = new URL(window.location.href);
+  const error = url.searchParams.get('error');
+  if (error) {
+    const description = url.searchParams.get('error_description');
+    throw new Error(description || error);
+  }
   const code = url.searchParams.get('code');
   if (!code) {
     throw new Error('Authorization code is missing.');

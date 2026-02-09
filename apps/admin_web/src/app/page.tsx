@@ -13,7 +13,7 @@ function LoginGate() {
 
   useEffect(() => {
     if (status === 'authenticated') {
-      router.replace('/admin/dashboard');
+      router.replace('/admin/dashboard/');
     }
   }, [status, router]);
 

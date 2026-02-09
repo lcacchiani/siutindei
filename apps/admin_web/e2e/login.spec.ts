@@ -62,7 +62,7 @@ test.describe('Login Screen', () => {
   test('should redirect to dashboard when authenticated as admin', async ({ adminPage }) => {
     await adminPage.goto('/');
 
-    await expect(adminPage).toHaveURL(/\/admin\/dashboard$/);
+    await expect(adminPage).toHaveURL(/\/admin\/dashboard\/?$/);
 
     // Should see the admin dashboard header
     await expect(adminPage.getByRole('heading', { name: 'Siu Tin Dei Admin' })).toBeVisible();

@@ -77,6 +77,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         let tokens = await ensureFreshTokens();
         if (typeof window !== 'undefined') {
           const url = new URL(window.location.href);
+          if (!tokens && url.searchParams.has('error')) {
+            const authError = url.searchParams.get('error');
+            const description = url.searchParams.get('error_description');
+            const message =
+              description || authError || 'Unable to complete login.';
+            if (!isMounted) {
+              return;
+            }
+            setError(message);
+            setStatus('unauthenticated');
+            window.history.replaceState(
+              {},
+              document.title,
+              url.pathname
+            );
+            return;
+          }
           if (!tokens && url.searchParams.has('code')) {
             const redirectPath = await completeLogin();
             if (!isMounted) {
