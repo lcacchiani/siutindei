@@ -19,7 +19,6 @@ import os
 from datetime import datetime, timezone
 from typing import Any
 
-import boto3
 from sqlalchemy.orm import Session
 
 from app.db.engine import get_engine
@@ -27,13 +26,14 @@ from app.db.models import Ticket, TicketType
 from app.db.repositories import TicketRepository
 from app.templates import render_new_request_email, render_new_suggestion_email
 from app.utils.logging import configure_logging, get_logger
+from app.services.aws_clients import get_ses_client
 
 # Configure logging
 configure_logging()
 logger = get_logger(__name__)
 
 # Initialize AWS clients
-ses_client = boto3.client("ses")
+ses_client = get_ses_client()
 
 # Map SNS event types to ticket types
 EVENT_TYPE_MAP = {

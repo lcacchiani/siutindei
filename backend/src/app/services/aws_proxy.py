@@ -30,7 +30,7 @@ import os
 from typing import Any, Mapping, Optional
 from urllib.parse import urlparse
 
-import boto3
+from app.services.aws_clients import get_client
 
 from app.utils.logging import configure_logging, get_logger
 
@@ -98,7 +98,7 @@ def _handle_aws(event: Mapping[str, Any]) -> dict[str, Any]:
     logger.info(f"Proxying AWS {key}")
 
     try:
-        client = boto3.client(service)  # type: ignore[call-overload]
+        client = get_client(service)  # type: ignore[call-overload]
         method = getattr(client, action, None)
         if method is None:
             return {
@@ -244,7 +244,7 @@ def _get_proxy_arn() -> str:
 def _get_lambda_client() -> Any:
     global _lambda_client
     if _lambda_client is None:
-        _lambda_client = boto3.client("lambda")
+        _lambda_client = get_client("lambda")
     return _lambda_client
 
 

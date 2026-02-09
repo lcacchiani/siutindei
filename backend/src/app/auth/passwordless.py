@@ -9,7 +9,7 @@ import string
 from typing import Optional
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
-import boto3
+from app.services.aws_clients import get_ses_client
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +55,7 @@ def send_sign_in_email(email: str, code: str) -> None:
     lines.append("")
     lines.append("If you did not request this, you can ignore this email.")
 
-    boto3.client("ses").send_email(
+    get_ses_client().send_email(
         Source=from_address,
         Destination={"ToAddresses": [email]},
         Message={

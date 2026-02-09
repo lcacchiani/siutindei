@@ -33,9 +33,9 @@ import time
 from datetime import datetime, timezone
 from typing import Any
 
-import boto3
 from botocore.exceptions import ClientError
 
+from app.services.aws_clients import get_client
 from app.utils.logging import configure_logging, get_logger
 
 configure_logging()
@@ -240,8 +240,8 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
             "body": "Missing configuration",
         }
 
-    apigw_client = boto3.client("apigateway")
-    secrets_client = boto3.client("secretsmanager")
+    apigw_client = get_client("apigateway")
+    secrets_client = get_client("secretsmanager")
 
     rotation_date = datetime.now(timezone.utc).isoformat()
 

@@ -13,11 +13,11 @@ import time
 from typing import Any
 from typing import Mapping
 
-import boto3
 from app.utils.logging import configure_logging
 from app.utils.logging import get_logger
 from app.utils.logging import mask_email
 from app.utils.logging import mask_pii
+from app.services.aws_clients import get_cognito_idp_client
 
 configure_logging()
 logger = get_logger(__name__)
@@ -44,7 +44,7 @@ def lambda_handler(event: Mapping[str, Any], _context: Any) -> Mapping[str, Any]
     masked_user = _mask_user_identifier(event)
 
     try:
-        client = boto3.client("cognito-idp")
+        client = get_cognito_idp_client()
         client.admin_update_user_attributes(
             UserPoolId=user_pool_id,
             Username=username,
