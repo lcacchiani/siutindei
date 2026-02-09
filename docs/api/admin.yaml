@@ -191,6 +191,84 @@ paths:
         "204":
           description: Media deleted
 
+  /v1/admin/imports/presign:
+    post:
+      summary: Create admin import upload URL
+      description: Generate a presigned URL for uploading a JSON import file to S3.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminImportPresignRequest'
+      responses:
+        "200":
+          description: Upload URL generated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminImportPresignResponse'
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+
+  /v1/admin/imports:
+    post:
+      summary: Process admin import
+      description: |
+        Process a JSON import file previously uploaded to S3. The import supports
+        partial success and returns per-record warnings and errors.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminImportRequest'
+      responses:
+        "200":
+          description: Import processed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminImportResponse'
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+
+  /v1/admin/imports/export:
+    get:
+      summary: Export admin data
+      description: |
+        Generate a presigned download URL for an export JSON file. The exported
+        JSON is compatible with the admin import schema. Schedule entries are
+        emitted in UTC.
+      parameters:
+        - name: org_name
+          in: query
+          required: false
+          description: Optional organization name to export a single organization.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Export download URL generated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminExportResponse'
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+
   /v1/admin/locations:
     get:
       summary: List locations
@@ -1606,6 +1684,331 @@ components:
       description: |
         Language map for translated text. The server always includes English as "en".
         Additional entries must use ISO 639-1 codes plus "yue" (Cantonese, ISO 639-3).
+
+    AdminImportFile:
+      type: object
+      required: [organizations]
+      properties:
+        organizations:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminImportOrganization'
+
+    AdminImportOrganization:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          maxLength: 200
+          description: Organization name (unique).
+        description:
+          type: string
+          maxLength: 5000
+        name_translations:
+          $ref: '#/components/schemas/TranslationMap'
+        description_translations:
+          $ref: '#/components/schemas/TranslationMap'
+        manager_id:
+          type: string
+          description: Cognito user sub (required for new orgs).
+        phone_country_code:
+          type: string
+          maxLength: 2
+        phone_number:
+          type: string
+          maxLength: 20
+        email:
+          type: string
+          maxLength: 320
+        whatsapp:
+          type: string
+          maxLength: 2048
+        facebook:
+          type: string
+          maxLength: 2048
+        instagram:
+          type: string
+          maxLength: 2048
+        tiktok:
+          type: string
+          maxLength: 2048
+        twitter:
+          type: string
+          maxLength: 2048
+        xiaohongshu:
+          type: string
+          maxLength: 2048
+        wechat:
+          type: string
+          maxLength: 2048
+        media_urls:
+          type: array
+          items:
+            type: string
+        logo_media_url:
+          type: string
+        locations:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminImportLocation'
+        activities:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminImportActivity'
+
+    AdminImportLocation:
+      type: object
+      required: [name, area_id]
+      properties:
+        name:
+          type: string
+          maxLength: 500
+          description: |
+            Location name used for upsert. Stored as address in the database and
+            must be unique within the organization.
+        address:
+          type: string
+          maxLength: 500
+          description: Optional address (must match name if provided).
+        area_id:
+          type: string
+          format: uuid
+        lat:
+          type: number
+          minimum: -90
+          maximum: 90
+        lng:
+          type: number
+          minimum: -180
+          maximum: 180
+
+    AdminImportActivity:
+      type: object
+      required: [name, category_id, age_min, age_max]
+      properties:
+        name:
+          type: string
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 5000
+        name_translations:
+          $ref: '#/components/schemas/TranslationMap'
+        description_translations:
+          $ref: '#/components/schemas/TranslationMap'
+        category_id:
+          type: string
+          format: uuid
+        age_min:
+          type: integer
+          minimum: 0
+          maximum: 119
+        age_max:
+          type: integer
+          minimum: 1
+          maximum: 120
+        pricing:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminImportPricing'
+        schedules:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminImportSchedule'
+
+    AdminImportPricing:
+      type: object
+      required: [location_name, pricing_type]
+      properties:
+        location_name:
+          type: string
+          description: Location name to link pricing with.
+        pricing_type:
+          type: string
+          enum: [per_class, per_sessions, per_hour, per_day, free]
+        amount:
+          type: number
+          minimum: 0
+        currency:
+          type: string
+        sessions_count:
+          type: integer
+          minimum: 1
+        free_trial_class_offered:
+          type: boolean
+
+    AdminImportSchedule:
+      type: object
+      required: [location_name, timezone, weekly_entries]
+      properties:
+        location_name:
+          type: string
+        timezone:
+          type: string
+          description: IANA timezone identifier (e.g., Asia/Hong_Kong).
+        languages:
+          type: array
+          items:
+            type: string
+        weekly_entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminImportScheduleEntry'
+
+    AdminImportScheduleEntry:
+      type: object
+      required: [day_of_week, start_time, end_time]
+      properties:
+        day_of_week:
+          type: integer
+          minimum: 0
+          maximum: 6
+          description: Local day of week (0=Sunday).
+        start_time:
+          type: string
+          description: Local start time in HH:MM.
+        end_time:
+          type: string
+          description: Local end time in HH:MM.
+
+    AdminImportPresignRequest:
+      type: object
+      required: [file_name, content_type]
+      properties:
+        file_name:
+          type: string
+          description: Filename ending in .json.
+        content_type:
+          type: string
+          description: Must be application/json.
+
+    AdminImportPresignResponse:
+      type: object
+      required: [upload_url, object_key, expires_in]
+      properties:
+        upload_url:
+          type: string
+        object_key:
+          type: string
+        expires_in:
+          type: integer
+
+    AdminImportRequest:
+      type: object
+      required: [object_key]
+      properties:
+        object_key:
+          type: string
+          description: S3 object key returned from the presign endpoint.
+
+    AdminImportCounts:
+      type: object
+      required: [created, updated, failed, skipped]
+      properties:
+        created:
+          type: integer
+        updated:
+          type: integer
+        failed:
+          type: integer
+        skipped:
+          type: integer
+
+    AdminImportSummary:
+      type: object
+      required:
+        - organizations
+        - locations
+        - activities
+        - pricing
+        - schedules
+        - warnings
+        - errors
+      properties:
+        organizations:
+          $ref: '#/components/schemas/AdminImportCounts'
+        locations:
+          $ref: '#/components/schemas/AdminImportCounts'
+        activities:
+          $ref: '#/components/schemas/AdminImportCounts'
+        pricing:
+          $ref: '#/components/schemas/AdminImportCounts'
+        schedules:
+          $ref: '#/components/schemas/AdminImportCounts'
+        warnings:
+          type: integer
+        errors:
+          type: integer
+
+    AdminImportError:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+        field:
+          type: string
+          nullable: true
+
+    AdminImportResult:
+      type: object
+      required: [type, key, status, warnings, errors]
+      properties:
+        type:
+          type: string
+          enum: [organizations, locations, activities, pricing, schedules]
+        key:
+          type: string
+        status:
+          type: string
+          enum: [created, updated, failed, skipped]
+        id:
+          type: string
+          nullable: true
+        path:
+          type: string
+          nullable: true
+        warnings:
+          type: array
+          items:
+            type: string
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminImportError'
+
+    AdminImportResponse:
+      type: object
+      required: [summary, results, file_warnings]
+      properties:
+        summary:
+          $ref: '#/components/schemas/AdminImportSummary'
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminImportResult'
+        file_warnings:
+          type: array
+          items:
+            type: string
+
+    AdminExportResponse:
+      type: object
+      required: [download_url, object_key, file_name, expires_in]
+      properties:
+        download_url:
+          type: string
+        object_key:
+          type: string
+        file_name:
+          type: string
+        expires_in:
+          type: integer
+        warnings:
+          type: array
+          items:
+            type: string
 
     # Organization schemas
     OrganizationCreate:

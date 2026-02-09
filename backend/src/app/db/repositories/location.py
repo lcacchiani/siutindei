@@ -6,7 +6,7 @@ from typing import Optional
 from typing import Sequence
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.db.models import Location
@@ -66,3 +66,33 @@ class LocationRepository(BaseRepository[Location]):
             .limit(limit)
         )
         return self._session.execute(query).scalars().all()
+
+    def find_by_org_and_address(
+        self,
+        org_id: UUID,
+        address: str,
+    ) -> Optional[Location]:
+        """Find a location by organization and address."""
+        query = (
+            select(Location)
+            .where(Location.org_id == org_id)
+            .where(Location.address == address)
+        )
+        return self._session.execute(query).scalar_one_or_none()
+
+    def find_by_org_and_address_case_insensitive(
+        self,
+        org_id: UUID,
+        address: str,
+    ) -> Optional[Location]:
+        """Find a location by org and case-insensitive address."""
+        normalized = address.strip()
+        query = (
+            select(Location)
+            .where(Location.org_id == org_id)
+            .where(
+                func.lower(func.trim(Location.address))
+                == func.lower(func.trim(normalized))
+            )
+        )
+        return self._session.execute(query).scalar_one_or_none()

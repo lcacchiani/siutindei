@@ -1038,6 +1038,49 @@ export class ApiStack extends cdk.Stack {
       });
     }
 
+    const adminImportExportBucketName = [
+      name("admin-import-export"),
+      cdk.Aws.ACCOUNT_ID,
+      cdk.Aws.REGION,
+    ].join("-");
+
+    const adminImportExportBucket = new s3.Bucket(
+      this,
+      "AdminImportExportBucket",
+      {
+        bucketName: adminImportExportBucketName,
+        blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+        encryption: s3.BucketEncryption.S3_MANAGED,
+        enforceSSL: true,
+        versioned: true,
+        removalPolicy: cdk.RemovalPolicy.RETAIN,
+        serverAccessLogsBucket: organizationImagesLogBucket,
+        serverAccessLogsPrefix: "admin-import-export/",
+        lifecycleRules: [
+          {
+            id: "ExpireAdminImports",
+            enabled: true,
+            expiration: cdk.Duration.days(7),
+            noncurrentVersionExpiration: cdk.Duration.days(7),
+            abortIncompleteMultipartUploadAfter: cdk.Duration.days(7),
+          },
+        ],
+        cors: [
+          {
+            allowedMethods: [
+              s3.HttpMethods.GET,
+              s3.HttpMethods.PUT,
+              s3.HttpMethods.HEAD,
+            ],
+            allowedOrigins: corsAllowedOrigins,
+            allowedHeaders: ["*"],
+            exposedHeaders: ["ETag"],
+            maxAge: 3000,
+          },
+        ],
+      }
+    );
+
     // Search function
     const searchFunction = createPythonFunction("SiutindeiSearchFunction", {
       handler: "lambda/search/handler.lambda_handler",
@@ -1069,6 +1112,7 @@ export class ApiStack extends cdk.Stack {
         ORGANIZATION_MEDIA_BUCKET: organizationImagesBucket.bucketName,
         ORGANIZATION_MEDIA_BASE_URL:
           `https://${organizationImagesBucket.bucketRegionalDomainName}`,
+        ADMIN_IMPORT_EXPORT_BUCKET: adminImportExportBucket.bucketName,
         CORS_ALLOWED_ORIGINS: corsAllowedOrigins.join(","),
         SUPPORT_EMAIL: supportEmail.valueAsString,
         SES_SENDER_EMAIL: sesSenderEmail.valueAsString,
@@ -1079,6 +1123,7 @@ export class ApiStack extends cdk.Stack {
     database.grantAdminUserSecretRead(adminFunction);
     database.grantConnect(adminFunction, "siutindei_admin");
     organizationImagesBucket.grantReadWrite(adminFunction);
+    adminImportExportBucket.grantReadWrite(adminFunction);
 
     // -----------------------------------------------------------------
     // AWS API Proxy Lambda (outside VPC)
@@ -1939,6 +1984,24 @@ export class ApiStack extends cdk.Stack {
       }
     }
 
+    const imports = admin.addResource("imports");
+    imports.addMethod("POST", adminIntegration, {
+      authorizationType: apigateway.AuthorizationType.CUSTOM,
+      authorizer: adminAuthorizer,
+    });
+
+    const importsPresign = imports.addResource("presign");
+    importsPresign.addMethod("POST", adminIntegration, {
+      authorizationType: apigateway.AuthorizationType.CUSTOM,
+      authorizer: adminAuthorizer,
+    });
+
+    const importsExport = imports.addResource("export");
+    importsExport.addMethod("GET", adminIntegration, {
+      authorizationType: apigateway.AuthorizationType.CUSTOM,
+      authorizer: adminAuthorizer,
+    });
+
     const users = admin.addResource("users");
     const userByName = users.addResource("{username}");
     const userGroups = userByName.addResource("groups");
@@ -2277,6 +2340,10 @@ export class ApiStack extends cdk.Stack {
     new cdk.CfnOutput(this, "OrganizationImagesBaseUrl", {
       value:
         `https://${organizationImagesBucket.bucketRegionalDomainName}`,
+    });
+
+    new cdk.CfnOutput(this, "AdminImportExportBucketName", {
+      value: adminImportExportBucket.bucketName,
     });
 
     new cdk.CfnOutput(this, "ManagerRequestTopicArn", {

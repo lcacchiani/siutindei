@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Optional
 from typing import Sequence
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.db.models import Organization
@@ -33,6 +33,15 @@ class OrganizationRepository(BaseRepository[Organization]):
             The organization if found, None otherwise.
         """
         query = select(Organization).where(Organization.name == name)
+        return self._session.execute(query).scalar_one_or_none()
+
+    def find_by_name_case_insensitive(self, name: str) -> Optional[Organization]:
+        """Find an organization by case-insensitive name."""
+        normalized = name.strip()
+        query = select(Organization).where(
+            func.lower(func.trim(Organization.name))
+            == func.lower(func.trim(normalized))
+        )
         return self._session.execute(query).scalar_one_or_none()
 
     def find_by_manager(

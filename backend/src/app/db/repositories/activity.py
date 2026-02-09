@@ -7,7 +7,7 @@ from typing import Optional
 from typing import Sequence
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.db.models import Activity
@@ -82,6 +82,36 @@ class ActivityRepository(BaseRepository[Activity]):
             .limit(limit)
         )
         return self._session.execute(query).scalars().all()
+
+    def find_by_org_and_name(
+        self,
+        org_id: UUID,
+        name: str,
+    ) -> Optional[Activity]:
+        """Find an activity by organization and exact name."""
+        query = (
+            select(Activity)
+            .where(Activity.org_id == org_id)
+            .where(Activity.name == name)
+        )
+        return self._session.execute(query).scalar_one_or_none()
+
+    def find_by_org_and_name_case_insensitive(
+        self,
+        org_id: UUID,
+        name: str,
+    ) -> Optional[Activity]:
+        """Find an activity by organization and case-insensitive name."""
+        normalized = name.strip()
+        query = (
+            select(Activity)
+            .where(Activity.org_id == org_id)
+            .where(
+                func.lower(func.trim(Activity.name))
+                == func.lower(func.trim(normalized))
+            )
+        )
+        return self._session.execute(query).scalar_one_or_none()
 
     def search_by_name(
         self,

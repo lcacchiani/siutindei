@@ -36,6 +36,10 @@ const MAP_ICONS = {
   appleMaps: buildMapIconUrl('apple', '000000'),
 };
 
+function normalizeKey(value: string): string {
+  return value.trim().toLowerCase();
+}
+
 function MapServiceIcon({
   className,
   src,
@@ -190,6 +194,24 @@ export function LocationsPanel({ mode }: LocationsPanelProps) {
   const validate = () => {
     if (!panel.formState.org_id || !panel.formState.area_id) {
       return 'Organization and area are required.';
+    }
+    const normalizedAddress = normalizeKey(panel.formState.address);
+    if (normalizedAddress) {
+      const hasDuplicate = panel.items.some((item) => {
+        if (!item.address) {
+          return false;
+        }
+        if (panel.editingId && item.id === panel.editingId) {
+          return false;
+        }
+        return (
+          item.org_id === panel.formState.org_id &&
+          normalizeKey(item.address) === normalizedAddress
+        );
+      });
+      if (hasDuplicate) {
+        return 'Location address must be unique within the organization.';
+      }
     }
     return null;
   };

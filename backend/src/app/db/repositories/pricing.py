@@ -71,6 +71,22 @@ class ActivityPricingRepository(BaseRepository[ActivityPricing]):
         )
         return self._session.execute(query).scalar_one_or_none()
 
+    def find_by_activity_location_pricing_type(
+        self,
+        activity_id: UUID,
+        location_id: UUID,
+        pricing_type: PricingType,
+    ) -> Optional[ActivityPricing]:
+        """Find pricing by activity, location, and pricing type."""
+        query = select(ActivityPricing).where(
+            and_(
+                ActivityPricing.activity_id == activity_id,
+                ActivityPricing.location_id == location_id,
+                ActivityPricing.pricing_type == pricing_type,
+            )
+        )
+        return self._session.execute(query).scalar_one_or_none()
+
     def find_by_price_range(
         self,
         min_amount: Optional[Decimal] = None,

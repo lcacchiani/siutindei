@@ -45,6 +45,9 @@ Relationships:
 - One organization has many locations.
 - One organization has many activities.
 
+Constraints:
+- UNIQUE (case-insensitive) on `lower(trim(name))`
+
 ## Table: geographic_areas
 
 Purpose: Hierarchical lookup of valid geographic areas (country > region > city > district).
@@ -104,6 +107,9 @@ Indexes:
 - `locations_org_idx` on `org_id`
 - `locations_area_idx` on `area_id`
 
+Constraints:
+- UNIQUE (case-insensitive) on (`org_id`, `lower(trim(address))`)
+
 ## Table: activities
 
 Purpose: Activities offered by organizations.
@@ -124,6 +130,9 @@ Indexes:
 - `activities_age_gist` on `age_range` (GiST)
 - `activities_org_idx` on `org_id`
 - `activities_category_idx` on `category_id`
+
+Constraints:
+- UNIQUE (case-insensitive) on (`org_id`, `lower(trim(name))`)
 
 ## Table: activity_locations
 

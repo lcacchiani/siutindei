@@ -1,0 +1,135 @@
+{
+  "organizations": [
+    {
+      "name": "Sample Kids Academy",
+      "description": "Sample data for admin import.",
+      "name_translations": {
+        "zh": "儿童学院示例"
+      },
+      "description_translations": {
+        "zh": "用于管理员导入的示例数据。"
+      },
+      "manager_id": "11111111-1111-1111-1111-111111111111",
+      "phone_country_code": "HK",
+      "phone_number": "12345678",
+      "email": "hello@samplekids.test",
+      "facebook": "https://facebook.com/samplekids",
+      "instagram": "@samplekids",
+      "media_urls": [],
+      "logo_media_url": null,
+      "locations": [
+        {
+          "name": "Wan Chai Center",
+          "address": "Wan Chai Center",
+          "area_id": "22222222-2222-2222-2222-222222222222",
+          "lat": 22.278,
+          "lng": 114.175
+        }
+      ],
+      "activities": [
+        {
+          "name": "Beginner Swim",
+          "description": "Introductory swim class.",
+          "category_id": "33333333-3333-3333-3333-333333333333",
+          "age_min": 5,
+          "age_max": 12,
+          "pricing": [
+            {
+              "location_name": "Wan Chai Center",
+              "pricing_type": "per_class",
+              "amount": 150,
+              "currency": "HKD",
+              "free_trial_class_offered": true
+            }
+          ],
+          "schedules": [
+            {
+              "location_name": "Wan Chai Center",
+              "timezone": "Asia/Hong_Kong",
+              "languages": ["en", "zh"],
+              "weekly_entries": [
+                { "day_of_week": 6, "start_time": "09:00", "end_time": "10:00" },
+                { "day_of_week": 0, "start_time": "10:00", "end_time": "11:00" }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Sample Arts Studio",
+      "description": "Sample data for admin import.",
+      "manager_id": "44444444-4444-4444-4444-444444444444",
+      "phone_country_code": "HK",
+      "phone_number": "87654321",
+      "email": "hello@samplearts.test",
+      "locations": [
+        {
+          "name": "Central Studio",
+          "address": "Central Studio",
+          "area_id": "55555555-5555-5555-5555-555555555555",
+          "lat": 22.281,
+          "lng": 114.158
+        },
+        {
+          "name": "Kowloon Bay Studio",
+          "address": "Kowloon Bay Studio",
+          "area_id": "66666666-6666-6666-6666-666666666666",
+          "lat": 22.323,
+          "lng": 114.216
+        }
+      ],
+      "activities": [
+        {
+          "name": "Creative Painting",
+          "description": "Painting fundamentals and creativity.",
+          "category_id": "77777777-7777-7777-7777-777777777777",
+          "age_min": 4,
+          "age_max": 10,
+          "pricing": [
+            {
+              "location_name": "Central Studio",
+              "pricing_type": "per_sessions",
+              "amount": 900,
+              "currency": "HKD",
+              "sessions_count": 6
+            }
+          ],
+          "schedules": [
+            {
+              "location_name": "Central Studio",
+              "timezone": "Asia/Hong_Kong",
+              "languages": ["en"],
+              "weekly_entries": [
+                { "day_of_week": 3, "start_time": "15:30", "end_time": "16:30" }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Parent & Child Craft",
+          "description": "Craft activities for parents and kids.",
+          "category_id": "88888888-8888-8888-8888-888888888888",
+          "age_min": 2,
+          "age_max": 6,
+          "pricing": [
+            {
+              "location_name": "Kowloon Bay Studio",
+              "pricing_type": "free"
+            }
+          ],
+          "schedules": [
+            {
+              "location_name": "Kowloon Bay Studio",
+              "timezone": "Asia/Hong_Kong",
+              "languages": ["en", "yue"],
+              "weekly_entries": [
+                { "day_of_week": 6, "start_time": "11:00", "end_time": "12:00" }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

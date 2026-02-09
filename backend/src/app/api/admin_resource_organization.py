@@ -20,6 +20,7 @@ from app.api.admin_validators import (
 )
 from app.db.models import Organization
 from app.db.repositories import OrganizationRepository
+from app.exceptions import ValidationError
 from app.utils.translations import build_translation_map
 
 
@@ -68,17 +69,33 @@ def _apply_organization_contact_fields(
             )
 
 
+def _ensure_unique_organization_name(
+    repo: OrganizationRepository,
+    name: str,
+    current_id: str | None = None,
+) -> None:
+    """Ensure organization name is unique (case-insensitive)."""
+    existing = repo.find_by_name_case_insensitive(name)
+    if existing is None:
+        return
+    if current_id is not None and str(existing.id) == str(current_id):
+        return
+    raise ValidationError("Organization name already exists", field="name")
+
+
 def _update_organization_for_manager(
     repo: OrganizationRepository,
     entity: Organization,
     body: dict[str, Any],
 ) -> Organization:
     """Update an organization for a manager (limited fields)."""
-    del repo  # Unused, for signature compatibility
     if "name" in body:
         name = _validate_string_length(
             body["name"], "name", MAX_NAME_LENGTH, required=True
         )
+        if name is None:
+            raise ValidationError("name is required", field="name")
+        _ensure_unique_organization_name(repo, name, current_id=str(entity.id))
         entity.name = name  # type: ignore[assignment]
     if "description" in body:
         entity.description = _validate_string_length(
@@ -126,6 +143,9 @@ def _create_organization(
     name = _validate_string_length(
         body.get("name"), "name", MAX_NAME_LENGTH, required=True
     )
+    if name is None:
+        raise ValidationError("name is required", field="name")
+    _ensure_unique_organization_name(repo, name)
     description = _validate_string_length(
         body.get("description"), "description", MAX_DESCRIPTION_LENGTH
     )
@@ -171,6 +191,9 @@ def _update_organization(
         name = _validate_string_length(
             body["name"], "name", MAX_NAME_LENGTH, required=True
         )
+        if name is None:
+            raise ValidationError("name is required", field="name")
+        _ensure_unique_organization_name(repo, name, current_id=str(entity.id))
         entity.name = name  # type: ignore[assignment]
     if "description" in body:
         entity.description = _validate_string_length(

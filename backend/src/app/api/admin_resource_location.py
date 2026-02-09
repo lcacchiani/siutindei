@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Any
+from uuid import UUID
 
 from app.api.admin_request import _parse_uuid
 from app.api.admin_validators import MAX_ADDRESS_LENGTH, _validate_string_length
@@ -30,6 +31,10 @@ def _create_location(repo: LocationRepository, body: dict[str, Any]) -> Location
     address = _validate_string_length(
         body.get("address"), "address", MAX_ADDRESS_LENGTH
     )
+    if address:
+        _ensure_unique_location_address(
+            repo, _parse_uuid(org_id), address, current_id=None
+        )
 
     lat = body.get("lat")
     lng = body.get("lng")
@@ -58,9 +63,17 @@ def _update_location(
         entity.area_id = area_uuid  # type: ignore[assignment]
 
     if "address" in body:
-        entity.address = _validate_string_length(
+        address = _validate_string_length(
             body["address"], "address", MAX_ADDRESS_LENGTH
         )
+        if address:
+            _ensure_unique_location_address(
+                repo,
+                _parse_uuid(str(entity.org_id)),
+                address,
+                current_id=str(entity.id),
+            )
+        entity.address = address
 
     lat = body.get("lat", entity.lat) if "lat" in body else entity.lat
     lng = body.get("lng", entity.lng) if "lng" in body else entity.lng
@@ -98,6 +111,27 @@ def _validate_coordinates(lat: Any, lng: Any) -> None:
                 )
         except (ValueError, TypeError) as exc:
             raise ValidationError("lng must be a valid number", field="lng") from exc
+
+
+def _ensure_unique_location_address(
+    repo: LocationRepository,
+    org_id: str | UUID,
+    address: str,
+    current_id: str | None,
+) -> None:
+    """Ensure location address is unique within an organization."""
+    existing = repo.find_by_org_and_address_case_insensitive(
+        _parse_uuid(str(org_id)),
+        address,
+    )
+    if existing is None:
+        return
+    if current_id is not None and str(existing.id) == str(current_id):
+        return
+    raise ValidationError(
+        "Location address already exists for organization",
+        field="address",
+    )
 
 
 def _serialize_location(entity: Location) -> dict[str, Any]:

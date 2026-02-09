@@ -240,7 +240,7 @@ For each function above, the following resources are created:
 | Function | Additional Permissions |
 |----------|------------------------|
 | `SiutindeiSearchFunction` | Read DB secret, connect to RDS Proxy as `siutindei_app` |
-| `SiutindeiAdminFunction` | Read DB secret, connect to RDS Proxy as `siutindei_admin`, invoke `AwsApiProxyFunction`, SNS publish to manager request topic, SES send email, S3 read/write for org media |
+| `SiutindeiAdminFunction` | Read DB secret, connect to RDS Proxy as `siutindei_admin`, invoke `AwsApiProxyFunction`, SNS publish to manager request topic, SES send email, S3 read/write for org media and admin import/export |
 | `AwsApiProxyFunction` | Cognito admin operations (`ListUsers`, `AdminGetUser`, `AdminDeleteUser`, `AdminAddUserToGroup`, `AdminRemoveUserFromGroup`, `AdminListGroupsForUser`, `AdminUserGlobalSignOut`) |
 | `SiutindeiMigrationFunction` | Read DB secret, direct connect to Aurora as `postgres`, Cognito user management, CloudFormation invoke permission |
 | `HealthCheckFunction` | Read DB secret, connect to RDS Proxy as `siutindei_app` |
@@ -423,6 +423,7 @@ read error status codes instead of silently blocking them.
 | `UserPoolClientId` | Cognito User Pool Client ID | OAuth client identifier |
 | `OrganizationImagesBucketName` | S3 bucket name | Organization media bucket |
 | `OrganizationImagesBaseUrl` | S3 bucket URL | Public URL for organization images |
+| `AdminImportExportBucketName` | S3 bucket name | Admin import/export JSON bucket |
 | `ManagerRequestTopicArn` | SNS topic ARN | Manager request events topic |
 | `ManagerRequestQueueUrl` | SQS queue URL | Manager request processing queue |
 | `ManagerRequestDLQUrl` | SQS DLQ URL | Failed manager request messages |
