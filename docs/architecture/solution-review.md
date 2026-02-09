@@ -467,7 +467,7 @@ const cluster = new rds.DatabaseCluster(this, "Cluster", {
 # Run as Alembic migration:
 
 """
-CREATE INDEX CONCURRENTLY idx_activity_search_composite
+CREATE INDEX CONCURRENTLY idx_search_composite
 ON activity_schedule (schedule_type, day_of_week_utc, start_minutes_utc)
 WHERE schedule_type = 'weekly';
 
