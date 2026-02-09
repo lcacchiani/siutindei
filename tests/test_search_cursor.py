@@ -15,39 +15,30 @@ sys.path.append(str(Path(__file__).resolve().parents[1] / "backend" / "src"))
 from app.api.search import _decode_cursor  # noqa: E402
 from app.api.search import _encode_cursor  # noqa: E402
 from app.api.search import _parse_cursor  # noqa: E402
-from app.db.models import ScheduleType  # noqa: E402
 from app.exceptions import CursorError  # noqa: E402
-
-
-class _ScheduleStub:
-    def __init__(self, schedule_id, schedule_type):
-        self.id = schedule_id
-        self.schedule_type = schedule_type
-        self.day_of_week_utc = 2
-        self.day_of_month = None
-        self.start_at_utc = None
-        self.start_minutes_utc = 480
 
 
 def test_encode_decode_cursor_roundtrip() -> None:
     """Ensure cursor roundtrips to the same schedule id."""
 
     schedule_id = uuid4()
-    cursor = _encode_cursor(_ScheduleStub(schedule_id, ScheduleType.WEEKLY))
+    cursor = _encode_cursor(2, 480, schedule_id)
     payload = _decode_cursor(cursor)
     assert payload["schedule_id"] == str(schedule_id)
-    assert payload["schedule_type"] == "weekly"
+    assert payload["day_of_week_utc"] == 2
+    assert payload["start_minutes_utc"] == 480
 
 
 def test_parse_cursor_returns_uuid() -> None:
     """Ensure the cursor parser returns a UUID."""
 
     schedule_id = uuid4()
-    cursor = _encode_cursor(_ScheduleStub(schedule_id, ScheduleType.WEEKLY))
+    cursor = _encode_cursor(2, 480, schedule_id)
     parsed = _parse_cursor(cursor)
     assert parsed is not None
     assert parsed.schedule_id == schedule_id
-    assert parsed.schedule_type == ScheduleType.WEEKLY
+    assert parsed.day_of_week_utc == 2
+    assert parsed.start_minutes_utc == 480
 
 
 def test_parse_cursor_rejects_invalid_value() -> None:

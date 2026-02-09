@@ -5,6 +5,7 @@ from app.db.models import Activity
 from app.db.models import ActivityLocation
 from app.db.models import ActivityPricing
 from app.db.models import ActivitySchedule
+from app.db.models import ActivityScheduleEntry
 from app.db.models import AuditLog
 from app.db.models import Location
 from app.db.models import Organization
@@ -19,6 +20,7 @@ __all__ = [
     "ActivityLocation",
     "ActivityPricing",
     "ActivitySchedule",
+    "ActivityScheduleEntry",
     "AuditLog",
     "AuditLogRepository",
     "AuditService",

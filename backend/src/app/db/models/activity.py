@@ -14,6 +14,7 @@ from sqlalchemy import (
     Numeric,
     SmallInteger,
     Text,
+    UniqueConstraint,
     text,
 )
 from sqlalchemy.dialects.postgresql import ARRAY, INT4RANGE, UUID
@@ -165,7 +166,7 @@ class ActivityPricing(Base):
 
 
 class ActivitySchedule(Base):
-    """Schedule entry for an activity at a location."""
+    """Schedule definition for an activity at a location."""
 
     __tablename__ = "activity_schedule"
 
@@ -192,20 +193,6 @@ class ActivitySchedule(Base):
         ),
         nullable=False,
     )
-    day_of_week_utc: Mapped[Optional[int]] = mapped_column(
-        SmallInteger(), nullable=True
-    )
-    day_of_month: Mapped[Optional[int]] = mapped_column(SmallInteger(), nullable=True)
-    start_minutes_utc: Mapped[Optional[int]] = mapped_column(Integer(), nullable=True)
-    end_minutes_utc: Mapped[Optional[int]] = mapped_column(Integer(), nullable=True)
-    start_at_utc: Mapped[Optional[datetime]] = mapped_column(
-        TIMESTAMP(timezone=True),
-        nullable=True,
-    )
-    end_at_utc: Mapped[Optional[datetime]] = mapped_column(
-        TIMESTAMP(timezone=True),
-        nullable=True,
-    )
     languages: Mapped[List[str]] = mapped_column(
         ARRAY(Text()),
         nullable=False,
@@ -214,55 +201,73 @@ class ActivitySchedule(Base):
 
     __table_args__ = (
         CheckConstraint(
-            "day_of_week_utc BETWEEN 0 AND 6", name="schedule_day_of_week_range"
+            "schedule_type = 'weekly'",
+            name="schedule_type_weekly_only",
         ),
-        CheckConstraint(
-            "day_of_month BETWEEN 1 AND 31", name="schedule_day_of_month_range"
-        ),
-        CheckConstraint(
-            "start_minutes_utc BETWEEN 0 AND 1439", name="schedule_start_minutes_range"
-        ),
-        CheckConstraint(
-            "end_minutes_utc BETWEEN 0 AND 1439", name="schedule_end_minutes_range"
-        ),
-        CheckConstraint(
-            "start_minutes_utc IS NULL OR end_minutes_utc IS NULL OR "
-            "start_minutes_utc != end_minutes_utc",
-            name="schedule_minutes_order",
-        ),
-        CheckConstraint(
-            "start_at_utc IS NULL OR end_at_utc IS NULL OR start_at_utc < end_at_utc",
-            name="schedule_date_order",
-        ),
-        CheckConstraint(
-            "("
-            "schedule_type = 'weekly' AND "
-            "day_of_week_utc IS NOT NULL AND "
-            "start_minutes_utc IS NOT NULL AND "
-            "end_minutes_utc IS NOT NULL AND "
-            "day_of_month IS NULL AND "
-            "start_at_utc IS NULL AND "
-            "end_at_utc IS NULL"
-            ") OR ("
-            "schedule_type = 'monthly' AND "
-            "day_of_month IS NOT NULL AND "
-            "start_minutes_utc IS NOT NULL AND "
-            "end_minutes_utc IS NOT NULL AND "
-            "day_of_week_utc IS NULL AND "
-            "start_at_utc IS NULL AND "
-            "end_at_utc IS NULL"
-            ") OR ("
-            "schedule_type = 'date_specific' AND "
-            "start_at_utc IS NOT NULL AND "
-            "end_at_utc IS NOT NULL AND "
-            "day_of_week_utc IS NULL AND "
-            "day_of_month IS NULL AND "
-            "start_minutes_utc IS NULL AND "
-            "end_minutes_utc IS NULL"
-            ")",
-            name="schedule_type_fields_check",
+        UniqueConstraint(
+            "activity_id",
+            "location_id",
+            "languages",
+            name="schedule_unique_activity_location_languages",
         ),
     )
 
     activity: Mapped["Activity"] = relationship(back_populates="schedules")
     location: Mapped["Location"] = relationship(back_populates="activity_schedules")
+    entries: Mapped[List["ActivityScheduleEntry"]] = relationship(
+        back_populates="schedule",
+        cascade="all, delete-orphan",
+        order_by=(
+            "ActivityScheduleEntry.day_of_week_utc, "
+            "ActivityScheduleEntry.start_minutes_utc, "
+            "ActivityScheduleEntry.id"
+        ),
+    )
+
+
+class ActivityScheduleEntry(Base):
+    """Weekly schedule entry for a schedule definition."""
+
+    __tablename__ = "activity_schedule_entries"
+
+    id: Mapped[str] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        server_default=text("gen_random_uuid()"),
+    )
+    schedule_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("activity_schedule.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    day_of_week_utc: Mapped[int] = mapped_column(SmallInteger(), nullable=False)
+    start_minutes_utc: Mapped[int] = mapped_column(Integer(), nullable=False)
+    end_minutes_utc: Mapped[int] = mapped_column(Integer(), nullable=False)
+
+    schedule: Mapped["ActivitySchedule"] = relationship(back_populates="entries")
+
+    __table_args__ = (
+        CheckConstraint(
+            "day_of_week_utc BETWEEN 0 AND 6",
+            name="schedule_entry_day_range",
+        ),
+        CheckConstraint(
+            "start_minutes_utc BETWEEN 0 AND 1439",
+            name="schedule_entry_start_minutes_range",
+        ),
+        CheckConstraint(
+            "end_minutes_utc BETWEEN 0 AND 1439",
+            name="schedule_entry_end_minutes_range",
+        ),
+        CheckConstraint(
+            "start_minutes_utc != end_minutes_utc",
+            name="schedule_entry_minutes_order",
+        ),
+        UniqueConstraint(
+            "schedule_id",
+            "day_of_week_utc",
+            "start_minutes_utc",
+            "end_minutes_utc",
+            name="schedule_entry_unique",
+        ),
+    )

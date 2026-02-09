@@ -2,17 +2,18 @@
 
 from __future__ import annotations
 
-from datetime import datetime
 from typing import Optional
 from typing import Sequence
 from uuid import UUID
 
-from sqlalchemy import and_
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db.models import ActivitySchedule
-from app.db.models import ScheduleType
+from app.db.models import (
+    ActivitySchedule,
+    ActivityScheduleEntry,
+    ScheduleType,
+)
 from app.db.repositories.base import BaseRepository
 
 
@@ -87,13 +88,13 @@ class ActivityScheduleRepository(BaseRepository[ActivitySchedule]):
         """
         query = (
             select(ActivitySchedule)
-            .where(
-                and_(
-                    ActivitySchedule.schedule_type == ScheduleType.WEEKLY,
-                    ActivitySchedule.day_of_week_utc == day_of_week_utc,
-                )
+            .distinct()
+            .join(
+                ActivityScheduleEntry,
+                ActivityScheduleEntry.schedule_id == ActivitySchedule.id,
             )
-            .order_by(ActivitySchedule.start_minutes_utc)
+            .where(ActivityScheduleEntry.day_of_week_utc == day_of_week_utc)
+            .order_by(ActivityScheduleEntry.start_minutes_utc)
             .limit(limit)
         )
         return self._session.execute(query).scalars().all()
@@ -129,7 +130,7 @@ class ActivityScheduleRepository(BaseRepository[ActivitySchedule]):
         end_minutes_utc: int,
         languages: Optional[list[str]] = None,
     ) -> ActivitySchedule:
-        """Create a weekly schedule.
+        """Create a weekly schedule with a single entry.
 
         Args:
             activity_id: Activity UUID.
@@ -146,116 +147,28 @@ class ActivityScheduleRepository(BaseRepository[ActivitySchedule]):
             activity_id=activity_id,
             location_id=location_id,
             schedule_type=ScheduleType.WEEKLY,
-            day_of_week_utc=day_of_week_utc,
-            start_minutes_utc=start_minutes_utc,
-            end_minutes_utc=end_minutes_utc,
             languages=languages or [],
+        )
+        schedule.entries.append(
+            ActivityScheduleEntry(
+                day_of_week_utc=day_of_week_utc,
+                start_minutes_utc=start_minutes_utc,
+                end_minutes_utc=end_minutes_utc,
+            )
         )
         return self.create(schedule)
 
-    def create_monthly_schedule(
+    def find_by_activity_location_languages(
         self,
         activity_id: UUID,
         location_id: UUID,
-        day_of_month: int,
-        start_minutes_utc: int,
-        end_minutes_utc: int,
-        languages: Optional[list[str]] = None,
-    ) -> ActivitySchedule:
-        """Create a monthly schedule.
-
-        Args:
-            activity_id: Activity UUID.
-            location_id: Location UUID.
-            day_of_month: Day of month (1-31).
-            start_minutes_utc: Start time in minutes from midnight UTC.
-            end_minutes_utc: End time in minutes from midnight UTC.
-            languages: Optional list of language codes.
-
-        Returns:
-            The created schedule.
-        """
-        schedule = ActivitySchedule(
-            activity_id=activity_id,
-            location_id=location_id,
-            schedule_type=ScheduleType.MONTHLY,
-            day_of_month=day_of_month,
-            start_minutes_utc=start_minutes_utc,
-            end_minutes_utc=end_minutes_utc,
-            languages=languages or [],
+        languages: list[str],
+    ) -> Optional[ActivitySchedule]:
+        """Find a schedule by activity, location, and language set."""
+        query = (
+            select(ActivitySchedule)
+            .where(ActivitySchedule.activity_id == activity_id)
+            .where(ActivitySchedule.location_id == location_id)
+            .where(ActivitySchedule.languages == languages)
         )
-        return self.create(schedule)
-
-    def create_date_specific_schedule(
-        self,
-        activity_id: UUID,
-        location_id: UUID,
-        start_at_utc: datetime,
-        end_at_utc: datetime,
-        languages: Optional[list[str]] = None,
-    ) -> ActivitySchedule:
-        """Create a date-specific schedule.
-
-        Args:
-            activity_id: Activity UUID.
-            location_id: Location UUID.
-            start_at_utc: Start datetime in UTC.
-            end_at_utc: End datetime in UTC.
-            languages: Optional list of language codes.
-
-        Returns:
-            The created schedule.
-        """
-        schedule = ActivitySchedule(
-            activity_id=activity_id,
-            location_id=location_id,
-            schedule_type=ScheduleType.DATE_SPECIFIC,
-            start_at_utc=start_at_utc,
-            end_at_utc=end_at_utc,
-            languages=languages or [],
-        )
-        return self.create(schedule)
-
-    def update_schedule(
-        self,
-        schedule: ActivitySchedule,
-        day_of_week_utc: Optional[int] = None,
-        day_of_month: Optional[int] = None,
-        start_minutes_utc: Optional[int] = None,
-        end_minutes_utc: Optional[int] = None,
-        start_at_utc: Optional[datetime] = None,
-        end_at_utc: Optional[datetime] = None,
-        languages: Optional[list[str]] = None,
-    ) -> ActivitySchedule:
-        """Update a schedule.
-
-        Note: Changing schedule_type is not supported; create a new schedule instead.
-
-        Args:
-            schedule: The schedule to update.
-            day_of_week_utc: New day of week (for weekly).
-            day_of_month: New day of month (for monthly).
-            start_minutes_utc: New start minutes (for weekly/monthly).
-            end_minutes_utc: New end minutes (for weekly/monthly).
-            start_at_utc: New start datetime (for date_specific).
-            end_at_utc: New end datetime (for date_specific).
-            languages: New language list.
-
-        Returns:
-            The updated schedule.
-        """
-        if day_of_week_utc is not None:
-            schedule.day_of_week_utc = day_of_week_utc
-        if day_of_month is not None:
-            schedule.day_of_month = day_of_month
-        if start_minutes_utc is not None:
-            schedule.start_minutes_utc = start_minutes_utc
-        if end_minutes_utc is not None:
-            schedule.end_minutes_utc = end_minutes_utc
-        if start_at_utc is not None:
-            schedule.start_at_utc = start_at_utc
-        if end_at_utc is not None:
-            schedule.end_at_utc = end_at_utc
-        if languages is not None:
-            schedule.languages = languages
-        return self.update(schedule)
+        return self._session.execute(query).scalars().first()

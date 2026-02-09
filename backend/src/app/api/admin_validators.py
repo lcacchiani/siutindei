@@ -140,7 +140,7 @@ def _validate_media_urls(urls: list[str]) -> list[str]:
     validated: list[str] = []
     for url in cleaned:
         validated.append(_validate_url(url, "media_urls"))
-    return validated
+    return sorted(validated)
 
 
 def _validate_logo_media_url(

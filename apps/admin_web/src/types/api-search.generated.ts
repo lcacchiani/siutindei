@@ -39,18 +39,13 @@ export interface paths {
                     /**
                      * @description Filter by schedule type:
                      *     - weekly: Recurring weekly schedules
-                     *     - monthly: Recurring monthly schedules
-                     *     - date_specific: One-time events
                      */
-                    schedule_type?: "weekly" | "monthly" | "date_specific";
+                    schedule_type?: "weekly";
                     /**
                      * @description Filter by day of week (0-6):
                      *     0=Sunday, 1=Monday, 2=Tuesday, 3=Wednesday, 4=Thursday, 5=Friday, 6=Saturday.
-                     *     Cannot be used with day_of_month.
                      */
                     day_of_week_utc?: number;
-                    /** @description Filter by day of month (1-31). Cannot be used with day_of_week_utc. */
-                    day_of_month?: number;
                     /**
                      * @description Filter by start time (0-1439 minutes from midnight UTC).
                      *     Example: 600 = 10:00 AM UTC.
@@ -63,16 +58,6 @@ export interface paths {
                      *     Must be greater than start_minutes_utc when both provided.
                      */
                     end_minutes_utc?: number;
-                    /**
-                     * @description Filter date-specific schedules starting at or after this time (ISO 8601).
-                     *     Cannot be combined with day_of_week_utc or day_of_month.
-                     */
-                    start_at_utc?: string;
-                    /**
-                     * @description Filter date-specific schedules ending at or before this time (ISO 8601).
-                     *     Cannot be combined with day_of_week_utc or day_of_month.
-                     */
-                    end_at_utc?: string;
                     /**
                      * @description Filter by language (ISO 639-1 codes plus yue (ISO 639-3)). Multiple values allowed.
                      *     Supported: en, zh, ja, ko, fr, de, es, pt, it, ru, ar, hi, th, vi, id, ms, tl, nl, pl, tr, yue
@@ -171,17 +156,15 @@ export interface components {
             /** @description Whether a free trial class is offered */
             free_trial_class_offered: boolean;
         };
+        WeeklyScheduleEntry: {
+            day_of_week_utc: number;
+            start_minutes_utc: number;
+            end_minutes_utc: number;
+        };
         Schedule: {
             /** @enum {string} */
-            schedule_type: "weekly" | "monthly" | "date_specific";
-            day_of_week_utc?: number | null;
-            day_of_month?: number | null;
-            start_minutes_utc?: number | null;
-            end_minutes_utc?: number | null;
-            /** Format: date-time */
-            start_at_utc?: string | null;
-            /** Format: date-time */
-            end_at_utc?: string | null;
+            schedule_type: "weekly";
+            weekly_entries: components["schemas"]["WeeklyScheduleEntry"][];
             languages: string[];
         };
         /**

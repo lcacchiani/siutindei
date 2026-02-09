@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
-from datetime import timezone
 from decimal import Decimal
 from typing import Iterable
 from typing import Sequence
@@ -19,6 +17,7 @@ from sqlalchemy.sql import Select
 from app.db.models import Activity
 from app.db.models import ActivityPricing
 from app.db.models import ActivitySchedule
+from app.db.models import ActivityScheduleEntry
 from app.db.models import Location
 from app.db.models import Organization
 from app.db.models import PricingType
@@ -29,11 +28,8 @@ from app.db.models import ScheduleType
 class ActivitySearchCursor:
     """Cursor for activity search pagination."""
 
-    schedule_type: ScheduleType
-    day_of_week_utc: int | None
-    day_of_month: int | None
-    start_at_utc: datetime | None
-    start_minutes_utc: int | None
+    day_of_week_utc: int
+    start_minutes_utc: int
     schedule_id: UUID
 
 
@@ -48,11 +44,8 @@ class ActivitySearchFilters:
     price_max: Decimal | None = None
     schedule_type: ScheduleType | None = None
     day_of_week_utc: int | None = None
-    day_of_month: int | None = None
     start_minutes_utc: int | None = None
     end_minutes_utc: int | None = None
-    start_at_utc: datetime | None = None
-    end_at_utc: datetime | None = None
     languages: Sequence[str] = ()
     cursor: ActivitySearchCursor | None = None
     limit: int = 50
@@ -61,42 +54,9 @@ class ActivitySearchFilters:
 def validate_filters(filters: ActivitySearchFilters) -> None:
     """Validate filter combinations for search."""
 
-    if filters.day_of_week_utc is not None and filters.day_of_month is not None:
-        raise ValueError("Use day_of_week_utc or day_of_month, not both.")
-
-    if (filters.start_at_utc or filters.end_at_utc) and (
-        filters.day_of_week_utc is not None or filters.day_of_month is not None
-    ):
-        raise ValueError(
-            "Date-specific ranges cannot be combined with weekly/monthly fields."
-        )
-
-    if (
-        filters.schedule_type == ScheduleType.WEEKLY
-        and filters.day_of_month is not None
-    ):
-        raise ValueError("Weekly schedules cannot include day_of_month.")
-
-    if (
-        filters.schedule_type == ScheduleType.MONTHLY
-        and filters.day_of_week_utc is not None
-    ):
-        raise ValueError("Monthly schedules cannot include day_of_week_utc.")
-
-    if filters.schedule_type == ScheduleType.DATE_SPECIFIC and (
-        filters.day_of_week_utc is not None or filters.day_of_month is not None
-    ):
-        raise ValueError(
-            "Date-specific schedules cannot include weekly/monthly fields."
-        )
-
     if filters.start_minutes_utc is not None and filters.end_minutes_utc is not None:
         if filters.start_minutes_utc >= filters.end_minutes_utc:
             raise ValueError("start_minutes_utc must be less than end_minutes_utc.")
-
-    if filters.start_at_utc and filters.end_at_utc:
-        if filters.start_at_utc >= filters.end_at_utc:
-            raise ValueError("start_at_utc must be before end_at_utc.")
 
     if filters.limit <= 0 or filters.limit > 200:
         raise ValueError("limit must be between 1 and 200.")
@@ -107,10 +67,23 @@ def build_search_query(filters: ActivitySearchFilters) -> Select:
 
     validate_filters(filters)
 
+    entry_subquery = _entry_order_subquery(filters)
     query = (
-        select(Activity, Organization, Location, ActivityPricing, ActivitySchedule)
+        select(
+            Activity,
+            Organization,
+            Location,
+            ActivityPricing,
+            ActivitySchedule,
+            entry_subquery.c.day_of_week_utc.label("order_day_of_week"),
+            entry_subquery.c.start_minutes_utc.label("order_start_minutes"),
+        )
         .join(Organization, Organization.id == Activity.org_id)
         .join(ActivitySchedule, ActivitySchedule.activity_id == Activity.id)
+        .join(
+            entry_subquery,
+            entry_subquery.c.schedule_id == ActivitySchedule.id,
+        )
         .join(Location, Location.id == ActivitySchedule.location_id)
         .join(
             ActivityPricing,
@@ -119,6 +92,7 @@ def build_search_query(filters: ActivitySearchFilters) -> Select:
                 ActivityPricing.location_id == Location.id,
             ),
         )
+        .where(entry_subquery.c.entry_rank == 1)
     )
 
     conditions: list = []
@@ -138,13 +112,14 @@ def build_search_query(filters: ActivitySearchFilters) -> Select:
     if filters.price_max is not None:
         conditions.append(ActivityPricing.amount <= filters.price_max)
 
-    _apply_schedule_filters(filters, conditions)
+    if filters.schedule_type is not None:
+        conditions.append(ActivitySchedule.schedule_type == filters.schedule_type)
 
     if filters.languages:
         language_conditions = _build_language_conditions(filters.languages)
         conditions.append(or_(*language_conditions))
 
-    order_columns = _order_columns()
+    order_columns = _order_columns(entry_subquery)
     if filters.cursor is not None:
         cursor_values = _cursor_values(filters.cursor)
         conditions.append(sa.tuple_(*order_columns) > sa.tuple_(*cursor_values))
@@ -156,39 +131,57 @@ def build_search_query(filters: ActivitySearchFilters) -> Select:
     return query.limit(filters.limit)
 
 
-def _apply_schedule_filters(filters: ActivitySearchFilters, conditions: list) -> None:
-    """Apply schedule filters to a query condition list."""
+def _entry_order_subquery(filters: ActivitySearchFilters) -> sa.Subquery:
+    """Build a subquery to order entries per schedule."""
+    entry_query = select(
+        ActivityScheduleEntry.schedule_id.label("schedule_id"),
+        ActivityScheduleEntry.day_of_week_utc.label("day_of_week_utc"),
+        ActivityScheduleEntry.start_minutes_utc.label("start_minutes_utc"),
+        ActivityScheduleEntry.id.label("entry_id"),
+        sa.func.row_number()
+        .over(
+            partition_by=ActivityScheduleEntry.schedule_id,
+            order_by=[
+                ActivityScheduleEntry.day_of_week_utc,
+                ActivityScheduleEntry.start_minutes_utc,
+                ActivityScheduleEntry.id,
+            ],
+        )
+        .label("entry_rank"),
+    )
+    conditions: list = []
+    _apply_entry_filters(filters, conditions)
+    if conditions:
+        entry_query = entry_query.where(and_(*conditions))
+    return entry_query.subquery()
 
-    if filters.schedule_type is not None:
-        conditions.append(ActivitySchedule.schedule_type == filters.schedule_type)
 
+def _apply_entry_filters(filters: ActivitySearchFilters, conditions: list) -> None:
+    """Apply entry-level schedule filters."""
     if filters.day_of_week_utc is not None:
-        conditions.append(ActivitySchedule.schedule_type == ScheduleType.WEEKLY)
-        conditions.append(ActivitySchedule.day_of_week_utc == filters.day_of_week_utc)
-
-    if filters.day_of_month is not None:
-        conditions.append(ActivitySchedule.schedule_type == ScheduleType.MONTHLY)
-        conditions.append(ActivitySchedule.day_of_month == filters.day_of_month)
+        conditions.append(
+            ActivityScheduleEntry.day_of_week_utc == filters.day_of_week_utc
+        )
 
     if filters.start_minutes_utc is not None and filters.end_minutes_utc is not None:
         normal_overlap = and_(
-            ActivitySchedule.start_minutes_utc < filters.end_minutes_utc,
-            ActivitySchedule.end_minutes_utc > filters.start_minutes_utc,
+            ActivityScheduleEntry.start_minutes_utc < filters.end_minutes_utc,
+            ActivityScheduleEntry.end_minutes_utc > filters.start_minutes_utc,
         )
         wrap_overlap = or_(
-            filters.end_minutes_utc > ActivitySchedule.start_minutes_utc,
-            filters.start_minutes_utc < ActivitySchedule.end_minutes_utc,
+            filters.end_minutes_utc > ActivityScheduleEntry.start_minutes_utc,
+            filters.start_minutes_utc < ActivityScheduleEntry.end_minutes_utc,
         )
         conditions.append(
             or_(
                 and_(
-                    ActivitySchedule.start_minutes_utc
-                    < ActivitySchedule.end_minutes_utc,
+                    ActivityScheduleEntry.start_minutes_utc
+                    < ActivityScheduleEntry.end_minutes_utc,
                     normal_overlap,
                 ),
                 and_(
-                    ActivitySchedule.start_minutes_utc
-                    > ActivitySchedule.end_minutes_utc,
+                    ActivityScheduleEntry.start_minutes_utc
+                    > ActivityScheduleEntry.end_minutes_utc,
                     wrap_overlap,
                 ),
             )
@@ -196,90 +189,43 @@ def _apply_schedule_filters(filters: ActivitySearchFilters, conditions: list) ->
     elif filters.start_minutes_utc is not None:
         conditions.append(
             or_(
-                ActivitySchedule.start_minutes_utc > ActivitySchedule.end_minutes_utc,
-                ActivitySchedule.end_minutes_utc >= filters.start_minutes_utc,
+                ActivityScheduleEntry.start_minutes_utc
+                > ActivityScheduleEntry.end_minutes_utc,
+                ActivityScheduleEntry.end_minutes_utc >= filters.start_minutes_utc,
             )
         )
     elif filters.end_minutes_utc is not None:
         conditions.append(
             or_(
-                ActivitySchedule.start_minutes_utc > ActivitySchedule.end_minutes_utc,
-                ActivitySchedule.start_minutes_utc <= filters.end_minutes_utc,
+                ActivityScheduleEntry.start_minutes_utc
+                > ActivityScheduleEntry.end_minutes_utc,
+                ActivityScheduleEntry.start_minutes_utc <= filters.end_minutes_utc,
             )
         )
-
-    if filters.start_at_utc is not None or filters.end_at_utc is not None:
-        conditions.append(ActivitySchedule.schedule_type == ScheduleType.DATE_SPECIFIC)
-        if filters.start_at_utc is not None and filters.end_at_utc is not None:
-            conditions.append(ActivitySchedule.start_at_utc < filters.end_at_utc)
-            conditions.append(ActivitySchedule.end_at_utc > filters.start_at_utc)
-        elif filters.start_at_utc is not None:
-            conditions.append(ActivitySchedule.end_at_utc >= filters.start_at_utc)
-        elif filters.end_at_utc is not None:
-            conditions.append(ActivitySchedule.start_at_utc <= filters.end_at_utc)
 
 
 def _build_language_conditions(languages: Iterable[str]) -> list:
     """Build language conditions for session-specific languages."""
 
-    return [ActivitySchedule.languages.any(language) for language in languages]  # type: ignore[arg-type]
-
-
-def _order_columns() -> list:
-    """Return ordering columns for pagination."""
-
-    type_order = sa.case(
-        (ActivitySchedule.schedule_type == ScheduleType.WEEKLY, 1),
-        (ActivitySchedule.schedule_type == ScheduleType.MONTHLY, 2),
-        (ActivitySchedule.schedule_type == ScheduleType.DATE_SPECIFIC, 3),
-        else_=4,
-    )
-    day_of_week = sa.func.coalesce(ActivitySchedule.day_of_week_utc, -1)
-    day_of_month = sa.func.coalesce(ActivitySchedule.day_of_month, -1)
-    start_at = sa.func.coalesce(
-        ActivitySchedule.start_at_utc,
-        datetime(1970, 1, 1, tzinfo=timezone.utc),
-    )
-    start_minutes = sa.func.coalesce(ActivitySchedule.start_minutes_utc, -1)
-
     return [
-        type_order,
-        day_of_week,
-        day_of_month,
-        start_at,
-        start_minutes,
+        ActivitySchedule.languages.any(language)  # type: ignore[arg-type]
+        for language in languages
+    ]
+
+
+def _order_columns(entry_subquery: sa.Subquery) -> list:
+    """Return ordering columns for pagination."""
+    return [
+        entry_subquery.c.day_of_week_utc,
+        entry_subquery.c.start_minutes_utc,
         ActivitySchedule.id,
     ]
 
 
 def _cursor_values(cursor: ActivitySearchCursor) -> list:
     """Return ordering values for the cursor comparison."""
-
-    type_order = _schedule_type_order(cursor.schedule_type)
-    day_of_week = cursor.day_of_week_utc if cursor.day_of_week_utc is not None else -1
-    day_of_month = cursor.day_of_month if cursor.day_of_month is not None else -1
-    start_at = cursor.start_at_utc or datetime(1970, 1, 1, tzinfo=timezone.utc)
-    start_minutes = (
-        cursor.start_minutes_utc if cursor.start_minutes_utc is not None else -1
-    )
-
     return [
-        type_order,
-        day_of_week,
-        day_of_month,
-        start_at,
-        start_minutes,
+        cursor.day_of_week_utc,
+        cursor.start_minutes_utc,
         cursor.schedule_id,
     ]
-
-
-def _schedule_type_order(value: ScheduleType) -> int:
-    """Return a deterministic order for schedule types."""
-
-    if value == ScheduleType.WEEKLY:
-        return 1
-    if value == ScheduleType.MONTHLY:
-        return 2
-    if value == ScheduleType.DATE_SPECIFIC:
-        return 3
-    return 4
