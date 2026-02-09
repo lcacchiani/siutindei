@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import {
   ApiError,
@@ -42,7 +42,7 @@ export function ManagerDashboard() {
   const [activeSection, setActiveSection] = useState('organizations');
   const [managerOrgName, setManagerOrgName] = useState<string | null>(null);
 
-  const loadManagerOrgName = async (): Promise<string | null> => {
+  const loadManagerOrgName = useCallback(async (): Promise<string | null> => {
     try {
       const response = await listManagerOrganizations();
       const name = response.items[0]?.name?.trim();
@@ -50,9 +50,9 @@ export function ManagerDashboard() {
     } catch {
       return null;
     }
-  };
+  }, []);
 
-  const loadManagerStatus = async () => {
+  const loadManagerStatus = useCallback(async () => {
     setIsLoading(true);
     setError('');
     try {
@@ -98,11 +98,11 @@ export function ManagerDashboard() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [loadManagerOrgName]);
 
   useEffect(() => {
     loadManagerStatus();
-  }, []);
+  }, [loadManagerStatus]);
 
   const handleRequestSubmitted = (request: Ticket) => {
     setPendingRequest(request);
