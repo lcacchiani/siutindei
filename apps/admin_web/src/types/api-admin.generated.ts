@@ -276,6 +276,164 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/imports/presign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create admin import upload URL
+         * @description Generate a presigned URL for uploading a JSON import file to S3.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["AdminImportPresignRequest"];
+                };
+            };
+            responses: {
+                /** @description Upload URL generated */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AdminImportPresignResponse"];
+                    };
+                };
+                /** @description Validation error */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ValidationError"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/imports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Process admin import
+         * @description Process a JSON import file previously uploaded to S3. The import supports
+         *     partial success and returns per-record warnings and errors.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["AdminImportRequest"];
+                };
+            };
+            responses: {
+                /** @description Import processed */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AdminImportResponse"];
+                    };
+                };
+                /** @description Validation error */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ValidationError"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/imports/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export admin data
+         * @description Generate a presigned download URL for an export JSON file. The exported
+         *     JSON is compatible with the admin import schema. Schedule entries are
+         *     emitted in UTC.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Optional organization name to export a single organization. */
+                    org_name?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Export download URL generated */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AdminExportResponse"];
+                    };
+                };
+                /** @description Validation error */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ValidationError"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/locations": {
         parameters: {
             query?: never;
@@ -3098,6 +3256,139 @@ export interface components {
          */
         TranslationMap: {
             [key: string]: string;
+        };
+        AdminImportFile: {
+            organizations: components["schemas"]["AdminImportOrganization"][];
+        };
+        AdminImportOrganization: {
+            /** @description Organization name (unique). */
+            name: string;
+            description?: string;
+            name_translations?: components["schemas"]["TranslationMap"];
+            description_translations?: components["schemas"]["TranslationMap"];
+            /** @description Cognito user sub (required for new orgs). */
+            manager_id?: string;
+            phone_country_code?: string;
+            phone_number?: string;
+            email?: string;
+            whatsapp?: string;
+            facebook?: string;
+            instagram?: string;
+            tiktok?: string;
+            twitter?: string;
+            xiaohongshu?: string;
+            wechat?: string;
+            media_urls?: string[];
+            logo_media_url?: string;
+            locations?: components["schemas"]["AdminImportLocation"][];
+            activities?: components["schemas"]["AdminImportActivity"][];
+        };
+        AdminImportLocation: {
+            /**
+             * @description Location name used for upsert. Stored as address in the database and
+             *     must be unique within the organization.
+             */
+            name: string;
+            /** @description Optional address (must match name if provided). */
+            address?: string;
+            /** Format: uuid */
+            area_id: string;
+            lat?: number;
+            lng?: number;
+        };
+        AdminImportActivity: {
+            name: string;
+            description?: string;
+            name_translations?: components["schemas"]["TranslationMap"];
+            description_translations?: components["schemas"]["TranslationMap"];
+            /** Format: uuid */
+            category_id: string;
+            age_min: number;
+            age_max: number;
+            pricing?: components["schemas"]["AdminImportPricing"][];
+            schedules?: components["schemas"]["AdminImportSchedule"][];
+        };
+        AdminImportPricing: {
+            /** @description Location name to link pricing with. */
+            location_name: string;
+            /** @enum {string} */
+            pricing_type: "per_class" | "per_sessions" | "per_hour" | "per_day" | "free";
+            amount?: number;
+            currency?: string;
+            sessions_count?: number;
+            free_trial_class_offered?: boolean;
+        };
+        AdminImportSchedule: {
+            location_name: string;
+            /** @description IANA timezone identifier (e.g., Asia/Hong_Kong). */
+            timezone: string;
+            languages?: string[];
+            weekly_entries: components["schemas"]["AdminImportScheduleEntry"][];
+        };
+        AdminImportScheduleEntry: {
+            /** @description Local day of week (0=Sunday). */
+            day_of_week: number;
+            /** @description Local start time in HH:MM. */
+            start_time: string;
+            /** @description Local end time in HH:MM. */
+            end_time: string;
+        };
+        AdminImportPresignRequest: {
+            /** @description Filename ending in .json. */
+            file_name: string;
+            /** @description Must be application/json. */
+            content_type: string;
+        };
+        AdminImportPresignResponse: {
+            upload_url: string;
+            object_key: string;
+            expires_in: number;
+        };
+        AdminImportRequest: {
+            /** @description S3 object key returned from the presign endpoint. */
+            object_key: string;
+        };
+        AdminImportCounts: {
+            created: number;
+            updated: number;
+            failed: number;
+            skipped: number;
+        };
+        AdminImportSummary: {
+            organizations: components["schemas"]["AdminImportCounts"];
+            locations: components["schemas"]["AdminImportCounts"];
+            activities: components["schemas"]["AdminImportCounts"];
+            pricing: components["schemas"]["AdminImportCounts"];
+            schedules: components["schemas"]["AdminImportCounts"];
+            warnings: number;
+            errors: number;
+        };
+        AdminImportError: {
+            message: string;
+            field?: string | null;
+        };
+        AdminImportResult: {
+            /** @enum {string} */
+            type: "organizations" | "locations" | "activities" | "pricing" | "schedules";
+            key: string;
+            /** @enum {string} */
+            status: "created" | "updated" | "failed" | "skipped";
+            id?: string | null;
+            path?: string | null;
+            warnings: string[];
+            errors: components["schemas"]["AdminImportError"][];
+        };
+        AdminImportResponse: {
+            summary: components["schemas"]["AdminImportSummary"];
+            results: components["schemas"]["AdminImportResult"][];
+            file_warnings: string[];
+        };
+        AdminExportResponse: {
+            download_url: string;
+            object_key: string;
+            file_name: string;
+            expires_in: number;
+            warnings?: string[];
         };
         OrganizationCreate: {
             /** @description Organization name (required, max 200 characters) */

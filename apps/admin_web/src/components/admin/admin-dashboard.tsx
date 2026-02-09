@@ -16,6 +16,7 @@ import {
 } from '../shared';
 import { AuditLogsPanel } from './audit-logs-panel';
 import { CognitoUsersPanel } from './cognito-users-panel';
+import { ImportsPanel } from './imports-panel';
 import { MediaPanel } from './media-panel';
 import { ManagerDashboard } from './manager-dashboard';
 import { TicketsPanel } from './tickets-panel';
@@ -28,15 +29,25 @@ const sectionLabels = [
   { key: 'activities', label: 'Activities' },
   { key: 'pricing', label: 'Pricing' },
   { key: 'schedules', label: 'Schedules' },
+  { key: 'imports', label: 'Imports' },
   { key: 'tickets', label: 'Tickets', dividerBefore: true },
   { key: 'cognito-users', label: 'Users' },
   { key: 'activity-categories', label: 'Categories' },
   { key: 'audit-logs', label: 'Audit Logs' },
 ];
 
-export function AdminDashboard() {
+interface AdminDashboardProps {
+  initialSection?: string;
+}
+
+export function AdminDashboard({ initialSection }: AdminDashboardProps) {
   const { status, user, isAdmin, isManager, logout, error } = useAuth();
-  const [activeSection, setActiveSection] = useState('organizations');
+  const [activeSection, setActiveSection] = useState(() => {
+    const hasSection = sectionLabels.some(
+      (section) => section.key === initialSection
+    );
+    return hasSection ? initialSection ?? 'organizations' : 'organizations';
+  });
 
   const activeContent = useMemo(() => {
     switch (activeSection) {
@@ -52,6 +63,8 @@ export function AdminDashboard() {
         return <PricingPanel mode='admin' />;
       case 'schedules':
         return <SchedulesPanel mode='admin' />;
+      case 'imports':
+        return <ImportsPanel />;
       case 'tickets':
         return <TicketsPanel />;
       case 'cognito-users':

@@ -23,6 +23,7 @@ test.describe('Admin Dashboard', () => {
       'Activities',
       'Pricing',
       'Schedules',
+      'Imports',
       'Tickets',
       'Users',
       'Audit Logs',
@@ -108,6 +109,16 @@ test.describe('Admin Dashboard', () => {
     await expect(adminPage.getByText(/Schedule/i).first()).toBeVisible();
   });
 
+  test('should navigate to Imports section', async ({ adminPage }) => {
+    await adminPage.goto('/');
+
+    // Click Imports
+    await adminPage.getByRole('button', { name: 'Imports' }).click();
+
+    // Should show Imports panel content
+    await expect(adminPage.getByText(/Imports/i).first()).toBeVisible();
+  });
+
   test('should navigate to Tickets section', async ({ adminPage }) => {
     await adminPage.goto('/');
 
@@ -176,7 +187,7 @@ test.describe('Admin Dashboard Layout', () => {
 
     // Check that nav element exists with buttons
     const navButtons = adminPage.locator('nav button');
-    await expect(navButtons).toHaveCount(10); // 10 navigation sections
+    await expect(navButtons).toHaveCount(11); // 11 navigation sections
   });
 
   test('should have main content area', async ({ adminPage }) => {
