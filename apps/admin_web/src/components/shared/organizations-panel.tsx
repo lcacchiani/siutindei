@@ -314,6 +314,7 @@ interface OrganizationsPanelProps {
 
 export function OrganizationsPanel({ mode }: OrganizationsPanelProps) {
   const isAdmin = mode === 'admin';
+  const isManager = mode === 'manager';
   const { user } = useAuth();
   const panel = useResourcePanel<Organization, OrganizationFormState>(
     'organizations',
@@ -321,6 +322,7 @@ export function OrganizationsPanel({ mode }: OrganizationsPanelProps) {
     emptyForm,
     itemToForm
   );
+  const { items, editingId, startEdit } = panel;
 
   // Admin-only: Load Cognito users for manager selection
   const [cognitoUsers, setCognitoUsers] = useState<CognitoUser[]>([]);
@@ -361,6 +363,19 @@ export function OrganizationsPanel({ mode }: OrganizationsPanelProps) {
 
     loadCognitoUsers();
   }, [isAdmin, setError]);
+
+  useEffect(() => {
+    if (!isManager) {
+      return;
+    }
+    if (items.length === 0) {
+      return;
+    }
+    if (editingId) {
+      return;
+    }
+    startEdit(items[0]);
+  }, [editingId, isManager, items, startEdit]);
 
   const countryOptions = useMemo(() => {
     const display =
@@ -738,7 +753,7 @@ export function OrganizationsPanel({ mode }: OrganizationsPanelProps) {
             >
               {panel.editingId ? 'Update Organization' : 'Add Organization'}
             </Button>
-            {panel.editingId && (
+            {panel.editingId && isAdmin && (
               <Button
                 type='button'
                 variant='secondary'

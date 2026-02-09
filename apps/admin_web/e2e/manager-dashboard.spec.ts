@@ -80,14 +80,29 @@ test.describe('Manager Organizations Panel', () => {
     await expect(managerPage.getByRole('heading', { name: 'Your Organizations' })).toBeVisible();
   });
 
-  test('should not show new organization form for manager', async ({ managerPage }) => {
+  test('should show edit form by default for manager', async ({ managerPage }) => {
     await managerPage.goto('/');
 
-    // Manager should NOT see the "New Organization" form
-    await expect(managerPage.getByRole('heading', { name: 'New Organization' })).not.toBeVisible();
+    await expect(managerPage.getByText('Test Organization 1')).toBeVisible();
 
-    // Manager should NOT see "Add Organization" button in the initial state
-    await expect(managerPage.getByRole('button', { name: 'Add Organization' })).not.toBeVisible();
+    await expect(
+      managerPage.getByRole('heading', { name: 'Edit Organization' })
+    ).toBeVisible();
+    await expect(
+      managerPage.getByRole('heading', { name: 'New Organization' })
+    ).not.toBeVisible();
+    await expect(
+      managerPage.getByRole('button', { name: 'Update Organization' })
+    ).toBeVisible();
+    await expect(
+      managerPage.getByRole('button', { name: 'Add Organization' })
+    ).not.toBeVisible();
+    await expect(
+      managerPage.getByRole('button', { name: 'Cancel' })
+    ).not.toBeVisible();
+    await expect(managerPage.getByLabel('Name')).toHaveValue(
+      'Test Organization 1'
+    );
   });
 
   test('should not show manager column in table (manager sees their own orgs)', async ({ managerPage }) => {
@@ -125,17 +140,17 @@ test.describe('Manager Organizations Panel', () => {
     await expect(managerPage.getByRole('button', { name: 'Update Organization' })).toBeVisible();
   });
 
-  test('edit form should not show manager selector for manager', async ({ managerPage }) => {
+  test('edit form should show manager field as read-only', async ({
+    managerPage,
+  }) => {
     await managerPage.goto('/');
 
-    // Wait for org table to load
     await expect(managerPage.getByText('Test Organization 1')).toBeVisible();
 
-    // Click Edit
-    await managerPage.getByRole('row', { name: /Test Organization 1/ }).getByRole('button', { name: 'Edit' }).click();
-
-    // Should NOT see Manager selector (only admins can change manager)
-    await expect(managerPage.getByLabel('Manager')).not.toBeVisible();
+    const managerSelect = managerPage.getByLabel('Manager');
+    await expect(managerSelect).toBeVisible();
+    await expect(managerSelect).toBeDisabled();
+    await expect(managerSelect).toHaveValue('manager@example.com');
   });
 });
 
