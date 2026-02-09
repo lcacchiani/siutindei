@@ -153,11 +153,6 @@ def upgrade() -> None:
     op.drop_column("activity_schedule", "start_at_utc")
     op.drop_column("activity_schedule", "end_at_utc")
 
-    op.create_check_constraint(
-        "schedule_type_weekly_only",
-        "activity_schedule",
-        "schedule_type = 'weekly'",
-    )
     op.create_unique_constraint(
         "schedule_unique_activity_location_languages",
         "activity_schedule",
@@ -176,10 +171,26 @@ def upgrade() -> None:
         "USING schedule_type::text::schedule_type"
     )
     op.execute("DROP TYPE schedule_type_old")
+    op.create_check_constraint(
+        "schedule_type_weekly_only",
+        "activity_schedule",
+        "schedule_type = 'weekly'",
+    )
 
 
 def downgrade() -> None:
     """Restore weekly/monthly/date-specific schedules."""
+    op.drop_constraint(
+        "schedule_type_weekly_only",
+        "activity_schedule",
+        type_="check",
+    )
+    op.drop_constraint(
+        "schedule_unique_activity_location_languages",
+        "activity_schedule",
+        type_="unique",
+    )
+
     op.execute("ALTER TYPE schedule_type RENAME TO schedule_type_new")
     op.execute(
         "CREATE TYPE schedule_type AS ENUM " "('weekly', 'monthly', 'date_specific')"
@@ -190,17 +201,6 @@ def downgrade() -> None:
         "USING schedule_type::text::schedule_type"
     )
     op.execute("DROP TYPE schedule_type_new")
-
-    op.drop_constraint(
-        "schedule_unique_activity_location_languages",
-        "activity_schedule",
-        type_="unique",
-    )
-    op.drop_constraint(
-        "schedule_type_weekly_only",
-        "activity_schedule",
-        type_="check",
-    )
 
     op.add_column(
         "activity_schedule",

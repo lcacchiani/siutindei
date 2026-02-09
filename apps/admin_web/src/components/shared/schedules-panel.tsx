@@ -54,6 +54,10 @@ const dayOfWeekOptions = [
 
 const minutesPerDay = 24 * 60;
 const halfHourMinutes = 30;
+const defaultStartMinutes = 10 * 60;
+const defaultDurationMinutes = 60;
+const defaultEndMinutes =
+  (defaultStartMinutes + defaultDurationMinutes) % minutesPerDay;
 
 function formatTimeLabel(minutes: number): string {
   const hours = Math.floor(minutes / 60);
@@ -98,6 +102,11 @@ function getTimeOptions(value: string) {
   return [...timeOptions, extraOption].sort(
     (left, right) => Number(left.value) - Number(right.value)
   );
+}
+
+function addMinutes(baseMinutes: number, extraMinutes: number): number {
+  const total = baseMinutes + extraMinutes;
+  return ((total % minutesPerDay) + minutesPerDay) % minutesPerDay;
 }
 
 function getLocalWeekdayBase(dayOfWeek: number): Date {
@@ -347,8 +356,8 @@ export function SchedulesPanel({ mode }: SchedulesPanelProps) {
   const createEntry = (dayOfWeek: string): WeeklyEntryForm => ({
     id: nextEntryId(dayOfWeek),
     day_of_week_local: dayOfWeek,
-    start_minutes_local: '',
-    end_minutes_local: '',
+    start_minutes_local: `${defaultStartMinutes}`,
+    end_minutes_local: `${defaultEndMinutes}`,
   });
 
   const toggleDay = (dayOfWeek: string) => {
@@ -388,6 +397,22 @@ export function SchedulesPanel({ mode }: SchedulesPanelProps) {
         entry.id === entryId ? { ...entry, ...updates } : entry
       ),
     }));
+  };
+
+  const updateEntryStartTime = (entryId: string, value: string) => {
+    const startMinutes = parseOptionalNumber(value);
+    if (startMinutes === null) {
+      updateEntry(entryId, {
+        start_minutes_local: value,
+        end_minutes_local: '',
+      });
+      return;
+    }
+    const endMinutes = addMinutes(startMinutes, defaultDurationMinutes);
+    updateEntry(entryId, {
+      start_minutes_local: value,
+      end_minutes_local: `${endMinutes}`,
+    });
   };
 
   const removeEntry = (entryId: string) => {
@@ -696,9 +721,7 @@ export function SchedulesPanel({ mode }: SchedulesPanelProps) {
                               id={startId}
                               value={entry.start_minutes_local}
                               onChange={(e) =>
-                                updateEntry(entry.id, {
-                                  start_minutes_local: e.target.value,
-                                })
+                                updateEntryStartTime(entry.id, e.target.value)
                               }
                             >
                               <option value=''>Select time</option>
