@@ -3701,9 +3701,9 @@ export interface paths {
          */
         get: {
             parameters: {
-                query: {
+                query?: {
                     /** @description Search query string */
-                    q: string;
+                    q?: string;
                     limit?: number;
                 };
                 header?: never;
