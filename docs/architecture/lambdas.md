@@ -14,7 +14,7 @@ their primary responsibilities.
 
 ### Activity search
 - Function: SiutindeiSearchFunction
-- Handler: backend/lambda/activity_search/handler.py
+- Handler: backend/lambda/search/handler.py
 - Trigger: API Gateway `GET /v1/activities/search`
 - Auth: API key + device attestation authorizer
 - Purpose: public activity search with cursor pagination

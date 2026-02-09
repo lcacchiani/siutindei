@@ -1,6 +1,6 @@
-"""Lambda handler for activity search.
+"""Lambda handler for search.
 
-This module provides the public activity search API endpoint,
+This module provides the public search API endpoint,
 using shared utilities and centralized database management.
 """
 
@@ -32,7 +32,7 @@ from app.db.models import PricingType
 from app.db.models import ScheduleType
 from app.db.queries import ActivitySearchCursor
 from app.db.queries import ActivitySearchFilters
-from app.db.queries import build_activity_search_query
+from app.db.queries import build_search_query
 from app.exceptions import CursorError, ValidationError
 from app.utils import (
     json_response,
@@ -52,7 +52,7 @@ logger = get_logger(__name__)
 
 
 def lambda_handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
-    """Handle API Gateway request for activity search."""
+    """Handle API Gateway request for search."""
 
     # Set request context for logging
     request_id = event.get("requestContext", {}).get("requestId", "")
@@ -61,7 +61,7 @@ def lambda_handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
     try:
         filters = parse_filters(event)
         logger.debug("Search filters parsed", extra={"filters": str(filters)})
-        response = fetch_activity_search_response(filters)
+        response = fetch_search_response(filters)
         logger.info(
             f"Search completed: {len(response.items)} results",
             extra={
@@ -77,14 +77,14 @@ def lambda_handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
         logger.warning(f"Value error: {exc}")
         return json_response(400, {"error": str(exc)}, event=event)
     except Exception as exc:  # pragma: no cover - safety net
-        logger.exception("Unexpected error in activity search")
+        logger.exception("Unexpected error in search")
         return json_response(
             500, {"error": "Internal server error", "detail": str(exc)}, event=event
         )
 
 
 def parse_filters(event: Mapping[str, Any]) -> ActivitySearchFilters:
-    """Parse query parameters into activity search filters."""
+    """Parse query parameters into search filters."""
 
     params = collect_query_params(event)
 
@@ -110,15 +110,15 @@ def parse_filters(event: Mapping[str, Any]) -> ActivitySearchFilters:
     )
 
 
-def fetch_activity_search_response(
+def fetch_search_response(
     filters: ActivitySearchFilters,
 ) -> ActivitySearchResponseSchema:
-    """Fetch activity search response from the database."""
+    """Fetch search response from the database."""
 
     engine = get_engine()
     requested_limit = filters.limit
     query_filters = replace(filters, limit=requested_limit + 1)
-    query = build_activity_search_query(query_filters)
+    query = build_search_query(query_filters)
 
     with Session(engine) as session:
         rows = session.execute(query).all()

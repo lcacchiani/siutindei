@@ -167,7 +167,7 @@ class CachedActivityRepository implements ActivityRepository {
   final ApiService _apiService;
   final Cache _cache;
 
-  static const _cacheKey = 'activities_search';
+  static const _cacheKey = 'search';
   static const _cacheDuration = Duration(minutes: 5);
 
   @override

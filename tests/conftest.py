@@ -267,7 +267,7 @@ def mock_boto3_client(mocker):
 
 
 def make_search_filters(**kwargs) -> dict:
-    """Create ActivitySearchFilters kwargs with defaults."""
+    """Create search filter kwargs with defaults."""
     defaults = {
         'age': None,
         'district': None,

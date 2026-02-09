@@ -1,4 +1,4 @@
-"""Query builders for activity search."""
+"""Query builders for search."""
 
 from __future__ import annotations
 
@@ -59,7 +59,7 @@ class ActivitySearchFilters:
 
 
 def validate_filters(filters: ActivitySearchFilters) -> None:
-    """Validate filter combinations for activity search."""
+    """Validate filter combinations for search."""
 
     if filters.day_of_week_utc is not None and filters.day_of_month is not None:
         raise ValueError("Use day_of_week_utc or day_of_month, not both.")
@@ -102,8 +102,8 @@ def validate_filters(filters: ActivitySearchFilters) -> None:
         raise ValueError("limit must be between 1 and 200.")
 
 
-def build_activity_search_query(filters: ActivitySearchFilters) -> Select:
-    """Build a SQLAlchemy query for activity search."""
+def build_search_query(filters: ActivitySearchFilters) -> Select:
+    """Build a SQLAlchemy query for search."""
 
     validate_filters(filters)
 

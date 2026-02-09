@@ -182,7 +182,7 @@ Each Lambda function created by `PythonLambda` construct includes:
 
 | Function Logical ID | Handler | Memory | Timeout | VPC | Extra Paths |
 |---------------------|---------|--------|---------|-----|-------------|
-| `SiutindeiSearchFunction` | `lambda/activity_search/handler.lambda_handler` | 512 MB | 30s | Yes | - |
+| `SiutindeiSearchFunction` | `lambda/search/handler.lambda_handler` | 512 MB | 30s | Yes | - |
 | `SiutindeiAdminFunction` | `lambda/admin/handler.lambda_handler` | 512 MB | 30s | Yes | - |
 | `SiutindeiMigrationFunction` | `lambda/migrations/handler.lambda_handler` | 512 MB | 5 min | Yes | `db` |
 | `HealthCheckFunction` | `lambda/health/handler.lambda_handler` | 256 MB | 10s | Yes | - |

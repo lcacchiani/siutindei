@@ -79,7 +79,7 @@ Flutter mobile app, Next.js admin console, and AWS serverless backend.
 ## Lambda Implementation
 
 **Decisions:**
-- Lambda entrypoint lives at `backend/lambda/activity_search/handler.py`.
+- Lambda entrypoint lives at `backend/lambda/search/handler.py`.
 - Shared application code lives under `backend/src/app`.
 - Python dependencies are listed in `backend/requirements.txt`.
 - Database migrations and seed are executed during CDK deploy
