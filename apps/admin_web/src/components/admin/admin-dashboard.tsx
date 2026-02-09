@@ -29,11 +29,11 @@ const sectionLabels = [
   { key: 'activities', label: 'Activities' },
   { key: 'pricing', label: 'Pricing' },
   { key: 'schedules', label: 'Schedules' },
-  { key: 'imports', label: 'Imports' },
   { key: 'tickets', label: 'Tickets', dividerBefore: true },
   { key: 'cognito-users', label: 'Users' },
   { key: 'activity-categories', label: 'Categories' },
   { key: 'audit-logs', label: 'Audit Logs' },
+  { key: 'imports', label: 'Imports' },
 ];
 
 interface AdminDashboardProps {

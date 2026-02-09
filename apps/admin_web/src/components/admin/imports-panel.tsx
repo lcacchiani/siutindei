@@ -12,7 +12,7 @@ import {
 } from '../../lib/api-client';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
-import { Input } from '../ui/input';
+import { FileUploadButton } from '../ui/file-upload-button';
 import { Label } from '../ui/label';
 import { Select } from '../ui/select';
 import { StatusBanner } from '../status-banner';
@@ -170,13 +170,16 @@ export function ImportsPanel() {
           )}
           <div>
             <Label htmlFor='admin-import-file'>JSON file</Label>
-            <Input
+            <FileUploadButton
               id='admin-import-file'
-              type='file'
               accept='application/json,.json'
               onChange={(event) =>
                 setSelectedFile(event.target.files?.[0] ?? null)
               }
+              buttonLabel='Choose file'
+              selectedFileName={selectedFile?.name ?? null}
+              emptyLabel='No file selected'
+              fileNameClassName='text-sm text-slate-600'
             />
           </div>
           <div className='flex flex-wrap gap-3'>

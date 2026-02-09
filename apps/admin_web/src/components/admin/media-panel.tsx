@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { ChangeEvent, DragEvent } from 'react';
 import Image, { type ImageLoaderProps } from 'next/image';
 
@@ -15,6 +15,7 @@ import type { ApiMode } from '../../lib/resource-api';
 import type { Organization } from '../../types/admin';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
+import { FileUploadButton } from '../ui/file-upload-button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Select } from '../ui/select';
@@ -143,7 +144,6 @@ export function MediaPanel({ mode = 'admin' }: MediaPanelProps) {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const isMediaBusy = isSaving || isProcessingMedia;
 
@@ -554,25 +554,15 @@ export function MediaPanel({ mode = 'admin' }: MediaPanelProps) {
               </Button>
             </div>
             <div className='flex flex-col gap-2 sm:flex-row sm:items-center'>
-              <input
+              <FileUploadButton
                 id='media-upload'
-                ref={fileInputRef}
-                type='file'
                 accept='image/*'
                 multiple
                 onChange={handleMediaFiles}
                 disabled={isMediaBusy}
-                className='sr-only'
+                buttonLabel='Choose files'
+                inputAriaLabel='Upload media files'
               />
-              <Button
-                type='button'
-                variant='secondary'
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isMediaBusy}
-                className='w-fit'
-              >
-                Choose files
-              </Button>
               <p className='text-xs text-slate-500 sm:self-center'>
                 Upload files or add URLs. Drag or use arrows to reorder.
                 Select a logo, then save to apply changes.
