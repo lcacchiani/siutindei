@@ -118,6 +118,10 @@ function hasValue(value?: string | null): boolean {
   return Boolean(value && value.trim().length > 0);
 }
 
+function normalizeKey(value: string): string {
+  return value.trim().toLowerCase();
+}
+
 function looksLikeUrl(value: string): boolean {
   const lower = value.toLowerCase();
   if (lower.startsWith('http://') || lower.startsWith('https://')) {
@@ -383,6 +387,19 @@ export function OrganizationsPanel({ mode }: OrganizationsPanelProps) {
   const validate = () => {
     if (!panel.formState.name.trim()) {
       return 'Name is required.';
+    }
+    const normalizedName = normalizeKey(panel.formState.name);
+    const hasDuplicate = panel.items.some((item) => {
+      if (!item.name) {
+        return false;
+      }
+      if (panel.editingId && item.id === panel.editingId) {
+        return false;
+      }
+      return normalizeKey(item.name) === normalizedName;
+    });
+    if (hasDuplicate) {
+      return 'Organization name must be unique (case-insensitive).';
     }
     if (isAdmin && !panel.formState.manager_id) {
       return 'Manager is required.';

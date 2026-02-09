@@ -61,6 +61,10 @@ function itemToForm(item: Activity): ActivityFormState {
   };
 }
 
+function normalizeKey(value: string): string {
+  return value.trim().toLowerCase();
+}
+
 interface ActivitiesPanelProps {
   mode: ApiMode;
 }
@@ -120,6 +124,22 @@ export function ActivitiesPanel({ mode }: ActivitiesPanelProps) {
 
     if (!panel.formState.org_id || !panel.formState.name.trim()) {
       return 'Organization and name are required.';
+    }
+    const normalizedName = normalizeKey(panel.formState.name);
+    const hasDuplicate = panel.items.some((item) => {
+      if (!item.name) {
+        return false;
+      }
+      if (panel.editingId && item.id === panel.editingId) {
+        return false;
+      }
+      return (
+        item.org_id === panel.formState.org_id &&
+        normalizeKey(item.name) === normalizedName
+      );
+    });
+    if (hasDuplicate) {
+      return 'Activity name must be unique within the organization.';
     }
     if (!panel.formState.category_id) {
       return 'Category is required.';
