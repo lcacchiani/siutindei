@@ -791,15 +791,13 @@ export function OrganizationsPanel({ mode }: OrganizationsPanelProps) {
           </p>
         ) : (
           <div className='space-y-4'>
-            {isAdmin && (
-              <div className='max-w-full sm:max-w-sm'>
-                <SearchInput
-                  placeholder='Search organizations...'
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-              </div>
-            )}
+            <div className='max-w-full sm:max-w-sm'>
+              <SearchInput
+                placeholder='Search organizations...'
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
             <DataTable
               columns={columns}
               data={filteredItems}

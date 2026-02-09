@@ -124,16 +124,6 @@ test.describe('Manager Organizations Panel', () => {
     ).toBeVisible();
   });
 
-  test('should hide search input for manager', async ({ managerPage }) => {
-    await managerPage.goto('/');
-
-    await expect(managerPage.getByText('Test Organization 1')).toBeVisible();
-
-    await expect(
-      managerPage.getByPlaceholder('Search organizations...')
-    ).toHaveCount(0);
-  });
-
   test('should show edit form when clicking Edit', async ({ managerPage }) => {
     await managerPage.goto('/');
 
