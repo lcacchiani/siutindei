@@ -19,6 +19,14 @@ interface CascadingAreaSelectProps {
   disableCountry?: boolean;
   /** Whether to render the country dropdown last. */
   showCountryLast?: boolean;
+  /** Whether selection is required. */
+  required?: boolean;
+  /** Whether to show an error state. */
+  hasError?: boolean;
+  /** Error message to display under the selects. */
+  errorMessage?: string;
+  /** Extra classes applied to each select. */
+  selectClassName?: string;
 }
 
 /**
@@ -36,6 +44,10 @@ export function CascadingAreaSelect({
   disabled,
   disableCountry,
   showCountryLast,
+  required = false,
+  hasError = false,
+  errorMessage,
+  selectClassName = '',
 }: CascadingAreaSelectProps) {
   // Track user-driven overrides and the last external value they were
   // computed from, so we can reset when the parent changes `value`.
@@ -147,38 +159,63 @@ export function CascadingAreaSelect({
       ? [...levels.slice(1), levels[0]]
       : levels;
 
+  const errorId = errorMessage
+    ? `area-select-error-${value || 'new'}`
+    : undefined;
+  const errorClassName = hasError
+    ? 'border-red-500 focus:border-red-500 focus:ring-red-500'
+    : '';
+  const selectClasses = [selectClassName, errorClassName]
+    .filter(Boolean)
+    .join(' ');
+
   return (
-    <div className='grid gap-4 md:grid-cols-2'>
-      {orderedLevels.map(function renderLevel(level) {
-        const isLevelDisabled =
-          disabled ||
-          (level.index > 0 && !selections[level.index - 1]) ||
-          (level.isCountry && disableCountry);
-        return (
-          <div key={`${level.label}-${level.index}`}>
-            <Label htmlFor={`area-level-${level.index}`}>
-              {level.label}
-            </Label>
-            <Select
-              id={`area-level-${level.index}`}
-              value={selections[level.index] || ''}
-              onChange={(e) => handleSelect(level.index, e.target.value)}
-              disabled={isLevelDisabled}
-            >
-              {level.options.length === 1 ? null : (
-                <option value=''>
-                  Select {level.label.toLowerCase()}
-                </option>
-              )}
-              {level.options.map((opt) => (
-                <option key={opt.id} value={opt.id}>
-                  {opt.name}
-                </option>
-              ))}
-            </Select>
-          </div>
-        );
-      })}
+    <div className='space-y-1'>
+      <div className='grid gap-4 md:grid-cols-2'>
+        {orderedLevels.map(function renderLevel(level) {
+          const isLevelDisabled =
+            disabled ||
+            (level.index > 0 && !selections[level.index - 1]) ||
+            (level.isCountry && disableCountry);
+          return (
+            <div key={`${level.label}-${level.index}`}>
+              <Label htmlFor={`area-level-${level.index}`}>
+                {level.label}
+                {required ? (
+                  <span className='ml-1 text-red-500' aria-hidden='true'>
+                    *
+                  </span>
+                ) : null}
+              </Label>
+              <Select
+                id={`area-level-${level.index}`}
+                value={selections[level.index] || ''}
+                onChange={(e) => handleSelect(level.index, e.target.value)}
+                disabled={isLevelDisabled}
+                className={selectClasses}
+                aria-invalid={hasError || undefined}
+                aria-describedby={errorId}
+              >
+                {level.options.length === 1 ? null : (
+                  <option value=''>
+                    Select {level.label.toLowerCase()}
+                  </option>
+                )}
+                {level.options.map((opt) => (
+                  <option key={opt.id} value={opt.id}>
+                    {opt.name}
+                  </option>
+                ))}
+              </Select>
+            </div>
+          );
+        })}
+      </div>
+      {errorMessage ? (
+        <p id={errorId} className='text-xs text-red-600'>
+          {errorMessage}
+        </p>
+      ) : null}
     </div>
   );
 }

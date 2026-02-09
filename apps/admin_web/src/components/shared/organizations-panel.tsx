@@ -173,6 +173,12 @@ function isValidEmail(value: string): boolean {
   return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value);
 }
 
+function isTranslationsEmpty(
+  translations: Record<TranslationLanguageCode, string>
+): boolean {
+  return Object.values(translations).every((value) => !value.trim());
+}
+
 function isValidPhoneNumber(
   countryCode: string,
   number: string
@@ -335,6 +341,30 @@ export function OrganizationsPanel({ mode }: OrganizationsPanelProps) {
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
 
+  const [touchedFields, setTouchedFields] = useState<Record<string, boolean>>(
+    {}
+  );
+  const [hasSubmitted, setHasSubmitted] = useState(false);
+
+  const requiredIndicator = (
+    <span className='text-red-500' aria-hidden='true'>
+      *
+    </span>
+  );
+  const errorInputClassName =
+    'border-red-500 focus:border-red-500 focus:ring-red-500';
+
+  const markTouched = (field: string) => {
+    setTouchedFields((prev) =>
+      prev[field] ? prev : { ...prev, [field]: true }
+    );
+  };
+  const shouldShowError = (field: string, message: string) =>
+    Boolean(
+      message &&
+        (hasSubmitted || touchedFields[field])
+    );
+
   // Extract setError for stable reference in useEffect
   const { setError } = panel;
 
@@ -380,6 +410,36 @@ export function OrganizationsPanel({ mode }: OrganizationsPanelProps) {
     }
     startEdit(items[0]);
   }, [editingId, isManager, items, startEdit]);
+
+  const isFormEmpty =
+    panel.formState.name.trim() === '' &&
+    panel.formState.description.trim() === '' &&
+    panel.formState.manager_id === '' &&
+    panel.formState.phone_number.trim() === '' &&
+    panel.formState.email.trim() === '' &&
+    panel.formState.whatsapp.trim() === '' &&
+    panel.formState.facebook.trim() === '' &&
+    panel.formState.instagram.trim() === '' &&
+    panel.formState.tiktok.trim() === '' &&
+    panel.formState.twitter.trim() === '' &&
+    panel.formState.xiaohongshu.trim() === '' &&
+    panel.formState.wechat.trim() === '' &&
+    panel.formState.phone_country_code === emptyForm.phone_country_code &&
+    isTranslationsEmpty(panel.formState.name_translations) &&
+    isTranslationsEmpty(panel.formState.description_translations);
+
+  useEffect(() => {
+    setTouchedFields({});
+    setHasSubmitted(false);
+  }, [panel.editingId]);
+
+  useEffect(() => {
+    if (!isFormEmpty) {
+      return;
+    }
+    setTouchedFields({});
+    setHasSubmitted(false);
+  }, [isFormEmpty]);
 
   const countryOptions = useMemo(() => {
     const display =
@@ -454,7 +514,95 @@ export function OrganizationsPanel({ mode }: OrganizationsPanelProps) {
     return null;
   };
 
+  const nameError = useMemo(() => {
+    const trimmedName = panel.formState.name.trim();
+    if (!trimmedName) {
+      return 'Enter an organization name.';
+    }
+    const normalizedName = normalizeKey(trimmedName);
+    const hasDuplicate = panel.items.some((item) => {
+      if (!item.name) {
+        return false;
+      }
+      if (panel.editingId && item.id === panel.editingId) {
+        return false;
+      }
+      return normalizeKey(item.name) === normalizedName;
+    });
+    if (hasDuplicate) {
+      return 'Name already exists.';
+    }
+    return '';
+  }, [panel.editingId, panel.formState.name, panel.items]);
+
+  const managerError =
+    isAdmin && !panel.formState.manager_id ? 'Select a manager.' : '';
+
+  const emailError = useMemo(() => {
+    const trimmed = panel.formState.email.trim();
+    if (!trimmed) {
+      return '';
+    }
+    return isValidEmail(trimmed) ? '' : 'Enter a valid email address.';
+  }, [panel.formState.email]);
+
+  const { phoneCountryError, phoneNumberError } = useMemo(() => {
+    const phoneNumber = panel.formState.phone_number.trim();
+    const phoneCountryCode = panel.formState.phone_country_code.trim();
+    if (!phoneNumber) {
+      return { phoneCountryError: '', phoneNumberError: '' };
+    }
+    const normalizedNumber = normalizePhoneNumber(phoneNumber);
+    if (!normalizedNumber) {
+      return {
+        phoneCountryError: '',
+        phoneNumberError: 'Enter digits only.',
+      };
+    }
+    if (!phoneCountryCode) {
+      return {
+        phoneCountryError: 'Select a country code.',
+        phoneNumberError: '',
+      };
+    }
+    if (!isValidPhoneNumber(phoneCountryCode, normalizedNumber)) {
+      return {
+        phoneCountryError: '',
+        phoneNumberError: 'Enter a valid phone number.',
+      };
+    }
+    return { phoneCountryError: '', phoneNumberError: '' };
+  }, [panel.formState.phone_country_code, panel.formState.phone_number]);
+
+  const socialErrors = useMemo(() => {
+    const errors: Record<SocialFieldKey, string> = {
+      whatsapp: '',
+      facebook: '',
+      instagram: '',
+      tiktok: '',
+      twitter: '',
+      xiaohongshu: '',
+      wechat: '',
+    };
+    for (const field of SOCIAL_FIELDS) {
+      const value = panel.formState[field.key].trim();
+      if (!value) {
+        continue;
+      }
+      if (looksLikeUrl(value)) {
+        const urlValue = normalizeSocialUrl(value);
+        if (!isValidUrl(urlValue)) {
+          errors[field.key] = 'Enter a valid URL.';
+        }
+      } else if (!isValidSocialHandle(value)) {
+        errors[field.key] = 'Enter a valid handle or URL.';
+      }
+    }
+    return errors;
+  }, [panel.formState]);
+
   const handleNameChange = (language: LanguageCode, value: string) => {
+    markTouched('name');
     panel.setFormState((prev) =>
       language === 'en'
         ? { ...prev, name: value }
@@ -513,7 +661,10 @@ export function OrganizationsPanel({ mode }: OrganizationsPanelProps) {
     return payload;
   };
 
-  const handleSubmit = () => panel.handleSubmit(formToPayload, validate);
+  const handleSubmit = () => {
+    setHasSubmitted(true);
+    return panel.handleSubmit(formToPayload, validate);
+  };
 
   // Manager mode: Don't show create form, only edit
   const showCreateForm = isAdmin || panel.editingId;
@@ -540,6 +691,21 @@ export function OrganizationsPanel({ mode }: OrganizationsPanelProps) {
       managerDisplay.includes(query)
     );
   });
+
+  const showNameError = shouldShowError('name', nameError);
+  const showManagerError = shouldShowError('manager_id', managerError);
+  const showEmailError = shouldShowError('email', emailError);
+  const showPhoneCountryError = shouldShowError(
+    'phone_country_code',
+    phoneCountryError
+  );
+  const showPhoneNumberError = shouldShowError(
+    'phone_number',
+    phoneNumberError
+  );
+
+  const showSocialError = (key: SocialFieldKey) =>
+    shouldShowError(key, socialErrors[key]);
 
   const renderContactIcons = (item: Organization) => {
     const icons: ReactElement[] = [];
@@ -627,31 +793,45 @@ export function OrganizationsPanel({ mode }: OrganizationsPanelProps) {
             </div>
           )}
           <div className='grid gap-4 md:grid-cols-2'>
-            <div>
+            <div className='space-y-1'>
               <LanguageToggleInput
                 id='org-name'
                 label='Name'
+                required
                 values={{
                   en: panel.formState.name,
                   zh: panel.formState.name_translations.zh,
                   yue: panel.formState.name_translations.yue,
                 }}
                 onChange={handleNameChange}
+                hasError={showNameError}
+                inputClassName={showNameError ? errorInputClassName : ''}
               />
+              {showNameError ? (
+                <p className='text-xs text-red-600'>{nameError}</p>
+              ) : null}
             </div>
             <div>
-              <Label htmlFor='org-manager'>Manager</Label>
+              <Label htmlFor='org-manager'>
+                Manager
+                {isAdmin ? (
+                  <span className='ml-1'>{requiredIndicator}</span>
+                ) : null}
+              </Label>
               {isAdmin ? (
                 <Select
                   id='org-manager'
                   value={panel.formState.manager_id}
-                  onChange={(e) =>
+                  onChange={(e) => {
+                    markTouched('manager_id');
                     panel.setFormState((prev) => ({
                       ...prev,
                       manager_id: e.target.value,
-                    }))
-                  }
+                    }));
+                  }}
                   disabled={isLoadingUsers}
+                  className={showManagerError ? errorInputClassName : ''}
+                  aria-invalid={showManagerError || undefined}
                 >
                   <option value=''>
                     {isLoadingUsers ? 'Loading users...' : 'Select a manager'}
@@ -668,12 +848,16 @@ export function OrganizationsPanel({ mode }: OrganizationsPanelProps) {
                   id='org-manager'
                   value={user?.email ?? ''}
                   disabled
+                  className={showManagerError ? errorInputClassName : ''}
                 >
                   <option value={user?.email ?? ''}>
                     {user?.email ?? 'Unknown'}
                   </option>
                 </Select>
               )}
+              {showManagerError ? (
+                <p className='text-xs text-red-600'>{managerError}</p>
+              ) : null}
             </div>
             <div className='md:col-span-2'>
               <LanguageToggleInput
@@ -689,32 +873,41 @@ export function OrganizationsPanel({ mode }: OrganizationsPanelProps) {
                 onChange={handleDescriptionChange}
               />
             </div>
-            <div className='md:col-span-2'>
+            <div className='md:col-span-2 space-y-1'>
               <Label htmlFor='org-email'>Email</Label>
               <Input
                 id='org-email'
                 type='email'
                 value={panel.formState.email}
-                onChange={(e) =>
+                onChange={(e) => {
+                  markTouched('email');
                   panel.setFormState((prev) => ({
                     ...prev,
                     email: e.target.value,
-                  }))
-                }
+                  }));
+                }}
                 placeholder='contact@example.com'
+                className={showEmailError ? errorInputClassName : ''}
+                aria-invalid={showEmailError || undefined}
               />
+              {showEmailError ? (
+                <p className='text-xs text-red-600'>{emailError}</p>
+              ) : null}
             </div>
-            <div>
+            <div className='space-y-1'>
               <Label htmlFor='org-phone-country'>Phone country</Label>
               <Select
                 id='org-phone-country'
                 value={panel.formState.phone_country_code}
-                onChange={(e) =>
+                onChange={(e) => {
+                  markTouched('phone_country_code');
                   panel.setFormState((prev) => ({
                     ...prev,
                     phone_country_code: e.target.value,
-                  }))
-                }
+                  }));
+                }}
+                className={showPhoneCountryError ? errorInputClassName : ''}
+                aria-invalid={showPhoneCountryError || undefined}
               >
                 {countryOptions.map((option) => (
                   <option key={option.code} value={option.code}>
@@ -722,22 +915,31 @@ export function OrganizationsPanel({ mode }: OrganizationsPanelProps) {
                   </option>
                 ))}
               </Select>
+              {showPhoneCountryError ? (
+                <p className='text-xs text-red-600'>{phoneCountryError}</p>
+              ) : null}
             </div>
-            <div>
+            <div className='space-y-1'>
               <Label htmlFor='org-phone-number'>Phone number</Label>
               <Input
                 id='org-phone-number'
                 type='tel'
                 inputMode='numeric'
                 value={panel.formState.phone_number}
-                onChange={(e) =>
+                onChange={(e) => {
+                  markTouched('phone_number');
                   panel.setFormState((prev) => ({
                     ...prev,
                     phone_number: e.target.value,
-                  }))
-                }
+                  }));
+                }}
                 placeholder='1234 5678'
+                className={showPhoneNumberError ? errorInputClassName : ''}
+                aria-invalid={showPhoneNumberError || undefined}
               />
+              {showPhoneNumberError ? (
+                <p className='text-xs text-red-600'>{phoneNumberError}</p>
+              ) : null}
             </div>
             <div className='md:col-span-2 border-t border-slate-100 pt-4'>
               <p className='text-sm font-medium text-slate-700'>Social</p>
@@ -745,22 +947,33 @@ export function OrganizationsPanel({ mode }: OrganizationsPanelProps) {
                 Use @handle or https:// URLs for each network.
               </p>
             </div>
-            {SOCIAL_FIELDS.map((field) => (
-              <div key={field.key}>
-                <Label htmlFor={`org-${field.key}`}>{field.label}</Label>
-                <Input
-                  id={`org-${field.key}`}
-                  value={panel.formState[field.key]}
-                  onChange={(e) =>
-                    panel.setFormState((prev) => ({
-                      ...prev,
-                      [field.key]: e.target.value,
-                    }))
-                  }
-                  placeholder='@handle or https://...'
-                />
-              </div>
-            ))}
+            {SOCIAL_FIELDS.map((field) => {
+              const showError = showSocialError(field.key);
+              return (
+                <div key={field.key} className='space-y-1'>
+                  <Label htmlFor={`org-${field.key}`}>{field.label}</Label>
+                  <Input
+                    id={`org-${field.key}`}
+                    value={panel.formState[field.key]}
+                    onChange={(e) => {
+                      markTouched(field.key);
+                      panel.setFormState((prev) => ({
+                        ...prev,
+                        [field.key]: e.target.value,
+                      }));
+                    }}
+                    placeholder='@handle or https://...'
+                    className={showError ? errorInputClassName : ''}
+                    aria-invalid={showError || undefined}
+                  />
+                  {showError ? (
+                    <p className='text-xs text-red-600'>
+                      {socialErrors[field.key]}
+                    </p>
+                  ) : null}
+                </div>
+              );
+            })}
           </div>
           <div className='mt-4 flex flex-wrap gap-3'>
             <Button

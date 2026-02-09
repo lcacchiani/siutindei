@@ -35,6 +35,10 @@ const socialProviders = [
   },
 ] as const;
 
+function isValidEmail(value: string): boolean {
+  return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value);
+}
+
 export function LoginScreen() {
   const {
     login,
@@ -50,6 +54,18 @@ export function LoginScreen() {
 
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
+  const [emailTouched, setEmailTouched] = useState(false);
+  const [codeTouched, setCodeTouched] = useState(false);
+  const [emailSubmitted, setEmailSubmitted] = useState(false);
+  const [codeSubmitted, setCodeSubmitted] = useState(false);
+
+  const requiredIndicator = (
+    <span className='text-red-500' aria-hidden='true'>
+      *
+    </span>
+  );
+  const errorInputClassName =
+    'border-red-500 focus:border-red-500 focus:ring-red-500';
 
   const hasConfigErrors = configErrors.length > 0;
   const hasError = error.length > 0;
@@ -61,19 +77,45 @@ export function LoginScreen() {
   const showCodeInput =
     passwordlessStatus === 'challenge' || passwordlessStatus === 'verifying';
 
+  const trimmedEmail = email.trim();
+  const emailError = !trimmedEmail
+    ? 'Enter your work email.'
+    : isValidEmail(trimmedEmail)
+      ? ''
+      : 'Enter a valid email address.';
+  const showEmailError = Boolean(
+    emailError && (emailTouched || emailSubmitted)
+  );
+
+  const trimmedCode = code.trim();
+  const codeError = !trimmedCode
+    ? 'Enter the verification code.'
+    : /^[0-9]{6}$/.test(trimmedCode)
+      ? ''
+      : 'Enter the 6-digit code.';
+  const showCodeError = Boolean(
+    codeError && (codeTouched || codeSubmitted)
+  );
+
   const handleEmailSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setEmailSubmitted(true);
+    setEmailTouched(true);
     await sendPasswordlessCode(email);
   };
 
   const handleCodeSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setCodeSubmitted(true);
+    setCodeTouched(true);
     await verifyPasswordlessCode(code);
   };
 
   const handleBackToEmail = () => {
     resetPasswordless();
     setCode('');
+    setCodeTouched(false);
+    setCodeSubmitted(false);
   };
 
   const handleProviderLogin = (provider: string) => {
@@ -188,18 +230,30 @@ export function LoginScreen() {
               {!showCodeInput ? (
                 <form onSubmit={handleEmailSubmit} className='space-y-4'>
                   <div className='space-y-2'>
-                    <Label htmlFor='email'>Work email</Label>
+                    <Label htmlFor='email'>
+                      Work email{' '}
+                      <span className='ml-1'>{requiredIndicator}</span>
+                    </Label>
                     <Input
                       id='email'
                       type='email'
                       placeholder='you@example.com'
                       value={email}
-                      onChange={(event) => setEmail(event.target.value)}
+                      onChange={(event) => {
+                        setEmailTouched(true);
+                        setEmail(event.target.value);
+                      }}
                       disabled={isLoading || hasConfigErrors}
                       required
                       autoComplete='email'
                       autoFocus
+                      className={showEmailError ? errorInputClassName : ''}
+                      aria-invalid={showEmailError || undefined}
+                      onBlur={() => setEmailTouched(true)}
                     />
+                    {showEmailError ? (
+                      <p className='text-xs text-red-600'>{emailError}</p>
+                    ) : null}
                   </div>
                   <Button
                     type='submit'
@@ -215,7 +269,10 @@ export function LoginScreen() {
               ) : (
                 <form onSubmit={handleCodeSubmit} className='space-y-4'>
                   <div className='space-y-2'>
-                    <Label htmlFor='code'>Verification code</Label>
+                    <Label htmlFor='code'>
+                      Verification code{' '}
+                      <span className='ml-1'>{requiredIndicator}</span>
+                    </Label>
                     <Input
                       id='code'
                       type='text'
@@ -223,12 +280,21 @@ export function LoginScreen() {
                       pattern='[0-9]*'
                       placeholder='123456'
                       value={code}
-                      onChange={(event) => setCode(event.target.value)}
+                      onChange={(event) => {
+                        setCodeTouched(true);
+                        setCode(event.target.value);
+                      }}
                       disabled={isLoading}
                       required
                       autoComplete='one-time-code'
                       autoFocus
+                      className={showCodeError ? errorInputClassName : ''}
+                      aria-invalid={showCodeError || undefined}
+                      onBlur={() => setCodeTouched(true)}
                     />
+                    {showCodeError ? (
+                      <p className='text-xs text-red-600'>{codeError}</p>
+                    ) : null}
                     <p className='text-xs text-slate-600'>
                       Enter the 6-digit code sent to{' '}
                       <span className='font-medium'>{passwordlessEmail}</span>

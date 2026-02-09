@@ -50,8 +50,25 @@ function ReviewModal({ ticket, onClose, onReviewed }: ReviewModalProps) {
   const [isLoadingOrgs, setIsLoadingOrgs] = useState(false);
   const [organizationMode, setOrganizationMode] = useState<OrganizationMode>('new');
   const [selectedOrgId, setSelectedOrgId] = useState<string>('');
+  const [orgTouched, setOrgTouched] = useState(false);
+  const [hasSubmitted, setHasSubmitted] = useState(false);
 
   const isAccessRequest = ticket.ticket_type === 'access_request';
+
+  const requiredIndicator = (
+    <span className='text-red-500' aria-hidden='true'>
+      *
+    </span>
+  );
+  const errorInputClassName =
+    'border-red-500 focus:border-red-500 focus:ring-red-500';
+  const orgError =
+    organizationMode === 'existing' && !selectedOrgId
+      ? 'Choose an organization to continue.'
+      : '';
+  const showOrgError = Boolean(
+    orgError && (hasSubmitted || orgTouched)
+  );
 
   // Load organizations for access request approval
   useEffect(() => {
@@ -81,8 +98,10 @@ function ReviewModal({ ticket, onClose, onReviewed }: ReviewModalProps) {
   }, [isAccessRequest]);
 
   const handleSubmit = async () => {
+    setHasSubmitted(true);
     if (isAccessRequest && action === 'approve') {
       if (organizationMode === 'existing' && !selectedOrgId) {
+        setOrgTouched(true);
         setError('Please select an organization');
         return;
       }
@@ -198,7 +217,12 @@ function ReviewModal({ ticket, onClose, onReviewed }: ReviewModalProps) {
                   name='org-mode'
                   value='new'
                   checked={organizationMode === 'new'}
-                  onChange={() => setOrganizationMode('new')}
+                  onChange={() => {
+                    setOrganizationMode('new');
+                    setSelectedOrgId('');
+                    setOrgTouched(false);
+                    setHasSubmitted(false);
+                  }}
                   className='h-4 w-4 border-slate-300 text-slate-900 focus:ring-slate-500'
                 />
                 <span className='text-sm'>Create new</span>
@@ -209,7 +233,11 @@ function ReviewModal({ ticket, onClose, onReviewed }: ReviewModalProps) {
                   name='org-mode'
                   value='existing'
                   checked={organizationMode === 'existing'}
-                  onChange={() => setOrganizationMode('existing')}
+                  onChange={() => {
+                    setOrganizationMode('existing');
+                    setOrgTouched(false);
+                    setHasSubmitted(false);
+                  }}
                   className='h-4 w-4 border-slate-300 text-slate-900 focus:ring-slate-500'
                 />
                 <span className='text-sm'>Use existing</span>
@@ -230,24 +258,38 @@ function ReviewModal({ ticket, onClose, onReviewed }: ReviewModalProps) {
                     No existing organizations available.
                   </p>
                 ) : (
-                  <Select
-                    id='org-select'
-                    value={selectedOrgId}
-                    onChange={(e) => setSelectedOrgId(e.target.value)}
-                  >
-                    <option value=''>Select an organization...</option>
-                    {organizations.map((org) => {
-                      const managerEmail = managerEmails[org.manager_id];
-                      const displayText = managerEmail
-                        ? `${org.name} - ${managerEmail}`
-                        : org.name;
-                      return (
-                        <option key={org.id} value={org.id}>
-                          {displayText}
-                        </option>
-                      );
-                    })}
-                  </Select>
+                  <div className='space-y-1'>
+                    <Label htmlFor='org-select'>
+                      Organization{' '}
+                      <span className='ml-1'>{requiredIndicator}</span>
+                    </Label>
+                    <Select
+                      id='org-select'
+                      value={selectedOrgId}
+                      onChange={(e) => {
+                        setOrgTouched(true);
+                        setSelectedOrgId(e.target.value);
+                      }}
+                      className={showOrgError ? errorInputClassName : ''}
+                      aria-invalid={showOrgError || undefined}
+                    >
+                      <option value=''>Select an organization...</option>
+                      {organizations.map((org) => {
+                        const managerEmail = managerEmails[org.manager_id];
+                        const displayText = managerEmail
+                          ? `${org.name} - ${managerEmail}`
+                          : org.name;
+                        return (
+                          <option key={org.id} value={org.id}>
+                            {displayText}
+                          </option>
+                        );
+                      })}
+                    </Select>
+                    {showOrgError ? (
+                      <p className='text-xs text-red-600'>{orgError}</p>
+                    ) : null}
+                  </div>
                 )}
               </div>
             )}

@@ -15,6 +15,14 @@ interface CascadingCategorySelectProps {
   onChange: (categoryId: string, chain: ActivityCategoryNode[]) => void;
   /** Whether the controls are disabled. */
   disabled?: boolean;
+  /** Whether selection is required. */
+  required?: boolean;
+  /** Whether to show an error state. */
+  hasError?: boolean;
+  /** Error message to display under the selects. */
+  errorMessage?: string;
+  /** Extra classes applied to each select. */
+  selectClassName?: string;
 }
 
 /**
@@ -26,6 +34,10 @@ export function CascadingCategorySelect({
   value,
   onChange,
   disabled,
+  required = false,
+  hasError = false,
+  errorMessage,
+  selectClassName = '',
 }: CascadingCategorySelectProps) {
   const [overrideState, setOverrideState] = useState<{
     forValue: string;
@@ -106,34 +118,59 @@ export function CascadingCategorySelect({
     onChange(finalId, chain);
   };
 
+  const errorId = errorMessage
+    ? `category-select-error-${value || 'new'}`
+    : undefined;
+  const errorClassName = hasError
+    ? 'border-red-500 focus:border-red-500 focus:ring-red-500'
+    : '';
+  const selectClasses = [selectClassName, errorClassName]
+    .filter(Boolean)
+    .join(' ');
+
   return (
-    <div className='grid gap-4 md:grid-cols-2'>
-      {levels.map((level) => {
-        const isLevelDisabled =
-          disabled || (level.index > 0 && !selections[level.index - 1]);
-        return (
-          <div key={`${level.label}-${level.index}`}>
-            <Label htmlFor={`category-level-${level.index}`}>
-              {level.label}
-            </Label>
-            <Select
-              id={`category-level-${level.index}`}
-              value={selections[level.index] || ''}
-              onChange={(e) => handleSelect(level.index, e.target.value)}
-              disabled={isLevelDisabled}
-            >
-              <option value=''>
-                Select {level.label.toLowerCase()}
-              </option>
-              {level.options.map((opt) => (
-                <option key={opt.id} value={opt.id}>
-                  {opt.name}
+    <div className='space-y-1'>
+      <div className='grid gap-4 md:grid-cols-2'>
+        {levels.map((level) => {
+          const isLevelDisabled =
+            disabled || (level.index > 0 && !selections[level.index - 1]);
+          return (
+            <div key={`${level.label}-${level.index}`}>
+              <Label htmlFor={`category-level-${level.index}`}>
+                {level.label}
+                {required ? (
+                  <span className='ml-1 text-red-500' aria-hidden='true'>
+                    *
+                  </span>
+                ) : null}
+              </Label>
+              <Select
+                id={`category-level-${level.index}`}
+                value={selections[level.index] || ''}
+                onChange={(e) => handleSelect(level.index, e.target.value)}
+                disabled={isLevelDisabled}
+                className={selectClasses}
+                aria-invalid={hasError || undefined}
+                aria-describedby={errorId}
+              >
+                <option value=''>
+                  Select {level.label.toLowerCase()}
                 </option>
-              ))}
-            </Select>
-          </div>
-        );
-      })}
+                {level.options.map((opt) => (
+                  <option key={opt.id} value={opt.id}>
+                    {opt.name}
+                  </option>
+                ))}
+              </Select>
+            </div>
+          );
+        })}
+      </div>
+      {errorMessage ? (
+        <p id={errorId} className='text-xs text-red-600'>
+          {errorMessage}
+        </p>
+      ) : null}
     </div>
   );
 }

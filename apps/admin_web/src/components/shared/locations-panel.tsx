@@ -159,6 +159,30 @@ export function LocationsPanel({ mode }: LocationsPanelProps) {
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
 
+  const [touchedFields, setTouchedFields] = useState<Record<string, boolean>>(
+    {}
+  );
+  const [hasSubmitted, setHasSubmitted] = useState(false);
+
+  const requiredIndicator = (
+    <span className='text-red-500' aria-hidden='true'>
+      *
+    </span>
+  );
+  const errorInputClassName =
+    'border-red-500 focus:border-red-500 focus:ring-red-500';
+
+  const markTouched = (field: string) => {
+    setTouchedFields((prev) =>
+      prev[field] ? prev : { ...prev, [field]: true }
+    );
+  };
+  const shouldShowError = (field: string, message: string) =>
+    Boolean(
+      message &&
+        (hasSubmitted || touchedFields[field])
+    );
+
   // For managers with a single org, auto-select and disable the dropdown
   const isSingleOrgManager = !isAdmin && organizations.length === 1;
 
@@ -174,6 +198,26 @@ export function LocationsPanel({ mode }: LocationsPanelProps) {
     );
   }, [isAdmin, organizations, setFormState]);
 
+  const isFormEmpty =
+    panel.formState.org_id === '' &&
+    panel.formState.area_id === '' &&
+    panel.formState.address.trim() === '' &&
+    panel.formState.lat.trim() === '' &&
+    panel.formState.lng.trim() === '';
+
+  useEffect(() => {
+    setTouchedFields({});
+    setHasSubmitted(false);
+  }, [panel.editingId]);
+
+  useEffect(() => {
+    if (!isFormEmpty) {
+      return;
+    }
+    setTouchedFields({});
+    setHasSubmitted(false);
+  }, [isFormEmpty]);
+
   const handleAddressSelect = (selection: AddressSelection) => {
     // Try to reverse-match the Nominatim result to the area tree
     const match = matchNominatimResult(selection.raw);
@@ -188,6 +232,7 @@ export function LocationsPanel({ mode }: LocationsPanelProps) {
   };
 
   const handleAreaChange = (areaId: string, _chain: GeographicAreaNode[]) => {
+    markTouched('area_id');
     panel.setFormState((prev) => ({ ...prev, area_id: areaId }));
   };
 
@@ -216,6 +261,38 @@ export function LocationsPanel({ mode }: LocationsPanelProps) {
     return null;
   };
 
+  const orgError = panel.formState.org_id
+    ? ''
+    : 'Select an organization.';
+  const areaError = panel.formState.area_id ? '' : 'Select an area.';
+  const addressError = useMemo(() => {
+    const normalizedAddress = normalizeKey(panel.formState.address);
+    if (!normalizedAddress || !panel.formState.org_id) {
+      return '';
+    }
+    const hasDuplicate = panel.items.some((item) => {
+      if (!item.address) {
+        return false;
+      }
+      if (panel.editingId && item.id === panel.editingId) {
+        return false;
+      }
+      return (
+        item.org_id === panel.formState.org_id &&
+        normalizeKey(item.address) === normalizedAddress
+      );
+    });
+    if (hasDuplicate) {
+      return 'Address already exists for this organization.';
+    }
+    return '';
+  }, [
+    panel.editingId,
+    panel.formState.address,
+    panel.formState.org_id,
+    panel.items,
+  ]);
+
   const formToPayload = (form: LocationFormState) => ({
     org_id: form.org_id,
     area_id: form.area_id,
@@ -224,7 +301,10 @@ export function LocationsPanel({ mode }: LocationsPanelProps) {
     lng: parseOptionalNumber(form.lng),
   });
 
-  const handleSubmit = () => panel.handleSubmit(formToPayload, validate);
+  const handleSubmit = () => {
+    setHasSubmitted(true);
+    return panel.handleSubmit(formToPayload, validate);
+  };
 
   function renderAddressCell(item: Location) {
     const googleMapsUrl = buildGoogleMapsUrl(item);
@@ -318,6 +398,10 @@ export function LocationsPanel({ mode }: LocationsPanelProps) {
     );
   });
 
+  const showOrgError = shouldShowError('org_id', orgError);
+  const showAreaError = shouldShowError('area_id', areaError);
+  const showAddressError = shouldShowError('address', addressError);
+
   return (
     <div className='space-y-6'>
       <Card title='Locations' description='Manage location entries.'>
@@ -329,18 +413,24 @@ export function LocationsPanel({ mode }: LocationsPanelProps) {
           </div>
         )}
         <div className='grid gap-4 md:grid-cols-2'>
-          <div>
-            <Label htmlFor='location-org'>Organization</Label>
+          <div className='space-y-1'>
+            <Label htmlFor='location-org'>
+              Organization{' '}
+              <span className='ml-1'>{requiredIndicator}</span>
+            </Label>
             <Select
               id='location-org'
               value={panel.formState.org_id}
-              onChange={(e) =>
+              onChange={(e) => {
+                markTouched('org_id');
                 panel.setFormState((prev) => ({
                   ...prev,
                   org_id: e.target.value,
-                }))
-              }
+                }));
+              }}
               disabled={isSingleOrgManager}
+              className={showOrgError ? errorInputClassName : ''}
+              aria-invalid={showOrgError || undefined}
             >
               <option value=''>Select organization</option>
               {organizations.map((org) => (
@@ -349,22 +439,32 @@ export function LocationsPanel({ mode }: LocationsPanelProps) {
                 </option>
               ))}
             </Select>
+            {showOrgError ? (
+              <p className='text-xs text-red-600'>{orgError}</p>
+            ) : null}
           </div>
-          <div className='md:col-span-2'>
+          <div className='md:col-span-2 space-y-1'>
             <Label htmlFor='location-address'>Address</Label>
             <AddressAutocomplete
               id='location-address'
               value={panel.formState.address}
-              onChange={(val) =>
+              onChange={(val) => {
+                markTouched('address');
                 panel.setFormState((prev) => ({
                   ...prev,
                   address: val,
-                }))
-              }
+                }));
+              }}
               onSelect={handleAddressSelect}
               placeholder='Start typing an address...'
               countryCodes={countryCodes}
+              inputClassName={showAddressError ? errorInputClassName : ''}
+              hasError={showAddressError}
+              onBlur={() => markTouched('address')}
             />
+            {showAddressError ? (
+              <p className='text-xs text-red-600'>{addressError}</p>
+            ) : null}
           </div>
           <div className='md:col-span-2'>
             <CascadingAreaSelect
@@ -372,6 +472,9 @@ export function LocationsPanel({ mode }: LocationsPanelProps) {
               value={panel.formState.area_id}
               onChange={handleAreaChange}
               disableCountry
+              required
+              hasError={showAreaError}
+              errorMessage={showAreaError ? areaError : undefined}
             />
           </div>
           <div>
