@@ -850,10 +850,7 @@ def _update_organization_for_manager(
             media_urls_for_logo,
         )
     elif updated_media_urls is not None:
-        if (
-            entity.logo_media_url
-            and entity.logo_media_url not in media_urls_for_logo
-        ):
+        if entity.logo_media_url and entity.logo_media_url not in media_urls_for_logo:
             entity.logo_media_url = None
     _apply_organization_contact_fields(entity, body)
     return entity
@@ -2724,10 +2721,7 @@ def _update_organization(
             media_urls_for_logo,
         )
     elif updated_media_urls is not None:
-        if (
-            entity.logo_media_url
-            and entity.logo_media_url not in media_urls_for_logo
-        ):
+        if entity.logo_media_url and entity.logo_media_url not in media_urls_for_logo:
             entity.logo_media_url = None
     _apply_organization_contact_fields(entity, body)
     return entity
