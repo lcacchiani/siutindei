@@ -13,7 +13,7 @@ from app.db.engine import get_engine
 from app.db.repositories import OrganizationRepository
 from app.exceptions import NotFoundError, ValidationError
 from app.services.aws_proxy import AwsProxyError, invoke as aws_proxy
-from app.utils import json_response, parse_int
+from app.utils import json_response, parse_datetime, parse_int
 from app.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -152,13 +152,18 @@ def _handle_list_cognito_users(event: Mapping[str, Any]) -> dict[str, Any]:
         if user_data:
             username = user.get("Username")
             if username:
+                if not user_data.get("last_auth_time"):
+                    last_auth_time = _fetch_last_auth_time(user_pool_id, username)
+                    if last_auth_time:
+                        user_data["last_auth_time"] = last_auth_time
                 try:
                     gr = _cognito(
                         "admin_list_groups_for_user",
                         UserPoolId=user_pool_id,
                         Username=username,
                     )
-                    user_data["groups"] = [g["GroupName"] for g in gr.get("Groups", [])]
+                    groups = gr.get("Groups", [])
+                    user_data["groups"] = [g["GroupName"] for g in groups]
                 except Exception:
                     user_data["groups"] = []
             else:
@@ -176,24 +181,15 @@ def _handle_list_cognito_users(event: Mapping[str, Any]) -> dict[str, Any]:
 
 def _serialize_cognito_user(user: dict[str, Any]) -> Optional[dict[str, Any]]:
     """Serialize a Cognito user for the API response."""
-    from datetime import datetime, timezone
-
-    attributes = {attr["Name"]: attr["Value"] for attr in user.get("Attributes", [])}
+    raw_attributes = user.get("Attributes", [])
+    attributes = {attr["Name"]: attr["Value"] for attr in raw_attributes}
 
     sub = attributes.get("sub")
     if not sub:
         return None
 
-    last_auth_time = None
-    last_auth_time_str = attributes.get("custom:last_auth_time")
-    if last_auth_time_str:
-        try:
-            epoch_time = int(last_auth_time_str)
-            last_auth_time = datetime.fromtimestamp(
-                epoch_time, tz=timezone.utc
-            ).isoformat()
-        except (ValueError, TypeError):
-            pass
+    last_auth_value = attributes.get("custom:last_auth_time")
+    last_auth_time = _parse_last_auth_time(last_auth_value)
 
     return {
         "sub": sub,
@@ -209,6 +205,52 @@ def _serialize_cognito_user(user: dict[str, Any]) -> Optional[dict[str, Any]]:
         "updated_at": user.get("UserLastModifiedDate"),
         "last_auth_time": last_auth_time,
     }
+
+
+def _parse_last_auth_time(value: Optional[str]) -> Optional[str]:
+    from datetime import datetime, timezone
+
+    if not value:
+        return None
+
+    try:
+        epoch_time = float(value)
+    except (TypeError, ValueError):
+        epoch_time = None
+
+    if epoch_time is not None:
+        if epoch_time > 10**11:
+            epoch_time = epoch_time / 1000
+        return datetime.fromtimestamp(epoch_time, tz=timezone.utc).isoformat()
+
+    try:
+        parsed = parse_datetime(value)
+    except ValueError:
+        return None
+
+    if parsed is None:
+        return None
+
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+
+    return parsed.astimezone(timezone.utc).isoformat()
+
+
+def _fetch_last_auth_time(user_pool_id: str, username: str) -> Optional[str]:
+    try:
+        response = _cognito(
+            "admin_get_user",
+            UserPoolId=user_pool_id,
+            Username=username,
+        )
+    except Exception:
+        return None
+
+    raw_attributes = response.get("UserAttributes", [])
+    attributes = {attr["Name"]: attr["Value"] for attr in raw_attributes}
+    last_auth_value = attributes.get("custom:last_auth_time")
+    return _parse_last_auth_time(last_auth_value)
 
 
 def _handle_delete_cognito_user(
