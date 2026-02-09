@@ -64,6 +64,8 @@ See `docs/architecture/database-schema.md` for the full `tickets` table schema.
 |----------|-------------|
 | `SUGGESTION_TOPIC_ARN` | SNS topic for suggestions (or uses `MANAGER_REQUEST_TOPIC_ARN`) |
 | `SES_SENDER_EMAIL` | Email sender for notifications |
+| `SES_TEMPLATE_NEW_SUGGESTION` | Optional SES template for new suggestions |
+| `SES_TEMPLATE_SUGGESTION_DECISION` | Optional SES template for decision emails |
 
 ## Differences from Access Requests
 
