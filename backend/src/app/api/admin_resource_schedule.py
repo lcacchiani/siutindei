@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Any
+from uuid import UUID
 
 from app.api.admin_request import _parse_uuid
 from app.api.admin_validators import _parse_languages
@@ -216,8 +217,8 @@ def _ensure_unique_schedule(
 ) -> None:
     """Ensure schedule uniqueness by activity, location, and languages."""
     existing = repo.find_by_activity_location_languages(
-        schedule.activity_id,
-        schedule.location_id,
+        _coerce_uuid(schedule.activity_id),
+        _coerce_uuid(schedule.location_id),
         schedule.languages,
     )
     if existing is None:
@@ -228,3 +229,10 @@ def _ensure_unique_schedule(
         "Schedule already exists for activity, location, and languages",
         field="languages",
     )
+
+
+def _coerce_uuid(value: str | UUID) -> UUID:
+    """Return a UUID instance from a string or UUID value."""
+    if isinstance(value, UUID):
+        return value
+    return UUID(str(value))

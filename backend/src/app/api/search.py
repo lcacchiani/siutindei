@@ -21,7 +21,7 @@ from app.api.schemas import ActivitySearchResultSchema
 from app.api.schemas import LocationSchema
 from app.api.schemas import OrganizationSchema
 from app.api.schemas import PricingSchema
-from app.api.schemas import ScheduleSchema
+from app.api.schemas import ScheduleEntrySchema, ScheduleSchema
 from app.db.engine import get_engine
 from app.db.models import Activity
 from app.db.models import ActivityPricing
@@ -196,7 +196,7 @@ def map_row_to_result(row: Any) -> ActivitySearchResultSchema:
 
 def _serialize_weekly_entries(
     schedule: ActivitySchedule,
-) -> list[dict[str, int]]:
+) -> list[ScheduleEntrySchema]:
     """Serialize schedule entries for search responses."""
     entries = sorted(
         schedule.entries or [],
@@ -207,11 +207,11 @@ def _serialize_weekly_entries(
         ),
     )
     return [
-        {
-            "day_of_week_utc": entry.day_of_week_utc,
-            "start_minutes_utc": entry.start_minutes_utc,
-            "end_minutes_utc": entry.end_minutes_utc,
-        }
+        ScheduleEntrySchema(
+            day_of_week_utc=entry.day_of_week_utc,
+            start_minutes_utc=entry.start_minutes_utc,
+            end_minutes_utc=entry.end_minutes_utc,
+        )
         for entry in entries
     ]
 

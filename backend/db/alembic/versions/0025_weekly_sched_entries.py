@@ -96,9 +96,7 @@ def upgrade() -> None:
         """
     )
 
-    op.execute(
-        "DELETE FROM activity_schedule WHERE schedule_type <> 'weekly'"
-    )
+    op.execute("DELETE FROM activity_schedule WHERE schedule_type <> 'weekly'")
 
     op.drop_index(
         "activity_schedule_type_weekly_idx",
@@ -170,9 +168,7 @@ def upgrade() -> None:
         ],
     )
 
-    op.execute(
-        "ALTER TYPE schedule_type RENAME TO schedule_type_old"
-    )
+    op.execute("ALTER TYPE schedule_type RENAME TO schedule_type_old")
     op.execute("CREATE TYPE schedule_type AS ENUM ('weekly')")
     op.execute(
         "ALTER TABLE activity_schedule "
@@ -184,12 +180,9 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     """Restore weekly/monthly/date-specific schedules."""
+    op.execute("ALTER TYPE schedule_type RENAME TO schedule_type_new")
     op.execute(
-        "ALTER TYPE schedule_type RENAME TO schedule_type_new"
-    )
-    op.execute(
-        "CREATE TYPE schedule_type AS ENUM "
-        "('weekly', 'monthly', 'date_specific')"
+        "CREATE TYPE schedule_type AS ENUM " "('weekly', 'monthly', 'date_specific')"
     )
     op.execute(
         "ALTER TABLE activity_schedule "
@@ -290,8 +283,7 @@ def downgrade() -> None:
     op.create_check_constraint(
         "schedule_date_order",
         "activity_schedule",
-        "start_at_utc IS NULL OR end_at_utc IS NULL OR "
-        "start_at_utc < end_at_utc",
+        "start_at_utc IS NULL OR end_at_utc IS NULL OR " "start_at_utc < end_at_utc",
     )
     op.create_check_constraint(
         "schedule_type_fields_check",
