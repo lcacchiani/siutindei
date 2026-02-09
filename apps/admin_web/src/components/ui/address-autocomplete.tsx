@@ -95,6 +95,7 @@ export function AddressAutocomplete({
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
+  const [errorMessage, setErrorMessage] = useState('');
 
   const wrapperRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -119,6 +120,7 @@ export function AddressAutocomplete({
   const fetchSuggestions = useCallback(async (query: string) => {
     const currentRequestId = ++requestId.current;
     setIsLoading(true);
+    setErrorMessage('');
     try {
       const data = await searchAddress(query, {
         countryCodes,
@@ -134,6 +136,7 @@ export function AddressAutocomplete({
       if (currentRequestId === requestId.current) {
         setSuggestions([]);
         setIsOpen(false);
+        setErrorMessage('Unable to fetch address suggestions.');
       }
     } finally {
       if (currentRequestId === requestId.current) {
@@ -152,6 +155,7 @@ export function AddressAutocomplete({
     if (newValue.trim().length < MIN_QUERY_LENGTH) {
       setSuggestions([]);
       setIsOpen(false);
+      setErrorMessage('');
       return;
     }
 
@@ -174,6 +178,7 @@ export function AddressAutocomplete({
     setIsOpen(false);
     setSuggestions([]);
     setActiveIndex(-1);
+    setErrorMessage('');
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -317,6 +322,11 @@ export function AddressAutocomplete({
             </a>
           </li>
         </ul>
+      )}
+      {errorMessage && !isLoading && (
+        <p className='mt-1 text-xs text-red-600' role='alert'>
+          {errorMessage}
+        </p>
       )}
     </div>
   );

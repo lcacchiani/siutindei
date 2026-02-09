@@ -51,9 +51,9 @@ def _handle_address_search(event: Mapping[str, Any]) -> dict[str, Any]:
         params["countrycodes"] = country_codes
 
     url = f"{NOMINATIM_SEARCH_URL}?{urlencode(params)}"
-    headers = _get_nominatim_headers()
+    headers = _get_nominatim_headers(event)
     if headers is None:
-        logger.error("Nominatim headers are not configured")
+        logger.error("Nominatim user agent is not configured")
         return json_response(
             500,
             {"error": "Address lookup is not configured"},
@@ -119,13 +119,35 @@ def _parse_limit(value: str | None) -> int:
     return parsed
 
 
-def _get_nominatim_headers() -> dict[str, str] | None:
+def _get_header(event: Mapping[str, Any], name: str) -> str:
+    headers = event.get("headers") or {}
+    for key, value in headers.items():
+        if key.lower() == name.lower():
+            return str(value)
+    return ""
+
+
+def _get_nominatim_headers(event: Mapping[str, Any]) -> dict[str, str] | None:
     user_agent = os.getenv("NOMINATIM_USER_AGENT", "").strip()
     referer = os.getenv("NOMINATIM_REFERER", "").strip()
-    if not user_agent or not referer:
-        return None
-    return {
+
+    if not user_agent:
+        support_email = os.getenv("SUPPORT_EMAIL", "").strip()
+        origin = _get_header(event, "origin")
+        host = _get_header(event, "host")
+        contact = support_email or origin or host
+        if contact:
+            user_agent = f"SiuTinDei/1.0 ({contact})"
+        else:
+            return None
+
+    if not referer:
+        referer = _get_header(event, "origin") or _get_header(event, "referer")
+
+    headers = {
         "Accept": "application/json",
         "User-Agent": user_agent,
-        "Referer": referer,
     }
+    if referer:
+        headers["Referer"] = referer
+    return headers
