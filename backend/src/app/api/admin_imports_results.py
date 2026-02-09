@@ -18,13 +18,15 @@ def record_result(
     errors: list[dict[str, Any]] | None = None,
     path: str | None = None,
 ) -> None:
+    warnings_list = list(warnings or [])
+    errors_list = list(errors or [])
     result = {
         "type": record_type,
         "key": key,
         "status": status,
         "id": entity_id,
-        "warnings": warnings or [],
-        "errors": errors or [],
+        "warnings": warnings_list,
+        "errors": errors_list,
     }
     if path:
         result["path"] = path
@@ -33,8 +35,8 @@ def record_result(
     counts = summary.get(record_type)
     if isinstance(counts, dict) and status in counts:
         counts[status] += 1
-    summary["warnings"] += len(result["warnings"])
-    summary["errors"] += len(result["errors"])
+    summary["warnings"] += len(warnings_list)
+    summary["errors"] += len(errors_list)
 
 
 def record_skipped_children(

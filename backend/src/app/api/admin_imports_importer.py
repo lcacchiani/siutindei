@@ -27,7 +27,7 @@ from app.api.admin_validators import (
     MAX_NAME_LENGTH,
     _validate_string_length,
 )
-from app.db.models import Activity, Location, Organization
+from app.db.models import Location, Organization
 from app.exceptions import ValidationError
 
 ALLOWED_ROOT_FIELDS = {"organizations"}
@@ -91,6 +91,19 @@ def process_organization(
         MAX_NAME_LENGTH,
         required=True,
     )
+    if org_name is None:
+        record_result(
+            results,
+            summary,
+            "organizations",
+            path,
+            "failed",
+            warnings=warnings,
+            errors=[{"message": "name is required", "field": "name"}],
+            path=path,
+        )
+        record_skipped_children(raw_org, path, results, summary)
+        return
 
     try:
         org, status = upsert_organization(session, raw_org)
@@ -207,11 +220,21 @@ def process_location(
         MAX_ADDRESS_LENGTH,
         required=True,
     )
+    if location_name is None:
+        record_result(
+            results,
+            summary,
+            "locations",
+            path,
+            "failed",
+            warnings=warnings,
+            errors=[{"message": "name is required", "field": "name"}],
+            path=path,
+        )
+        return
     address = raw_location.get("address")
     if address is not None:
-        address_value = _validate_string_length(
-            address, "address", MAX_ADDRESS_LENGTH
-        )
+        address_value = _validate_string_length(address, "address", MAX_ADDRESS_LENGTH)
         if address_value is None:
             address_value = location_name
         if address_value and address_value != location_name:
@@ -291,6 +314,19 @@ def process_activity(
         MAX_NAME_LENGTH,
         required=True,
     )
+    if activity_name is None:
+        record_result(
+            results,
+            summary,
+            "activities",
+            path,
+            "failed",
+            warnings=warnings,
+            errors=[{"message": "name is required", "field": "name"}],
+            path=path,
+        )
+        record_skipped_children(raw_activity, path, results, summary)
+        return
 
     try:
         activity, status = upsert_activity(session, org, raw_activity)
@@ -369,5 +405,3 @@ def process_activity(
                 summary,
                 f"{path}.schedules",
             )
-
-

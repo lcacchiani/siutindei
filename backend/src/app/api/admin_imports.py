@@ -115,9 +115,7 @@ def _handle_import_process(event: Mapping[str, Any]) -> dict[str, Any]:
     file_warnings: list[str] = []
     with Session(get_engine()) as session:
         _set_session_audit_context(session, event)
-        summary, results = process_import_payload(
-            session, payload, file_warnings
-        )
+        summary, results = process_import_payload(session, payload, file_warnings)
 
     logger.info(
         "Admin import completed",

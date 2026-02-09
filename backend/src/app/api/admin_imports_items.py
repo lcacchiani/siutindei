@@ -52,6 +52,8 @@ def process_pricing(
         MAX_ADDRESS_LENGTH,
         required=True,
     )
+    if location_name is None:
+        raise ValidationError("location_name is required", field="location_name")
 
     location = resolve_location(session, org, location_name, location_cache)
     if location is None:
@@ -142,6 +144,8 @@ def process_schedule(
         MAX_ADDRESS_LENGTH,
         required=True,
     )
+    if location_name is None:
+        raise ValidationError("location_name is required", field="location_name")
     location = resolve_location(session, org, location_name, location_cache)
     if location is None:
         record_result(

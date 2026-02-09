@@ -43,6 +43,8 @@ def parse_day_of_week(value: object, field_name: str) -> int:
     if value is None:
         raise ValidationError(f"{field_name} is required", field=field_name)
     try:
+        if not isinstance(value, (int, float, str)):
+            raise TypeError("invalid day_of_week type")
         day = int(value)
     except (TypeError, ValueError) as exc:
         raise ValidationError(

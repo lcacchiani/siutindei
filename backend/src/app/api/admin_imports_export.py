@@ -41,7 +41,7 @@ def load_export_organizations(
         return [org]
 
     query = select(Organization).order_by(Organization.name, Organization.id)
-    return session.execute(query).scalars().all()
+    return list(session.execute(query).scalars().all())
 
 
 def build_export_payload(
@@ -54,25 +54,21 @@ def build_export_payload(
     org_payloads: list[dict[str, Any]] = []
 
     for org in organizations:
-        locations = (
+        locations = list(
             session.execute(
-                select(Location)
-                .where(Location.org_id == org.id)
-                .order_by(Location.id)
+                select(Location).where(Location.org_id == org.id).order_by(Location.id)
             )
             .scalars()
             .all()
         )
-        activities = (
+        activities = list(
             session.execute(
-                select(Activity)
-                .where(Activity.org_id == org.id)
-                .order_by(Activity.id)
+                select(Activity).where(Activity.org_id == org.id).order_by(Activity.id)
             )
             .scalars()
             .all()
         )
-        pricing_rows = (
+        pricing_rows = list(
             session.execute(
                 select(ActivityPricing)
                 .join(Activity, ActivityPricing.activity_id == Activity.id)
@@ -82,7 +78,7 @@ def build_export_payload(
             .scalars()
             .all()
         )
-        schedule_rows = (
+        schedule_rows = list(
             session.execute(
                 select(ActivitySchedule)
                 .join(Activity, ActivitySchedule.activity_id == Activity.id)
@@ -129,9 +125,7 @@ def build_location_name_map(
             name_by_id[loc_id] = location.address
             continue
         fallback = f"location-{loc_id}"
-        warnings.append(
-            f"Location {loc_id} has no address; using {fallback} as name."
-        )
+        warnings.append(f"Location {loc_id} has no address; using {fallback} as name.")
         name_by_id[loc_id] = fallback
     return name_by_id
 
@@ -148,15 +142,17 @@ def serialize_export_organization(
 ) -> dict[str, Any]:
     pricing_by_activity: dict[str, list[ActivityPricing]] = {}
     for pricing in pricing_rows:
-        pricing_by_activity.setdefault(str(pricing.activity_id), []).append(
-            pricing
-        )
+        pricing_by_activity.setdefault(str(pricing.activity_id), []).append(pricing)
 
     schedules_by_activity: dict[str, list[ActivitySchedule]] = {}
     for schedule in schedule_rows:
-        schedules_by_activity.setdefault(str(schedule.activity_id), []).append(
-            schedule
-        )
+        schedules_by_activity.setdefault(str(schedule.activity_id), []).append(schedule)
+
+    locations_payload = [
+        serialize_export_location(location, location_name_by_id)
+        for location in locations
+    ]
+    activities_payload: list[dict[str, Any]] = []
 
     org_payload = {
         "name": org.name,
@@ -176,16 +172,13 @@ def serialize_export_organization(
         "wechat": org.wechat,
         "media_urls": org.media_urls or [],
         "logo_media_url": org.logo_media_url,
-        "locations": [
-            serialize_export_location(location, location_name_by_id)
-            for location in locations
-        ],
-        "activities": [],
+        "locations": locations_payload,
+        "activities": activities_payload,
     }
 
     for activity in activities:
         activity_id = str(activity.id)
-        org_payload["activities"].append(
+        activities_payload.append(
             serialize_export_activity(
                 activity,
                 pricing_by_activity.get(activity_id, []),
@@ -279,9 +272,7 @@ def serialize_export_schedule(
         schedule.location_id,
         warnings,
     )
-    entries = [
-        entry_from_utc(entry, tzinfo) for entry in schedule.entries or []
-    ]
+    entries = [entry_from_utc(entry, tzinfo) for entry in schedule.entries or []]
     return {
         "location_name": location_name,
         "timezone": tzinfo.key,
@@ -292,7 +283,7 @@ def serialize_export_schedule(
 
 def resolve_location_name(
     location_name_by_id: dict[str, str],
-    location_id: UUID,
+    location_id: str | UUID,
     warnings: list[str],
 ) -> str:
     key = str(location_id)
@@ -300,9 +291,7 @@ def resolve_location_name(
     if name:
         return name
     fallback = f"location-{key}"
-    warnings.append(
-        f"Location {key} missing from export map; using {fallback}."
-    )
+    warnings.append(f"Location {key} missing from export map; using {fallback}.")
     return fallback
 
 

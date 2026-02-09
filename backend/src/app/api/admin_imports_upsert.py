@@ -101,6 +101,8 @@ def upsert_organization(
         MAX_NAME_LENGTH,
         required=True,
     )
+    if name is None:
+        raise ValidationError("name is required", field="name")
     try:
         existing = repo.find_by_name(name)
     except MultipleResultsFound as exc:
@@ -144,10 +146,7 @@ def upsert_location(
         raise ValidationError("Multiple locations found", field="name") from exc
 
     body = _filter_fields(raw_location, ALLOWED_LOCATION_FIELDS)
-    if (
-        raw_location.get("name") is not None
-        or raw_location.get("address") is not None
-    ):
+    if raw_location.get("name") is not None or raw_location.get("address") is not None:
         body["address"] = address_value
     if existing:
         updated = _update_location(repo, existing, body)
@@ -177,6 +176,8 @@ def upsert_activity(
         MAX_NAME_LENGTH,
         required=True,
     )
+    if name is None:
+        raise ValidationError("name is required", field="name")
     try:
         existing = repo.find_by_org_and_name(_coerce_uuid(org.id), name)
     except MultipleResultsFound as exc:
@@ -306,33 +307,33 @@ def merge_schedule_entries(
     seen: set[tuple[int, int, int]] = set()
     merged: list[dict[str, int]] = []
 
-    for entry in schedule.entries or []:
+    for existing_entry in schedule.entries or []:
         key = (
-            entry.day_of_week_utc,
-            entry.start_minutes_utc,
-            entry.end_minutes_utc,
+            existing_entry.day_of_week_utc,
+            existing_entry.start_minutes_utc,
+            existing_entry.end_minutes_utc,
         )
         if key in seen:
             continue
         seen.add(key)
         merged.append(
             {
-                "day_of_week_utc": entry.day_of_week_utc,
-                "start_minutes_utc": entry.start_minutes_utc,
-                "end_minutes_utc": entry.end_minutes_utc,
+                "day_of_week_utc": existing_entry.day_of_week_utc,
+                "start_minutes_utc": existing_entry.start_minutes_utc,
+                "end_minutes_utc": existing_entry.end_minutes_utc,
             }
         )
 
-    for entry in new_entries:
+    for new_entry in new_entries:
         key = (
-            entry["day_of_week_utc"],
-            entry["start_minutes_utc"],
-            entry["end_minutes_utc"],
+            new_entry["day_of_week_utc"],
+            new_entry["start_minutes_utc"],
+            new_entry["end_minutes_utc"],
         )
         if key in seen:
             continue
         seen.add(key)
-        merged.append(entry)
+        merged.append(new_entry)
 
     merged.sort(
         key=lambda item: (
