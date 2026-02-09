@@ -28,6 +28,7 @@ test.describe('Manager Dashboard', () => {
       'Pricing',
       'Schedules',
       'Suggest a Place',
+      'Feedback',
     ];
 
     for (const section of managerSections) {

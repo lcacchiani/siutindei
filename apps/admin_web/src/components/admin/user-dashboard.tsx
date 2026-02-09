@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import {
   ApiError,
   getUserAccessStatus,
+  getUserFeedback,
   getUserSuggestions,
   type Ticket,
   type ManagerStatusResponse,
@@ -14,12 +15,15 @@ import { AppShell } from '../app-shell';
 import { StatusBanner } from '../status-banner';
 import { AccessRequestForm } from './access-request-form';
 import { PendingRequestNotice } from './pending-request-notice';
+import { FeedbackForm } from './feedback-form';
+import { PendingFeedbackNotice } from './pending-feedback-notice';
 import { SuggestionForm } from './suggestion-form';
 import { PendingSuggestionNotice } from './pending-suggestion-notice';
 
 const sectionLabels = [
   { key: 'become-manager', label: 'Become a Manager' },
   { key: 'suggest-place', label: 'Suggest a Place' },
+  { key: 'feedback', label: 'Feedback' },
 ];
 
 /**
@@ -40,16 +44,19 @@ export function UserDashboard() {
   // Suggestion state
   const [pendingSuggestion, setPendingSuggestion] =
     useState<Ticket | null>(null);
+  const [pendingFeedback, setPendingFeedback] = useState<Ticket | null>(null);
 
   const loadUserStatus = async () => {
     setIsLoading(true);
     setError('');
     try {
       // Load both access request status and suggestions in parallel
-      const [accessStatus, suggestionsStatus] = await Promise.all([
-        getUserAccessStatus(),
-        getUserSuggestions(),
-      ]);
+      const [accessStatus, suggestionsStatus, feedbackStatus] =
+        await Promise.all([
+          getUserAccessStatus(),
+          getUserSuggestions(),
+          getUserFeedback(),
+        ]);
 
       // Check for pending access request
       if (accessStatus.has_pending_request && accessStatus.pending_request) {
@@ -63,6 +70,15 @@ export function UserDashboard() {
         );
         if (pending) {
           setPendingSuggestion(pending);
+        }
+      }
+
+      if (feedbackStatus.has_pending_feedback) {
+        const pending = feedbackStatus.feedbacks.find(
+          (item) => item.status === 'pending'
+        );
+        if (pending) {
+          setPendingFeedback(pending);
         }
       }
     } catch (err) {
@@ -88,6 +104,10 @@ export function UserDashboard() {
     setPendingSuggestion(suggestion);
   };
 
+  const handleFeedbackSubmitted = (feedback: Ticket) => {
+    setPendingFeedback(feedback);
+  };
+
   // Loading state
   if (isLoading) {
     return (
@@ -108,11 +128,21 @@ export function UserDashboard() {
       return <AccessRequestForm onRequestSubmitted={handleRequestSubmitted} />;
     }
 
-    // suggest-place section
-    if (pendingSuggestion) {
-      return <PendingSuggestionNotice suggestion={pendingSuggestion} />;
+    if (activeSection === 'suggest-place') {
+      if (pendingSuggestion) {
+        return <PendingSuggestionNotice suggestion={pendingSuggestion} />;
+      }
+      return <SuggestionForm onSuggestionSubmitted={handleSuggestionSubmitted} />;
     }
-    return <SuggestionForm onSuggestionSubmitted={handleSuggestionSubmitted} />;
+
+    if (activeSection === 'feedback') {
+      if (pendingFeedback) {
+        return <PendingFeedbackNotice feedback={pendingFeedback} />;
+      }
+      return <FeedbackForm onFeedbackSubmitted={handleFeedbackSubmitted} />;
+    }
+
+    return null;
   };
 
   return (

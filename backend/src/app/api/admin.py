@@ -15,6 +15,11 @@ from app.api.admin_areas import (
     _handle_list_areas,
     _handle_toggle_area,
 )
+from app.api.admin_feedback import (
+    _handle_admin_feedback,
+    _handle_user_feedback,
+    _handle_user_feedback_labels,
+)
 from app.api.admin_auth import (
     _get_managed_organization_ids,
     _is_admin,
@@ -45,6 +50,7 @@ from app.api.admin_resources import (
 )
 from app.api.admin_suggestions import _handle_user_organization_suggestion
 from app.api.admin_tickets import _handle_admin_tickets, _handle_user_access_request
+from app.api.user_organizations import _handle_user_organizations
 from app.api.admin_validators import (
     MAX_DESCRIPTION_LENGTH,
     MAX_LANGUAGES_COUNT,
@@ -153,6 +159,11 @@ def lambda_handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
         )
     if resource == "tickets":
         return _handle_admin_tickets(event, method, resource_id)
+    if resource == "organization-feedback":
+        return _safe_handler(
+            lambda: _handle_admin_feedback(event, method, resource_id),
+            event,
+        )
     if resource == "audit-logs" and method == "GET":
         return _safe_handler(lambda: _handle_audit_logs(event, resource_id), event)
     if resource == "imports":
@@ -224,6 +235,21 @@ def _handle_user_routes(
     if resource == "organization-suggestion":
         return _safe_handler(
             lambda: _handle_user_organization_suggestion(event, method),
+            event,
+        )
+    if resource == "organization-feedback":
+        return _safe_handler(
+            lambda: _handle_user_feedback(event, method),
+            event,
+        )
+    if resource == "feedback-labels" and method == "GET":
+        return _safe_handler(
+            lambda: _handle_user_feedback_labels(event),
+            event,
+        )
+    if resource == "organizations" and method == "GET":
+        return _safe_handler(
+            lambda: _handle_user_organizations(event, method),
             event,
         )
 

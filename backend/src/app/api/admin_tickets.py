@@ -15,7 +15,10 @@ from app.api.admin_auth import (
     _get_user_sub,
     _set_session_audit_context,
 )
-from app.api.admin_cognito import _add_user_to_manager_group
+from app.api.admin_cognito import (
+    _add_user_to_manager_group,
+    _adjust_user_feedback_stars,
+)
 from app.api.admin_ticket_notifications import _send_ticket_decision_email
 from app.api.admin_request import (
     _encode_cursor,
@@ -30,11 +33,19 @@ from app.api.admin_validators import (
     _validate_string_length,
 )
 from app.db.engine import get_engine
-from app.db.models import Location, Organization, Ticket, TicketStatus, TicketType
+from app.db.models import (
+    Location,
+    Organization,
+    OrganizationFeedback,
+    Ticket,
+    TicketStatus,
+    TicketType,
+)
 from app.db.repositories import (
     GeographicAreaRepository,
     LocationRepository,
     OrganizationRepository,
+    OrganizationFeedbackRepository,
     TicketRepository,
 )
 from app.exceptions import NotFoundError, ValidationError
@@ -236,6 +247,14 @@ def _serialize_ticket(ticket: Optional[Ticket]) -> Optional[dict[str, Any]]:
             float(ticket.suggested_lng) if ticket.suggested_lng else None
         ),
         "media_urls": ticket.media_urls or [],
+        "organization_id": (
+            str(ticket.organization_id) if ticket.organization_id else None
+        ),
+        "feedback_stars": ticket.feedback_stars,
+        "feedback_label_ids": [
+            str(label_id) for label_id in (ticket.feedback_label_ids or [])
+        ],
+        "feedback_text": ticket.feedback_text,
         "created_organization_id": (
             str(ticket.created_organization_id)
             if ticket.created_organization_id
@@ -294,7 +313,8 @@ def _list_admin_tickets(event: Mapping[str, Any]) -> dict[str, Any]:
         except ValueError:
             raise ValidationError(
                 f"Invalid ticket_type: {type_filter}. "
-                "Must be access_request or organization_suggestion",
+                "Must be access_request, organization_suggestion, or "
+                "organization_feedback",
                 field="ticket_type",
             )
 
@@ -363,6 +383,7 @@ def _review_ticket(
             )
 
         organization = None
+        feedback_star_delta = 0
 
         if ticket.ticket_type == TicketType.ACCESS_REQUEST and action == "approve":
             if not organization_id and not create_organization:
@@ -454,6 +475,34 @@ def _review_ticket(
                 f"from suggestion {ticket.ticket_id}"
             )
 
+        if (
+            ticket.ticket_type == TicketType.ORGANIZATION_FEEDBACK
+            and action == "approve"
+        ):
+            if not ticket.organization_id:
+                raise ValidationError(
+                    "organization_id is required for feedback tickets",
+                    field="organization_id",
+                )
+            if ticket.feedback_stars is None:
+                raise ValidationError(
+                    "feedback_stars is required for feedback tickets",
+                    field="feedback_stars",
+                )
+            feedback_repo = OrganizationFeedbackRepository(session)
+            feedback = OrganizationFeedback(
+                organization_id=ticket.organization_id,
+                submitter_id=ticket.submitter_id,
+                submitter_email=ticket.submitter_email,
+                stars=ticket.feedback_stars,
+                label_ids=list(ticket.feedback_label_ids or []),
+                description=ticket.feedback_text,
+                source_ticket_id=ticket.ticket_id,
+            )
+            feedback_repo.create(feedback)
+            if ticket.submitter_id:
+                feedback_star_delta = _feedback_stars_per_approval()
+
         new_status = (
             TicketStatus.APPROVED if action == "approve" else TicketStatus.REJECTED
         )
@@ -468,6 +517,9 @@ def _review_ticket(
 
         if organization:
             session.refresh(organization)
+
+        if feedback_star_delta and ticket.submitter_id:
+            _safe_adjust_feedback_stars(ticket.submitter_id, feedback_star_delta)
 
         logger.info(f"Ticket {ticket_id_param} {action}d by {reviewer_sub}")
 
@@ -485,3 +537,24 @@ def _review_ticket(
             }
 
         return json_response(200, response_data, event=event)
+
+
+def _safe_adjust_feedback_stars(user_sub: str, delta: int) -> None:
+    """Adjust feedback stars without failing the request."""
+    try:
+        _adjust_user_feedback_stars(user_sub, delta)
+    except Exception as exc:
+        logger.error(
+            "Failed to update feedback stars",
+            extra={"user_sub": user_sub, "error": type(exc).__name__},
+        )
+
+
+def _feedback_stars_per_approval() -> int:
+    """Return star increment configured for approvals."""
+    raw = os.getenv("FEEDBACK_STARS_PER_APPROVAL", "1")
+    try:
+        parsed = int(raw)
+    except (TypeError, ValueError):
+        parsed = 1
+    return max(0, parsed)

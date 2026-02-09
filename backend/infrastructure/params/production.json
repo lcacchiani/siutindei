@@ -1,6 +1,7 @@
 {
   "SupportEmail": "support@lx-software.com",
   "SesSenderEmail": "no-reply@lx-software.com",
+  "FeedbackStarsPerApproval": "1",
   "FallbackManagerEmail": "luca.cacchiani@gmail.com",
   "CognitoDomainPrefix": "lxsoftware-siutindei-prod",
   "CognitoCustomDomainName": "siutindei-auth.lx-software.com",

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import {
   ApiError,
@@ -13,7 +13,7 @@ import {
   type TicketStatus,
   type ReviewTicketPayload,
 } from '../../lib/api-client';
-import type { CognitoUser, Organization } from '../../types/admin';
+import type { CognitoUser, FeedbackLabel, Organization } from '../../types/admin';
 import { ReviewIcon } from '../icons/action-icons';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
@@ -25,7 +25,11 @@ import { Textarea } from '../ui/textarea';
 import { StatusBanner } from '../status-banner';
 
 type StatusFilter = 'all' | 'pending' | 'approved' | 'rejected';
-type TypeFilter = 'all' | 'access_request' | 'organization_suggestion';
+type TypeFilter =
+  | 'all'
+  | 'access_request'
+  | 'organization_suggestion'
+  | 'organization_feedback';
 
 // --- Review Modal ---
 
@@ -33,11 +37,17 @@ interface ReviewModalProps {
   ticket: Ticket;
   onClose: () => void;
   onReviewed: (updated: Ticket) => void;
+  labelNameById: Record<string, string>;
 }
 
 type OrganizationMode = 'existing' | 'new';
 
-function ReviewModal({ ticket, onClose, onReviewed }: ReviewModalProps) {
+function ReviewModal({
+  ticket,
+  onClose,
+  onReviewed,
+  labelNameById,
+}: ReviewModalProps) {
   const [action, setAction] = useState<'approve' | 'reject'>('approve');
   const [adminNotes, setAdminNotes] = useState('');
   const [createOrg, setCreateOrg] = useState(true);
@@ -54,6 +64,8 @@ function ReviewModal({ ticket, onClose, onReviewed }: ReviewModalProps) {
   const [hasSubmitted, setHasSubmitted] = useState(false);
 
   const isAccessRequest = ticket.ticket_type === 'access_request';
+  const feedbackLabels =
+    ticket.feedback_label_ids?.map((id) => labelNameById[id] || id) ?? [];
 
   const requiredIndicator = (
     <span className='text-red-500' aria-hidden='true'>
@@ -169,6 +181,25 @@ function ReviewModal({ ticket, onClose, onReviewed }: ReviewModalProps) {
           {ticket.message && (
             <p>
               <span className='font-medium'>Message:</span> {ticket.message}
+            </p>
+          )}
+          {ticket.feedback_stars !== null &&
+            ticket.feedback_stars !== undefined && (
+              <p>
+                <span className='font-medium'>Stars:</span>{' '}
+                {ticket.feedback_stars}
+              </p>
+            )}
+          {feedbackLabels.length > 0 && (
+            <p>
+              <span className='font-medium'>Labels:</span>{' '}
+              {feedbackLabels.join(', ')}
+            </p>
+          )}
+          {ticket.feedback_text && (
+            <p>
+              <span className='font-medium'>Feedback:</span>{' '}
+              {ticket.feedback_text}
             </p>
           )}
           {ticket.description && (
@@ -370,8 +401,18 @@ function StatusBadge({ status }: { status: TicketStatus }) {
 
 function TicketTypeBadge({ type }: { type: TicketType }) {
   const config = {
-    access_request: { label: 'Access Request', color: 'bg-blue-100 text-blue-800' },
-    organization_suggestion: { label: 'Suggestion', color: 'bg-purple-100 text-purple-800' },
+    access_request: {
+      label: 'Access Request',
+      color: 'bg-blue-100 text-blue-800',
+    },
+    organization_suggestion: {
+      label: 'Suggestion',
+      color: 'bg-purple-100 text-purple-800',
+    },
+    organization_feedback: {
+      label: 'Feedback',
+      color: 'bg-amber-100 text-amber-800',
+    },
   };
   const { label, color } = config[type];
   return (
@@ -395,6 +436,7 @@ export function TicketsPanel() {
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
   const [reviewingTicket, setReviewingTicket] = useState<Ticket | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [feedbackLabels, setFeedbackLabels] = useState<FeedbackLabel[]>([]);
 
   const loadItems = async (cursor?: string, reset = false) => {
     setIsLoading(true);
@@ -424,6 +466,18 @@ export function TicketsPanel() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statusFilter, typeFilter]);
 
+  useEffect(() => {
+    const loadLabels = async () => {
+      try {
+        const response = await listResource<FeedbackLabel>('feedback-labels');
+        setFeedbackLabels(response.items);
+      } catch {
+        setFeedbackLabels([]);
+      }
+    };
+    loadLabels();
+  }, []);
+
   const handleReviewed = (updated: Ticket) => {
     setItems((prev) =>
       prev.map((item) => (item.id === updated.id ? updated : item))
@@ -451,9 +505,18 @@ export function TicketsPanel() {
       item.organization_name?.toLowerCase().includes(query) ||
       item.submitter_email?.toLowerCase().includes(query) ||
       item.suggested_district?.toLowerCase().includes(query) ||
+      item.feedback_text?.toLowerCase().includes(query) ||
       item.status?.toLowerCase().includes(query)
     );
   });
+
+  const labelNameById = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const label of feedbackLabels) {
+      map[label.id] = label.name;
+    }
+    return map;
+  }, [feedbackLabels]);
 
   const columns = [
     {
@@ -575,6 +638,7 @@ export function TicketsPanel() {
               <option value='all'>All Types</option>
               <option value='access_request'>Access Requests</option>
               <option value='organization_suggestion'>Suggestions</option>
+              <option value='organization_feedback'>Feedback</option>
             </Select>
           </div>
           <div className='flex-1'>
@@ -626,6 +690,7 @@ export function TicketsPanel() {
           ticket={reviewingTicket}
           onClose={() => setReviewingTicket(null)}
           onReviewed={handleReviewed}
+          labelNameById={labelNameById}
         />
       )}
     </div>

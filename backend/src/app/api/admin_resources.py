@@ -15,6 +15,11 @@ from app.api.admin_resource_activity_category import (
     _update_activity_category,
     _validate_category_parent,
 )
+from app.api.admin_resource_feedback_label import (
+    _create_feedback_label,
+    _serialize_feedback_label,
+    _update_feedback_label,
+)
 from app.api.admin_resource_location import (
     _create_location,
     _serialize_location,
@@ -45,6 +50,7 @@ from app.db.models import (
     ActivityCategory,
     ActivityPricing,
     ActivitySchedule,
+    FeedbackLabel,
     Location,
     Organization,
 )
@@ -53,6 +59,7 @@ from app.db.repositories import (
     ActivityPricingRepository,
     ActivityRepository,
     ActivityScheduleRepository,
+    FeedbackLabelRepository,
     LocationRepository,
     OrganizationRepository,
 )
@@ -61,18 +68,21 @@ __all__ = [
     "_RESOURCE_CONFIG",
     "_create_activity",
     "_create_activity_category",
+    "_create_feedback_label",
     "_create_location",
     "_create_organization",
     "_create_pricing",
     "_create_schedule",
     "_serialize_activity",
     "_serialize_activity_category",
+    "_serialize_feedback_label",
     "_serialize_location",
     "_serialize_organization",
     "_serialize_pricing",
     "_serialize_schedule",
     "_update_activity",
     "_update_activity_category",
+    "_update_feedback_label",
     "_update_location",
     "_update_organization",
     "_update_organization_for_manager",
@@ -112,6 +122,14 @@ _RESOURCE_CONFIG = {
         serializer=_serialize_activity_category,
         create_handler=_create_activity_category,
         update_handler=_update_activity_category,
+    ),
+    "feedback-labels": ResourceConfig(
+        name="feedback-labels",
+        model=FeedbackLabel,
+        repository_class=FeedbackLabelRepository,
+        serializer=_serialize_feedback_label,
+        create_handler=_create_feedback_label,
+        update_handler=_update_feedback_label,
     ),
     "activities": ResourceConfig(
         name="activities",

@@ -7,7 +7,9 @@ export type ResourceName =
   | 'activity-categories'
   | 'activities'
   | 'pricing'
-  | 'schedules';
+  | 'schedules'
+  | 'feedback-labels'
+  | 'organization-feedback';
 
 export interface ListResponse<T> {
   items: T[];
@@ -135,6 +137,32 @@ export interface AdminExportResponse {
 export interface CognitoUsersResponse {
   items: import('../types/admin').CognitoUser[];
   pagination_token?: string | null;
+}
+
+export interface OrganizationLookup {
+  id: string;
+  name: string;
+}
+
+export interface OrganizationLookupListResponse {
+  items: OrganizationLookup[];
+}
+
+export interface UserFeedbackResponse {
+  has_pending_feedback: boolean;
+  feedbacks: Ticket[];
+}
+
+export interface UserFeedbackCreatePayload {
+  organization_id: string;
+  stars: number;
+  label_ids?: string[];
+  description?: string;
+}
+
+export interface UserFeedbackSubmitResponse {
+  message: string;
+  ticket_id: string;
 }
 
 export class ApiError extends Error {
@@ -514,6 +542,45 @@ export async function submitOrganizationSuggestion(
 ): Promise<SubmitSuggestionResponse> {
   return request<SubmitSuggestionResponse>(
     buildUserUrl('organization-suggestion'),
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    }
+  );
+}
+
+// --- User Feedback ---
+
+export async function listFeedbackLabels(): Promise<
+  ListResponse<import('../types/admin').FeedbackLabel>
+> {
+  return request<ListResponse<import('../types/admin').FeedbackLabel>>(
+    buildUserUrl('feedback-labels')
+  );
+}
+
+export async function searchUserOrganizations(
+  query: string,
+  limit = 20
+): Promise<OrganizationLookupListResponse> {
+  const url = new URL(buildUserUrl('organizations'));
+  url.searchParams.set('q', query);
+  url.searchParams.set('limit', `${limit}`);
+  return request<OrganizationLookupListResponse>(url.toString());
+}
+
+export async function getUserFeedback(): Promise<UserFeedbackResponse> {
+  return request<UserFeedbackResponse>(buildUserUrl('organization-feedback'));
+}
+
+export async function submitUserFeedback(
+  payload: UserFeedbackCreatePayload
+): Promise<UserFeedbackSubmitResponse> {
+  return request<UserFeedbackSubmitResponse>(
+    buildUserUrl('organization-feedback'),
     {
       method: 'POST',
       headers: {
@@ -937,7 +1004,10 @@ export async function getAuditLog(
 
 // --- Admin Tickets ---
 
-export type TicketType = 'access_request' | 'organization_suggestion';
+export type TicketType =
+  | 'access_request'
+  | 'organization_suggestion'
+  | 'organization_feedback';
 export type TicketStatus = 'pending' | 'approved' | 'rejected';
 
 export interface Ticket {
@@ -960,6 +1030,10 @@ export interface Ticket {
   suggested_lat?: number | null;
   suggested_lng?: number | null;
   media_urls?: string[];
+  organization_id?: string | null;
+  feedback_stars?: number | null;
+  feedback_label_ids?: string[];
+  feedback_text?: string | null;
   created_organization_id?: string | null;
 }
 

@@ -517,6 +517,15 @@ export class ApiStack extends cdk.Stack {
         "Email address to receive manager access request notifications. " +
         "Must be verified in SES.",
     });
+    const feedbackStarsPerApproval = new cdk.CfnParameter(
+      this,
+      "FeedbackStarsPerApproval",
+      {
+        type: "Number",
+        default: 1,
+        description: "Stars awarded for each approved feedback entry.",
+      }
+    );
     const sesSenderEmail = new cdk.CfnParameter(this, "SesSenderEmail", {
       type: "String",
       default: "",
@@ -584,6 +593,7 @@ export class ApiStack extends cdk.Stack {
       accountRecovery: cognito.AccountRecovery.EMAIL_ONLY,
       customAttributes: {
         last_auth_time: new cognito.StringAttribute({ mutable: true }),
+        feedback_stars: new cognito.StringAttribute({ mutable: true }),
       },
       // Ensure User Pool is deleted on stack deletion/rollback
       removalPolicy: cdk.RemovalPolicy.DESTROY,
@@ -1160,6 +1170,7 @@ export class ApiStack extends cdk.Stack {
         CORS_ALLOWED_ORIGINS: corsAllowedOrigins.join(","),
         SUPPORT_EMAIL: supportEmail.valueAsString,
         SES_SENDER_EMAIL: sesSenderEmail.valueAsString,
+        FEEDBACK_STARS_PER_APPROVAL: feedbackStarsPerApproval.valueAsString,
         NOMINATIM_USER_AGENT: nominatimUserAgent.valueAsString,
         NOMINATIM_REFERER: nominatimReferer.valueAsString,
       },
@@ -1185,6 +1196,7 @@ export class ApiStack extends cdk.Stack {
       "cognito-idp:admin_remove_user_from_group",
       "cognito-idp:admin_list_groups_for_user",
       "cognito-idp:admin_user_global_sign_out",
+      "cognito-idp:admin_update_user_attributes",
     ];
 
     const awsProxyFunction = createPythonFunction("AwsApiProxyFunction", {
@@ -1212,6 +1224,7 @@ export class ApiStack extends cdk.Stack {
           "cognito-idp:AdminRemoveUserFromGroup",
           "cognito-idp:AdminListGroupsForUser",
           "cognito-idp:AdminUserGlobalSignOut",
+          "cognito-idp:AdminUpdateUserAttributes",
         ],
         resources: [userPool.userPoolArn],
       })
@@ -1988,6 +2001,8 @@ export class ApiStack extends cdk.Stack {
       "activities",
       "pricing",
       "schedules",
+      "feedback-labels",
+      "organization-feedback",
     ];
 
     for (const resourceName of adminResources) {
@@ -2184,6 +2199,31 @@ export class ApiStack extends cdk.Stack {
       authorizer: userAuthorizer,
     });
     userOrgSuggestion.addMethod("POST", adminIntegration, {
+      authorizationType: apigateway.AuthorizationType.CUSTOM,
+      authorizer: userAuthorizer,
+    });
+
+    // Feedback labels (any authenticated user can fetch predefined labels)
+    const userFeedbackLabels = user.addResource("feedback-labels");
+    userFeedbackLabels.addMethod("GET", adminIntegration, {
+      authorizationType: apigateway.AuthorizationType.CUSTOM,
+      authorizer: userAuthorizer,
+    });
+
+    // Organization feedback (any logged-in user can submit feedback)
+    const userOrgFeedback = user.addResource("organization-feedback");
+    userOrgFeedback.addMethod("GET", adminIntegration, {
+      authorizationType: apigateway.AuthorizationType.CUSTOM,
+      authorizer: userAuthorizer,
+    });
+    userOrgFeedback.addMethod("POST", adminIntegration, {
+      authorizationType: apigateway.AuthorizationType.CUSTOM,
+      authorizer: userAuthorizer,
+    });
+
+    // Organization lookup for feedback selection
+    const userOrganizations = user.addResource("organizations");
+    userOrganizations.addMethod("GET", adminIntegration, {
       authorizationType: apigateway.AuthorizationType.CUSTOM,
       authorizer: userAuthorizer,
     });

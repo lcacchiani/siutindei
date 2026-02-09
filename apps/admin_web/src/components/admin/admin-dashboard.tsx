@@ -16,6 +16,8 @@ import {
 } from '../shared';
 import { AuditLogsPanel } from './audit-logs-panel';
 import { CognitoUsersPanel } from './cognito-users-panel';
+import { FeedbackLabelsPanel } from './feedback-labels-panel';
+import { FeedbackPanel } from './feedback-panel';
 import { ImportsPanel } from './imports-panel';
 import { MediaPanel } from './media-panel';
 import { ManagerDashboard } from './manager-dashboard';
@@ -30,6 +32,8 @@ const sectionLabels = [
   { key: 'pricing', label: 'Pricing' },
   { key: 'schedules', label: 'Schedules' },
   { key: 'tickets', label: 'Tickets', dividerBefore: true },
+  { key: 'feedback', label: 'Feedback' },
+  { key: 'feedback-labels', label: 'Feedback Labels' },
   { key: 'cognito-users', label: 'Users' },
   { key: 'activity-categories', label: 'Categories' },
   { key: 'audit-logs', label: 'Audit Logs' },
@@ -67,6 +71,10 @@ export function AdminDashboard({ initialSection }: AdminDashboardProps) {
         return <ImportsPanel />;
       case 'tickets':
         return <TicketsPanel />;
+      case 'feedback':
+        return <FeedbackPanel />;
+      case 'feedback-labels':
+        return <FeedbackLabelsPanel />;
       case 'cognito-users':
         return <CognitoUsersPanel />;
       case 'audit-logs':

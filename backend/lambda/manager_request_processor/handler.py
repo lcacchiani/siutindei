@@ -18,17 +18,20 @@ import json
 import os
 from datetime import datetime, timezone
 from typing import Any
+from uuid import UUID
 
 from sqlalchemy.orm import Session
 
 from app.db.engine import get_engine
 from app.db.models import Ticket, TicketType
-from app.db.repositories import TicketRepository
+from app.db.repositories import FeedbackLabelRepository, TicketRepository
 from app.services.email import send_email, send_templated_email
 from app.templates import (
     build_new_request_template_data,
+    build_new_feedback_template_data,
     build_new_suggestion_template_data,
     render_new_request_email,
+    render_new_feedback_email,
     render_new_suggestion_email,
 )
 from app.utils.logging import configure_logging, get_logger
@@ -41,6 +44,7 @@ logger = get_logger(__name__)
 EVENT_TYPE_MAP = {
     "manager_request.submitted": TicketType.ACCESS_REQUEST,
     "organization_suggestion.submitted": TicketType.ORGANIZATION_SUGGESTION,
+    "organization_feedback.submitted": TicketType.ORGANIZATION_FEEDBACK,
 }
 
 
@@ -179,6 +183,11 @@ def _store_ticket(
             ticket.suggested_lat = message.get("suggested_lat")
             ticket.suggested_lng = message.get("suggested_lng")
             ticket.media_urls = message.get("media_urls", [])
+        if ticket_type == TicketType.ORGANIZATION_FEEDBACK:
+            ticket.organization_id = message.get("organization_id")
+            ticket.feedback_stars = message.get("feedback_stars")
+            ticket.feedback_label_ids = message.get("feedback_label_ids", [])
+            ticket.feedback_text = message.get("feedback_text")
 
         repo.create(ticket)
         session.commit()
@@ -233,7 +242,7 @@ def _send_notification_email(ticket: Ticket) -> None:
                 request_message=ticket.message,
                 submitted_at=submitted_at,
             )
-        else:
+        elif ticket.ticket_type == TicketType.ORGANIZATION_SUGGESTION:
             template_name = os.getenv("SES_TEMPLATE_NEW_SUGGESTION", "")
             template_data = build_new_suggestion_template_data(
                 ticket_id=ticket.ticket_id,
@@ -253,6 +262,27 @@ def _send_notification_email(ticket: Ticket) -> None:
                 district=ticket.suggested_district,
                 address=ticket.suggested_address,
                 additional_notes=ticket.message,
+                submitted_at=submitted_at,
+            )
+        else:
+            label_names = _resolve_feedback_labels(ticket.feedback_label_ids or [])
+            template_name = os.getenv("SES_TEMPLATE_NEW_FEEDBACK", "")
+            template_data = build_new_feedback_template_data(
+                ticket_id=ticket.ticket_id,
+                submitter_email=ticket.submitter_email,
+                organization_name=ticket.organization_name,
+                stars=ticket.feedback_stars,
+                labels=label_names,
+                description=ticket.feedback_text,
+                submitted_at=submitted_at,
+            )
+            email_content = render_new_feedback_email(
+                ticket_id=ticket.ticket_id,
+                submitter_email=ticket.submitter_email,
+                organization_name=ticket.organization_name,
+                stars=ticket.feedback_stars,
+                labels=label_names,
+                description=ticket.feedback_text,
                 submitted_at=submitted_at,
             )
 
@@ -276,3 +306,21 @@ def _send_notification_email(ticket: Ticket) -> None:
     except Exception as e:
         # Log but don't re-raise - DB write succeeded, email is secondary
         logger.error(f"Failed to send notification email for {ticket.ticket_id}: {e}")
+
+
+def _resolve_feedback_labels(label_ids: list[Any]) -> list[str]:
+    """Resolve feedback label IDs to names for email output."""
+    if not label_ids:
+        return []
+    parsed_ids: list[UUID] = []
+    for label_id in label_ids:
+        try:
+            parsed_ids.append(UUID(str(label_id)))
+        except (TypeError, ValueError):
+            continue
+    if not parsed_ids:
+        return []
+    with Session(get_engine()) as session:
+        repo = FeedbackLabelRepository(session)
+        labels = repo.get_by_ids(parsed_ids)
+        return [label.name for label in labels if label.name]
