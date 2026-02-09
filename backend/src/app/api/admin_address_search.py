@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from typing import Any, Mapping
 from urllib.parse import urlencode
 
@@ -17,11 +18,6 @@ configure_logging()
 logger = get_logger(__name__)
 
 NOMINATIM_SEARCH_URL = "https://nominatim.openstreetmap.org/search"
-NOMINATIM_USER_AGENT = (
-    "SiuTinDeiAdminWeb/1.0 (https://siutindei.lx-software.com)"
-)
-NOMINATIM_REFERER = "https://siutindei.lx-software.com"
-
 MIN_QUERY_LENGTH = 3
 DEFAULT_LIMIT = 5
 MAX_LIMIT = 10
@@ -55,11 +51,14 @@ def _handle_address_search(event: Mapping[str, Any]) -> dict[str, Any]:
         params["countrycodes"] = country_codes
 
     url = f"{NOMINATIM_SEARCH_URL}?{urlencode(params)}"
-    headers = {
-        "Accept": "application/json",
-        "User-Agent": NOMINATIM_USER_AGENT,
-        "Referer": NOMINATIM_REFERER,
-    }
+    headers = _get_nominatim_headers()
+    if headers is None:
+        logger.error("Nominatim headers are not configured")
+        return json_response(
+            500,
+            {"error": "Address lookup is not configured"},
+            event=event,
+        )
 
     try:
         result = http_invoke("GET", url, headers=headers, timeout=10)
@@ -118,3 +117,15 @@ def _parse_limit(value: str | None) -> int:
             field="limit",
         )
     return parsed
+
+
+def _get_nominatim_headers() -> dict[str, str] | None:
+    user_agent = os.getenv("NOMINATIM_USER_AGENT", "").strip()
+    referer = os.getenv("NOMINATIM_REFERER", "").strip()
+    if not user_agent or not referer:
+        return None
+    return {
+        "Accept": "application/json",
+        "User-Agent": user_agent,
+        "Referer": referer,
+    }

@@ -552,6 +552,27 @@ export class ApiStack extends cdk.Stack {
       }
     );
 
+    const nominatimUserAgent = new cdk.CfnParameter(
+      this,
+      "NominatimUserAgent",
+      {
+        type: "String",
+        default: "",
+        description:
+          "User-Agent header for Nominatim address lookup requests",
+      }
+    );
+    const nominatimReferer = new cdk.CfnParameter(
+      this,
+      "NominatimReferer",
+      {
+        type: "String",
+        default: "",
+        description:
+          "Referer header for Nominatim address lookup requests",
+      }
+    );
+
     // ---------------------------------------------------------------------
     // Cognito User Pool and Identity Providers
     // ---------------------------------------------------------------------
@@ -1051,6 +1072,8 @@ export class ApiStack extends cdk.Stack {
         CORS_ALLOWED_ORIGINS: corsAllowedOrigins.join(","),
         SUPPORT_EMAIL: supportEmail.valueAsString,
         SES_SENDER_EMAIL: sesSenderEmail.valueAsString,
+        NOMINATIM_USER_AGENT: nominatimUserAgent.valueAsString,
+        NOMINATIM_REFERER: nominatimReferer.valueAsString,
       },
     });
     database.grantAdminUserSecretRead(adminFunction);

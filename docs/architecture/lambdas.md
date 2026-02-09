@@ -36,6 +36,8 @@ their primary responsibilities.
   - `SES_SENDER_EMAIL`
   - `SES_TEMPLATE_REQUEST_DECISION` (optional)
   - `SES_TEMPLATE_SUGGESTION_DECISION` (optional)
+  - `NOMINATIM_USER_AGENT`
+  - `NOMINATIM_REFERER`
 - For the full endpoint list, see the OpenAPI spec:
   `docs/api/admin.yaml`
 
