@@ -160,7 +160,7 @@ paths:
           in: query
           required: false
           description: |
-            Filter by language (ISO 639-1 codes). Multiple values allowed.
+            Filter by language (ISO 639-1 codes plus yue (ISO 639-3)). Multiple values allowed.
             Supported: en, zh, ja, ko, fr, de, es, pt, it, ru, ar, hi, th, vi, id, ms, tl, nl, pl, tr, yue
           style: form
           explode: true
@@ -314,6 +314,7 @@ components:
           type: number
         currency:
           type: string
+          description: ISO 4217 currency code (case-insensitive)
         sessions_count:
           type: integer
           nullable: true
@@ -356,5 +357,5 @@ components:
       additionalProperties:
         type: string
       description: |
-        Language map for translated text. The server always includes English
-        as "en" and may include additional languages like "zh" or "yue".
+        Language map for translated text. The server always includes English as "en".
+        Additional entries must use ISO 639-1 codes plus "yue" (Cantonese, ISO 639-3).

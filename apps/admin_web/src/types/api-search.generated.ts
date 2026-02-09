@@ -74,7 +74,7 @@ export interface paths {
                      */
                     end_at_utc?: string;
                     /**
-                     * @description Filter by language (ISO 639-1 codes). Multiple values allowed.
+                     * @description Filter by language (ISO 639-1 codes plus yue (ISO 639-3)). Multiple values allowed.
                      *     Supported: en, zh, ja, ko, fr, de, es, pt, it, ru, ar, hi, th, vi, id, ms, tl, nl, pl, tr, yue
                      */
                     language?: ("en" | "zh" | "ja" | "ko" | "fr" | "de" | "es" | "pt" | "it" | "ru" | "ar" | "hi" | "th" | "vi" | "id" | "ms" | "tl" | "nl" | "pl" | "tr" | "yue")[];
@@ -165,6 +165,7 @@ export interface components {
             /** @enum {string} */
             pricing_type: "per_class" | "per_sessions" | "per_hour" | "per_day" | "free";
             amount: number;
+            /** @description ISO 4217 currency code (case-insensitive) */
             currency: string;
             sessions_count?: number | null;
             /** @description Whether a free trial class is offered */
@@ -184,8 +185,8 @@ export interface components {
             languages: string[];
         };
         /**
-         * @description Language map for translated text. The server always includes English
-         *     as "en" and may include additional languages like "zh" or "yue".
+         * @description Language map for translated text. The server always includes English as "en".
+         *     Additional entries must use ISO 639-1 codes plus "yue" (Cantonese, ISO 639-3).
          */
         TranslationMap: {
             [key: string]: string;

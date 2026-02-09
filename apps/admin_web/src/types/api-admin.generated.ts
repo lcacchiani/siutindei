@@ -3029,8 +3029,8 @@ export interface components {
             detail?: string;
         };
         /**
-         * @description Language map for translated text. The server always includes English
-         *     as "en" and may include additional languages like "zh" or "yue".
+         * @description Language map for translated text. The server always includes English as "en".
+         *     Additional entries must use ISO 639-1 codes plus "yue" (Cantonese, ISO 639-3).
          */
         TranslationMap: {
             [key: string]: string;
@@ -3393,7 +3393,8 @@ export interface components {
              */
             end_at_utc?: string;
             /**
-             * @description ISO 639-1 language codes (optional, max 20).
+             * @description ISO 639-1 language codes plus "yue" (Cantonese, ISO 639-3)
+             *     (optional, max 20).
              *     Supported: en (English), zh (Chinese), ja (Japanese), ko (Korean),
              *     fr (French), de (German), es (Spanish), pt (Portuguese), it (Italian),
              *     ru (Russian), ar (Arabic), hi (Hindi), th (Thai), vi (Vietnamese),
