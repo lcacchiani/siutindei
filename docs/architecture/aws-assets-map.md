@@ -25,6 +25,17 @@ Created once per account/region when `cdk bootstrap` runs. Not part of the main 
 
 ---
 
+## Application S3 Buckets
+
+| Resource Type | Logical ID | Physical Name/ID | Notes |
+|--------------|------------|------------------|-------|
+| S3 Bucket | `OrganizationImagesBucket` | `lxsoftware-siutindei-org-media-{account}-{region}` | Public bucket for organization images |
+| S3 Bucket | `OrganizationImagesLogBucket` | `lxsoftware-siutindei-org-media-logs-{account}-{region}` | Access logs for org media bucket |
+| S3 Bucket | `AdminImportExportBucket` | `lxsoftware-siutindei-org-imprt-{account}-{region}` | Admin import/export JSON storage |
+| S3 Bucket | `AdminImportExportLogBucket` | `lxsoftware-siutindei-org-imprt-logs-{account}-{region}` | Access logs for admin import/export bucket |
+
+---
+
 ## Network Infrastructure
 
 ### VPC and Subnets

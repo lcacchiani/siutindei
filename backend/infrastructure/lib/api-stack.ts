@@ -938,6 +938,50 @@ export class ApiStack extends cdk.Stack {
       });
     }
 
+    const adminImportExportLogBucketName = [
+      name("org-imprt-logs"),
+      cdk.Aws.ACCOUNT_ID,
+      cdk.Aws.REGION,
+    ].join("-");
+
+    const adminImportExportLogBucket = new s3.Bucket(
+      this,
+      "AdminImportExportLogBucket",
+      {
+        bucketName: adminImportExportLogBucketName,
+        blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+        encryption: s3.BucketEncryption.S3_MANAGED,
+        enforceSSL: true,
+        versioned: true,
+        removalPolicy: cdk.RemovalPolicy.RETAIN,
+        // Enable object ownership for S3 access log delivery
+        objectOwnership: s3.ObjectOwnership.BUCKET_OWNER_PREFERRED,
+        lifecycleRules: [
+          {
+            id: "ExpireOldLogs",
+            enabled: true,
+            expiration: cdk.Duration.days(90),
+            noncurrentVersionExpiration: cdk.Duration.days(30),
+          },
+        ],
+      }
+    );
+
+    // Checkov suppression: Logging bucket cannot have self-logging (infinite loop)
+    const adminImportExportLogBucketCfn = adminImportExportLogBucket.node
+      .defaultChild as s3.CfnBucket | undefined;
+    if (adminImportExportLogBucketCfn) {
+      adminImportExportLogBucketCfn.addMetadata("checkov", {
+        skip: [
+          {
+            id: "CKV_AWS_18",
+            comment:
+              "Logging bucket - enabling access logging would create infinite loop",
+          },
+        ],
+      });
+    }
+
     const imagesBucketName =
       existingOrgMediaBucketName ??
       [name("org-media"), cdk.Aws.ACCOUNT_ID, cdk.Aws.REGION].join("-");
@@ -1038,9 +1082,8 @@ export class ApiStack extends cdk.Stack {
       });
     }
 
-    // Keep bucket names <= 63 chars (S3 limit) using the standard prefix+suffix+account+region pattern.
     const adminImportExportBucketName = [
-      name("admin-imports"),
+      name("org-imprt"),
       cdk.Aws.ACCOUNT_ID,
       cdk.Aws.REGION,
     ].join("-");
@@ -1055,8 +1098,8 @@ export class ApiStack extends cdk.Stack {
         enforceSSL: true,
         versioned: true,
         removalPolicy: cdk.RemovalPolicy.RETAIN,
-        serverAccessLogsBucket: organizationImagesLogBucket,
-        serverAccessLogsPrefix: "admin-import-export/",
+        serverAccessLogsBucket: adminImportExportLogBucket,
+        serverAccessLogsPrefix: "s3-access-logs/",
         lifecycleRules: [
           {
             id: "ExpireAdminImports",
