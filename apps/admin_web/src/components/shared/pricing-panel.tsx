@@ -177,13 +177,16 @@ export function PricingPanel({ mode }: PricingPanelProps) {
       if (!Number.isFinite(amountValue)) {
         return 'Amount must be numeric.';
       }
+      if (amountValue <= 0) {
+        return 'Amount must be greater than 0.';
+      }
     }
     if (panel.formState.pricing_type === 'per_sessions') {
       const sessionsCount = parseOptionalNumber(
         panel.formState.sessions_count
       );
       if (sessionsCount === null || sessionsCount <= 0) {
-        return 'Classes within term is required for per-term pricing.';
+        return 'Classes per term is required for per-term pricing.';
       }
     }
     return null;
@@ -258,21 +261,15 @@ export function PricingPanel({ mode }: PricingPanelProps) {
     {
       key: 'amount',
       header: 'Amount',
-      render: (item: ActivityPricing) => (
-        <span className='text-slate-600'>
-          {getCurrencyDisplay(item.currency)}{' '}
-          {formatPriceAmount(item.amount)}
-        </span>
-      ),
-    },
-    {
-      key: 'freeTrial',
-      header: 'Free trial',
-      render: (item: ActivityPricing) => (
-        <span className='text-slate-600'>
-          {item.free_trial_class_offered ? 'Yes' : 'No'}
-        </span>
-      ),
+      render: (item: ActivityPricing) =>
+        item.pricing_type === 'free' ? (
+          <span className='text-slate-600'>-</span>
+        ) : (
+          <span className='text-slate-600'>
+            {getCurrencyDisplay(item.currency)}{' '}
+            {formatPriceAmount(item.amount)}
+          </span>
+        ),
     },
   ];
 
@@ -390,9 +387,7 @@ export function PricingPanel({ mode }: PricingPanelProps) {
               </div>
               {showSessionsField && (
                 <div>
-                  <Label htmlFor='pricing-sessions'>
-                    Classes within Term
-                  </Label>
+                  <Label htmlFor='pricing-sessions'>Classes per term</Label>
                   <Input
                     id='pricing-sessions'
                     type='number'
