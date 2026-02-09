@@ -59,7 +59,7 @@ class TestValidateScheduleWeekly:
         with pytest.raises(ValidationError) as exc_info:
             _validate_schedule(schedule)
         assert "day_of_week_utc must be between 0 and 6" in str(exc_info.value)
-        assert exc_info.value.field == "day_of_week_utc"
+        assert exc_info.value.field == "weekly_entries[0].day_of_week_utc"
 
     def test_day_of_week_utc_above_range(self) -> None:
         """day_of_week_utc above 6 should raise ValidationError."""
@@ -67,7 +67,7 @@ class TestValidateScheduleWeekly:
         with pytest.raises(ValidationError) as exc_info:
             _validate_schedule(schedule)
         assert "day_of_week_utc must be between 0 and 6" in str(exc_info.value)
-        assert exc_info.value.field == "day_of_week_utc"
+        assert exc_info.value.field == "weekly_entries[0].day_of_week_utc"
 
     def test_start_minutes_utc_below_range(self) -> None:
         """start_minutes_utc below 0 should raise ValidationError."""
@@ -75,7 +75,7 @@ class TestValidateScheduleWeekly:
         with pytest.raises(ValidationError) as exc_info:
             _validate_schedule(schedule)
         assert "start_minutes_utc must be between 0 and 1439" in str(exc_info.value)
-        assert exc_info.value.field == "start_minutes_utc"
+        assert exc_info.value.field == "weekly_entries[0].start_minutes_utc"
 
     def test_start_minutes_utc_above_range(self) -> None:
         """start_minutes_utc above 1439 should raise ValidationError."""
@@ -83,7 +83,7 @@ class TestValidateScheduleWeekly:
         with pytest.raises(ValidationError) as exc_info:
             _validate_schedule(schedule)
         assert "start_minutes_utc must be between 0 and 1439" in str(exc_info.value)
-        assert exc_info.value.field == "start_minutes_utc"
+        assert exc_info.value.field == "weekly_entries[0].start_minutes_utc"
 
     def test_end_minutes_utc_below_range(self) -> None:
         """end_minutes_utc below 0 should raise ValidationError."""
@@ -91,7 +91,7 @@ class TestValidateScheduleWeekly:
         with pytest.raises(ValidationError) as exc_info:
             _validate_schedule(schedule)
         assert "end_minutes_utc must be between 0 and 1439" in str(exc_info.value)
-        assert exc_info.value.field == "end_minutes_utc"
+        assert exc_info.value.field == "weekly_entries[0].end_minutes_utc"
 
     def test_end_minutes_utc_above_range(self) -> None:
         """end_minutes_utc above 1439 should raise ValidationError."""
@@ -99,7 +99,7 @@ class TestValidateScheduleWeekly:
         with pytest.raises(ValidationError) as exc_info:
             _validate_schedule(schedule)
         assert "end_minutes_utc must be between 0 and 1439" in str(exc_info.value)
-        assert exc_info.value.field == "end_minutes_utc"
+        assert exc_info.value.field == "weekly_entries[0].end_minutes_utc"
 
     def test_start_minutes_utc_equals_end_minutes_utc(self) -> None:
         """start_minutes_utc equal to end_minutes_utc should raise ValidationError."""
@@ -112,7 +112,7 @@ class TestValidateScheduleWeekly:
         assert "start_minutes_utc must not equal end_minutes_utc" in str(
             exc_info.value
         )
-        assert exc_info.value.field == "start_minutes_utc"
+        assert exc_info.value.field == "weekly_entries[0].start_minutes_utc"
 
     def test_start_minutes_utc_greater_than_end_minutes_utc(self) -> None:
         """start_minutes_utc greater than end_minutes_utc should be valid."""
