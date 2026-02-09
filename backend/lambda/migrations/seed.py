@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Any
 
 from app.services.aws_clients import get_cognito_idp_client
 from app.utils.logging import get_logger

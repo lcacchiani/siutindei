@@ -158,7 +158,6 @@ def _list_audit_logs(event: Mapping[str, Any]) -> dict[str, Any]:
 
         has_more = len(rows) > limit
         trimmed = list(rows)[:limit]
-        next_cursor = _encode_cursor(trimmed[-1].id) if has_more and trimmed else None
 
         logger.info(
             (
