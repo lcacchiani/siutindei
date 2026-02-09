@@ -66,3 +66,16 @@ class LocationRepository(BaseRepository[Location]):
             .limit(limit)
         )
         return self._session.execute(query).scalars().all()
+
+    def find_by_org_and_address(
+        self,
+        org_id: UUID,
+        address: str,
+    ) -> Optional[Location]:
+        """Find a location by organization and address."""
+        query = (
+            select(Location)
+            .where(Location.org_id == org_id)
+            .where(Location.address == address)
+        )
+        return self._session.execute(query).scalar_one_or_none()

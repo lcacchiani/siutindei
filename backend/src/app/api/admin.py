@@ -26,6 +26,7 @@ from app.api.admin_cognito import (
     _handle_user_group,
 )
 from app.api.admin_crud import _handle_crud
+from app.api.admin_imports import _handle_admin_imports
 from app.api.admin_media import _handle_organization_media
 from app.api.admin_request import (
     _decode_cursor,
@@ -154,6 +155,11 @@ def lambda_handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
         return _handle_admin_tickets(event, method, resource_id)
     if resource == "audit-logs" and method == "GET":
         return _safe_handler(lambda: _handle_audit_logs(event, resource_id), event)
+    if resource == "imports":
+        return _safe_handler(
+            lambda: _handle_admin_imports(event, method, resource_id),
+            event,
+        )
 
     if resource == "areas":
         if method == "GET":

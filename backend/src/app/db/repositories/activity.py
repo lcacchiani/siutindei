@@ -83,6 +83,19 @@ class ActivityRepository(BaseRepository[Activity]):
         )
         return self._session.execute(query).scalars().all()
 
+    def find_by_org_and_name(
+        self,
+        org_id: UUID,
+        name: str,
+    ) -> Optional[Activity]:
+        """Find an activity by organization and exact name."""
+        query = (
+            select(Activity)
+            .where(Activity.org_id == org_id)
+            .where(Activity.name == name)
+        )
+        return self._session.execute(query).scalar_one_or_none()
+
     def search_by_name(
         self,
         name_pattern: str,
