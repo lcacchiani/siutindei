@@ -14,7 +14,7 @@ def get_client(service: str, region_name: str | None = None) -> Any:
     cache_key = (service, region_name)
     if cache_key in _CLIENT_CACHE:
         return _CLIENT_CACHE[cache_key]
-    client = boto3.client(service, region_name=region_name)
+    client = boto3.client(service, region_name=region_name)  # type: ignore[arg-type]
     _CLIENT_CACHE[cache_key] = client
     return client
 
