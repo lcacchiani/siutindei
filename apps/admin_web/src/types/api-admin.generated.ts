@@ -2718,6 +2718,70 @@ export interface paths {
         };
         trace?: never;
     };
+    "/v1/user/address-search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Address autocomplete
+         * @description Proxy to Nominatim for address autocomplete suggestions.
+         */
+        get: {
+            parameters: {
+                query: {
+                    /** @description Search query (min 3 characters) */
+                    q: string;
+                    /** @description Comma-separated ISO 3166-1 alpha-2 codes */
+                    countrycodes?: string;
+                    /** @description Maximum suggestions (1-10, default 5) */
+                    limit?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Address suggestions */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AddressSearchResponse"];
+                    };
+                };
+                /** @description Validation error */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ValidationError"];
+                    };
+                };
+                /** @description Upstream address provider error */
+                502: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ValidationError"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/user/areas": {
         parameters: {
             query?: never;
@@ -3650,6 +3714,20 @@ export interface components {
         };
         AreaTreeResponse: {
             items: components["schemas"]["GeographicArea"][];
+        };
+        AddressSearchResponse: {
+            items: components["schemas"]["NominatimResult"][];
+        };
+        NominatimResult: {
+            place_id: number;
+            display_name: string;
+            lat: string;
+            lon: string;
+            address: components["schemas"]["NominatimAddress"];
+            type?: string;
+        };
+        NominatimAddress: {
+            [key: string]: string;
         };
         OrganizationSuggestionCreate: {
             /** @description Suggested organization name (required) */

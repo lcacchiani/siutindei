@@ -2,6 +2,12 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import {
+  searchAddress,
+  type NominatimAddress,
+  type NominatimResult,
+} from '../../lib/api-client';
+
 /**
  * Address autocomplete powered by Nominatim (OpenStreetMap).
  *
@@ -26,35 +32,6 @@ export interface AddressSelection {
   country: string;
   /** Raw Nominatim address components (for advanced use). */
   raw: NominatimAddress;
-}
-
-/** Subset of Nominatim's `address` object we care about. */
-interface NominatimAddress {
-  road?: string;
-  house_number?: string;
-  suburb?: string;
-  quarter?: string;
-  neighbourhood?: string;
-  city_district?: string;
-  city?: string;
-  town?: string;
-  village?: string;
-  state?: string;
-  county?: string;
-  country?: string;
-  country_code?: string;
-  postcode?: string;
-  [key: string]: string | undefined;
-}
-
-/** Shape of a single Nominatim JSON result. */
-interface NominatimResult {
-  place_id: number;
-  display_name: string;
-  lat: string;
-  lon: string;
-  address: NominatimAddress;
-  type: string;
 }
 
 interface AddressAutocompleteProps {
@@ -143,29 +120,10 @@ export function AddressAutocomplete({
     const currentRequestId = ++requestId.current;
     setIsLoading(true);
     try {
-      const params = new URLSearchParams({
-        q: query,
-        format: 'jsonv2',
-        addressdetails: '1',
-        limit: '5',
-        dedupe: '1',
+      const data = await searchAddress(query, {
+        countryCodes,
+        limit: 5,
       });
-      if (countryCodes) {
-        params.set('countrycodes', countryCodes);
-      }
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?${params.toString()}`,
-        {
-          headers: {
-            // Nominatim requires a valid User-Agent / Referer per usage policy.
-            Accept: 'application/json',
-          },
-        }
-      );
-      if (!response.ok) {
-        throw new Error(`Nominatim returned ${response.status}`);
-      }
-      const data: NominatimResult[] = await response.json();
       // Only apply if this is still the latest request.
       if (currentRequestId === requestId.current) {
         setSuggestions(data);

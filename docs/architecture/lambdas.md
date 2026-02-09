@@ -29,12 +29,15 @@ their primary responsibilities.
   group for `/v1/manager/*`, any authenticated user for `/v1/user/*`
 - Purpose: admin CRUD (including activity categories), manager CRUD
   (filtered by ownership), user self-service (tickets), Cognito user
-  management, audit logs, and media upload
+  management, audit logs, media upload, and address autocomplete
+  (Nominatim via the AWS/HTTP proxy)
 - DB access: RDS Proxy with IAM auth (`siutindei_admin`)
 - Environment:
   - `SES_SENDER_EMAIL`
   - `SES_TEMPLATE_REQUEST_DECISION` (optional)
   - `SES_TEMPLATE_SUGGESTION_DECISION` (optional)
+  - `NOMINATIM_USER_AGENT`
+  - `NOMINATIM_REFERER`
 - For the full endpoint list, see the OpenAPI spec:
   `docs/api/admin.yaml`
 

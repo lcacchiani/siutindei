@@ -1357,6 +1357,57 @@ paths:
 
   # --- User Routes (Any Authenticated User) ---
 
+  /v1/user/address-search:
+    get:
+      summary: Address autocomplete
+      description: |
+        Proxy to Nominatim for address autocomplete suggestions.
+      security:
+        - UserAuth: []
+      parameters:
+        - name: q
+          in: query
+          required: true
+          description: Search query (min 3 characters)
+          schema:
+            type: string
+            minLength: 3
+            maxLength: 500
+        - name: countrycodes
+          in: query
+          required: false
+          description: Comma-separated ISO 3166-1 alpha-2 codes
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          description: Maximum suggestions (1-10, default 5)
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 10
+            default: 5
+      responses:
+        "200":
+          description: Address suggestions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AddressSearchResponse'
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+        "502":
+          description: Upstream address provider error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+
   /v1/user/areas:
     get:
       summary: List active geographic areas
@@ -2734,6 +2785,37 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/GeographicArea'
+
+    AddressSearchResponse:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/NominatimResult'
+
+    NominatimResult:
+      type: object
+      required: [place_id, display_name, lat, lon, address]
+      properties:
+        place_id:
+          type: integer
+        display_name:
+          type: string
+        lat:
+          type: string
+        lon:
+          type: string
+        address:
+          $ref: '#/components/schemas/NominatimAddress'
+        type:
+          type: string
+
+    NominatimAddress:
+      type: object
+      additionalProperties:
+        type: string
 
     # Organization Suggestion input schema (used by user-facing POST endpoint)
     OrganizationSuggestionCreate:
