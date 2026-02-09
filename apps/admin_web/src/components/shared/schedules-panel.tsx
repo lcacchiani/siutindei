@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { useActivitiesByMode } from '../../hooks/use-activities-by-mode';
 import { useLocationsByMode } from '../../hooks/use-locations-by-mode';
