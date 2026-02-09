@@ -2,7 +2,7 @@ import { test, expect, setupAuth, mockManagerUser, mockRegularUser, setupApiMock
 
 test.describe('Manager Dashboard', () => {
   test('should display manager view banner', async ({ managerPage }) => {
-    await managerPage.goto('/');
+    await managerPage.goto('/admin/dashboard');
 
     // Should see manager view banner
     await expect(managerPage.getByText('Manager View')).toBeVisible();
@@ -17,7 +17,7 @@ test.describe('Manager Dashboard', () => {
   });
 
   test('should show limited navigation sections for manager', async ({ managerPage }) => {
-    await managerPage.goto('/');
+    await managerPage.goto('/admin/dashboard');
 
     // Manager sections
     const managerSections = [
@@ -48,13 +48,13 @@ test.describe('Manager Dashboard', () => {
   });
 
   test('should display user email in header', async ({ managerPage }) => {
-    await managerPage.goto('/');
+    await managerPage.goto('/admin/dashboard');
 
     await expect(managerPage.getByText('manager@example.com')).toBeVisible();
   });
 
   test('should have logout button', async ({ managerPage }) => {
-    await managerPage.goto('/');
+    await managerPage.goto('/admin/dashboard');
 
     const logoutButton = managerPage.getByRole('button', { name: 'Log out' });
     await expect(logoutButton).toBeVisible();
@@ -62,7 +62,7 @@ test.describe('Manager Dashboard', () => {
   });
 
   test('should navigate between manager sections', async ({ managerPage }) => {
-    await managerPage.goto('/');
+    await managerPage.goto('/admin/dashboard');
 
     // Navigate to Activities
     await managerPage.getByRole('button', { name: 'Activities' }).click();
@@ -79,14 +79,14 @@ test.describe('Manager Dashboard', () => {
 
 test.describe('Manager Organizations Panel', () => {
   test('should show "Your Organizations" heading', async ({ managerPage }) => {
-    await managerPage.goto('/');
+    await managerPage.goto('/admin/dashboard');
 
     // Should see "Your Organizations" instead of "Existing Organizations"
     await expect(managerPage.getByRole('heading', { name: 'Your Organizations' })).toBeVisible();
   });
 
   test('should show edit form by default for manager', async ({ managerPage }) => {
-    await managerPage.goto('/');
+    await managerPage.goto('/admin/dashboard');
 
     await expect(managerPage.getByText('Test Organization 1')).toBeVisible();
 
@@ -111,14 +111,14 @@ test.describe('Manager Organizations Panel', () => {
   });
 
   test('should not show manager column in table (manager sees their own orgs)', async ({ managerPage }) => {
-    await managerPage.goto('/');
+    await managerPage.goto('/admin/dashboard');
 
     // Manager table should NOT have Manager column
     await expect(managerPage.getByRole('columnheader', { name: 'Manager' })).not.toBeVisible();
   });
 
   test('should be able to edit their organizations', async ({ managerPage }) => {
-    await managerPage.goto('/');
+    await managerPage.goto('/admin/dashboard');
 
     // Wait for org table to load
     await expect(managerPage.getByText('Test Organization 1')).toBeVisible();
@@ -130,7 +130,7 @@ test.describe('Manager Organizations Panel', () => {
   });
 
   test('should show edit form when clicking Edit', async ({ managerPage }) => {
-    await managerPage.goto('/');
+    await managerPage.goto('/admin/dashboard');
 
     // Wait for org table to load
     await expect(managerPage.getByText('Test Organization 1')).toBeVisible();
@@ -148,7 +148,7 @@ test.describe('Manager Organizations Panel', () => {
   test('edit form should show manager field as read-only', async ({
     managerPage,
   }) => {
-    await managerPage.goto('/');
+    await managerPage.goto('/admin/dashboard');
 
     await expect(managerPage.getByText('Test Organization 1')).toBeVisible();
 
@@ -165,7 +165,7 @@ test.describe('Access Denied', () => {
     await setupAuth(page, mockRegularUser);
     await setupApiMocks(page);
 
-    await page.goto('/');
+    await page.goto('/admin/dashboard');
 
     // Should see access denied message
     await expect(page.getByText('Access denied')).toBeVisible();
@@ -179,7 +179,7 @@ test.describe('Access Denied', () => {
     await setupAuth(page, mockRegularUser);
     await setupApiMocks(page);
 
-    await page.goto('/');
+    await page.goto('/admin/dashboard');
 
     // Should still see logout button
     const logoutButton = page.getByRole('button', { name: 'Log out' });
@@ -191,7 +191,7 @@ test.describe('Access Denied', () => {
     await setupAuth(page, mockRegularUser);
     await setupApiMocks(page);
 
-    await page.goto('/');
+    await page.goto('/admin/dashboard');
 
     // Should show user email
     await expect(page.getByText('user@example.com')).toBeVisible();
@@ -217,7 +217,7 @@ test.describe('Manager Access Request Flow', () => {
     });
 
     await setupApiMocks(page);
-    await page.goto('/');
+    await page.goto('/admin/dashboard');
 
     // Should see access request form
     // Note: The actual form content depends on AccessRequestForm component
@@ -251,7 +251,7 @@ test.describe('Manager Access Request Flow', () => {
     });
 
     await setupApiMocks(page);
-    await page.goto('/');
+    await page.goto('/admin/dashboard');
 
     // Should see pending request notice
     // The actual content depends on PendingRequestNotice component
@@ -269,7 +269,7 @@ test.describe('Admin with Manager Group', () => {
     });
     await setupApiMocks(page);
 
-    await page.goto('/');
+    await page.goto('/admin/dashboard');
 
     // Should see full admin navigation (admin takes precedence)
     await expect(page.getByRole('button', { name: 'Categories' })).toBeVisible();

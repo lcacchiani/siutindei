@@ -2,7 +2,7 @@ import { test, expect } from './fixtures/test-fixtures';
 
 test.describe('Admin Dashboard', () => {
   test('should display header with title and description', async ({ adminPage }) => {
-    await adminPage.goto('/');
+    await adminPage.goto('/admin/dashboard');
 
     // Check header
     await expect(adminPage.getByRole('heading', { name: 'Siu Tin Dei Admin' })).toBeVisible();
@@ -12,7 +12,7 @@ test.describe('Admin Dashboard', () => {
   });
 
   test('should display all navigation sections', async ({ adminPage }) => {
-    await adminPage.goto('/');
+    await adminPage.goto('/admin/dashboard');
 
     // Check all navigation buttons
     const expectedSections = [
@@ -34,7 +34,7 @@ test.describe('Admin Dashboard', () => {
   });
 
   test('should highlight Organizations as default active section', async ({ adminPage }) => {
-    await adminPage.goto('/');
+    await adminPage.goto('/admin/dashboard');
 
     // Organizations should be selected by default
     const organizationsButton = adminPage.getByRole('button', { name: 'Organizations' });
@@ -47,7 +47,7 @@ test.describe('Admin Dashboard', () => {
   });
 
   test('should navigate to Media section', async ({ adminPage }) => {
-    await adminPage.goto('/');
+    await adminPage.goto('/admin/dashboard');
 
     // Click Media
     await adminPage.getByRole('button', { name: 'Media' }).click();
@@ -57,7 +57,7 @@ test.describe('Admin Dashboard', () => {
   });
 
   test('should navigate to Locations section', async ({ adminPage }) => {
-    await adminPage.goto('/');
+    await adminPage.goto('/admin/dashboard');
 
     // Click Locations
     await adminPage.getByRole('button', { name: 'Locations' }).click();
@@ -67,7 +67,7 @@ test.describe('Admin Dashboard', () => {
   });
 
   test('should navigate to Activities section', async ({ adminPage }) => {
-    await adminPage.goto('/');
+    await adminPage.goto('/admin/dashboard');
 
     // Click Activities
     await adminPage.getByRole('button', { name: 'Activities' }).click();
@@ -77,7 +77,7 @@ test.describe('Admin Dashboard', () => {
   });
 
   test('should navigate to Categories section', async ({ adminPage }) => {
-    await adminPage.goto('/');
+    await adminPage.goto('/admin/dashboard');
 
     // Click Categories
     await adminPage.getByRole('button', { name: 'Categories' }).click();
@@ -89,7 +89,7 @@ test.describe('Admin Dashboard', () => {
   });
 
   test('should navigate to Pricing section', async ({ adminPage }) => {
-    await adminPage.goto('/');
+    await adminPage.goto('/admin/dashboard');
 
     // Click Pricing
     await adminPage.getByRole('button', { name: 'Pricing' }).click();
@@ -99,7 +99,7 @@ test.describe('Admin Dashboard', () => {
   });
 
   test('should navigate to Schedules section', async ({ adminPage }) => {
-    await adminPage.goto('/');
+    await adminPage.goto('/admin/dashboard');
 
     // Click Schedules
     await adminPage.getByRole('button', { name: 'Schedules' }).click();
@@ -109,7 +109,7 @@ test.describe('Admin Dashboard', () => {
   });
 
   test('should navigate to Tickets section', async ({ adminPage }) => {
-    await adminPage.goto('/');
+    await adminPage.goto('/admin/dashboard');
 
     // Click Tickets
     await adminPage.getByRole('button', { name: 'Tickets' }).click();
@@ -121,7 +121,7 @@ test.describe('Admin Dashboard', () => {
   });
 
   test('should navigate to Users section', async ({ adminPage }) => {
-    await adminPage.goto('/');
+    await adminPage.goto('/admin/dashboard');
 
     // Click Users
     await adminPage.getByRole('button', { name: 'Users' }).click();
@@ -133,7 +133,7 @@ test.describe('Admin Dashboard', () => {
   });
 
   test('should switch between sections correctly', async ({ adminPage }) => {
-    await adminPage.goto('/');
+    await adminPage.goto('/admin/dashboard');
 
     // Start at Organizations (default)
     await expect(
@@ -156,13 +156,13 @@ test.describe('Admin Dashboard', () => {
   });
 
   test('should display user email in header', async ({ adminPage }) => {
-    await adminPage.goto('/');
+    await adminPage.goto('/admin/dashboard');
 
     await expect(adminPage.getByText('admin@example.com')).toBeVisible();
   });
 
   test('should have visible logout button', async ({ adminPage }) => {
-    await adminPage.goto('/');
+    await adminPage.goto('/admin/dashboard');
 
     const logoutButton = adminPage.getByRole('button', { name: 'Log out' });
     await expect(logoutButton).toBeVisible();
@@ -172,7 +172,7 @@ test.describe('Admin Dashboard', () => {
 
 test.describe('Admin Dashboard Layout', () => {
   test('should have sidebar navigation', async ({ adminPage }) => {
-    await adminPage.goto('/');
+    await adminPage.goto('/admin/dashboard');
 
     // Check that nav element exists with buttons
     const navButtons = adminPage.locator('nav button');
@@ -180,7 +180,7 @@ test.describe('Admin Dashboard Layout', () => {
   });
 
   test('should have main content area', async ({ adminPage }) => {
-    await adminPage.goto('/');
+    await adminPage.goto('/admin/dashboard');
 
     // Main content should be visible
     const mainContent = adminPage.locator('main');
@@ -188,7 +188,7 @@ test.describe('Admin Dashboard Layout', () => {
   });
 
   test('should display divider before Tickets section', async ({ adminPage }) => {
-    await adminPage.goto('/');
+    await adminPage.goto('/admin/dashboard');
 
     // Check that a horizontal rule exists in the navigation
     const dividers = adminPage.locator('nav hr');
