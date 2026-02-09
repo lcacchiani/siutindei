@@ -1083,9 +1083,9 @@ export class ApiStack extends cdk.Stack {
       environment: {
         ALLOWED_ACTIONS: allowedProxyActions.join(","),
         // Comma-separated URL prefixes for outbound HTTP requests.
-        // Empty by default – add prefixes here when Lambdas inside the
-        // VPC need to call external APIs via the proxy.
-        ALLOWED_HTTP_URLS: "",
+        // Add prefixes here when Lambdas inside the VPC need to call
+        // external APIs via the proxy.
+        ALLOWED_HTTP_URLS: "https://nominatim.openstreetmap.org/search",
       },
     });
 
@@ -2026,6 +2026,13 @@ export class ApiStack extends cdk.Stack {
     // authenticated users.
     // -------------------------------------------------------------------------
     const user = v1.addResource("user");
+
+    // Address autocomplete (proxy to Nominatim)
+    const userAddressSearch = user.addResource("address-search");
+    userAddressSearch.addMethod("GET", adminIntegration, {
+      authorizationType: apigateway.AuthorizationType.CUSTOM,
+      authorizer: userAuthorizer,
+    });
 
     // Access request (submit request to become a manager of an organization)
     // Any logged-in user can request access, not just existing managers

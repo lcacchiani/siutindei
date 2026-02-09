@@ -9,6 +9,7 @@ from __future__ import annotations
 from typing import Any, Mapping, Optional
 
 from app.api.admin_audit import _handle_audit_logs
+from app.api.admin_address_search import _handle_address_search
 from app.api.admin_areas import (
     _handle_list_activity_categories,
     _handle_list_areas,
@@ -210,6 +211,9 @@ def _handle_user_routes(
             lambda: _handle_user_access_request(event, method),
             event,
         )
+
+    if resource == "address-search" and method == "GET":
+        return _safe_handler(lambda: _handle_address_search(event), event)
 
     if resource == "organization-suggestion":
         return _safe_handler(

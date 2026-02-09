@@ -14,6 +14,37 @@ export interface ListResponse<T> {
   next_cursor?: string | null;
 }
 
+export interface NominatimAddress {
+  road?: string;
+  house_number?: string;
+  suburb?: string;
+  quarter?: string;
+  neighbourhood?: string;
+  city_district?: string;
+  city?: string;
+  town?: string;
+  village?: string;
+  state?: string;
+  county?: string;
+  country?: string;
+  country_code?: string;
+  postcode?: string;
+  [key: string]: string | undefined;
+}
+
+export interface NominatimResult {
+  place_id: number;
+  display_name: string;
+  lat: string;
+  lon: string;
+  address: NominatimAddress;
+  type: string;
+}
+
+export interface AddressSearchResponse {
+  items: NominatimResult[];
+}
+
 export interface OrganizationMediaUploadRequest {
   file_name: string;
   content_type: string;
@@ -294,6 +325,22 @@ function buildUserUrl(resource: string, id?: string) {
   const normalized = base.endsWith('/') ? base : `${base}/`;
   const suffix = id ? `v1/user/${resource}/${id}` : `v1/user/${resource}`;
   return new URL(suffix, normalized).toString();
+}
+
+export async function searchAddress(
+  query: string,
+  options: { countryCodes?: string; limit?: number } = {}
+): Promise<NominatimResult[]> {
+  const url = new URL(buildUserUrl('address-search'));
+  url.searchParams.set('q', query);
+  if (options.countryCodes) {
+    url.searchParams.set('countrycodes', options.countryCodes);
+  }
+  if (options.limit) {
+    url.searchParams.set('limit', `${options.limit}`);
+  }
+  const response = await request<AddressSearchResponse>(url.toString());
+  return response.items;
 }
 
 /**
