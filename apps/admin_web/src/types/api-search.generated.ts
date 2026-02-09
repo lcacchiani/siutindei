@@ -133,6 +133,11 @@ export interface components {
             /** @description Cognito user sub of the organization manager */
             manager_id: string;
             media_urls: string[];
+            /**
+             * Format: uri
+             * @description Optional logo media URL.
+             */
+            logo_media_url?: string | null;
         };
         Location: {
             /** Format: uuid */

@@ -256,6 +256,11 @@ components:
           type: array
           items:
             type: string
+        logo_media_url:
+          type: string
+          format: uri
+          nullable: true
+          description: Optional logo media URL.
     Location:
       type: object
       required: [id, area_id]

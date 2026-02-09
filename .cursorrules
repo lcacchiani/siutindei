@@ -20,6 +20,8 @@
    - Ask questions to validate requirements and uncover hidden assumptions
 3. **Approval:** Wait for user approval.
 4. **Execute:** Implement the changes only after approval.
+5. **Python formatting:** Run `pre-commit run ruff-format --all-files`
+   before any Python commit.
 
 ### Flutter development guidelines
 ### Repository structure

@@ -220,6 +220,10 @@ class Organization(Base):
         nullable=False,
         server_default=text("'{}'::text[]"),
     )
+    logo_media_url: Mapped[Optional[str]] = mapped_column(
+        Text(),
+        nullable=True,
+    )
     created_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True),
         nullable=False,

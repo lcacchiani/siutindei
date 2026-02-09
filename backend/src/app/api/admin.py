@@ -833,11 +833,25 @@ def _update_organization_for_manager(
             "description_translations",
             MAX_DESCRIPTION_LENGTH,
         )
+    updated_media_urls: Optional[list[str]] = None
     if "media_urls" in body:
-        media_urls = _parse_media_urls(body["media_urls"])
-        if media_urls:
-            media_urls = _validate_media_urls(media_urls)
-        entity.media_urls = media_urls
+        updated_media_urls = _parse_media_urls(body["media_urls"])
+        if updated_media_urls:
+            updated_media_urls = _validate_media_urls(updated_media_urls)
+        entity.media_urls = updated_media_urls
+    media_urls_for_logo = (
+        updated_media_urls
+        if updated_media_urls is not None
+        else list(entity.media_urls or [])
+    )
+    if "logo_media_url" in body:
+        entity.logo_media_url = _validate_logo_media_url(
+            body.get("logo_media_url"),
+            media_urls_for_logo,
+        )
+    elif updated_media_urls is not None:
+        if entity.logo_media_url and entity.logo_media_url not in media_urls_for_logo:
+            entity.logo_media_url = None
     _apply_organization_contact_fields(entity, body)
     return entity
 
@@ -2642,6 +2656,10 @@ def _create_organization(
     media_urls = _parse_media_urls(body.get("media_urls"))
     if media_urls:
         media_urls = _validate_media_urls(media_urls)
+    logo_media_url = _validate_logo_media_url(
+        body.get("logo_media_url"),
+        media_urls,
+    )
     contact_fields = _parse_organization_contact_fields(body)
 
     return Organization(
@@ -2651,6 +2669,7 @@ def _create_organization(
         description_translations=description_translations,
         manager_id=manager_id,
         media_urls=media_urls,
+        logo_media_url=logo_media_url,
         **contact_fields,
     )
 
@@ -2685,11 +2704,25 @@ def _update_organization(
     if "manager_id" in body:
         # manager_id is required, so if provided it must be a valid UUID
         entity.manager_id = _validate_manager_id(body["manager_id"], required=True)  # type: ignore[assignment]
+    updated_media_urls: Optional[list[str]] = None
     if "media_urls" in body:
-        media_urls = _parse_media_urls(body["media_urls"])
-        if media_urls:
-            media_urls = _validate_media_urls(media_urls)
-        entity.media_urls = media_urls
+        updated_media_urls = _parse_media_urls(body["media_urls"])
+        if updated_media_urls:
+            updated_media_urls = _validate_media_urls(updated_media_urls)
+        entity.media_urls = updated_media_urls
+    media_urls_for_logo = (
+        updated_media_urls
+        if updated_media_urls is not None
+        else list(entity.media_urls or [])
+    )
+    if "logo_media_url" in body:
+        entity.logo_media_url = _validate_logo_media_url(
+            body.get("logo_media_url"),
+            media_urls_for_logo,
+        )
+    elif updated_media_urls is not None:
+        if entity.logo_media_url and entity.logo_media_url not in media_urls_for_logo:
+            entity.logo_media_url = None
     _apply_organization_contact_fields(entity, body)
     return entity
 
@@ -2719,6 +2752,7 @@ def _serialize_organization(entity: Organization) -> dict[str, Any]:
         "xiaohongshu": entity.xiaohongshu,
         "wechat": entity.wechat,
         "media_urls": entity.media_urls or [],
+        "logo_media_url": entity.logo_media_url,
         "created_at": entity.created_at,
         "updated_at": entity.updated_at,
     }
@@ -3415,6 +3449,27 @@ def _validate_media_urls(urls: list[str]) -> list[str]:
         if url and url.strip():  # Skip empty or whitespace-only strings
             validated.append(_validate_url(url.strip(), f"media_urls[{i}]"))
     return validated
+
+
+def _validate_logo_media_url(
+    value: Any,
+    media_urls: list[str],
+) -> Optional[str]:
+    """Validate logo_media_url and ensure it exists in media_urls."""
+    logo_url = _validate_string_length(
+        value,
+        "logo_media_url",
+        MAX_URL_LENGTH,
+    )
+    if logo_url is None:
+        return None
+    logo_url = _validate_url(logo_url, "logo_media_url")
+    if logo_url not in media_urls:
+        raise ValidationError(
+            "logo_media_url must match one of media_urls",
+            field="logo_media_url",
+        )
+    return logo_url
 
 
 def _looks_like_url(value: str) -> bool:

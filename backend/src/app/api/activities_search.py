@@ -171,6 +171,7 @@ def map_row_to_result(row: Any) -> ActivitySearchResultSchema:
             ),
             manager_id=organization.manager_id,
             media_urls=organization.media_urls or [],
+            logo_media_url=organization.logo_media_url,
         ),
         location=LocationSchema(
             id=str(location.id),

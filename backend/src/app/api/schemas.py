@@ -23,6 +23,7 @@ class OrganizationSchema(BaseModel):
     description_translations: dict[str, str]
     manager_id: str
     media_urls: List[str]
+    logo_media_url: Optional[str]
 
 
 class LocationSchema(BaseModel):

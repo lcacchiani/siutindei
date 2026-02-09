@@ -49,16 +49,18 @@ class OrganizationEntity {
     required this.name,
     this.description,
     this.mediaUrls = const [],
+    this.logoMediaUrl,
   });
 
   final String id;
   final String name;
   final String? description;
   final List<String> mediaUrls;
+  final String? logoMediaUrl;
 
-  /// Returns the primary media URL, if available.
+  /// Returns the logo URL or the first media URL when available.
   String? get primaryMediaUrl =>
-      mediaUrls.isNotEmpty ? mediaUrls.first : null;
+      logoMediaUrl ?? (mediaUrls.isNotEmpty ? mediaUrls.first : null);
 
   @override
   bool operator ==(Object other) =>

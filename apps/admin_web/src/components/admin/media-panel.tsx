@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import type { ChangeEvent } from 'react';
+import type { ChangeEvent, DragEvent } from 'react';
 import Image, { type ImageLoaderProps } from 'next/image';
 
 import {
@@ -42,6 +42,36 @@ function normalizeMediaUrls(urls: string[]) {
     .map((url) => url.trim())
     .filter((url) => url.length > 0);
   return Array.from(new Set(cleaned));
+}
+
+function reorderMediaUrls(
+  urls: string[],
+  fromIndex: number,
+  toIndex: number
+) {
+  if (
+    fromIndex < 0 ||
+    toIndex < 0 ||
+    fromIndex >= urls.length ||
+    toIndex >= urls.length ||
+    fromIndex === toIndex
+  ) {
+    return urls;
+  }
+  const next = [...urls];
+  const [moved] = next.splice(fromIndex, 1);
+  next.splice(toIndex, 0, moved);
+  return next;
+}
+
+function resolveLogoMediaUrl(
+  mediaUrls: string[],
+  logoMediaUrl?: string | null
+) {
+  if (!logoMediaUrl) {
+    return null;
+  }
+  return mediaUrls.includes(logoMediaUrl) ? logoMediaUrl : null;
 }
 
 function imageLoader({ src }: ImageLoaderProps) {
@@ -102,6 +132,7 @@ export function MediaPanel({ mode = 'admin' }: MediaPanelProps) {
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [mediaUrls, setMediaUrls] = useState<string[]>([]);
+  const [logoMediaUrl, setLogoMediaUrl] = useState<string | null>(null);
   const [newMediaUrl, setNewMediaUrl] = useState('');
   const [pendingMediaDeletes, setPendingMediaDeletes] = useState<
     string[]
@@ -110,6 +141,8 @@ export function MediaPanel({ mode = 'admin' }: MediaPanelProps) {
     []
   );
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const isMediaBusy = isSaving || isProcessingMedia;
@@ -128,8 +161,12 @@ export function MediaPanel({ mode = 'admin' }: MediaPanelProps) {
     }
     if (orgItems.length === 1) {
       const singleOrg = orgItems[0];
+      const nextMediaUrls = singleOrg.media_urls ?? [];
       setSelectedOrgId(singleOrg.id);
-      setMediaUrls(singleOrg.media_urls ?? []);
+      setMediaUrls(nextMediaUrls);
+      setLogoMediaUrl(
+        resolveLogoMediaUrl(nextMediaUrls, singleOrg.logo_media_url)
+      );
     }
   }, [isAdmin, orgItems, selectedOrgId]);
 
@@ -156,9 +193,15 @@ export function MediaPanel({ mode = 'admin' }: MediaPanelProps) {
     setNewMediaUrl('');
     setError('');
     setSuccessMessage('');
+    setDragIndex(null);
+    setDragOverIndex(null);
 
     const org = organizations.find((o) => o.id === orgId);
-    setMediaUrls(org?.media_urls ?? []);
+    const nextMediaUrls = org?.media_urls ?? [];
+    setMediaUrls(nextMediaUrls);
+    setLogoMediaUrl(
+      resolveLogoMediaUrl(nextMediaUrls, org?.logo_media_url)
+    );
   };
 
   const handleAddMediaUrl = () => {
@@ -242,12 +285,74 @@ export function MediaPanel({ mode = 'admin' }: MediaPanelProps) {
       nextMedia.splice(index, 1);
       return nextMedia;
     });
+    if (removedUrl && removedUrl === logoMediaUrl) {
+      setLogoMediaUrl(null);
+    }
     if (removedUrl && selectedOrgId && isManagedMediaUrl(removedUrl)) {
       setPendingMediaDeletes((prev) =>
         normalizeMediaUrls([...prev, removedUrl])
       );
     }
     setHasUnsavedChanges(true);
+  };
+
+  const handleSelectLogo = (url: string) => {
+    setLogoMediaUrl(url);
+    setHasUnsavedChanges(true);
+  };
+
+  const moveMediaTo = (fromIndex: number, toIndex: number) => {
+    setMediaUrls((prev) => reorderMediaUrls(prev, fromIndex, toIndex));
+    setHasUnsavedChanges(true);
+  };
+
+  const handleDragStart = (
+    event: DragEvent<HTMLButtonElement>,
+    index: number
+  ) => {
+    if (isMediaBusy) {
+      return;
+    }
+    setDragIndex(index);
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', String(index));
+  };
+
+  const handleDragOver = (
+    event: DragEvent<HTMLDivElement>,
+    index: number
+  ) => {
+    if (isMediaBusy) {
+      return;
+    }
+    event.preventDefault();
+    setDragOverIndex(index);
+  };
+
+  const handleDrop = (
+    event: DragEvent<HTMLDivElement>,
+    index: number
+  ) => {
+    if (isMediaBusy) {
+      return;
+    }
+    event.preventDefault();
+    const raw = event.dataTransfer.getData('text/plain');
+    const fromIndex = dragIndex !== null ? dragIndex : Number(raw);
+    if (Number.isNaN(fromIndex) || fromIndex === index) {
+      setDragIndex(null);
+      setDragOverIndex(null);
+      return;
+    }
+    setMediaUrls((prev) => reorderMediaUrls(prev, fromIndex, index));
+    setHasUnsavedChanges(true);
+    setDragIndex(null);
+    setDragOverIndex(null);
+  };
+
+  const handleDragEnd = () => {
+    setDragIndex(null);
+    setDragOverIndex(null);
   };
 
   const flushMediaDeletes = async (
@@ -299,11 +404,16 @@ export function MediaPanel({ mode = 'admin' }: MediaPanelProps) {
     setSuccessMessage('');
     try {
       const normalizedUrls = normalizeMediaUrls(mediaUrls);
+      const normalizedLogo =
+        logoMediaUrl && normalizedUrls.includes(logoMediaUrl)
+          ? logoMediaUrl
+          : null;
       const payload = {
         name: selectedOrganization.name,
         description: selectedOrganization.description ?? null,
         manager_id: selectedOrganization.manager_id,
         media_urls: normalizedUrls,
+        logo_media_url: normalizedLogo,
       };
 
       const updated = await updateResource<typeof payload, Organization>(
@@ -316,6 +426,7 @@ export function MediaPanel({ mode = 'admin' }: MediaPanelProps) {
       setOrganizations((prev) =>
         prev.map((org) => (org.id === selectedOrgId ? updated : org))
       );
+      setLogoMediaUrl(updated.logo_media_url ?? null);
 
       await flushMediaDeletes(selectedOrgId, normalizedUrls);
 
@@ -358,11 +469,17 @@ export function MediaPanel({ mode = 'admin' }: MediaPanelProps) {
 
     // Reset to original state
     const org = organizations.find((o) => o.id === selectedOrgId);
-    setMediaUrls(org?.media_urls ?? []);
+    const nextMediaUrls = org?.media_urls ?? [];
+    setMediaUrls(nextMediaUrls);
+    setLogoMediaUrl(
+      resolveLogoMediaUrl(nextMediaUrls, org?.logo_media_url)
+    );
     setPendingMediaDeletes([]);
     setUploadedMediaUrls([]);
     setHasUnsavedChanges(false);
     setSuccessMessage('');
+    setDragIndex(null);
+    setDragOverIndex(null);
   };
 
   return (
@@ -457,51 +574,112 @@ export function MediaPanel({ mode = 'admin' }: MediaPanelProps) {
                 Choose files
               </Button>
               <p className='text-xs text-slate-500 sm:self-center'>
-                Upload files or add URLs. Save to apply changes.
+                Upload files or add URLs. Drag or use arrows to reorder.
+                Select a logo, then save to apply changes.
               </p>
             </div>
 
             {mediaUrls.length > 0 ? (
               <div className='grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'>
-                {mediaUrls.map((url, index) => (
-                  <div
-                    key={`${url}-${index}`}
-                    className='overflow-hidden rounded-lg border border-slate-200'
-                  >
-                    <Image
-                      src={url}
-                      alt={`Organization media ${index + 1}`}
-                      width={320}
-                      height={112}
-                      sizes={
-                        '(min-width: 1024px) 33vw, ' +
-                        '(min-width: 640px) 50vw, 100vw'
-                      }
-                      className='h-32 w-full object-cover sm:h-28'
-                      loading='lazy'
-                      loader={imageLoader}
-                    />
-                    <div className='flex items-center justify-between gap-2 px-3 py-2 text-xs'>
-                      <a
-                        href={url}
-                        target='_blank'
-                        rel='noreferrer'
-                        className='truncate text-slate-600 hover:text-slate-900'
-                      >
-                        Open
-                      </a>
-                      <Button
-                        type='button'
-                        size='sm'
-                        variant='danger'
-                        onClick={() => removeMediaAt(index)}
-                        disabled={isMediaBusy}
-                      >
-                        Remove
-                      </Button>
+                {mediaUrls.map((url, index) => {
+                  const isDropTarget =
+                    dragOverIndex === index && dragIndex !== null;
+                  const isFirst = index === 0;
+                  const isLast = index === mediaUrls.length - 1;
+                  return (
+                    <div
+                      key={`${url}-${index}`}
+                      className={`overflow-hidden rounded-lg border border-slate-200 ${
+                        isDropTarget ? 'ring-2 ring-sky-400' : ''
+                      }`}
+                      onDragOver={(event) => handleDragOver(event, index)}
+                      onDrop={(event) => handleDrop(event, index)}
+                    >
+                      <Image
+                        src={url}
+                        alt={`Organization media ${index + 1}`}
+                        width={320}
+                        height={112}
+                        sizes={
+                          '(min-width: 1024px) 33vw, ' +
+                          '(min-width: 640px) 50vw, 100vw'
+                        }
+                        className='h-32 w-full object-cover sm:h-28'
+                        loading='lazy'
+                        loader={imageLoader}
+                      />
+                      <div className='flex items-center justify-between gap-2 px-3 py-2 text-xs'>
+                        <div className='flex items-center gap-2'>
+                          <Button
+                            type='button'
+                            size='sm'
+                            variant='ghost'
+                            className='px-2 text-xs'
+                            draggable={!isMediaBusy}
+                            onDragStart={(event) =>
+                              handleDragStart(event, index)
+                            }
+                            onDragEnd={handleDragEnd}
+                            disabled={isMediaBusy}
+                          >
+                            Drag
+                          </Button>
+                          <label className='flex items-center gap-2 text-slate-600'>
+                            <input
+                              type='radio'
+                              name='logo_media'
+                              value={url}
+                              checked={logoMediaUrl === url}
+                              onChange={() => handleSelectLogo(url)}
+                              disabled={isMediaBusy}
+                              className='h-3 w-3'
+                            />
+                            <span>Logo</span>
+                          </label>
+                        </div>
+                        <div className='flex items-center gap-1'>
+                          <Button
+                            type='button'
+                            size='sm'
+                            variant='ghost'
+                            onClick={() => moveMediaTo(index, index - 1)}
+                            disabled={isMediaBusy || isFirst}
+                          >
+                            Up
+                          </Button>
+                          <Button
+                            type='button'
+                            size='sm'
+                            variant='ghost'
+                            onClick={() => moveMediaTo(index, index + 1)}
+                            disabled={isMediaBusy || isLast}
+                          >
+                            Down
+                          </Button>
+                        </div>
+                      </div>
+                      <div className='flex items-center justify-between gap-2 px-3 pb-3 text-xs'>
+                        <a
+                          href={url}
+                          target='_blank'
+                          rel='noreferrer'
+                          className='truncate text-slate-600 hover:text-slate-900'
+                        >
+                          Open
+                        </a>
+                        <Button
+                          type='button'
+                          size='sm'
+                          variant='danger'
+                          onClick={() => removeMediaAt(index)}
+                          disabled={isMediaBusy}
+                        >
+                          Remove
+                        </Button>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <p className='text-sm text-slate-500'>

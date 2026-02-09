@@ -37,6 +37,7 @@ Columns:
 - `xiaohongshu` (text, optional)
 - `wechat` (text, optional)
 - `media_urls` (text[], default empty array)
+- `logo_media_url` (text, optional)
 - `created_at` (timestamptz, default `now()`)
 - `updated_at` (timestamptz, default `now()`)
 
