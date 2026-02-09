@@ -322,6 +322,7 @@ export function OrganizationsPanel({ mode }: OrganizationsPanelProps) {
     emptyForm,
     itemToForm
   );
+  const { items, editingId, startEdit } = panel;
 
   // Admin-only: Load Cognito users for manager selection
   const [cognitoUsers, setCognitoUsers] = useState<CognitoUser[]>([]);
@@ -367,14 +368,14 @@ export function OrganizationsPanel({ mode }: OrganizationsPanelProps) {
     if (!isManager) {
       return;
     }
-    if (panel.items.length === 0) {
+    if (items.length === 0) {
       return;
     }
-    if (panel.editingId) {
+    if (editingId) {
       return;
     }
-    panel.startEdit(panel.items[0]);
-  }, [isManager, panel.editingId, panel.items, panel.startEdit]);
+    startEdit(items[0]);
+  }, [editingId, isManager, items, startEdit]);
 
   const countryOptions = useMemo(() => {
     const display =
