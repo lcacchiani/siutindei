@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import currencyCodes from 'currency-codes';
 
@@ -103,12 +103,52 @@ export function PricingPanel({ mode }: PricingPanelProps) {
     emptyForm,
     itemToForm
   );
+  const { editingId, formState, setFormState } = panel;
 
   const { items: activities } = useActivitiesByMode(mode, { limit: 200 });
   const { items: locations } = useLocationsByMode(mode, { limit: 200 });
 
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
+
+  useEffect(() => {
+    if (editingId) {
+      return;
+    }
+    const defaultActivityId =
+      activities.length === 1 ? activities[0]?.id ?? '' : '';
+    const defaultLocationId =
+      locations.length === 1 ? locations[0]?.id ?? '' : '';
+    const shouldSetActivityDefault =
+      Boolean(defaultActivityId) && !formState.activity_id;
+    const shouldSetLocationDefault =
+      Boolean(defaultLocationId) && !formState.location_id;
+    if (!shouldSetActivityDefault && !shouldSetLocationDefault) {
+      return;
+    }
+    setFormState((prev) => {
+      const nextActivityId = prev.activity_id || defaultActivityId;
+      const nextLocationId = prev.location_id || defaultLocationId;
+      if (
+        nextActivityId === prev.activity_id &&
+        nextLocationId === prev.location_id
+      ) {
+        return prev;
+      }
+      return {
+        ...prev,
+        activity_id: nextActivityId,
+        location_id: nextLocationId,
+      };
+    });
+  }, [
+    activities,
+    locations,
+    editingId,
+    formState.activity_id,
+    formState.location_id,
+    setFormState,
+  ]);
 
   const currencyOptions = useMemo<CurrencyOption[]>(() => {
     const display =
@@ -230,22 +270,22 @@ export function PricingPanel({ mode }: PricingPanelProps) {
 
   const columns = [
     {
-      key: 'activity',
-      header: 'Activity',
+      key: 'location',
+      header: 'Location',
       primary: true,
       render: (item: ActivityPricing) => (
         <span className='font-medium'>
-          {getActivityName(item.activity_id)}
+          {getLocationName(item.location_id)}
         </span>
       ),
     },
     {
-      key: 'location',
-      header: 'Location',
+      key: 'activity',
+      header: 'Activity',
       secondary: true,
       render: (item: ActivityPricing) => (
         <span className='text-slate-600'>
-          {getLocationName(item.location_id)}
+          {getActivityName(item.activity_id)}
         </span>
       ),
     },
@@ -309,26 +349,6 @@ export function PricingPanel({ mode }: PricingPanelProps) {
         )}
         <div className='grid gap-4 md:grid-cols-2'>
           <div>
-            <Label htmlFor='pricing-activity'>Activity</Label>
-            <Select
-              id='pricing-activity'
-              value={panel.formState.activity_id}
-              onChange={(e) =>
-                panel.setFormState((prev) => ({
-                  ...prev,
-                  activity_id: e.target.value,
-                }))
-              }
-            >
-              <option value=''>Select activity</option>
-              {activities.map((activity) => (
-                <option key={activity.id} value={activity.id}>
-                  {activity.name}
-                </option>
-              ))}
-            </Select>
-          </div>
-          <div>
             <Label htmlFor='pricing-location'>Location</Label>
             <Select
               id='pricing-location'
@@ -344,6 +364,26 @@ export function PricingPanel({ mode }: PricingPanelProps) {
               {locations.map((location) => (
                 <option key={location.id} value={location.id}>
                   {location.address || location.area_id}
+                </option>
+              ))}
+            </Select>
+          </div>
+          <div>
+            <Label htmlFor='pricing-activity'>Activity</Label>
+            <Select
+              id='pricing-activity'
+              value={panel.formState.activity_id}
+              onChange={(e) =>
+                panel.setFormState((prev) => ({
+                  ...prev,
+                  activity_id: e.target.value,
+                }))
+              }
+            >
+              <option value=''>Select activity</option>
+              {activities.map((activity) => (
+                <option key={activity.id} value={activity.id}>
+                  {activity.name}
                 </option>
               ))}
             </Select>
