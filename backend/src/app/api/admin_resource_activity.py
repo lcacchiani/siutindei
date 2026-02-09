@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Any
+from uuid import UUID
 
 from psycopg.types.range import Range
 
@@ -32,6 +33,9 @@ def _create_activity(repo: ActivityRepository, body: dict[str, Any]) -> Activity
     name = _validate_string_length(
         body.get("name"), "name", MAX_NAME_LENGTH, required=True
     )
+    if name is None:
+        raise ValidationError("name is required", field="name")
+    _ensure_unique_activity_name(repo, _parse_uuid(org_id), name, current_id=None)
     description = _validate_string_length(
         body.get("description"), "description", MAX_DESCRIPTION_LENGTH
     )
@@ -77,6 +81,11 @@ def _update_activity(
     if "name" in body:
         name = _validate_string_length(
             body["name"], "name", MAX_NAME_LENGTH, required=True
+        )
+        if name is None:
+            raise ValidationError("name is required", field="name")
+        _ensure_unique_activity_name(
+            repo, _parse_uuid(str(entity.org_id)), name, current_id=str(entity.id)
         )
         entity.name = name  # type: ignore[assignment]
     if "description" in body:
@@ -132,6 +141,27 @@ def _validate_age_range(age_min: Any, age_max: Any) -> None:
         )
     if age_min_val >= age_max_val:
         raise ValidationError("age_min must be less than age_max")
+
+
+def _ensure_unique_activity_name(
+    repo: ActivityRepository,
+    org_id: str | UUID,
+    name: str,
+    current_id: str | None,
+) -> None:
+    """Ensure activity name is unique within an organization."""
+    existing = repo.find_by_org_and_name_case_insensitive(
+        _parse_uuid(str(org_id)),
+        name,
+    )
+    if existing is None:
+        return
+    if current_id is not None and str(existing.id) == str(current_id):
+        return
+    raise ValidationError(
+        "Activity name already exists for organization",
+        field="name",
+    )
 
 
 def _serialize_activity(entity: Activity) -> dict[str, Any]:

@@ -104,7 +104,7 @@ def upsert_organization(
     if name is None:
         raise ValidationError("name is required", field="name")
     try:
-        existing = repo.find_by_name(name)
+        existing = repo.find_by_name_case_insensitive(name)
     except MultipleResultsFound as exc:
         raise ValidationError(
             "Multiple organizations found",
@@ -138,7 +138,7 @@ def upsert_location(
 ) -> tuple[Location, str]:
     repo = LocationRepository(session)
     try:
-        existing = repo.find_by_org_and_address(
+        existing = repo.find_by_org_and_address_case_insensitive(
             _coerce_uuid(org.id),
             address_value,
         )
@@ -179,7 +179,9 @@ def upsert_activity(
     if name is None:
         raise ValidationError("name is required", field="name")
     try:
-        existing = repo.find_by_org_and_name(_coerce_uuid(org.id), name)
+        existing = repo.find_by_org_and_name_case_insensitive(
+            _coerce_uuid(org.id), name
+        )
     except MultipleResultsFound as exc:
         raise ValidationError(
             "Multiple activities found",
@@ -356,7 +358,7 @@ def resolve_location(
         return cached
     repo = LocationRepository(session)
     try:
-        location = repo.find_by_org_and_address(
+        location = repo.find_by_org_and_address_case_insensitive(
             _coerce_uuid(org.id),
             location_name,
         )
