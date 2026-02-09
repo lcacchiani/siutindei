@@ -2,15 +2,11 @@
 
 from __future__ import annotations
 
-import base64
-import json
 import os
-from typing import Any
 from urllib.parse import quote_plus
 
-import boto3
-
-_SECRET_CACHE: dict[str, dict[str, Any]] = {}
+from app.services.aws_clients import get_rds_client
+from app.services.secrets import get_secret_json
 
 
 def get_database_url() -> str:
@@ -24,7 +20,7 @@ def get_database_url() -> str:
     if not secret_arn:
         raise RuntimeError("DATABASE_URL or DATABASE_SECRET_ARN is required")
 
-    secret = _get_secret(secret_arn)
+    secret = get_secret_json(secret_arn)
     username = (
         os.getenv("DATABASE_USERNAME") or secret.get("username") or secret.get("user")
     )
@@ -62,26 +58,6 @@ def get_database_url() -> str:
     )
 
 
-def _get_secret(secret_arn: str) -> dict[str, Any]:
-    """Fetch a secret from AWS Secrets Manager."""
-
-    if secret_arn in _SECRET_CACHE:
-        return _SECRET_CACHE[secret_arn]
-
-    client = boto3.client("secretsmanager")
-    response = client.get_secret_value(SecretId=secret_arn)
-    secret_str = response.get("SecretString")
-    if not secret_str and response.get("SecretBinary"):
-        secret_str = base64.b64decode(response["SecretBinary"]).decode("utf-8")
-
-    if not secret_str:
-        raise RuntimeError("Secret value is empty")
-
-    secret_payload = json.loads(secret_str)
-    _SECRET_CACHE[secret_arn] = secret_payload
-    return secret_payload
-
-
 def _use_iam_auth() -> bool:
     """Return True if IAM auth is enabled."""
 
@@ -95,7 +71,7 @@ def _generate_iam_token(host: str, port: int, username: str) -> str:
     if not region:
         raise RuntimeError("AWS_REGION is required for IAM auth")
 
-    client = boto3.client("rds", region_name=region)
+    client = get_rds_client(region_name=region)
     return client.generate_db_auth_token(
         DBHostname=host, Port=port, DBUsername=username
     )

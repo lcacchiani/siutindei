@@ -1,0 +1,243 @@
+"""Organization resource handlers for admin APIs."""
+
+from __future__ import annotations
+
+from typing import Any, Optional
+
+from app.api.admin_validators import (
+    MAX_DESCRIPTION_LENGTH,
+    MAX_NAME_LENGTH,
+    SOCIAL_FIELDS,
+    _parse_media_urls,
+    _validate_email,
+    _validate_logo_media_url,
+    _validate_manager_id,
+    _validate_media_urls,
+    _validate_phone_fields,
+    _validate_social_value,
+    _validate_string_length,
+    _validate_translations_map,
+)
+from app.db.models import Organization
+from app.db.repositories import OrganizationRepository
+from app.utils.translations import build_translation_map
+
+
+def _parse_organization_contact_fields(body: dict[str, Any]) -> dict[str, Any]:
+    """Parse organization contact fields."""
+    phone_country_code, phone_number = _validate_phone_fields(
+        body.get("phone_country_code"),
+        body.get("phone_number"),
+    )
+    return {
+        "phone_country_code": phone_country_code,
+        "phone_number": phone_number,
+        "email": _validate_email(body.get("email")),
+        "whatsapp": _validate_social_value(body.get("whatsapp"), "whatsapp"),
+        "facebook": _validate_social_value(body.get("facebook"), "facebook"),
+        "instagram": _validate_social_value(body.get("instagram"), "instagram"),
+        "tiktok": _validate_social_value(body.get("tiktok"), "tiktok"),
+        "twitter": _validate_social_value(body.get("twitter"), "twitter"),
+        "xiaohongshu": _validate_social_value(
+            body.get("xiaohongshu"),
+            "xiaohongshu",
+        ),
+        "wechat": _validate_social_value(body.get("wechat"), "wechat"),
+    }
+
+
+def _apply_organization_contact_fields(
+    entity: Organization,
+    body: dict[str, Any],
+) -> None:
+    """Apply organization contact updates."""
+    if "phone_country_code" in body or "phone_number" in body:
+        country_code = body.get("phone_country_code", entity.phone_country_code)
+        number = body.get("phone_number", entity.phone_number)
+        country_code, number = _validate_phone_fields(country_code, number)
+        entity.phone_country_code = country_code
+        entity.phone_number = number
+    if "email" in body:
+        entity.email = _validate_email(body["email"])
+    for field in SOCIAL_FIELDS:
+        if field in body:
+            setattr(
+                entity,
+                field,
+                _validate_social_value(body[field], field),
+            )
+
+
+def _update_organization_for_manager(
+    repo: OrganizationRepository,
+    entity: Organization,
+    body: dict[str, Any],
+) -> Organization:
+    """Update an organization for a manager (limited fields)."""
+    del repo  # Unused, for signature compatibility
+    if "name" in body:
+        name = _validate_string_length(
+            body["name"], "name", MAX_NAME_LENGTH, required=True
+        )
+        entity.name = name  # type: ignore[assignment]
+    if "description" in body:
+        entity.description = _validate_string_length(
+            body["description"], "description", MAX_DESCRIPTION_LENGTH
+        )
+    if "name_translations" in body:
+        entity.name_translations = _validate_translations_map(
+            body["name_translations"],
+            "name_translations",
+            MAX_NAME_LENGTH,
+        )
+    if "description_translations" in body:
+        entity.description_translations = _validate_translations_map(
+            body["description_translations"],
+            "description_translations",
+            MAX_DESCRIPTION_LENGTH,
+        )
+    updated_media_urls: Optional[list[str]] = None
+    if "media_urls" in body:
+        updated_media_urls = _parse_media_urls(body["media_urls"])
+        if updated_media_urls:
+            updated_media_urls = _validate_media_urls(updated_media_urls)
+        entity.media_urls = updated_media_urls
+    media_urls_for_logo = (
+        updated_media_urls
+        if updated_media_urls is not None
+        else list(entity.media_urls or [])
+    )
+    if "logo_media_url" in body:
+        entity.logo_media_url = _validate_logo_media_url(
+            body.get("logo_media_url"),
+            media_urls_for_logo,
+        )
+    elif updated_media_urls is not None:
+        if entity.logo_media_url and entity.logo_media_url not in media_urls_for_logo:
+            entity.logo_media_url = None
+    _apply_organization_contact_fields(entity, body)
+    return entity
+
+
+def _create_organization(
+    repo: OrganizationRepository, body: dict[str, Any]
+) -> Organization:
+    """Create an organization."""
+    name = _validate_string_length(
+        body.get("name"), "name", MAX_NAME_LENGTH, required=True
+    )
+    description = _validate_string_length(
+        body.get("description"), "description", MAX_DESCRIPTION_LENGTH
+    )
+    name_translations = _validate_translations_map(
+        body.get("name_translations"),
+        "name_translations",
+        MAX_NAME_LENGTH,
+    )
+    description_translations = _validate_translations_map(
+        body.get("description_translations"),
+        "description_translations",
+        MAX_DESCRIPTION_LENGTH,
+    )
+    manager_id = _validate_manager_id(body.get("manager_id"), required=True)
+    media_urls = _parse_media_urls(body.get("media_urls"))
+    if media_urls:
+        media_urls = _validate_media_urls(media_urls)
+    logo_media_url = _validate_logo_media_url(
+        body.get("logo_media_url"),
+        media_urls,
+    )
+    contact_fields = _parse_organization_contact_fields(body)
+
+    return Organization(
+        name=name,
+        description=description,
+        name_translations=name_translations,
+        description_translations=description_translations,
+        manager_id=manager_id,
+        media_urls=media_urls,
+        logo_media_url=logo_media_url,
+        **contact_fields,
+    )
+
+
+def _update_organization(
+    repo: OrganizationRepository,
+    entity: Organization,
+    body: dict[str, Any],
+) -> Organization:
+    """Update an organization."""
+    if "name" in body:
+        name = _validate_string_length(
+            body["name"], "name", MAX_NAME_LENGTH, required=True
+        )
+        entity.name = name  # type: ignore[assignment]
+    if "description" in body:
+        entity.description = _validate_string_length(
+            body["description"], "description", MAX_DESCRIPTION_LENGTH
+        )
+    if "name_translations" in body:
+        entity.name_translations = _validate_translations_map(
+            body["name_translations"],
+            "name_translations",
+            MAX_NAME_LENGTH,
+        )
+    if "description_translations" in body:
+        entity.description_translations = _validate_translations_map(
+            body["description_translations"],
+            "description_translations",
+            MAX_DESCRIPTION_LENGTH,
+        )
+    if "manager_id" in body:
+        entity.manager_id = _validate_manager_id(body["manager_id"], required=True)  # type: ignore[assignment]
+    updated_media_urls: Optional[list[str]] = None
+    if "media_urls" in body:
+        updated_media_urls = _parse_media_urls(body["media_urls"])
+        if updated_media_urls:
+            updated_media_urls = _validate_media_urls(updated_media_urls)
+        entity.media_urls = updated_media_urls
+    media_urls_for_logo = (
+        updated_media_urls
+        if updated_media_urls is not None
+        else list(entity.media_urls or [])
+    )
+    if "logo_media_url" in body:
+        entity.logo_media_url = _validate_logo_media_url(
+            body.get("logo_media_url"),
+            media_urls_for_logo,
+        )
+    elif updated_media_urls is not None:
+        if entity.logo_media_url and entity.logo_media_url not in media_urls_for_logo:
+            entity.logo_media_url = None
+    _apply_organization_contact_fields(entity, body)
+    return entity
+
+
+def _serialize_organization(entity: Organization) -> dict[str, Any]:
+    """Serialize an organization."""
+    return {
+        "id": str(entity.id),
+        "name": entity.name,
+        "description": entity.description,
+        "name_translations": build_translation_map(
+            entity.name, entity.name_translations
+        ),
+        "description_translations": build_translation_map(
+            entity.description, entity.description_translations
+        ),
+        "manager_id": entity.manager_id,
+        "phone_country_code": entity.phone_country_code,
+        "phone_number": entity.phone_number,
+        "email": entity.email,
+        "whatsapp": entity.whatsapp,
+        "facebook": entity.facebook,
+        "instagram": entity.instagram,
+        "tiktok": entity.tiktok,
+        "twitter": entity.twitter,
+        "xiaohongshu": entity.xiaohongshu,
+        "wechat": entity.wechat,
+        "media_urls": entity.media_urls or [],
+        "logo_media_url": entity.logo_media_url,
+        "created_at": entity.created_at,
+        "updated_at": entity.updated_at,
+    }

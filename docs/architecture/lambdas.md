@@ -31,6 +31,10 @@ their primary responsibilities.
   (filtered by ownership), user self-service (tickets), Cognito user
   management, audit logs, and media upload
 - DB access: RDS Proxy with IAM auth (`siutindei_admin`)
+- Environment:
+  - `SES_SENDER_EMAIL`
+  - `SES_TEMPLATE_REQUEST_DECISION` (optional)
+  - `SES_TEMPLATE_SUGGESTION_DECISION` (optional)
 - For the full endpoint list, see the OpenAPI spec:
   `docs/api/admin.yaml`
 
@@ -146,6 +150,8 @@ their primary responsibilities.
   - `DATABASE_SECRET_ARN`, `DATABASE_NAME`, `DATABASE_USERNAME`,
     `DATABASE_PROXY_ENDPOINT`, `DATABASE_IAM_AUTH`
   - `SES_SENDER_EMAIL`, `SUPPORT_EMAIL`
+  - `SES_TEMPLATE_NEW_ACCESS_REQUEST` (optional)
+  - `SES_TEMPLATE_NEW_SUGGESTION` (optional)
 
 ### AWS / HTTP proxy
 - Function: AwsApiProxyFunction

@@ -119,6 +119,8 @@ The processor checks if a ticket with the same `ticket_id` already exists before
 | `DATABASE_PROXY_ENDPOINT` | RDS Proxy endpoint |
 | `SUPPORT_EMAIL` | Email to receive notifications |
 | `SES_SENDER_EMAIL` | Verified SES sender address |
+| `SES_TEMPLATE_NEW_ACCESS_REQUEST` | Optional SES template for access requests |
+| `SES_TEMPLATE_NEW_SUGGESTION` | Optional SES template for suggestions |
 
 ## Stack Outputs
 

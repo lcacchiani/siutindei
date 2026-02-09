@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
-import boto3
 from botocore.exceptions import ClientError
 
+from app.services.aws_clients import get_cognito_idp_client
 from app.utils.cfn_response import send_cfn_response
 from app.utils.logging import configure_logging, get_logger
 from app.utils.logging import hash_for_correlation, mask_email
@@ -52,7 +52,7 @@ def lambda_handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
         if request_type not in {"Create", "Update"}:
             raise ValueError("Unsupported request type")
 
-        client = boto3.client("cognito-idp")
+        client = get_cognito_idp_client()
         _create_or_update_user(
             client,
             user_pool_id,

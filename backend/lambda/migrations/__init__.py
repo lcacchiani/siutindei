@@ -1,0 +1,1 @@
+"""Migrations Lambda package."""

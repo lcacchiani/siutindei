@@ -213,6 +213,7 @@ repo root
 - Strive for source code that is easy to read and maintain, and provide accurate examples.
 - Avoid duplication of code: modularise widgets and functions into reusable components.
 - Use descriptive variable names: use names with auxiliary verbs such as isLoading, hasError.
+- Python files must not exceed 500 lines.
 
 ### Directory structure under /lib.
 - /lib/models/: data models and type definitions (Models)
