@@ -1038,8 +1038,9 @@ export class ApiStack extends cdk.Stack {
       });
     }
 
+    // Keep bucket names <= 63 chars (S3 limit) using the standard prefix+suffix+account+region pattern.
     const adminImportExportBucketName = [
-      name("admin-import-export"),
+      name("admin-imports"),
       cdk.Aws.ACCOUNT_ID,
       cdk.Aws.REGION,
     ].join("-");
