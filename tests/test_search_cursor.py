@@ -1,4 +1,4 @@
-"""Tests for activity search cursor encoding."""
+"""Tests for search cursor encoding."""
 
 from __future__ import annotations
 
@@ -6,18 +6,19 @@ import base64
 import json
 import sys
 from pathlib import Path
-from uuid import UUID
 from uuid import uuid4
 
 import pytest
 
 sys.path.append(str(Path(__file__).resolve().parents[1] / "backend" / "src"))
 
-from app.api.activities_search import _decode_cursor  # noqa: E402
-from app.api.activities_search import _encode_cursor  # noqa: E402
-from app.api.activities_search import _parse_cursor  # noqa: E402
+from app.api.search import _decode_cursor  # noqa: E402
+from app.api.search import _encode_cursor  # noqa: E402
+from app.api.search import _parse_cursor  # noqa: E402
 from app.db.models import ScheduleType  # noqa: E402
 from app.exceptions import CursorError  # noqa: E402
+
+
 class _ScheduleStub:
     def __init__(self, schedule_id, schedule_type):
         self.id = schedule_id

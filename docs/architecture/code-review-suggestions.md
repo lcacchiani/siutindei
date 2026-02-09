@@ -18,7 +18,7 @@ The solution demonstrates solid architecture with proper separation of concerns,
 
 ### 1.1 Duplicate Code in Lambda Handlers
 
-**Issue**: The `activities_search.py` and `admin.py` modules have duplicated utility functions.
+**Issue**: The `search.py` and `admin.py` modules have duplicated utility functions.
 
 **Current Duplication**:
 - `_parse_int()`, `_parse_datetime()`, `_json_response()` exist in both files
@@ -727,7 +727,7 @@ class TestActivitySearchHandler:
 
     def test_returns_400_for_invalid_filters(self):
         """Invalid filter combinations should return 400."""
-        from lambda.activity_search.handler import lambda_handler
+        from lambda.search.handler import lambda_handler
         
         event = {
             'queryStringParameters': {
@@ -869,7 +869,7 @@ paths:
 **Recommendation**: Add module-level docstrings explaining the purpose and relationships.
 
 ```python
-# backend/src/app/api/activities_search.py
+# backend/src/app/api/search.py
 """
 Activity Search API Module
 ==========================

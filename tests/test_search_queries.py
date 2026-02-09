@@ -1,19 +1,19 @@
-"""Tests for activity search query building."""
+"""Tests for search query building."""
 
 from __future__ import annotations
 
 import sys
 from pathlib import Path
+from uuid import uuid4
 
 import pytest
-from uuid import uuid4
 
 sys.path.append(str(Path(__file__).resolve().parents[1] / "backend" / "src"))
 
 from app.db.models import ScheduleType  # noqa: E402
 from app.db.queries import ActivitySearchCursor  # noqa: E402
 from app.db.queries import ActivitySearchFilters  # noqa: E402
-from app.db.queries import build_activity_search_query  # noqa: E402
+from app.db.queries import build_search_query  # noqa: E402
 from app.db.queries import validate_filters  # noqa: E402
 
 
@@ -33,17 +33,18 @@ def test_validate_filters_rejects_invalid_minutes() -> None:
         validate_filters(filters)
 
 
-def test_build_activity_search_query_includes_wrap_conditions() -> None:
+def test_build_search_query_includes_wrap_conditions() -> None:
     """Ensure wrapped schedules are considered for time filters."""
 
     filters = ActivitySearchFilters(start_minutes_utc=480, end_minutes_utc=600)
-    query = build_activity_search_query(filters)
+    query = build_search_query(filters)
     where_clause = str(query.whereclause)
     wrap_fragment = (
         "activity_schedule.start_minutes_utc > "
         "activity_schedule.end_minutes_utc"
     )
     assert wrap_fragment in where_clause
+
 
 def test_validate_filters_rejects_schedule_type_conflict() -> None:
     """Ensure schedule_type conflicts are rejected."""
@@ -56,15 +57,15 @@ def test_validate_filters_rejects_schedule_type_conflict() -> None:
         validate_filters(filters)
 
 
-def test_build_activity_search_query_sets_limit() -> None:
+def test_build_search_query_sets_limit() -> None:
     """Ensure the query sets a limit."""
 
     filters = ActivitySearchFilters(limit=25)
-    query = build_activity_search_query(filters)
+    query = build_search_query(filters)
     assert query._limit_clause is not None
 
 
-def test_build_activity_search_query_applies_cursor() -> None:
+def test_build_search_query_applies_cursor() -> None:
     """Ensure the cursor filter is applied."""
 
     cursor_id = uuid4()
@@ -77,6 +78,6 @@ def test_build_activity_search_query_applies_cursor() -> None:
         schedule_id=cursor_id,
     )
     filters = ActivitySearchFilters(cursor=cursor)
-    query = build_activity_search_query(filters)
+    query = build_search_query(filters)
     where_clause = str(query.whereclause)
     assert "activity_schedule.id" in where_clause
