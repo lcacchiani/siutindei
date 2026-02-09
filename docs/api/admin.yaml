@@ -46,8 +46,8 @@ info:
     ### Allowed Values
     | Field | Allowed Values |
     |-------|---------------|
-    | currency | HKD, USD, EUR, GBP, CNY, JPY, SGD, AUD, CAD, CHF, NZD, TWD, KRW, THB, MYR, PHP, IDR, INR, VND |
-    | languages | en, zh, ja, ko, fr, de, es, pt, it, ru, ar, hi, th, vi, id, ms, tl, nl, pl, tr, yue |
+    | currency | Any ISO 4217 3-letter code (default HKD, case-insensitive) |
+    | languages | en, zh, ja, ko, fr, de, es, pt, it, ru, ar, hi, th, vi, id, ms, tl, nl, pl, tr, yue (Cantonese, ISO 639-3) |
     | pricing_type | per_class, per_sessions, per_hour, per_day, free |
     | schedule_type | weekly, monthly, date_specific |
 
@@ -1554,8 +1554,8 @@ components:
       additionalProperties:
         type: string
       description: |
-        Language map for translated text. The server always includes English
-        as "en" and may include additional languages like "zh" or "yue".
+        Language map for translated text. The server always includes English as "en".
+        Additional entries must use ISO 639-1 codes plus "yue" (Cantonese, ISO 639-3).
 
     # Organization schemas
     OrganizationCreate:
@@ -2219,7 +2219,8 @@ components:
             type: string
             enum: [en, zh, ja, ko, fr, de, es, pt, it, ru, ar, hi, th, vi, id, ms, tl, nl, pl, tr, yue]
           description: |
-            ISO 639-1 language codes (optional, max 20).
+            ISO 639-1 language codes plus "yue" (Cantonese, ISO 639-3)
+            (optional, max 20).
             Supported: en (English), zh (Chinese), ja (Japanese), ko (Korean),
             fr (French), de (German), es (Spanish), pt (Portuguese), it (Italian),
             ru (Russian), ar (Arabic), hi (Hindi), th (Thai), vi (Vietnamese),
