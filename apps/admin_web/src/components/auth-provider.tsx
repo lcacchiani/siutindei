@@ -12,6 +12,7 @@ import {
   startLogin,
   startLogout,
   storeTokensFromPasswordless,
+  type LoginOptions,
 } from '../lib/auth';
 import {
   initiatePasswordlessSignIn,
@@ -36,7 +37,7 @@ export interface AuthContextValue {
   isManager: boolean;
   configErrors: string[];
   error: string;
-  login: () => Promise<void>;
+  login: (options?: LoginOptions) => Promise<void>;
   logout: () => void;
   // Passwordless auth
   passwordlessStatus: PasswordlessStatus;
@@ -120,8 +121,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [configErrors]);
 
-  const login = async () => {
-    await startLogin();
+  const login = async (options?: LoginOptions) => {
+    await startLogin(options);
   };
 
   const logout = () => {

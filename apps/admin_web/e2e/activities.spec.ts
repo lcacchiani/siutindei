@@ -2,7 +2,7 @@ import { test, expect } from './fixtures/test-fixtures';
 
 test.describe('Activities Panel', () => {
   test.beforeEach(async ({ adminPage }) => {
-    await adminPage.goto('/');
+  await adminPage.goto('/admin/dashboard');
     // Navigate to Activities section
     await adminPage.getByRole('button', { name: 'Activities' }).click();
   });
@@ -247,7 +247,7 @@ test.describe('Activities Panel', () => {
 
 test.describe('Activities Panel - Form Validation', () => {
   test.beforeEach(async ({ adminPage }) => {
-    await adminPage.goto('/');
+  await adminPage.goto('/admin/dashboard');
     await adminPage.getByRole('button', { name: 'Activities' }).click();
   });
 

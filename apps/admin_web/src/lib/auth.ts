@@ -28,6 +28,11 @@ interface TokenResponse {
   error_description?: string;
 }
 
+export interface LoginOptions {
+  provider?: string;
+  returnTo?: string;
+}
+
 function loadTokens() {
   if (typeof window === 'undefined') {
     return null;
@@ -90,6 +95,17 @@ function clearLoginRedirect() {
     return;
   }
   window.sessionStorage.removeItem(loginRedirectStorageKey);
+}
+
+function resolveReturnTo(returnTo?: string) {
+  if (typeof window === 'undefined') {
+    return '/';
+  }
+  if (returnTo && returnTo.startsWith('/')) {
+    return returnTo;
+  }
+  const { pathname, search } = window.location;
+  return `${pathname}${search}`;
 }
 
 function resolveLoginRedirect() {
@@ -171,11 +187,11 @@ export function getUserProfile(tokens: StoredTokens): UserProfile {
   return { email, groups, subject, lastAuthTime };
 }
 
-export async function startLogin() {
+export async function startLogin(options?: LoginOptions) {
   if (typeof window === 'undefined') {
     return;
   }
-  const returnTo = `${window.location.pathname}${window.location.search}`;
+  const returnTo = resolveReturnTo(options?.returnTo);
   storeLoginRedirect(returnTo);
   const { verifier, challenge } = await generatePkcePair();
   window.sessionStorage.setItem(pkceStorageKey, verifier);
@@ -187,6 +203,9 @@ export async function startLogin() {
     code_challenge_method: 'S256',
     code_challenge: challenge,
   });
+  if (options?.provider) {
+    params.set('identity_provider', options.provider);
+  }
   const url = `${getCognitoDomain()}/oauth2/authorize?${params}`;
   window.location.assign(url);
 }

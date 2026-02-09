@@ -3,17 +3,17 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
-import { AuthProvider, useAuth } from '../components/auth-provider';
-import { LoginScreen } from '../components/login-screen';
-import { StatusBanner } from '../components/status-banner';
+import { AdminDashboard } from '../../../components/admin/admin-dashboard';
+import { AuthProvider, useAuth } from '../../../components/auth-provider';
+import { StatusBanner } from '../../../components/status-banner';
 
-function LoginGate() {
+function DashboardGate() {
   const { status } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (status === 'authenticated') {
-      router.replace('/admin/dashboard');
+    if (status === 'unauthenticated') {
+      router.replace('/');
     }
   }, [status, router]);
 
@@ -27,23 +27,23 @@ function LoginGate() {
     );
   }
 
-  if (status === 'authenticated') {
+  if (status === 'unauthenticated') {
     return (
       <main className='mx-auto flex min-h-screen max-w-lg items-center px-6'>
         <StatusBanner variant='info' title='Redirecting'>
-          Sending you to the dashboard.
+          Sending you back to sign in.
         </StatusBanner>
       </main>
     );
   }
 
-  return <LoginScreen />;
+  return <AdminDashboard />;
 }
 
-export default function HomePage() {
+export default function AdminDashboardPage() {
   return (
     <AuthProvider>
-      <LoginGate />
+      <DashboardGate />
     </AuthProvider>
   );
 }

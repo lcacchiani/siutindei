@@ -69,11 +69,10 @@ function createMockIdToken(user: MockUser): string {
  */
 function createMockTokens(user: MockUser) {
   return {
-    access_token: 'mock-access-token-' + user.sub,
-    id_token: createMockIdToken(user),
-    refresh_token: 'mock-refresh-token-' + user.sub,
-    token_type: 'Bearer',
-    expires_in: 3600,
+    accessToken: 'mock-access-token-' + user.sub,
+    idToken: createMockIdToken(user),
+    refreshToken: 'mock-refresh-token-' + user.sub,
+    expiresAt: Date.now() + 3600 * 1000,
   };
 }
 
@@ -420,11 +419,11 @@ export async function setupAuth(page: Page, user: MockUser | null): Promise<void
   if (user) {
     const tokens = createMockTokens(user);
     await page.addInitScript((tokensStr) => {
-      localStorage.setItem('auth_tokens', tokensStr);
+      localStorage.setItem('admin_auth_tokens', tokensStr);
     }, JSON.stringify(tokens));
   } else {
     await page.addInitScript(() => {
-      localStorage.removeItem('auth_tokens');
+      localStorage.removeItem('admin_auth_tokens');
     });
   }
 }

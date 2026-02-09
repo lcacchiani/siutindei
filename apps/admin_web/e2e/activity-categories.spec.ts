@@ -2,7 +2,7 @@ import { test, expect } from './fixtures/test-fixtures';
 
 test.describe('Categories Panel', () => {
   test.beforeEach(async ({ adminPage }) => {
-    await adminPage.goto('/');
+  await adminPage.goto('/admin/dashboard');
     await adminPage.getByRole('button', { name: 'Categories' }).click();
   });
 

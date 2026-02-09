@@ -5,19 +5,31 @@ test.describe('Login Screen', () => {
     await unauthenticatedPage.goto('/');
 
     // Wait for the page to load
-    await expect(unauthenticatedPage.getByRole('heading', { name: 'Admin sign in' })).toBeVisible();
-
-    // Check for login button
-    await expect(unauthenticatedPage.getByRole('button', { name: 'Continue to login' })).toBeVisible();
-
-    // Check for description text
     await expect(
-      unauthenticatedPage.getByText('Sign in with your admin account to manage entries.')
+      unauthenticatedPage.getByRole('heading', { name: 'Welcome back' })
+    ).toBeVisible();
+
+    // Check for social login buttons
+    await expect(
+      unauthenticatedPage.getByRole('button', { name: 'Continue with Google' })
+    ).toBeVisible();
+    await expect(
+      unauthenticatedPage.getByRole('button', { name: 'Continue with Apple' })
+    ).toBeVisible();
+    await expect(
+      unauthenticatedPage.getByRole('button', { name: 'Continue with Microsoft' })
+    ).toBeVisible();
+
+    // Check for email magic link
+    await expect(
+      unauthenticatedPage.getByRole('button', { name: 'Email me a magic link' })
     ).toBeVisible();
 
     // Check for helper text
     await expect(
-      unauthenticatedPage.getByText('You must be in the admin group to access management tools.')
+      unauthenticatedPage.getByText(
+        'You must be in the admin or manager group to access tools.'
+      )
     ).toBeVisible();
   });
 
@@ -40,13 +52,17 @@ test.describe('Login Screen', () => {
   test('login button should be enabled when config is present', async ({ unauthenticatedPage }) => {
     await unauthenticatedPage.goto('/');
 
-    const loginButton = unauthenticatedPage.getByRole('button', { name: 'Continue to login' });
-    await expect(loginButton).toBeVisible();
-    await expect(loginButton).toBeEnabled();
+    const googleButton = unauthenticatedPage.getByRole('button', {
+      name: 'Continue with Google',
+    });
+    await expect(googleButton).toBeVisible();
+    await expect(googleButton).toBeEnabled();
   });
 
   test('should redirect to dashboard when authenticated as admin', async ({ adminPage }) => {
     await adminPage.goto('/');
+
+    await expect(adminPage).toHaveURL(/\/admin\/dashboard$/);
 
     // Should see the admin dashboard header
     await expect(adminPage.getByRole('heading', { name: 'Siu Tin Dei Admin' })).toBeVisible();
@@ -59,7 +75,7 @@ test.describe('Login Screen', () => {
     // Override config to simulate missing values
     await page.addInitScript(() => {
       // Clear any existing tokens
-      localStorage.removeItem('auth_tokens');
+      localStorage.removeItem('admin_auth_tokens');
     });
 
     // Note: This test verifies the UI handles config errors gracefully
@@ -80,7 +96,7 @@ test.describe('Login Screen', () => {
 
     // Should see login screen instead
     await expect(
-      unauthenticatedPage.getByRole('heading', { name: 'Admin sign in' })
+      unauthenticatedPage.getByRole('heading', { name: 'Welcome back' })
     ).toBeVisible();
   });
 });
@@ -99,7 +115,7 @@ test.describe('Authentication Flow', () => {
       });
     });
 
-    await page.goto('/');
+    await page.goto('/admin/dashboard');
 
     // Should be authenticated
     await expect(page.getByRole('heading', { name: 'Siu Tin Dei Admin' })).toBeVisible();
@@ -112,14 +128,14 @@ test.describe('Authentication Flow', () => {
   });
 
   test('should show user email when authenticated', async ({ adminPage }) => {
-    await adminPage.goto('/');
+    await adminPage.goto('/admin/dashboard');
 
     // Should display the user's email
     await expect(adminPage.getByText('admin@example.com')).toBeVisible();
   });
 
   test('logout button should be visible for authenticated users', async ({ adminPage }) => {
-    await adminPage.goto('/');
+    await adminPage.goto('/admin/dashboard');
 
     // Should have a logout button
     const logoutButton = adminPage.getByRole('button', { name: 'Log out' });
