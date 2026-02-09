@@ -191,16 +191,20 @@ def sample_pricing(db_session, sample_pricing_data):
 @pytest.fixture
 def sample_schedule_data(sample_activity, sample_location) -> dict:
     """Sample data for creating an activity schedule."""
-    from app.db.models import ScheduleType
+    from app.db.models import ActivityScheduleEntry, ScheduleType
 
     return {
         'activity_id': sample_activity.id,
         'location_id': sample_location.id,
         'schedule_type': ScheduleType.WEEKLY,
-        'day_of_week_utc': 1,  # Monday
-        'start_minutes_utc': 600,  # 10:00 AM
-        'end_minutes_utc': 660,  # 11:00 AM
         'languages': ['en', 'zh'],
+        'entries': [
+            ActivityScheduleEntry(
+                day_of_week_utc=1,  # Monday
+                start_minutes_utc=600,  # 10:00 AM
+                end_minutes_utc=660,  # 11:00 AM
+            )
+        ],
     }
 
 

@@ -70,7 +70,8 @@ Key entities:
 - `activities`
 - `activity_locations`
 - `activity_pricing` (per-class, per-month, per-sessions)
-- `activity_schedule` (weekly, monthly, date-specific; languages per session)
+- `activity_schedule` (weekly only; languages per schedule)
+- `activity_schedule_entries` (per-day timeslots for schedules)
 - `organization_access_requests` (manager access workflow)
 - `organization_suggestions` (user-submitted place suggestions)
 - `audit_log` (automatic change tracking via triggers)

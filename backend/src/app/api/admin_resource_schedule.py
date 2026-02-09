@@ -6,34 +6,36 @@ from typing import Any
 
 from app.api.admin_request import _parse_uuid
 from app.api.admin_validators import _parse_languages
-from app.db.models import ActivitySchedule, ScheduleType
+from app.db.models import (
+    ActivitySchedule,
+    ActivityScheduleEntry,
+    ScheduleType,
+)
 from app.db.repositories import ActivityScheduleRepository
 from app.exceptions import ValidationError
-from app.utils import parse_datetime
 
 
 def _create_schedule(
     repo: ActivityScheduleRepository, body: dict[str, Any]
 ) -> ActivitySchedule:
     """Create activity schedule."""
-    del repo
     activity_id = body.get("activity_id")
     location_id = body.get("location_id")
-    schedule_type = body.get("schedule_type")
-    if not activity_id or not location_id or not schedule_type:
-        raise ValidationError(
-            "activity_id, location_id, and schedule_type are required"
-        )
+    schedule_type = body.get("schedule_type", ScheduleType.WEEKLY.value)
+    if not activity_id or not location_id:
+        raise ValidationError("activity_id and location_id are required")
+    if schedule_type != ScheduleType.WEEKLY.value:
+        raise ValidationError("schedule_type must be weekly", field="schedule_type")
 
-    schedule_enum = ScheduleType(schedule_type)
     schedule = ActivitySchedule(
         activity_id=_parse_uuid(activity_id),
         location_id=_parse_uuid(location_id),
-        schedule_type=schedule_enum,
+        schedule_type=ScheduleType.WEEKLY,
         languages=_parse_languages(body.get("languages")),
+        entries=_parse_weekly_entries(body.get("weekly_entries")),
     )
-    _apply_schedule_fields(schedule, body, update_only=False)
     _validate_schedule(schedule)
+    _ensure_unique_schedule(repo, schedule, current_id=None)
     return schedule
 
 
@@ -43,133 +45,186 @@ def _update_schedule(
     body: dict[str, Any],
 ) -> ActivitySchedule:
     """Update activity schedule."""
-    del repo
     if "schedule_type" in body:
-        entity.schedule_type = ScheduleType(body["schedule_type"])
+        schedule_type = body["schedule_type"]
+        if schedule_type != ScheduleType.WEEKLY.value:
+            raise ValidationError(
+                "schedule_type must be weekly",
+                field="schedule_type",
+            )
+        entity.schedule_type = ScheduleType.WEEKLY
     if "languages" in body:
         entity.languages = _parse_languages(body["languages"])
-    _apply_schedule_fields(entity, body, update_only=True)
+    if "weekly_entries" in body:
+        entity.entries = _parse_weekly_entries(body.get("weekly_entries"))
     _validate_schedule(entity)
+    _ensure_unique_schedule(repo, entity, current_id=entity.id)
     return entity
-
-
-def _apply_schedule_fields(
-    entity: ActivitySchedule,
-    body: dict[str, Any],
-    update_only: bool,
-) -> None:
-    """Apply schedule-specific fields."""
-    _set_if_present(entity, "day_of_week_utc", body, update_only)
-    _set_if_present(entity, "day_of_month", body, update_only)
-    _set_if_present(entity, "start_minutes_utc", body, update_only)
-    _set_if_present(entity, "end_minutes_utc", body, update_only)
-
-    if not update_only or "start_at_utc" in body:
-        entity.start_at_utc = parse_datetime(body.get("start_at_utc"))
-    if not update_only or "end_at_utc" in body:
-        entity.end_at_utc = parse_datetime(body.get("end_at_utc"))
-
-
-def _set_if_present(
-    entity: ActivitySchedule,
-    field_name: str,
-    body: dict[str, Any],
-    update_only: bool,
-) -> None:
-    """Set a field on the entity if present in body or create mode."""
-    if not update_only or field_name in body:
-        setattr(entity, field_name, body.get(field_name))
 
 
 def _serialize_schedule(entity: ActivitySchedule) -> dict[str, Any]:
     """Serialize schedule."""
+    entries = sorted(entity.entries, key=_entry_sort_key)
     return {
         "id": str(entity.id),
         "activity_id": str(entity.activity_id),
         "location_id": str(entity.location_id),
         "schedule_type": entity.schedule_type.value,
-        "day_of_week_utc": entity.day_of_week_utc,
-        "day_of_month": entity.day_of_month,
-        "start_minutes_utc": entity.start_minutes_utc,
-        "end_minutes_utc": entity.end_minutes_utc,
-        "start_at_utc": entity.start_at_utc,
-        "end_at_utc": entity.end_at_utc,
+        "weekly_entries": [
+            {
+                "day_of_week_utc": entry.day_of_week_utc,
+                "start_minutes_utc": entry.start_minutes_utc,
+                "end_minutes_utc": entry.end_minutes_utc,
+            }
+            for entry in entries
+        ],
         "languages": entity.languages,
     }
 
 
+def _parse_weekly_entries(value: Any) -> list[ActivityScheduleEntry]:
+    """Parse weekly entries from request body."""
+    if value is None:
+        raise ValidationError(
+            "weekly_entries is required",
+            field="weekly_entries",
+        )
+    if not isinstance(value, list):
+        raise ValidationError(
+            "weekly_entries must be a list",
+            field="weekly_entries",
+        )
+    if not value:
+        raise ValidationError(
+            "weekly_entries must include at least one entry",
+            field="weekly_entries",
+        )
+
+    entries: list[ActivityScheduleEntry] = []
+    for index, raw in enumerate(value):
+        if not isinstance(raw, dict):
+            raise ValidationError(
+                "weekly_entries must be objects",
+                field=f"weekly_entries[{index}]",
+            )
+        day_of_week = _parse_int_field(
+            raw.get("day_of_week_utc"),
+            f"weekly_entries[{index}].day_of_week_utc",
+        )
+        start_minutes = _parse_int_field(
+            raw.get("start_minutes_utc"),
+            f"weekly_entries[{index}].start_minutes_utc",
+        )
+        end_minutes = _parse_int_field(
+            raw.get("end_minutes_utc"),
+            f"weekly_entries[{index}].end_minutes_utc",
+        )
+        entries.append(
+            ActivityScheduleEntry(
+                day_of_week_utc=day_of_week,
+                start_minutes_utc=start_minutes,
+                end_minutes_utc=end_minutes,
+            )
+        )
+    return entries
+
+
+def _parse_int_field(value: Any, field_name: str) -> int:
+    """Parse required integer fields."""
+    if value is None:
+        raise ValidationError(f"{field_name} is required", field=field_name)
+    try:
+        return int(value)
+    except (TypeError, ValueError) as exc:
+        raise ValidationError(
+            f"{field_name} must be an integer",
+            field=field_name,
+        ) from exc
+
+
 def _validate_schedule(schedule: ActivitySchedule) -> None:
-    """Validate schedule fields for the given schedule type."""
-    if schedule.schedule_type == ScheduleType.WEEKLY:
-        if schedule.day_of_week_utc is None:
-            raise ValidationError("day_of_week_utc is required for weekly schedules")
-        if schedule.start_minutes_utc is None or schedule.end_minutes_utc is None:
-            raise ValidationError(
-                "start_minutes_utc and end_minutes_utc are required for weekly"
-            )
-    elif schedule.schedule_type == ScheduleType.MONTHLY:
-        if schedule.day_of_month is None:
-            raise ValidationError("day_of_month is required for monthly schedules")
-        if schedule.start_minutes_utc is None or schedule.end_minutes_utc is None:
-            raise ValidationError(
-                "start_minutes_utc and end_minutes_utc are required for monthly"
-            )
-    elif schedule.schedule_type == ScheduleType.DATE_SPECIFIC:
-        if schedule.start_at_utc is None or schedule.end_at_utc is None:
-            raise ValidationError(
-                "start_at_utc and end_at_utc are required for date-specific"
-            )
+    """Validate schedule fields for weekly schedules."""
+    if schedule.schedule_type != ScheduleType.WEEKLY:
+        raise ValidationError("schedule_type must be weekly", field="schedule_type")
 
-    # Validate day_of_week_utc range (0-6, Sunday to Saturday)
-    if schedule.day_of_week_utc is not None:
-        if not 0 <= schedule.day_of_week_utc <= 6:
-            raise ValidationError(
-                "day_of_week_utc must be between 0 and 6",
-                field="day_of_week_utc",
-            )
+    if not schedule.entries:
+        raise ValidationError(
+            "weekly_entries are required",
+            field="weekly_entries",
+        )
 
-    # Validate day_of_month range (1-31)
-    if schedule.day_of_month is not None:
-        if not 1 <= schedule.day_of_month <= 31:
+    seen: set[tuple[int, int, int]] = set()
+    for index, entry in enumerate(schedule.entries):
+        field_prefix = f"weekly_entries[{index}]"
+        _validate_entry(entry, field_prefix)
+        key = (
+            entry.day_of_week_utc,
+            entry.start_minutes_utc,
+            entry.end_minutes_utc,
+        )
+        if key in seen:
             raise ValidationError(
-                "day_of_month must be between 1 and 31",
-                field="day_of_month",
+                "weekly_entries must not contain duplicates",
+                field=field_prefix,
             )
+        seen.add(key)
 
-    # Validate start_minutes_utc range (0-1439, minutes in a day)
-    if schedule.start_minutes_utc is not None:
-        if not 0 <= schedule.start_minutes_utc <= 1439:
-            raise ValidationError(
-                "start_minutes_utc must be between 0 and 1439",
-                field="start_minutes_utc",
-            )
 
-    # Validate end_minutes_utc range (0-1439, minutes in a day)
-    if schedule.end_minutes_utc is not None:
-        if not 0 <= schedule.end_minutes_utc <= 1439:
-            raise ValidationError(
-                "end_minutes_utc must be between 0 and 1439",
-                field="end_minutes_utc",
-            )
+def _validate_entry(entry: ActivityScheduleEntry, field_prefix: str) -> None:
+    """Validate a weekly entry."""
+    day_of_week = entry.day_of_week_utc
+    if not 0 <= day_of_week <= 6:
+        raise ValidationError(
+            "day_of_week_utc must be between 0 and 6",
+            field=f"{field_prefix}.day_of_week_utc",
+        )
 
-    # Validate start_minutes_utc and end_minutes_utc are not equal
-    if (
-        schedule.start_minutes_utc is not None
-        and schedule.end_minutes_utc is not None
-        and schedule.start_minutes_utc == schedule.end_minutes_utc
-    ):
+    start_minutes = entry.start_minutes_utc
+    if not 0 <= start_minutes <= 1439:
+        raise ValidationError(
+            "start_minutes_utc must be between 0 and 1439",
+            field=f"{field_prefix}.start_minutes_utc",
+        )
+
+    end_minutes = entry.end_minutes_utc
+    if not 0 <= end_minutes <= 1439:
+        raise ValidationError(
+            "end_minutes_utc must be between 0 and 1439",
+            field=f"{field_prefix}.end_minutes_utc",
+        )
+
+    if start_minutes == end_minutes:
         raise ValidationError(
             "start_minutes_utc must not equal end_minutes_utc",
-            field="start_minutes_utc",
+            field=f"{field_prefix}.start_minutes_utc",
         )
 
-    # Validate start_at_utc < end_at_utc
-    if (
-        schedule.start_at_utc is not None
-        and schedule.end_at_utc is not None
-        and schedule.start_at_utc >= schedule.end_at_utc
-    ):
-        raise ValidationError(
-            "start_at_utc must be less than end_at_utc",
-            field="start_at_utc",
-        )
+
+def _entry_sort_key(entry: ActivityScheduleEntry) -> tuple[int, int, int]:
+    """Sort key for schedule entries."""
+    return (
+        entry.day_of_week_utc,
+        entry.start_minutes_utc,
+        entry.end_minutes_utc,
+    )
+
+
+def _ensure_unique_schedule(
+    repo: ActivityScheduleRepository,
+    schedule: ActivitySchedule,
+    current_id: str | None,
+) -> None:
+    """Ensure schedule uniqueness by activity, location, and languages."""
+    existing = repo.find_by_activity_location_languages(
+        schedule.activity_id,
+        schedule.location_id,
+        schedule.languages,
+    )
+    if existing is None:
+        return
+    if current_id is not None and str(existing.id) == str(current_id):
+        return
+    raise ValidationError(
+        "Schedule already exists for activity, location, and languages",
+        field="languages",
+    )

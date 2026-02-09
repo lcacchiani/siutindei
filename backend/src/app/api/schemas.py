@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from datetime import datetime
 from decimal import Decimal
 from typing import List
 from typing import Optional
@@ -64,18 +63,23 @@ class PricingSchema(BaseModel):
     free_trial_class_offered: bool
 
 
+class ScheduleEntrySchema(BaseModel):
+    """Schedule entry schema."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    day_of_week_utc: int
+    start_minutes_utc: int
+    end_minutes_utc: int
+
+
 class ScheduleSchema(BaseModel):
     """Schedule schema."""
 
     model_config = ConfigDict(from_attributes=True)
 
     schedule_type: str
-    day_of_week_utc: Optional[int]
-    day_of_month: Optional[int]
-    start_minutes_utc: Optional[int]
-    end_minutes_utc: Optional[int]
-    start_at_utc: Optional[datetime]
-    end_at_utc: Optional[datetime]
+    weekly_entries: List[ScheduleEntrySchema]
     languages: List[str]
 
 

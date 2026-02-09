@@ -11,7 +11,7 @@ Seed data lives in `backend/db/seed/seed_data.sql`.
 - Extension: `pgcrypto` (used by `gen_random_uuid()` defaults).
 - Enum `pricing_type`: `per_class`, `per_sessions`, `per_hour`, `per_day`,
   `free`.
-- Enum `schedule_type`: `weekly`, `monthly`, `date_specific`.
+- Enum `schedule_type`: `weekly`.
 - Enum `ticket_type`: `access_request`, `organization_suggestion`.
 - Enum `ticket_status`: `pending`, `approved`, `rejected`.
 
@@ -161,43 +161,46 @@ Indexes:
 
 ## Table: activity_schedule
 
-Purpose: Schedule entries for an activity at a location.
+Purpose: Weekly schedule definitions for an activity at a location.
 
 Columns:
 - `id` (UUID, PK, default `gen_random_uuid()`)
 - `activity_id` (UUID, FK -> activities.id, cascade delete)
 - `location_id` (UUID, FK -> locations.id, cascade delete)
 - `schedule_type` (enum `schedule_type`, required)
-- `day_of_week_utc` (smallint, optional, 0=Sunday)
-- `day_of_month` (smallint, optional, 1-31)
-- `start_minutes_utc` (integer, optional, minutes after midnight)
-- `end_minutes_utc` (integer, optional, minutes after midnight)
-- `start_at_utc` (timestamptz, optional)
-- `end_at_utc` (timestamptz, optional)
 - `languages` (text[], default empty array)
 
 Constraints:
-- `schedule_day_of_week_range`: 0 to 6
-- `schedule_day_of_month_range`: 1 to 31
-- `schedule_start_minutes_range`: 0 to 1439
-- `schedule_end_minutes_range`: 0 to 1439
-- `schedule_minutes_order`: start and end must differ when both present
-  (start > end indicates an overnight UTC range)
-- `schedule_date_order`: start < end when both timestamps present
-- `schedule_type_fields_check`:
-  - `weekly`: day_of_week_utc + start/end minutes required
-  - `monthly`: day_of_month + start/end minutes required
-  - `date_specific`: start_at_utc + end_at_utc required
+- `schedule_type_weekly_only`: schedule_type must be `weekly`
+- `schedule_unique_activity_location_languages`: unique on (`activity_id`,
+  `location_id`, `languages`)
 
 Indexes:
-- `activity_schedule_type_weekly_idx` on
-  `schedule_type`, `day_of_week_utc`, `start_minutes_utc`,
-  `end_minutes_utc`
-- `activity_schedule_type_monthly_idx` on
-  `schedule_type`, `day_of_month`, `start_minutes_utc`,
-  `end_minutes_utc`
-- `activity_schedule_date_idx` on `start_at_utc`, `end_at_utc`
 - `activity_schedule_languages_gin` on `languages` (GIN)
+
+## Table: activity_schedule_entries
+
+Purpose: Weekly schedule entries associated with a schedule definition.
+
+Columns:
+- `id` (UUID, PK, default `gen_random_uuid()`)
+- `schedule_id` (UUID, FK -> activity_schedule.id, cascade delete)
+- `day_of_week_utc` (smallint, required, 0=Sunday)
+- `start_minutes_utc` (integer, required, minutes after midnight)
+- `end_minutes_utc` (integer, required, minutes after midnight)
+
+Constraints:
+- `schedule_entry_day_range`: 0 to 6
+- `schedule_entry_start_minutes_range`: 0 to 1439
+- `schedule_entry_end_minutes_range`: 0 to 1439
+- `schedule_entry_minutes_order`: start and end must differ
+- `schedule_entry_unique`: unique on (`schedule_id`, `day_of_week_utc`,
+  `start_minutes_utc`, `end_minutes_utc`)
+
+Indexes:
+- `activity_schedule_entries_schedule_idx` on `schedule_id`
+- `activity_schedule_entries_day_idx` on
+  `day_of_week_utc`, `start_minutes_utc`, `end_minutes_utc`
 
 ## Table: organizations (migration notes)
 

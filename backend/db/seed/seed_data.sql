@@ -122,31 +122,64 @@ WHERE NOT EXISTS (
 );
 
 INSERT INTO activity_schedule (
-  id, activity_id, location_id, schedule_type, day_of_week_utc,
-  start_minutes_utc, end_minutes_utc, languages
+  id, activity_id, location_id, schedule_type, languages
 )
 SELECT '51111111-1111-1111-1111-111111111111', 'dddddddd-dddd-dddd-dddd-dddddddddddd',
-       'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'weekly', 6, 120, 240, ARRAY['en','zh']
+       'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'weekly', ARRAY['en','zh']
 WHERE NOT EXISTS (
   SELECT 1 FROM activity_schedule WHERE id = '51111111-1111-1111-1111-111111111111'
 );
 
+INSERT INTO activity_schedule_entries (
+  id, schedule_id, day_of_week_utc, start_minutes_utc, end_minutes_utc
+)
+SELECT gen_random_uuid(), '51111111-1111-1111-1111-111111111111', 6, 120, 240
+WHERE NOT EXISTS (
+  SELECT 1 FROM activity_schedule_entries
+  WHERE schedule_id = '51111111-1111-1111-1111-111111111111'
+    AND day_of_week_utc = 6
+    AND start_minutes_utc = 120
+    AND end_minutes_utc = 240
+);
+
 INSERT INTO activity_schedule (
-  id, activity_id, location_id, schedule_type, day_of_month,
-  start_minutes_utc, end_minutes_utc, languages
+  id, activity_id, location_id, schedule_type, languages
 )
 SELECT '52222222-2222-2222-2222-222222222222', 'dddddddd-dddd-dddd-dddd-dddddddddddd',
-       'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'monthly', 15, 300, 420, ARRAY['zh']
+       'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'weekly', ARRAY['zh']
 WHERE NOT EXISTS (
   SELECT 1 FROM activity_schedule WHERE id = '52222222-2222-2222-2222-222222222222'
 );
 
+INSERT INTO activity_schedule_entries (
+  id, schedule_id, day_of_week_utc, start_minutes_utc, end_minutes_utc
+)
+SELECT gen_random_uuid(), '52222222-2222-2222-2222-222222222222', 2, 300, 420
+WHERE NOT EXISTS (
+  SELECT 1 FROM activity_schedule_entries
+  WHERE schedule_id = '52222222-2222-2222-2222-222222222222'
+    AND day_of_week_utc = 2
+    AND start_minutes_utc = 300
+    AND end_minutes_utc = 420
+);
+
 INSERT INTO activity_schedule (
-  id, activity_id, location_id, schedule_type, start_at_utc, end_at_utc, languages
+  id, activity_id, location_id, schedule_type, languages
 )
 SELECT '53333333-3333-3333-3333-333333333333', 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
-       'cccccccc-cccc-cccc-cccc-cccccccccccc', 'date_specific',
-       '2026-02-01T02:00:00+00', '2026-02-01T03:30:00+00', ARRAY['en']
+       'cccccccc-cccc-cccc-cccc-cccccccccccc', 'weekly', ARRAY['en']
 WHERE NOT EXISTS (
   SELECT 1 FROM activity_schedule WHERE id = '53333333-3333-3333-3333-333333333333'
+);
+
+INSERT INTO activity_schedule_entries (
+  id, schedule_id, day_of_week_utc, start_minutes_utc, end_minutes_utc
+)
+SELECT gen_random_uuid(), '53333333-3333-3333-3333-333333333333', 1, 120, 210
+WHERE NOT EXISTS (
+  SELECT 1 FROM activity_schedule_entries
+  WHERE schedule_id = '53333333-3333-3333-3333-333333333333'
+    AND day_of_week_utc = 1
+    AND start_minutes_utc = 120
+    AND end_minutes_utc = 210
 );

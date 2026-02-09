@@ -5,6 +5,7 @@ from app.db.models.activity import (
     ActivityLocation,
     ActivityPricing,
     ActivitySchedule,
+    ActivityScheduleEntry,
 )
 from app.db.models.activity_category import ActivityCategory
 from app.db.models.audit_log import AuditLog
@@ -20,6 +21,7 @@ __all__ = [
     "ActivityLocation",
     "ActivityPricing",
     "ActivitySchedule",
+    "ActivityScheduleEntry",
     "AuditLog",
     "GeographicArea",
     "Location",

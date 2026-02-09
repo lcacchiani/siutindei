@@ -19,8 +19,6 @@ class ScheduleType(str, enum.Enum):
     """Supported schedule types for activities."""
 
     WEEKLY = "weekly"
-    MONTHLY = "monthly"
-    DATE_SPECIFIC = "date_specific"
 
 
 class TicketType(str, enum.Enum):

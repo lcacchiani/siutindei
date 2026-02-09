@@ -244,8 +244,9 @@ class TestActivityScheduleRepository:
 
         assert schedule.id is not None
         assert schedule.schedule_type == ScheduleType.WEEKLY
-        assert schedule.day_of_week_utc == 1
         assert 'en' in schedule.languages
+        assert len(schedule.entries) == 1
+        assert schedule.entries[0].day_of_week_utc == 1
 
     def test_find_weekly_by_day(
         self, db_session, sample_activity, sample_location

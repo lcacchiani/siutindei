@@ -10,19 +10,10 @@ import pytest
 
 sys.path.append(str(Path(__file__).resolve().parents[1] / "backend" / "src"))
 
-from app.db.models import ScheduleType  # noqa: E402
 from app.db.queries import ActivitySearchCursor  # noqa: E402
 from app.db.queries import ActivitySearchFilters  # noqa: E402
 from app.db.queries import build_search_query  # noqa: E402
 from app.db.queries import validate_filters  # noqa: E402
-
-
-def test_validate_filters_rejects_overlapping_day_filters() -> None:
-    """Ensure day_of_week and day_of_month cannot be combined."""
-
-    filters = ActivitySearchFilters(day_of_week_utc=2, day_of_month=10)
-    with pytest.raises(ValueError, match="day_of_week_utc or day_of_month"):
-        validate_filters(filters)
 
 
 def test_validate_filters_rejects_invalid_minutes() -> None:
@@ -38,23 +29,12 @@ def test_build_search_query_includes_wrap_conditions() -> None:
 
     filters = ActivitySearchFilters(start_minutes_utc=480, end_minutes_utc=600)
     query = build_search_query(filters)
-    where_clause = str(query.whereclause)
+    where_clause = str(query)
     wrap_fragment = (
-        "activity_schedule.start_minutes_utc > "
-        "activity_schedule.end_minutes_utc"
+        "activity_schedule_entries.start_minutes_utc > "
+        "activity_schedule_entries.end_minutes_utc"
     )
     assert wrap_fragment in where_clause
-
-
-def test_validate_filters_rejects_schedule_type_conflict() -> None:
-    """Ensure schedule_type conflicts are rejected."""
-
-    filters = ActivitySearchFilters(
-        schedule_type=ScheduleType.MONTHLY,
-        day_of_week_utc=3,
-    )
-    with pytest.raises(ValueError, match="Monthly schedules"):
-        validate_filters(filters)
 
 
 def test_build_search_query_sets_limit() -> None:
@@ -70,10 +50,7 @@ def test_build_search_query_applies_cursor() -> None:
 
     cursor_id = uuid4()
     cursor = ActivitySearchCursor(
-        schedule_type=ScheduleType.WEEKLY,
         day_of_week_utc=2,
-        day_of_month=None,
-        start_at_utc=None,
         start_minutes_utc=480,
         schedule_id=cursor_id,
     )
