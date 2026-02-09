@@ -109,10 +109,14 @@ export function ActivitiesPanel({ mode }: ActivitiesPanelProps) {
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
 
-  const [touchedFields, setTouchedFields] = useState<Record<string, boolean>>(
-    {}
-  );
-  const [hasSubmitted, setHasSubmitted] = useState(false);
+  const [touchedState, setTouchedState] = useState<{
+    key: string;
+    fields: Record<string, boolean>;
+  }>({ key: '', fields: {} });
+  const [submittedState, setSubmittedState] = useState<{
+    key: string;
+    value: boolean;
+  }>({ key: '', value: false });
 
   const requiredIndicator = (
     <span className='text-red-500' aria-hidden='true'>
@@ -123,14 +127,26 @@ export function ActivitiesPanel({ mode }: ActivitiesPanelProps) {
     'border-red-500 focus:border-red-500 focus:ring-red-500';
 
   const markTouched = (field: string) => {
-    setTouchedFields((prev) =>
-      prev[field] ? prev : { ...prev, [field]: true }
-    );
+    setTouchedState((prev) => {
+      if (prev.key !== formKey) {
+        return { key: formKey, fields: { [field]: true } };
+      }
+      if (prev.fields[field]) {
+        return prev;
+      }
+      return { key: formKey, fields: { ...prev.fields, [field]: true } };
+    });
+    setSubmittedState((prev) => {
+      if (prev.key !== formKey || isFormEmpty) {
+        return { key: formKey, value: false };
+      }
+      return prev;
+    });
   };
   const shouldShowError = (field: string, message: string) =>
     Boolean(
       message &&
-        (hasSubmitted || touchedFields[field])
+        (hasSubmitted || activeTouchedFields[field])
     );
 
   // For managers with a single org, auto-select and disable the dropdown
@@ -158,18 +174,11 @@ export function ActivitiesPanel({ mode }: ActivitiesPanelProps) {
     isTranslationsEmpty(panel.formState.name_translations) &&
     isTranslationsEmpty(panel.formState.description_translations);
 
-  useEffect(() => {
-    setTouchedFields({});
-    setHasSubmitted(false);
-  }, [panel.editingId]);
-
-  useEffect(() => {
-    if (!isFormEmpty) {
-      return;
-    }
-    setTouchedFields({});
-    setHasSubmitted(false);
-  }, [isFormEmpty]);
+  const formKey = panel.editingId ?? 'new';
+  const activeTouchedFields =
+    isFormEmpty || touchedState.key !== formKey ? {} : touchedState.fields;
+  const hasSubmitted =
+    isFormEmpty || submittedState.key !== formKey ? false : submittedState.value;
 
   const validate = () => {
     const ageMin = parseRequiredNumber(panel.formState.age_min);
@@ -305,7 +314,7 @@ export function ActivitiesPanel({ mode }: ActivitiesPanelProps) {
   });
 
   const handleSubmit = () => {
-    setHasSubmitted(true);
+    setSubmittedState({ key: formKey, value: true });
     return panel.handleSubmit(formToPayload, validate);
   };
 
@@ -380,8 +389,8 @@ export function ActivitiesPanel({ mode }: ActivitiesPanelProps) {
   const showAgeRangeError = Boolean(
     ageRangeError &&
       (hasSubmitted ||
-        touchedFields.age_min ||
-        touchedFields.age_max)
+        activeTouchedFields.age_min ||
+        activeTouchedFields.age_max)
   );
 
   return (

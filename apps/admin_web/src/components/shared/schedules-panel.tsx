@@ -268,10 +268,14 @@ export function SchedulesPanel({ mode }: SchedulesPanelProps) {
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
 
-  const [touchedFields, setTouchedFields] = useState<Record<string, boolean>>(
-    {}
-  );
-  const [hasSubmitted, setHasSubmitted] = useState(false);
+  const [touchedState, setTouchedState] = useState<{
+    key: string;
+    fields: Record<string, boolean>;
+  }>({ key: '', fields: {} });
+  const [submittedState, setSubmittedState] = useState<{
+    key: string;
+    value: boolean;
+  }>({ key: '', value: false });
 
   const requiredIndicator = (
     <span className='text-red-500' aria-hidden='true'>
@@ -282,9 +286,21 @@ export function SchedulesPanel({ mode }: SchedulesPanelProps) {
     'border-red-500 focus:border-red-500 focus:ring-red-500';
 
   const markTouched = (field: string) => {
-    setTouchedFields((prev) =>
-      prev[field] ? prev : { ...prev, [field]: true }
-    );
+    setTouchedState((prev) => {
+      if (prev.key !== formKey) {
+        return { key: formKey, fields: { [field]: true } };
+      }
+      if (prev.fields[field]) {
+        return prev;
+      }
+      return { key: formKey, fields: { ...prev.fields, [field]: true } };
+    });
+    setSubmittedState((prev) => {
+      if (prev.key !== formKey || isFormEmpty) {
+        return { key: formKey, value: false };
+      }
+      return prev;
+    });
   };
 
   useEffect(() => {
@@ -332,18 +348,11 @@ export function SchedulesPanel({ mode }: SchedulesPanelProps) {
     panel.formState.weekly_entries.length === 0 &&
     panel.formState.languages.length === 0;
 
-  useEffect(() => {
-    setTouchedFields({});
-    setHasSubmitted(false);
-  }, [panel.editingId]);
-
-  useEffect(() => {
-    if (!isFormEmpty) {
-      return;
-    }
-    setTouchedFields({});
-    setHasSubmitted(false);
-  }, [isFormEmpty]);
+  const formKey = panel.editingId ?? 'new';
+  const activeTouchedFields =
+    isFormEmpty || touchedState.key !== formKey ? {} : touchedState.fields;
+  const hasSubmitted =
+    isFormEmpty || submittedState.key !== formKey ? false : submittedState.value;
 
   const validate = () => {
     const form = panel.formState;
@@ -456,7 +465,7 @@ export function SchedulesPanel({ mode }: SchedulesPanelProps) {
   };
 
   const handleSubmit = () => {
-    setHasSubmitted(true);
+    setSubmittedState({ key: formKey, value: true });
     return panel.handleSubmit(formToPayload, validate);
   };
 
@@ -727,19 +736,19 @@ export function SchedulesPanel({ mode }: SchedulesPanelProps) {
 
   const showLocationError = Boolean(
     locationError &&
-      (hasSubmitted || touchedFields.location_id)
+      (hasSubmitted || activeTouchedFields.location_id)
   );
   const showActivityError = Boolean(
     activityError &&
-      (hasSubmitted || touchedFields.activity_id)
+      (hasSubmitted || activeTouchedFields.activity_id)
   );
   const showDaysError = Boolean(
     daysError &&
-      (hasSubmitted || touchedFields.days)
+      (hasSubmitted || activeTouchedFields.days)
   );
   const showLanguagesError = Boolean(
     languagesError &&
-      (hasSubmitted || touchedFields.languages)
+      (hasSubmitted || activeTouchedFields.languages)
   );
 
   return (
@@ -894,17 +903,19 @@ export function SchedulesPanel({ mode }: SchedulesPanelProps) {
                       };
                       const showStartError = Boolean(
                         entryError.start &&
-                          (hasSubmitted || touchedFields[startTouchedKey])
+                          (hasSubmitted ||
+                            activeTouchedFields[startTouchedKey])
                       );
                       const showEndError = Boolean(
                         entryError.end &&
-                          (hasSubmitted || touchedFields[endTouchedKey])
+                          (hasSubmitted ||
+                            activeTouchedFields[endTouchedKey])
                       );
                       const showRangeError = Boolean(
                         entryError.range &&
                           (hasSubmitted ||
-                            touchedFields[startTouchedKey] ||
-                            touchedFields[endTouchedKey])
+                            activeTouchedFields[startTouchedKey] ||
+                            activeTouchedFields[endTouchedKey])
                       );
                       return (
                         <div

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import { useResourcePanel } from '../../hooks/use-resource-panel';
 import {
@@ -65,6 +65,14 @@ export function ActivityCategoriesPanel() {
   );
 
   const [searchQuery, setSearchQuery] = useState('');
+  const [touchedState, setTouchedState] = useState<{
+    key: string;
+    fields: Record<string, boolean>;
+  }>({ key: '', fields: {} });
+  const [submittedState, setSubmittedState] = useState<{
+    key: string;
+    value: boolean;
+  }>({ key: '', value: false });
 
   const isFormEmpty =
     panel.formState.name.trim() === '' &&
@@ -74,36 +82,36 @@ export function ActivityCategoriesPanel() {
       (value) => !value.trim()
     );
 
-  useEffect(() => {
-    setTouchedFields({});
-    setHasSubmitted(false);
-  }, [panel.editingId]);
-
-  useEffect(() => {
-    if (!isFormEmpty) {
-      return;
-    }
-    setTouchedFields({});
-    setHasSubmitted(false);
-  }, [isFormEmpty]);
-
-  const [touchedFields, setTouchedFields] = useState<Record<string, boolean>>(
-    {}
-  );
-  const [hasSubmitted, setHasSubmitted] = useState(false);
+  const formKey = panel.editingId ?? 'new';
+  const activeTouchedFields =
+    isFormEmpty || touchedState.key !== formKey ? {} : touchedState.fields;
+  const hasSubmitted =
+    isFormEmpty || submittedState.key !== formKey ? false : submittedState.value;
 
   const errorInputClassName =
     'border-red-500 focus:border-red-500 focus:ring-red-500';
 
   const markTouched = (field: string) => {
-    setTouchedFields((prev) =>
-      prev[field] ? prev : { ...prev, [field]: true }
-    );
+    setTouchedState((prev) => {
+      if (prev.key !== formKey) {
+        return { key: formKey, fields: { [field]: true } };
+      }
+      if (prev.fields[field]) {
+        return prev;
+      }
+      return { key: formKey, fields: { ...prev.fields, [field]: true } };
+    });
+    setSubmittedState((prev) => {
+      if (prev.key !== formKey || isFormEmpty) {
+        return { key: formKey, value: false };
+      }
+      return prev;
+    });
   };
   const shouldShowError = (field: string, message: string) =>
     Boolean(
       message &&
-        (hasSubmitted || touchedFields[field])
+        (hasSubmitted || activeTouchedFields[field])
     );
 
   const childrenByParent = useMemo(() => {
@@ -218,7 +226,7 @@ export function ActivityCategoriesPanel() {
   });
 
   const handleSubmit = () => {
-    setHasSubmitted(true);
+    setSubmittedState({ key: formKey, value: true });
     return panel.handleSubmit(formToPayload, validate);
   };
 
