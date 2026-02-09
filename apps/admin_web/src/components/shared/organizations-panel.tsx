@@ -314,6 +314,7 @@ interface OrganizationsPanelProps {
 
 export function OrganizationsPanel({ mode }: OrganizationsPanelProps) {
   const isAdmin = mode === 'admin';
+  const isManager = mode === 'manager';
   const { user } = useAuth();
   const panel = useResourcePanel<Organization, OrganizationFormState>(
     'organizations',
@@ -361,6 +362,19 @@ export function OrganizationsPanel({ mode }: OrganizationsPanelProps) {
 
     loadCognitoUsers();
   }, [isAdmin, setError]);
+
+  useEffect(() => {
+    if (!isManager) {
+      return;
+    }
+    if (panel.items.length === 0) {
+      return;
+    }
+    if (panel.editingId) {
+      return;
+    }
+    panel.startEdit(panel.items[0]);
+  }, [isManager, panel.editingId, panel.items, panel.startEdit]);
 
   const countryOptions = useMemo(() => {
     const display =
@@ -738,7 +752,7 @@ export function OrganizationsPanel({ mode }: OrganizationsPanelProps) {
             >
               {panel.editingId ? 'Update Organization' : 'Add Organization'}
             </Button>
-            {panel.editingId && (
+            {panel.editingId && isAdmin && (
               <Button
                 type='button'
                 variant='secondary'
@@ -777,13 +791,15 @@ export function OrganizationsPanel({ mode }: OrganizationsPanelProps) {
           </p>
         ) : (
           <div className='space-y-4'>
-            <div className='max-w-full sm:max-w-sm'>
-              <SearchInput
-                placeholder='Search organizations...'
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
+            {isAdmin && (
+              <div className='max-w-full sm:max-w-sm'>
+                <SearchInput
+                  placeholder='Search organizations...'
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+            )}
             <DataTable
               columns={columns}
               data={filteredItems}
