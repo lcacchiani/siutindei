@@ -7,7 +7,15 @@ from decimal import Decimal
 from typing import List, Optional
 
 import sqlalchemy as sa
-from sqlalchemy import CheckConstraint, ForeignKey, Integer, Numeric, SmallInteger, Text, text
+from sqlalchemy import (
+    CheckConstraint,
+    ForeignKey,
+    Integer,
+    Numeric,
+    SmallInteger,
+    Text,
+    text,
+)
 from sqlalchemy.dialects.postgresql import ARRAY, INT4RANGE, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.types import TIMESTAMP

@@ -17,9 +17,7 @@ from app.utils import json_response
 from app.utils.translations import build_translation_map
 
 
-def _handle_list_areas(
-    event: Mapping[str, Any], active_only: bool
-) -> dict[str, Any]:
+def _handle_list_areas(event: Mapping[str, Any], active_only: bool) -> dict[str, Any]:
     """Return geographic areas (flat or tree)."""
     with Session(get_engine()) as session:
         repo = GeographicAreaRepository(session)

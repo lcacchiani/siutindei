@@ -9,7 +9,11 @@ from typing import Any, Mapping, Optional
 from sqlalchemy import text as sa_text
 from sqlalchemy.orm import Session
 
-from app.api.admin_auth import _get_user_email, _get_user_sub, _set_session_audit_context
+from app.api.admin_auth import (
+    _get_user_email,
+    _get_user_sub,
+    _set_session_audit_context,
+)
 from app.api.admin_request import _parse_body
 from app.api.admin_resource_location import _validate_coordinates
 from app.api.admin_tickets import _serialize_ticket

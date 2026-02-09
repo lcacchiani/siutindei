@@ -130,9 +130,7 @@ def render_request_decision_email(
         admin_message_section_text = ""
 
     if admin_message:
-        admin_message_row = ADMIN_MESSAGE_ROW_HTML.format(
-            admin_message=admin_message
-        )
+        admin_message_row = ADMIN_MESSAGE_ROW_HTML.format(admin_message=admin_message)
     else:
         admin_message_row = ""
 
@@ -191,9 +189,7 @@ def build_request_decision_template_data(
 
     if admin_message:
         admin_message_section_text = f"\nAdmin Message: {admin_message}"
-        admin_message_row = ADMIN_MESSAGE_ROW_HTML.format(
-            admin_message=admin_message
-        )
+        admin_message_row = ADMIN_MESSAGE_ROW_HTML.format(admin_message=admin_message)
     else:
         admin_message_section_text = ""
         admin_message_row = ""

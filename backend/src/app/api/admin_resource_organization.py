@@ -189,9 +189,7 @@ def _update_organization(
             MAX_DESCRIPTION_LENGTH,
         )
     if "manager_id" in body:
-        entity.manager_id = _validate_manager_id(
-            body["manager_id"], required=True
-        )  # type: ignore[assignment]
+        entity.manager_id = _validate_manager_id(body["manager_id"], required=True)  # type: ignore[assignment]
     updated_media_urls: Optional[list[str]] = None
     if "media_urls" in body:
         updated_media_urls = _parse_media_urls(body["media_urls"])

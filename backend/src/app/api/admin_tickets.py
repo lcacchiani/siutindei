@@ -10,7 +10,11 @@ from typing import Any, Mapping, Optional
 from sqlalchemy import text as sa_text
 from sqlalchemy.orm import Session
 
-from app.api.admin_auth import _get_user_email, _get_user_sub, _set_session_audit_context
+from app.api.admin_auth import (
+    _get_user_email,
+    _get_user_sub,
+    _set_session_audit_context,
+)
 from app.api.admin_cognito import _add_user_to_manager_group
 from app.api.admin_ticket_notifications import _send_ticket_decision_email
 from app.api.admin_request import (
@@ -27,7 +31,12 @@ from app.api.admin_validators import (
 )
 from app.db.engine import get_engine
 from app.db.models import Location, Organization, Ticket, TicketStatus, TicketType
-from app.db.repositories import GeographicAreaRepository, LocationRepository, OrganizationRepository, TicketRepository
+from app.db.repositories import (
+    GeographicAreaRepository,
+    LocationRepository,
+    OrganizationRepository,
+    TicketRepository,
+)
 from app.exceptions import NotFoundError, ValidationError
 from app.services.aws_clients import get_sns_client
 from app.utils import json_response, parse_int
@@ -476,5 +485,3 @@ def _review_ticket(
             }
 
         return json_response(200, response_data, event=event)
-
-

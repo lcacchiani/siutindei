@@ -342,5 +342,3 @@ def _get_all_filtered_by_org(
     if cursor is not None:
         query = query.where(model.id > cursor)
     return session.execute(query.order_by(model.id).limit(limit)).scalars().all()
-
-

@@ -123,19 +123,22 @@ def _validate_url(url: str, field_name: str = "url") -> str:
             field=field_name,
         )
     if not parsed.netloc:
-        raise ValidationError(f"{field_name} must include a domain", field=field_name)
+        raise ValidationError(
+            f"{field_name} must have a valid domain", field=field_name
+        )
     return url
 
 
 def _validate_media_urls(urls: list[str]) -> list[str]:
     """Validate media URL list."""
-    if len(urls) > MAX_MEDIA_URLS_COUNT:
+    cleaned = [str(url).strip() for url in urls if str(url).strip()]
+    if len(cleaned) > MAX_MEDIA_URLS_COUNT:
         raise ValidationError(
-            f"media_urls must have at most {MAX_MEDIA_URLS_COUNT} items",
+            f"media_urls cannot have more than {MAX_MEDIA_URLS_COUNT} items",
             field="media_urls",
         )
     validated: list[str] = []
-    for url in urls:
+    for url in cleaned:
         validated.append(_validate_url(url, "media_urls"))
     return validated
 
@@ -150,7 +153,7 @@ def _validate_logo_media_url(
     logo_media_url = _validate_url(logo_media_url, "logo_media_url")
     if logo_media_url not in media_urls:
         raise ValidationError(
-            "logo_media_url must be one of media_urls",
+            "logo_media_url must match one of media_urls",
             field="logo_media_url",
         )
     return logo_media_url
@@ -195,7 +198,7 @@ def _validate_email(value: Any) -> Optional[str]:
             field="email",
         )
     if not EMAIL_RE.match(value):
-        raise ValidationError("email must be valid", field="email")
+        raise ValidationError("email must be a valid email address", field="email")
     return value
 
 
@@ -221,7 +224,7 @@ def _validate_phone_country_code(value: Any) -> Optional[str]:
 
     if value not in phonenumbers.SUPPORTED_REGIONS:
         raise ValidationError(
-            "phone_country_code must be a valid country code",
+            "phone_country_code must be a valid ISO country code",
             field="phone_country_code",
         )
     return value
@@ -234,9 +237,14 @@ def _validate_phone_fields(
     if phone_country_code is None and phone_number is None:
         return None, None
 
-    if phone_country_code is None or phone_number is None:
+    if phone_country_code is None:
         raise ValidationError(
-            "phone_country_code and phone_number must both be provided",
+            "phone_country_code is required",
+            field="phone_country_code",
+        )
+    if phone_number is None:
+        raise ValidationError(
+            "phone_number is required",
             field="phone_number",
         )
 
@@ -250,9 +258,10 @@ def _validate_phone_fields(
     if not isinstance(phone_number, str):
         raise ValidationError("phone_number must be a string", field="phone_number")
     number = phone_number.strip()
+    normalized_number = re.sub(r"[\s-]+", "", number)
     if not number:
         raise ValidationError("phone_number is required", field="phone_number")
-    if len(number) > MAX_PHONE_NUMBER_LENGTH:
+    if len(normalized_number) > MAX_PHONE_NUMBER_LENGTH:
         raise ValidationError(
             f"phone_number must be at most {MAX_PHONE_NUMBER_LENGTH} characters",
             field="phone_number",
@@ -275,7 +284,8 @@ def _validate_phone_fields(
             field="phone_number",
         )
 
-    return country_code, number
+    national_number = phonenumbers.national_significant_number(parsed)
+    return country_code, national_number
 
 
 def _validate_currency(currency: str) -> str:
@@ -295,9 +305,7 @@ def _validate_currency(currency: str) -> str:
     return currency
 
 
-def _validate_manager_id(
-    manager_id: Any, required: bool = False
-) -> Optional[str]:
+def _validate_manager_id(manager_id: Any, required: bool = False) -> Optional[str]:
     """Validate a manager_id as UUID string."""
     if manager_id is None:
         if required:
