@@ -10,6 +10,8 @@
 - If the plan changes, re-submit for approval.
 - Use simple future tense for planning, not present tense (e.g., "I will
   modify..." not "I am modifying...").
+- S3 bucket names must be 63 characters or less. When composing bucket
+  names, shorten suffixes or truncate to stay within the limit.
 
 ### Workflow (MANDATORY)
 1. **Analyze:** Understand the user request.
