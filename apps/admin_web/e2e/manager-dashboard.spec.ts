@@ -9,6 +9,11 @@ test.describe('Manager Dashboard', () => {
     await expect(
       managerPage.getByText(/You are viewing as an organization manager/)
     ).toBeVisible();
+    await expect(
+      managerPage.getByText(
+        'Manage your organization, Test Organization 1.'
+      )
+    ).toBeVisible();
   });
 
   test('should show limited navigation sections for manager', async ({ managerPage }) => {

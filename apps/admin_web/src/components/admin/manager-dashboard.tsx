@@ -6,6 +6,7 @@ import {
   ApiError,
   getUserAccessStatus,
   getUserSuggestions,
+  listManagerOrganizations,
   type Ticket,
   type ManagerStatusResponse,
 } from '../../lib/api-client';
@@ -39,6 +40,17 @@ export function ManagerDashboard() {
   const [pendingSuggestion, setPendingSuggestion] =
     useState<Ticket | null>(null);
   const [activeSection, setActiveSection] = useState('organizations');
+  const [managerOrgName, setManagerOrgName] = useState<string | null>(null);
+
+  const loadManagerOrgName = async (): Promise<string | null> => {
+    try {
+      const response = await listManagerOrganizations();
+      const name = response.items[0]?.name?.trim();
+      return name ? name : null;
+    } catch {
+      return null;
+    }
+  };
 
   const loadManagerStatus = async () => {
     setIsLoading(true);
@@ -63,13 +75,17 @@ export function ManagerDashboard() {
 
       if (status.organizations_count > 0) {
         // User has organizations, show the dashboard
+        const orgName = await loadManagerOrgName();
+        setManagerOrgName(orgName);
         setView('dashboard');
       } else if (status.has_pending_request && status.pending_request) {
         // User has a pending request
+        setManagerOrgName(null);
         setPendingRequest(status.pending_request);
         setView('pending');
       } else {
         // User has no organizations and no pending request
+        setManagerOrgName(null);
         setView('request-form');
       }
     } catch (err) {
@@ -96,6 +112,10 @@ export function ManagerDashboard() {
   const handleSuggestionSubmitted = (suggestion: Ticket) => {
     setPendingSuggestion(suggestion);
   };
+
+  const headerDescription = managerOrgName
+    ? `Manage your organization, ${managerOrgName}.`
+    : 'Manage your organization.';
 
   // Sections available to managers
   const sectionLabels = [
@@ -153,6 +173,7 @@ export function ManagerDashboard() {
         onLogout={logout}
         userEmail={user?.email}
         lastAuthTime={user?.lastAuthTime}
+        headerDescription={headerDescription}
       >
         <StatusBanner variant='error' title='Error'>
           {error}
@@ -174,6 +195,7 @@ export function ManagerDashboard() {
         onLogout={logout}
         userEmail={user?.email}
         lastAuthTime={user?.lastAuthTime}
+        headerDescription={headerDescription}
       >
         {authError && (
           <StatusBanner variant='error' title='Session'>
@@ -195,6 +217,7 @@ export function ManagerDashboard() {
         onLogout={logout}
         userEmail={user?.email}
         lastAuthTime={user?.lastAuthTime}
+        headerDescription={headerDescription}
       >
         {authError && (
           <StatusBanner variant='error' title='Session'>
@@ -215,6 +238,7 @@ export function ManagerDashboard() {
       onLogout={logout}
       userEmail={user?.email}
       lastAuthTime={user?.lastAuthTime}
+      headerDescription={headerDescription}
     >
       {authError && (
         <StatusBanner variant='error' title='Session'>
