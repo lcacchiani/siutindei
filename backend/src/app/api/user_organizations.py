@@ -36,10 +36,6 @@ def _handle_user_organizations(
         results = repo.search_by_name(query, limit=limit)
         return json_response(
             200,
-            {
-                "items": [
-                    {"id": str(org.id), "name": org.name} for org in results
-                ]
-            },
+            {"items": [{"id": str(org.id), "name": org.name} for org in results]},
             event=event,
         )

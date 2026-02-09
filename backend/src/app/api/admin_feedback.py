@@ -358,12 +358,13 @@ def _create_feedback(event: Mapping[str, Any]) -> dict[str, Any]:
         repo = OrganizationFeedbackRepository(session)
 
         _ensure_organization(org_repo, organization_id)
+        _validate_feedback_labels(label_repo, label_ids)
         entity = OrganizationFeedback(
-            organization_id=organization_id,
+            organization_id=str(organization_id),
             submitter_id=submitter_id,
             submitter_email=submitter_email,
             stars=stars,
-            label_ids=list(label_ids),
+            label_ids=[str(label_id) for label_id in label_ids],
             description=description,
             source_ticket_id=source_ticket_id,
         )
@@ -399,14 +400,15 @@ def _update_feedback(
 
         old_submitter_id = entity.submitter_id
         if "organization_id" in body:
-            entity.organization_id = _require_org_id(body)
-            _ensure_organization(org_repo, entity.organization_id)
+            organization_id = _require_org_id(body)
+            _ensure_organization(org_repo, organization_id)
+            entity.organization_id = str(organization_id)
         if "stars" in body:
             entity.stars = _parse_feedback_stars(body.get("stars"))
         if "label_ids" in body:
             label_ids = _parse_label_ids(body.get("label_ids"))
             _validate_feedback_labels(label_repo, label_ids)
-            entity.label_ids = list(label_ids)
+            entity.label_ids = [str(label_id) for label_id in label_ids]
         if "description" in body:
             entity.description = _validate_string_length(
                 body.get("description"),

@@ -51,12 +51,12 @@ class FeedbackLabelRepository(BaseRepository[FeedbackLabel]):
         """Return True if the label is used by any feedback entry."""
         ticket_query = (
             select(Ticket.id)
-            .where(Ticket.feedback_label_ids.any(label_id))
+            .where(Ticket.feedback_label_ids.any(label_id))  # type: ignore[arg-type]
             .limit(1)
         )
         feedback_query = (
             select(OrganizationFeedback.id)
-            .where(OrganizationFeedback.label_ids.any(label_id))
+            .where(OrganizationFeedback.label_ids.any(label_id))  # type: ignore[arg-type]
             .limit(1)
         )
         return (

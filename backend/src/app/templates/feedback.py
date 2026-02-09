@@ -6,9 +6,7 @@ from typing import Iterable, Optional
 
 from app.templates.types import EmailContent
 
-NEW_FEEDBACK_SUBJECT = (
-    "[Siu Tin Dei] [{ticket_id}] New Feedback: {organization_name}"
-)
+NEW_FEEDBACK_SUBJECT = "[Siu Tin Dei] [{ticket_id}] New Feedback: {organization_name}"
 
 NEW_FEEDBACK_TEXT = """
 [Siu Tin Dei] Organization Feedback [{ticket_id}]
