@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { useActivitiesByMode } from '../../hooks/use-activities-by-mode';
 import { useLocationsByMode } from '../../hooks/use-locations-by-mode';
@@ -259,6 +259,7 @@ export function SchedulesPanel({ mode }: SchedulesPanelProps) {
     emptyForm,
     itemToForm
   );
+  const { editingId, formState, setFormState } = panel;
 
   const { items: activities } = useActivitiesByMode(mode, { limit: 200 });
   const { items: locations } = useLocationsByMode(mode, { limit: 200 });
@@ -266,6 +267,45 @@ export function SchedulesPanel({ mode }: SchedulesPanelProps) {
 
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
+
+  useEffect(() => {
+    if (editingId) {
+      return;
+    }
+    const defaultActivityId =
+      activities.length === 1 ? activities[0]?.id ?? '' : '';
+    const defaultLocationId =
+      locations.length === 1 ? locations[0]?.id ?? '' : '';
+    const shouldSetActivityDefault =
+      Boolean(defaultActivityId) && !formState.activity_id;
+    const shouldSetLocationDefault =
+      Boolean(defaultLocationId) && !formState.location_id;
+    if (!shouldSetActivityDefault && !shouldSetLocationDefault) {
+      return;
+    }
+    setFormState((prev) => {
+      const nextActivityId = prev.activity_id || defaultActivityId;
+      const nextLocationId = prev.location_id || defaultLocationId;
+      if (
+        nextActivityId === prev.activity_id &&
+        nextLocationId === prev.location_id
+      ) {
+        return prev;
+      }
+      return {
+        ...prev,
+        activity_id: nextActivityId,
+        location_id: nextLocationId,
+      };
+    });
+  }, [
+    activities,
+    locations,
+    editingId,
+    formState.activity_id,
+    formState.location_id,
+    setFormState,
+  ]);
 
   const validate = () => {
     const form = panel.formState;
