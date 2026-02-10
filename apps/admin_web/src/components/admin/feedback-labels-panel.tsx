@@ -218,19 +218,23 @@ export function FeedbackLabelsPanel() {
         )}
 
         <div className='space-y-4'>
-          <div>
-            <Label htmlFor='label-name'>Label Name</Label>
+          <div className='space-y-1'>
             <LanguageToggleInput
               id='label-name'
-              value={panel.formState.name}
-              translations={panel.formState.name_translations}
-              onChange={handleNameChange}
-              onBlur={() => markTouched('name')}
-              placeholder='e.g., Friendly staff'
-              maxLength={200}
+              label='Label Name'
               required
-              error={showNameError ? nameError : undefined}
+              values={{
+                en: panel.formState.name,
+                zh: panel.formState.name_translations.zh,
+                yue: panel.formState.name_translations.yue,
+              }}
+              onChange={handleNameChange}
+              hasError={showNameError}
+              inputClassName={showNameError ? errorInputClassName : ''}
             />
+            {showNameError ? (
+              <p className='text-xs text-red-600'>{nameError}</p>
+            ) : null}
           </div>
 
           <div>
