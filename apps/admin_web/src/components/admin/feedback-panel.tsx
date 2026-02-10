@@ -15,6 +15,7 @@ import { DataTable } from '../ui/data-table';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Select } from '../ui/select';
+import { StarRating } from '../ui/star-rating';
 import { Textarea } from '../ui/textarea';
 import { StatusBanner } from '../status-banner';
 
@@ -22,7 +23,7 @@ interface FeedbackFormState {
   organization_id: string;
   submitter_id: string;
   submitter_email: string;
-  stars: string;
+  stars: number;
   label_ids: string[];
   description: string;
   source_ticket_id: string;
@@ -32,7 +33,7 @@ const emptyForm: FeedbackFormState = {
   organization_id: '',
   submitter_id: '',
   submitter_email: '',
-  stars: '0',
+  stars: 1,
   label_ids: [],
   description: '',
   source_ticket_id: '',
@@ -43,21 +44,11 @@ function itemToForm(item: OrganizationFeedback): FeedbackFormState {
     organization_id: item.organization_id ?? '',
     submitter_id: item.submitter_id ?? '',
     submitter_email: item.submitter_email ?? '',
-    stars: item.stars !== undefined ? `${item.stars}` : '0',
+    stars: item.stars !== undefined ? item.stars : 1,
     label_ids: item.label_ids ?? [],
     description: item.description ?? '',
     source_ticket_id: item.source_ticket_id ?? '',
   };
-}
-
-function parseStars(value: string): number | null {
-  const trimmed = value.trim();
-  if (!trimmed) return null;
-  const parsed = Number(trimmed);
-  if (!Number.isFinite(parsed) || !Number.isInteger(parsed)) {
-    return null;
-  }
-  return parsed;
 }
 
 function formatDate(dateStr: string | null | undefined) {
@@ -126,8 +117,8 @@ export function FeedbackPanel() {
     if (!panel.formState.organization_id) {
       return 'Select an organization.';
     }
-    const stars = parseStars(panel.formState.stars);
-    if (stars === null || stars < 0 || stars > 5) {
+    const stars = panel.formState.stars;
+    if (!Number.isInteger(stars) || stars < 0 || stars > 5) {
       return 'Stars must be a whole number between 0 and 5.';
     }
     return null;
@@ -137,7 +128,7 @@ export function FeedbackPanel() {
     organization_id: form.organization_id,
     submitter_id: form.submitter_id.trim() || undefined,
     submitter_email: form.submitter_email.trim() || undefined,
-    stars: parseStars(form.stars),
+    stars: form.stars,
     label_ids: form.label_ids,
     description: form.description.trim() || undefined,
     source_ticket_id: form.source_ticket_id.trim() || undefined,
@@ -235,19 +226,20 @@ export function FeedbackPanel() {
           <div className='grid gap-4 sm:grid-cols-2'>
             <div>
               <Label htmlFor='feedback-stars'>Stars</Label>
-              <Input
-                id='feedback-stars'
-                type='number'
-                min='0'
-                max='5'
-                value={panel.formState.stars}
-                onChange={(e) =>
-                  panel.setFormState((prev) => ({
-                    ...prev,
-                    stars: e.target.value,
-                  }))
-                }
-              />
+              <div className='mt-2 flex items-center gap-2'>
+                <StarRating
+                  value={panel.formState.stars}
+                  onChange={(value) =>
+                    panel.setFormState((prev) => ({
+                      ...prev,
+                      stars: value,
+                    }))
+                  }
+                />
+                <span className='text-sm text-slate-500'>
+                  {panel.formState.stars}/5
+                </span>
+              </div>
             </div>
             <div>
               <Label htmlFor='feedback-ticket-id'>Source Ticket ID</Label>
