@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ApiError,
   getUserAccessStatus,
+  getUserFeedback,
   getUserSuggestions,
   listManagerOrganizations,
   type Ticket,
@@ -21,8 +22,10 @@ import {
   SchedulesPanel,
 } from '../shared';
 import { AccessRequestForm } from './access-request-form';
+import { FeedbackForm } from './feedback-form';
 import { PendingRequestNotice } from './pending-request-notice';
 import { MediaPanel } from './media-panel';
+import { PendingFeedbackNotice } from './pending-feedback-notice';
 import { SuggestionForm } from './suggestion-form';
 import { PendingSuggestionNotice } from './pending-suggestion-notice';
 
@@ -39,6 +42,7 @@ export function ManagerDashboard() {
   const [pendingRequest, setPendingRequest] = useState<Ticket | null>(null);
   const [pendingSuggestion, setPendingSuggestion] =
     useState<Ticket | null>(null);
+  const [pendingFeedback, setPendingFeedback] = useState<Ticket | null>(null);
   const [activeSection, setActiveSection] = useState('organizations');
   const [managerOrgName, setManagerOrgName] = useState<string | null>(null);
 
@@ -56,10 +60,11 @@ export function ManagerDashboard() {
     setIsLoading(true);
     setError('');
     try {
-      // Load both access request status and suggestions in parallel
-      const [status, suggestionsStatus] = await Promise.all([
+      // Load access request, suggestions, and feedback in parallel
+      const [status, suggestionsStatus, feedbackStatus] = await Promise.all([
         getUserAccessStatus(),
         getUserSuggestions(),
+        getUserFeedback(),
       ]);
       setManagerStatus(status);
 
@@ -70,6 +75,15 @@ export function ManagerDashboard() {
         );
         if (pending) {
           setPendingSuggestion(pending);
+        }
+      }
+
+      if (feedbackStatus.has_pending_feedback) {
+        const pending = feedbackStatus.feedbacks.find(
+          (item) => item.status === 'pending'
+        );
+        if (pending) {
+          setPendingFeedback(pending);
         }
       }
 
@@ -113,6 +127,10 @@ export function ManagerDashboard() {
     setPendingSuggestion(suggestion);
   };
 
+  const handleFeedbackSubmitted = (feedback: Ticket) => {
+    setPendingFeedback(feedback);
+  };
+
   const headerDescription = managerOrgName
     ? `Manage your organization, ${managerOrgName}.`
     : 'Manage your organization.';
@@ -126,6 +144,7 @@ export function ManagerDashboard() {
     { key: 'pricing', label: 'Pricing' },
     { key: 'schedules', label: 'Schedules' },
     { key: 'suggest-place', label: 'Suggest a Place', dividerBefore: true },
+    { key: 'feedback', label: 'Feedback' },
   ];
 
   // Use shared components with mode='manager'
@@ -146,11 +165,16 @@ export function ManagerDashboard() {
           return <PendingSuggestionNotice suggestion={pendingSuggestion} />;
         }
         return <SuggestionForm onSuggestionSubmitted={handleSuggestionSubmitted} />;
+      case 'feedback':
+        if (pendingFeedback) {
+          return <PendingFeedbackNotice feedback={pendingFeedback} />;
+        }
+        return <FeedbackForm onFeedbackSubmitted={handleFeedbackSubmitted} />;
       case 'organizations':
       default:
         return <OrganizationsPanel mode='manager' />;
     }
-  }, [activeSection, pendingSuggestion]);
+  }, [activeSection, pendingFeedback, pendingSuggestion]);
 
   // Loading state
   if (view === 'loading' || isLoading) {

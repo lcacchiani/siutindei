@@ -204,7 +204,66 @@ def _serialize_cognito_user(user: dict[str, Any]) -> Optional[dict[str, Any]]:
         "created_at": user.get("UserCreateDate"),
         "updated_at": user.get("UserLastModifiedDate"),
         "last_auth_time": last_auth_time,
+        "attributes": attributes,
     }
+
+
+def _adjust_user_feedback_stars(user_sub: str, delta: int) -> None:
+    """Adjust custom:feedback_stars for a user."""
+    if delta == 0:
+        return
+    user_pool_id = _require_env("COGNITO_USER_POOL_ID")
+    result = _get_user_by_sub(user_pool_id, user_sub)
+    if result is None:
+        logger.warning(f"Could not find user for feedback stars: {user_sub}")
+        return
+    username, attributes = result
+    current = _parse_feedback_stars(attributes)
+    next_value = max(0, current + delta)
+    _cognito(
+        "admin_update_user_attributes",
+        UserPoolId=user_pool_id,
+        Username=username,
+        UserAttributes=[
+            {
+                "Name": "custom:feedback_stars",
+                "Value": str(next_value),
+            }
+        ],
+    )
+
+
+def _get_user_by_sub(
+    user_pool_id: str,
+    user_sub: str,
+) -> Optional[tuple[str, dict[str, str]]]:
+    """Return Cognito username and attributes for a given user sub."""
+    response = _cognito(
+        "list_users",
+        UserPoolId=user_pool_id,
+        Filter=f'sub = "{user_sub}"',
+        Limit=1,
+    )
+    users = response.get("Users", [])
+    if not users:
+        return None
+    user = users[0]
+    username = user.get("Username")
+    if not username:
+        return None
+    raw_attributes = user.get("Attributes", [])
+    attributes = {attr["Name"]: attr["Value"] for attr in raw_attributes}
+    return username, attributes
+
+
+def _parse_feedback_stars(attributes: Mapping[str, str]) -> int:
+    """Parse feedback stars from Cognito attributes."""
+    raw_value = attributes.get("custom:feedback_stars")
+    try:
+        parsed = int(raw_value) if raw_value is not None else 0
+    except (TypeError, ValueError):
+        parsed = 0
+    return max(0, parsed)
 
 
 def _parse_last_auth_time(value: Optional[str]) -> Optional[str]:

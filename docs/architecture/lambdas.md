@@ -36,6 +36,8 @@ their primary responsibilities.
   - `SES_SENDER_EMAIL`
   - `SES_TEMPLATE_REQUEST_DECISION` (optional)
   - `SES_TEMPLATE_SUGGESTION_DECISION` (optional)
+  - `SES_TEMPLATE_FEEDBACK_DECISION` (optional)
+  - `FEEDBACK_STARS_PER_APPROVAL`
   - `NOMINATIM_USER_AGENT`
   - `NOMINATIM_REFERER`
   - `ADMIN_IMPORT_EXPORT_BUCKET`
@@ -156,6 +158,7 @@ their primary responsibilities.
   - `SES_SENDER_EMAIL`, `SUPPORT_EMAIL`
   - `SES_TEMPLATE_NEW_ACCESS_REQUEST` (optional)
   - `SES_TEMPLATE_NEW_SUGGESTION` (optional)
+  - `SES_TEMPLATE_NEW_FEEDBACK` (optional)
 
 ### AWS / HTTP proxy
 - Function: AwsApiProxyFunction

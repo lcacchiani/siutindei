@@ -26,6 +26,7 @@ class TicketType(str, enum.Enum):
 
     ACCESS_REQUEST = "access_request"
     ORGANIZATION_SUGGESTION = "organization_suggestion"
+    ORGANIZATION_FEEDBACK = "organization_feedback"
 
 
 class TicketStatus(str, enum.Enum):

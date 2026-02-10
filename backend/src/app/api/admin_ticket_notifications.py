@@ -70,7 +70,7 @@ def _send_ticket_decision_email(
                     body_text=email_content.body_text,
                     body_html=email_content.body_html,
                 )
-        else:
+        elif ticket.ticket_type == TicketType.ORGANIZATION_SUGGESTION:
             if action == "approve":
                 subject = f"Your place suggestion {ticket.ticket_id} has been approved!"
                 status_text = "APPROVED"
@@ -106,6 +106,48 @@ def _send_ticket_decision_email(
                         "ticket_id": ticket.ticket_id,
                         "organization_name": ticket.organization_name,
                         "status_text": status_text,
+                        "status_message": status_message,
+                        "admin_message": admin_notes or "",
+                    },
+                )
+            else:
+                send_email(
+                    source=sender_email,
+                    to_addresses=[ticket.submitter_email],
+                    subject=subject,
+                    body_text=body_text,
+                )
+        else:
+            if action == "approve":
+                subject = "Your feedback has been approved! " f"[{ticket.ticket_id}]"
+                status_message = (
+                    f"Thanks for your feedback about '{ticket.organization_name}'. "
+                    "It has been approved by our team."
+                )
+            else:
+                subject = "Update on your feedback " f"[{ticket.ticket_id}]"
+                status_message = (
+                    "Thank you for your feedback. "
+                    "Unfortunately, we were unable to approve it at this time."
+                )
+
+            body_text = f"{status_message}\n\n"
+            if admin_notes:
+                body_text += f"Note from admin: {admin_notes}\n"
+            body_text += (
+                "\nYou can submit another feedback entry now that this "
+                "one has been reviewed."
+            )
+
+            template_name = os.getenv("SES_TEMPLATE_FEEDBACK_DECISION", "")
+            if template_name:
+                send_templated_email(
+                    source=sender_email,
+                    to_addresses=[ticket.submitter_email],
+                    template_name=template_name,
+                    template_data={
+                        "ticket_id": ticket.ticket_id,
+                        "organization_name": ticket.organization_name,
                         "status_message": status_message,
                         "admin_message": admin_notes or "",
                     },

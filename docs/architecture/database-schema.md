@@ -228,6 +228,7 @@ Columns:
 - `id` (UUID, PK, default `gen_random_uuid()`)
 - `ticket_id` (text, unique, required) — progressive ID (prefix + 5 digits)
 - `ticket_type` (enum `ticket_type`, required) — workflow discriminator
+  (`access_request`, `organization_suggestion`, `organization_feedback`)
 - `submitter_id` (text, required) — Cognito user sub
 - `submitter_email` (text, required)
 - `organization_name` (text, required)
@@ -244,6 +245,10 @@ Columns:
 - `suggested_lat` (numeric, optional)
 - `suggested_lng` (numeric, optional)
 - `media_urls` (text[], default empty array)
+- `organization_id` (UUID, FK -> organizations.id, optional)
+- `feedback_stars` (smallint, optional, 0-5)
+- `feedback_label_ids` (UUID[], default empty array)
+- `feedback_text` (text, optional)
 - `created_organization_id` (UUID, FK -> organizations.id, optional)
 
 Indexes:
@@ -253,6 +258,44 @@ Indexes:
 - Index on `submitter_id`
 - Index on `created_at`
 - Composite index on (`ticket_type`, `status`)
+
+## Table: feedback_labels
+
+Purpose: Managed list of labels that users can apply to feedback.
+
+Columns:
+- `id` (UUID, PK, default `gen_random_uuid()`)
+- `name` (text, required)
+- `name_translations` (jsonb, default empty object)
+- `display_order` (integer, default 0)
+- `created_at` (timestamptz, default `now()`)
+- `updated_at` (timestamptz, default `now()`)
+
+Indexes:
+- Unique index on `lower(trim(name))`
+- Index on `display_order`
+
+## Table: organization_feedback
+
+Purpose: Approved feedback entries for organizations.
+
+Columns:
+- `id` (UUID, PK, default `gen_random_uuid()`)
+- `organization_id` (UUID, FK -> organizations.id, required)
+- `submitter_id` (text, optional) — Cognito user sub
+- `submitter_email` (text, optional)
+- `stars` (smallint, required, 0-5)
+- `label_ids` (UUID[], default empty array)
+- `description` (text, optional)
+- `source_ticket_id` (text, optional)
+- `created_at` (timestamptz, default `now()`)
+- `updated_at` (timestamptz, default `now()`)
+
+Indexes:
+- Index on `organization_id`
+- Index on `submitter_id`
+- Index on `created_at`
+- GIN index on `label_ids`
 
 ## Table: audit_log
 

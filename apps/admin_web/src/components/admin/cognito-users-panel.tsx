@@ -18,6 +18,7 @@ import {
   EmailIcon,
   GoogleIcon,
   MicrosoftIcon,
+  ViewIcon,
 } from '../icons/action-icons';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
@@ -117,6 +118,7 @@ export function CognitoUsersPanel() {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [actionError, setActionError] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState<CognitoUser | null>(null);
+  const [selectedUser, setSelectedUser] = useState<CognitoUser | null>(null);
 
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
@@ -346,22 +348,21 @@ export function CognitoUsersPanel() {
     const hasManagerRole = cognitoUser.groups?.includes('manager') || false;
     const isCurrent = isCurrentUser(cognitoUser);
 
-    if (isCurrent) {
-      return (
-        <span
-          className={
-            context === 'mobile'
-              ? 'flex-1 text-center text-xs text-slate-400'
-              : 'text-xs text-slate-400'
-          }
-        >
-          Cannot modify your own account
-        </span>
-      );
-    }
+    const viewButton = (
+      <Button
+        type='button'
+        size='sm'
+        variant='ghost'
+        onClick={() => setSelectedUser(cognitoUser)}
+        title='View attributes'
+      >
+        <ViewIcon className='h-4 w-4' />
+      </Button>
+    );
 
     const buttons = (
       <>
+        {viewButton}
         <Button
           type='button'
           size='sm'
@@ -408,6 +409,23 @@ export function CognitoUsersPanel() {
         </Button>
       </>
     );
+
+    if (isCurrent) {
+      return (
+        <div
+          className={
+            context === 'mobile'
+              ? 'flex flex-1 items-center justify-center gap-2'
+              : 'flex items-center justify-end gap-2'
+          }
+        >
+          {viewButton}
+          <span className='text-xs text-slate-400'>
+            Cannot modify your own account
+          </span>
+        </div>
+      );
+    }
 
     if (context === 'mobile') {
       return <div className='flex flex-1 justify-center gap-2'>{buttons}</div>;
@@ -512,6 +530,100 @@ export function CognitoUsersPanel() {
           </div>
         </div>
       )}
+
+      {selectedUser && (
+        <UserAttributesModal
+          user={selectedUser}
+          onClose={() => setSelectedUser(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+function UserAttributesModal({
+  user,
+  onClose,
+}: {
+  user: CognitoUser;
+  onClose: () => void;
+}) {
+  const attributes = user.attributes ?? {};
+  const attributeEntries = Object.entries(attributes).sort((a, b) =>
+    a[0].localeCompare(b[0])
+  );
+
+  return (
+    <div className='fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center sm:p-4'>
+      <div className='max-h-[90vh] w-full overflow-y-auto rounded-t-xl bg-white p-4 shadow-xl sm:max-w-2xl sm:rounded-xl sm:p-6'>
+        <div className='mb-4 flex items-start justify-between'>
+          <h3 className='text-base font-semibold sm:text-lg'>
+            User Attributes
+          </h3>
+          <button
+            type='button'
+            onClick={onClose}
+            className='rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600'
+            aria-label='Close'
+          >
+            <svg className='h-5 w-5' viewBox='0 0 20 20' fill='currentColor'>
+              <path
+                fillRule='evenodd'
+                d='M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z'
+                clipRule='evenodd'
+              />
+            </svg>
+          </button>
+        </div>
+
+        <div className='space-y-4 text-sm'>
+          <div className='grid grid-cols-2 gap-4'>
+            <div>
+              <span className='font-medium text-slate-500'>Email</span>
+              <p className='mt-1 break-all'>{user.email || '—'}</p>
+            </div>
+            <div>
+              <span className='font-medium text-slate-500'>Username</span>
+              <p className='mt-1 break-all'>{user.username || '—'}</p>
+            </div>
+            <div>
+              <span className='font-medium text-slate-500'>Status</span>
+              <p className='mt-1'>{user.status}</p>
+            </div>
+            <div>
+              <span className='font-medium text-slate-500'>Groups</span>
+              <p className='mt-1'>{user.groups?.join(', ') || '—'}</p>
+            </div>
+            <div>
+              <span className='font-medium text-slate-500'>Created</span>
+              <p className='mt-1'>{user.created_at || '—'}</p>
+            </div>
+            <div>
+              <span className='font-medium text-slate-500'>Last Login</span>
+              <p className='mt-1'>{user.last_auth_time || '—'}</p>
+            </div>
+          </div>
+
+          <div>
+            <span className='font-medium text-slate-500'>
+              Raw Attributes
+            </span>
+            {attributeEntries.length === 0 ? (
+              <p className='mt-1 text-slate-500'>No attributes found.</p>
+            ) : (
+              <pre className='mt-2 max-h-64 overflow-auto rounded bg-slate-50 p-3 text-xs text-slate-700'>
+                {JSON.stringify(attributes, null, 2)}
+              </pre>
+            )}
+          </div>
+        </div>
+
+        <div className='mt-6 flex justify-end'>
+          <Button type='button' variant='secondary' onClick={onClose}>
+            Close
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }

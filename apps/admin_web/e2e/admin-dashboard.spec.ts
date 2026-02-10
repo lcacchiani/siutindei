@@ -25,6 +25,8 @@ test.describe('Admin Dashboard', () => {
       'Schedules',
       'Imports',
       'Tickets',
+      'Feedback',
+      'Feedback Labels',
       'Users',
       'Audit Logs',
     ];
@@ -187,7 +189,7 @@ test.describe('Admin Dashboard Layout', () => {
 
     // Check that nav element exists with buttons
     const navButtons = adminPage.locator('nav button');
-    await expect(navButtons).toHaveCount(11); // 11 navigation sections
+    await expect(navButtons).toHaveCount(13); // 13 navigation sections
   });
 
   test('should have main content area', async ({ adminPage }) => {

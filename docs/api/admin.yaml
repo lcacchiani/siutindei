@@ -440,6 +440,180 @@ paths:
         "404":
           description: Activity category not found
 
+  /v1/admin/feedback-labels:
+    get:
+      summary: List feedback labels
+      description: Retrieve a paginated list of feedback labels.
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of feedback labels
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedbackLabelListResponse'
+    post:
+      summary: Create feedback label
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FeedbackLabelCreate'
+      responses:
+        "201":
+          description: Feedback label created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedbackLabel'
+        "400":
+          description: Validation error
+
+  /v1/admin/feedback-labels/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      summary: Get feedback label
+      responses:
+        "200":
+          description: Feedback label details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedbackLabel'
+        "404":
+          description: Feedback label not found
+    put:
+      summary: Update feedback label
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FeedbackLabelUpdate'
+      responses:
+        "200":
+          description: Feedback label updated
+        "400":
+          description: Validation error
+        "404":
+          description: Feedback label not found
+    delete:
+      summary: Delete feedback label
+      responses:
+        "204":
+          description: Feedback label deleted
+        "400":
+          description: Validation error
+        "404":
+          description: Feedback label not found
+
+  /v1/admin/organization-feedback:
+    get:
+      summary: List organization feedback
+      description: Retrieve a paginated list of feedback entries.
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of feedback entries
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrganizationFeedbackListResponse'
+    post:
+      summary: Create organization feedback
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrganizationFeedbackCreate'
+      responses:
+        "201":
+          description: Feedback entry created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrganizationFeedback'
+        "400":
+          description: Validation error
+
+  /v1/admin/organization-feedback/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      summary: Get organization feedback
+      responses:
+        "200":
+          description: Feedback entry details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrganizationFeedback'
+        "404":
+          description: Feedback entry not found
+    put:
+      summary: Update organization feedback
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrganizationFeedbackUpdate'
+      responses:
+        "200":
+          description: Feedback entry updated
+        "400":
+          description: Validation error
+        "404":
+          description: Feedback entry not found
+    delete:
+      summary: Delete organization feedback
+      responses:
+        "204":
+          description: Feedback entry deleted
+        "400":
+          description: Validation error
+        "404":
+          description: Feedback entry not found
+
   /v1/admin/activities:
     get:
       summary: List activities
@@ -806,7 +980,7 @@ paths:
           description: Filter by ticket type
           schema:
             type: string
-            enum: [access_request, organization_suggestion]
+            enum: [access_request, organization_suggestion, organization_feedback]
         - name: status
           in: query
           required: false
@@ -1609,6 +1783,84 @@ paths:
                     description: Unique ticket ID (e.g., S00001)
         "409":
           description: User already has a pending suggestion
+
+  /v1/user/feedback-labels:
+    get:
+      summary: List feedback labels
+      description: Retrieve feedback labels for user selection.
+      responses:
+        "200":
+          description: List of feedback labels
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedbackLabelListResponse'
+
+  /v1/user/organization-feedback:
+    get:
+      summary: Get feedback history
+      description: |
+        Get the authenticated user's feedback history and check
+        for pending submissions.
+      responses:
+        "200":
+          description: User feedback history
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserFeedbackResponse'
+    post:
+      summary: Submit organization feedback
+      description: |
+        Submit feedback for an organization. Only one pending
+        feedback submission is allowed at a time.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserFeedbackCreate'
+      responses:
+        "202":
+          description: Feedback submitted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  ticket_id:
+                    type: string
+        "409":
+          description: User already has a pending feedback submission
+
+  /v1/user/organizations:
+    get:
+      summary: Search organizations
+      description: Search organizations by name for feedback selection.
+      parameters:
+        - name: q
+          in: query
+          required: false
+          description: Search query string
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+      responses:
+        "200":
+          description: Organization matches
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrganizationLookupListResponse'
 
   # --- Health Check ---
 
@@ -2775,10 +3027,229 @@ components:
           type: string
           description: Media URL to delete (alternative to object_key)
 
+    # Feedback label schemas
+    FeedbackLabel:
+      type: object
+      required: [id, name, name_translations, display_order]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        name_translations:
+          type: object
+          additionalProperties:
+            type: string
+        display_order:
+          type: integer
+
+    FeedbackLabelCreate:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          maxLength: 200
+        name_translations:
+          type: object
+          additionalProperties:
+            type: string
+        display_order:
+          type: integer
+          minimum: 0
+
+    FeedbackLabelUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 200
+        name_translations:
+          type: object
+          additionalProperties:
+            type: string
+        display_order:
+          type: integer
+          minimum: 0
+
+    FeedbackLabelListResponse:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/FeedbackLabel'
+        next_cursor:
+          type: string
+          nullable: true
+
+    # Organization feedback schemas
+    OrganizationFeedback:
+      type: object
+      required: [id, organization_id, stars, label_ids, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        organization_id:
+          type: string
+          format: uuid
+        organization_name:
+          type: string
+          nullable: true
+        submitter_id:
+          type: string
+          nullable: true
+        submitter_email:
+          type: string
+          nullable: true
+        stars:
+          type: integer
+          minimum: 0
+          maximum: 5
+        label_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        description:
+          type: string
+          nullable: true
+        source_ticket_id:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    OrganizationFeedbackCreate:
+      type: object
+      required: [organization_id, stars]
+      properties:
+        organization_id:
+          type: string
+          format: uuid
+        stars:
+          type: integer
+          minimum: 0
+          maximum: 5
+        label_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        description:
+          type: string
+          maxLength: 5000
+        submitter_id:
+          type: string
+          maxLength: 200
+        submitter_email:
+          type: string
+          maxLength: 320
+        source_ticket_id:
+          type: string
+          maxLength: 200
+
+    OrganizationFeedbackUpdate:
+      type: object
+      properties:
+        organization_id:
+          type: string
+          format: uuid
+        stars:
+          type: integer
+          minimum: 0
+          maximum: 5
+        label_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        description:
+          type: string
+          maxLength: 5000
+        submitter_id:
+          type: string
+          maxLength: 200
+        submitter_email:
+          type: string
+          maxLength: 320
+        source_ticket_id:
+          type: string
+          maxLength: 200
+
+    OrganizationFeedbackListResponse:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrganizationFeedback'
+        next_cursor:
+          type: string
+          nullable: true
+
+    UserFeedbackCreate:
+      type: object
+      required: [organization_id, stars]
+      properties:
+        organization_id:
+          type: string
+          format: uuid
+        stars:
+          type: integer
+          minimum: 0
+          maximum: 5
+        label_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        description:
+          type: string
+          maxLength: 5000
+
+    UserFeedbackResponse:
+      type: object
+      required: [has_pending_feedback, feedbacks]
+      properties:
+        has_pending_feedback:
+          type: boolean
+        feedbacks:
+          type: array
+          items:
+            $ref: '#/components/schemas/Ticket'
+
+    OrganizationLookup:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+
+    OrganizationLookupListResponse:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrganizationLookup'
+
     # Cognito User schemas
     CognitoUser:
       type: object
-      required: [sub, email, email_verified, username, status, enabled, groups, created_at, updated_at]
+      required: [sub, email, email_verified, username, status, enabled, groups, created_at, updated_at, attributes]
       properties:
         sub:
           type: string
@@ -2818,6 +3289,10 @@ components:
           type: string
           format: date-time
           nullable: true
+        attributes:
+          type: object
+          additionalProperties:
+            type: string
 
     CognitoUserListResponse:
       type: object
@@ -2860,7 +3335,7 @@ components:
           description: Unique progressive ticket ID (prefix + 5 digits)
         ticket_type:
           type: string
-          enum: [access_request, organization_suggestion]
+          enum: [access_request, organization_suggestion, organization_feedback]
         organization_name:
           type: string
         message:
@@ -2908,6 +3383,23 @@ components:
           type: array
           items:
             type: string
+        organization_id:
+          type: string
+          format: uuid
+          nullable: true
+        feedback_stars:
+          type: integer
+          minimum: 0
+          maximum: 5
+          nullable: true
+        feedback_label_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        feedback_text:
+          type: string
+          nullable: true
         created_organization_id:
           type: string
           format: uuid

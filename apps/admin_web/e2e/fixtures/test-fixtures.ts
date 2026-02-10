@@ -1,4 +1,4 @@
-import { test as base, Page } from '@playwright/test';
+import { test as base, Page, Route } from '@playwright/test';
 
 /**
  * Mock user data for testing different auth states
@@ -330,6 +330,14 @@ export const mockCognitoUsers = [
     enabled: true,
     status: 'CONFIRMED',
     groups: ['manager'],
+    created_at: '2024-01-01T00:00:00Z',
+    updated_at: '2024-01-01T00:00:00Z',
+    last_auth_time: '2024-01-10T00:00:00Z',
+    attributes: {
+      email: 'manager@example.com',
+      name: 'Manager User',
+      'custom:feedback_stars': '2',
+    },
   },
   {
     sub: 'admin-manager-id-789',
@@ -339,6 +347,14 @@ export const mockCognitoUsers = [
     enabled: true,
     status: 'CONFIRMED',
     groups: ['admin', 'manager'],
+    created_at: '2024-01-01T00:00:00Z',
+    updated_at: '2024-01-01T00:00:00Z',
+    last_auth_time: '2024-01-12T00:00:00Z',
+    attributes: {
+      email: 'admin-manager@example.com',
+      name: 'Admin Manager User',
+      'custom:feedback_stars': '5',
+    },
   },
 ];
 
@@ -409,6 +425,37 @@ export const mockTickets = [
     reviewed_at: null,
     reviewed_by: null,
     admin_notes: null,
+  },
+];
+
+export const mockFeedbackLabels = [
+  {
+    id: 'label-friendly',
+    name: 'Friendly staff',
+    name_translations: { zh: '親切職員', yue: '親切職員' },
+    display_order: 0,
+  },
+  {
+    id: 'label-clean',
+    name: 'Clean space',
+    name_translations: { zh: '乾淨環境', yue: '乾淨環境' },
+    display_order: 1,
+  },
+];
+
+export const mockOrganizationFeedback = [
+  {
+    id: 'feedback-1',
+    organization_id: 'org-1',
+    organization_name: 'Test Organization 1',
+    submitter_id: 'regular-user-id-000',
+    submitter_email: 'user@example.com',
+    stars: 4,
+    label_ids: ['label-friendly'],
+    description: 'Great staff and friendly environment.',
+    source_ticket_id: 'F00001',
+    created_at: '2024-01-03T00:00:00Z',
+    updated_at: '2024-01-03T00:00:00Z',
   },
 ];
 
@@ -541,6 +588,125 @@ export async function setupApiMocks(page: Page): Promise<void> {
     }
   });
 
+  // Mock feedback labels list
+  const handleFeedbackLabels = async (route: Route) => {
+    const method = route.request().method();
+    if (method === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ items: mockFeedbackLabels, next_cursor: null }),
+      });
+    } else if (method === 'POST') {
+      const body = route.request().postDataJSON();
+      const newLabel = {
+        id: 'label-new-' + Date.now(),
+        ...body,
+      };
+      await route.fulfill({
+        status: 201,
+        contentType: 'application/json',
+        body: JSON.stringify(newLabel),
+      });
+    } else {
+      await route.continue();
+    }
+  };
+  await page.route(
+    '**/api/mock/**/admin/feedback-labels',
+    handleFeedbackLabels
+  );
+  await page.route(
+    '**/api/mock/**/admin/feedback-labels?*',
+    handleFeedbackLabels
+  );
+
+  // Mock feedback label by ID
+  await page.route('**/api/mock/**/admin/feedback-labels/*', async (route) => {
+    const method = route.request().method();
+    const labelId = route.request().url().split('/').pop()?.split('?')[0];
+    if (method === 'DELETE') {
+      await route.fulfill({ status: 204 });
+    } else if (method === 'PUT') {
+      const body = route.request().postDataJSON();
+      const updated = {
+        id: labelId,
+        ...body,
+      };
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(updated),
+      });
+    } else {
+      await route.continue();
+    }
+  });
+
+  // Mock organization feedback list
+  const handleOrganizationFeedback = async (route: Route) => {
+    const method = route.request().method();
+    if (method === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          items: mockOrganizationFeedback,
+          next_cursor: null,
+        }),
+      });
+    } else if (method === 'POST') {
+      const body = route.request().postDataJSON();
+      const created = {
+        id: 'feedback-new-' + Date.now(),
+        ...body,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      await route.fulfill({
+        status: 201,
+        contentType: 'application/json',
+        body: JSON.stringify(created),
+      });
+    } else {
+      await route.continue();
+    }
+  };
+  await page.route(
+    '**/api/mock/**/admin/organization-feedback',
+    handleOrganizationFeedback
+  );
+  await page.route(
+    '**/api/mock/**/admin/organization-feedback?*',
+    handleOrganizationFeedback
+  );
+
+  // Mock organization feedback by ID
+  await page.route(
+    '**/api/mock/**/admin/organization-feedback/*',
+    async (route) => {
+      const method = route.request().method();
+      const feedbackId = route.request().url().split('/').pop()?.split('?')[0];
+      if (method === 'DELETE') {
+        await route.fulfill({ status: 204 });
+      } else if (method === 'PUT') {
+        const body = route.request().postDataJSON();
+        const updated = {
+          id: feedbackId,
+          ...body,
+          updated_at: new Date().toISOString(),
+        };
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify(updated),
+        });
+      } else {
+        await route.continue();
+      }
+    }
+  );
+
   // Mock activity category by ID
   await page.route(
     '**/api/mock/**/admin/activity-categories/*',
@@ -589,6 +755,24 @@ export async function setupApiMocks(page: Page): Promise<void> {
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({ items: mockAreaTree }),
+    });
+  });
+
+  // Mock feedback labels (user endpoint)
+  await page.route('**/api/mock/**/user/feedback-labels*', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ items: mockFeedbackLabels }),
+    });
+  });
+
+  // Mock organization search (user endpoint)
+  await page.route('**/api/mock/**/user/organizations*', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ items: mockOrganizations }),
     });
   });
 
@@ -671,6 +855,30 @@ export async function setupApiMocks(page: Page): Promise<void> {
       body: JSON.stringify({ has_pending_suggestion: false, suggestions: [] }),
     });
   });
+
+  // Mock user organization feedback endpoint
+  await page.route(
+    '**/api/mock/**/user/organization-feedback*',
+    async (route) => {
+      const method = route.request().method();
+      if (method === 'POST') {
+        await route.fulfill({
+          status: 202,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            message: 'Feedback submitted',
+            ticket_id: 'F00001',
+          }),
+        });
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ has_pending_feedback: false, feedbacks: [] }),
+      });
+    }
+  );
 
   // Mock manager organizations list
   await page.route('**/api/mock/**/manager/organizations*', async (route) => {

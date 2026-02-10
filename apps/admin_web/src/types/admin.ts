@@ -17,3 +17,5 @@ export type CognitoUser = S['CognitoUser'];
 export type ActivityPricing = S['Pricing'];
 export type ActivitySchedule = S['Schedule'];
 export type AuditLog = S['AuditLogEntry'];
+export type FeedbackLabel = S['FeedbackLabel'];
+export type OrganizationFeedback = S['OrganizationFeedback'];

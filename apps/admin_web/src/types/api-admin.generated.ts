@@ -808,6 +808,390 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/feedback-labels": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List feedback labels
+         * @description Retrieve a paginated list of feedback labels.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    limit?: number;
+                    cursor?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description List of feedback labels */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["FeedbackLabelListResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** Create feedback label */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["FeedbackLabelCreate"];
+                };
+            };
+            responses: {
+                /** @description Feedback label created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["FeedbackLabel"];
+                    };
+                };
+                /** @description Validation error */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/feedback-labels/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** Get feedback label */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Feedback label details */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["FeedbackLabel"];
+                    };
+                };
+                /** @description Feedback label not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        /** Update feedback label */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["FeedbackLabelUpdate"];
+                };
+            };
+            responses: {
+                /** @description Feedback label updated */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Validation error */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Feedback label not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        post?: never;
+        /** Delete feedback label */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Feedback label deleted */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Validation error */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Feedback label not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/organization-feedback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List organization feedback
+         * @description Retrieve a paginated list of feedback entries.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    limit?: number;
+                    cursor?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description List of feedback entries */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OrganizationFeedbackListResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** Create organization feedback */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["OrganizationFeedbackCreate"];
+                };
+            };
+            responses: {
+                /** @description Feedback entry created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OrganizationFeedback"];
+                    };
+                };
+                /** @description Validation error */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/organization-feedback/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** Get organization feedback */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Feedback entry details */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OrganizationFeedback"];
+                    };
+                };
+                /** @description Feedback entry not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        /** Update organization feedback */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["OrganizationFeedbackUpdate"];
+                };
+            };
+            responses: {
+                /** @description Feedback entry updated */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Validation error */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Feedback entry not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        post?: never;
+        /** Delete organization feedback */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Feedback entry deleted */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Validation error */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Feedback entry not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/activities": {
         parameters: {
             query?: never;
@@ -1549,7 +1933,7 @@ export interface paths {
             parameters: {
                 query?: {
                     /** @description Filter by ticket type */
-                    ticket_type?: "access_request" | "organization_suggestion";
+                    ticket_type?: "access_request" | "organization_suggestion" | "organization_feedback";
                     /** @description Filter by ticket status */
                     status?: "pending" | "approved" | "rejected";
                     limit?: number;
@@ -3187,6 +3571,166 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/user/feedback-labels": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List feedback labels
+         * @description Retrieve feedback labels for user selection.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description List of feedback labels */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["FeedbackLabelListResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/user/organization-feedback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get feedback history
+         * @description Get the authenticated user's feedback history and check
+         *     for pending submissions.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description User feedback history */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["UserFeedbackResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Submit organization feedback
+         * @description Submit feedback for an organization. Only one pending
+         *     feedback submission is allowed at a time.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["UserFeedbackCreate"];
+                };
+            };
+            responses: {
+                /** @description Feedback submitted */
+                202: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            message?: string;
+                            ticket_id?: string;
+                        };
+                    };
+                };
+                /** @description User already has a pending feedback submission */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/user/organizations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search organizations
+         * @description Search organizations by name for feedback selection.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Search query string */
+                    q?: string;
+                    limit?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Organization matches */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OrganizationLookupListResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -3790,6 +4334,93 @@ export interface components {
             /** @description Media URL to delete (alternative to object_key) */
             media_url?: string;
         };
+        FeedbackLabel: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            name_translations: {
+                [key: string]: string;
+            };
+            display_order: number;
+        };
+        FeedbackLabelCreate: {
+            name: string;
+            name_translations?: {
+                [key: string]: string;
+            };
+            display_order?: number;
+        };
+        FeedbackLabelUpdate: {
+            name?: string;
+            name_translations?: {
+                [key: string]: string;
+            };
+            display_order?: number;
+        };
+        FeedbackLabelListResponse: {
+            items: components["schemas"]["FeedbackLabel"][];
+            next_cursor?: string | null;
+        };
+        OrganizationFeedback: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            organization_id: string;
+            organization_name?: string | null;
+            submitter_id?: string | null;
+            submitter_email?: string | null;
+            stars: number;
+            label_ids: string[];
+            description?: string | null;
+            source_ticket_id?: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        OrganizationFeedbackCreate: {
+            /** Format: uuid */
+            organization_id: string;
+            stars: number;
+            label_ids?: string[];
+            description?: string;
+            submitter_id?: string;
+            submitter_email?: string;
+            source_ticket_id?: string;
+        };
+        OrganizationFeedbackUpdate: {
+            /** Format: uuid */
+            organization_id?: string;
+            stars?: number;
+            label_ids?: string[];
+            description?: string;
+            submitter_id?: string;
+            submitter_email?: string;
+            source_ticket_id?: string;
+        };
+        OrganizationFeedbackListResponse: {
+            items: components["schemas"]["OrganizationFeedback"][];
+            next_cursor?: string | null;
+        };
+        UserFeedbackCreate: {
+            /** Format: uuid */
+            organization_id: string;
+            stars: number;
+            label_ids?: string[];
+            description?: string;
+        };
+        UserFeedbackResponse: {
+            has_pending_feedback: boolean;
+            feedbacks: components["schemas"]["Ticket"][];
+        };
+        OrganizationLookup: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+        };
+        OrganizationLookupListResponse: {
+            items: components["schemas"]["OrganizationLookup"][];
+        };
         CognitoUser: {
             /** @description Cognito user sub (UUID) */
             sub: string;
@@ -3810,6 +4441,9 @@ export interface components {
             updated_at: string;
             /** Format: date-time */
             last_auth_time?: string | null;
+            attributes: {
+                [key: string]: string;
+            };
         };
         CognitoUserListResponse: {
             items: components["schemas"]["CognitoUser"][];
@@ -3828,7 +4462,7 @@ export interface components {
             /** @description Unique progressive ticket ID (prefix + 5 digits) */
             ticket_id: string;
             /** @enum {string} */
-            ticket_type: "access_request" | "organization_suggestion";
+            ticket_type: "access_request" | "organization_suggestion" | "organization_feedback";
             organization_name: string;
             /** @description Free-text message from the submitter */
             message?: string | null;
@@ -3850,6 +4484,11 @@ export interface components {
             suggested_lat?: number | null;
             suggested_lng?: number | null;
             media_urls: string[];
+            /** Format: uuid */
+            organization_id?: string | null;
+            feedback_stars?: number | null;
+            feedback_label_ids?: string[];
+            feedback_text?: string | null;
             /** Format: uuid */
             created_organization_id?: string | null;
         };

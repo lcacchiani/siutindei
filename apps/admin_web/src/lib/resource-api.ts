@@ -41,7 +41,9 @@ export type ResourceType =
   | 'activity-categories'
   | 'activities'
   | 'pricing'
-  | 'schedules';
+  | 'schedules'
+  | 'feedback-labels'
+  | 'organization-feedback';
 
 export interface ResourceApi<T> {
   list: (cursor?: string) => Promise<ListResponse<T>>;
