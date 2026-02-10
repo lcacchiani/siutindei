@@ -15,7 +15,7 @@ import { Button } from '../ui/button';
 import { Card } from '../ui/card';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
-import { Select } from '../ui/select';
+import { StarRating } from '../ui/star-rating';
 import { Textarea } from '../ui/textarea';
 import { StatusBanner } from '../status-banner';
 
@@ -28,8 +28,6 @@ interface OrganizationOption {
   name: string;
 }
 
-const starOptions = Array.from({ length: 6 }, (_, i) => i);
-
 export function FeedbackForm({ onFeedbackSubmitted }: FeedbackFormProps) {
   const [organizationQuery, setOrganizationQuery] = useState('');
   const [organizationMatches, setOrganizationMatches] = useState<
@@ -39,7 +37,7 @@ export function FeedbackForm({ onFeedbackSubmitted }: FeedbackFormProps) {
     useState<OrganizationOption | null>(null);
   const [labels, setLabels] = useState<FeedbackLabel[]>([]);
   const [selectedLabels, setSelectedLabels] = useState<string[]>([]);
-  const [stars, setStars] = useState('0');
+  const [stars, setStars] = useState(1);
   const [description, setDescription] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
@@ -100,15 +98,14 @@ export function FeedbackForm({ onFeedbackSubmitted }: FeedbackFormProps) {
       setError('Please select an organization.');
       return;
     }
-    const starsValue = Number(stars);
-    if (!Number.isInteger(starsValue) || starsValue < 0 || starsValue > 5) {
-      setError('Stars must be a whole number between 0 and 5.');
+    if (!Number.isInteger(stars) || stars < 1 || stars > 5) {
+      setError('Stars must be a whole number between 1 and 5.');
       return;
     }
 
     const payload: UserFeedbackCreatePayload = {
       organization_id: selectedOrganization.id,
-      stars: starsValue,
+      stars,
       label_ids: selectedLabels,
       description: description.trim() || undefined,
     };
@@ -131,7 +128,7 @@ export function FeedbackForm({ onFeedbackSubmitted }: FeedbackFormProps) {
         admin_notes: null,
         media_urls: [],
         organization_id: selectedOrganization.id,
-        feedback_stars: starsValue,
+        feedback_stars: stars,
         feedback_label_ids: selectedLabels,
         feedback_text: description.trim() || null,
       });
@@ -201,17 +198,10 @@ export function FeedbackForm({ onFeedbackSubmitted }: FeedbackFormProps) {
 
         <div>
           <Label htmlFor='feedback-stars'>Stars</Label>
-          <Select
-            id='feedback-stars'
-            value={stars}
-            onChange={(e) => setStars(e.target.value)}
-          >
-            {starOptions.map((value) => (
-              <option key={value} value={value}>
-                {value}
-              </option>
-            ))}
-          </Select>
+          <div className='mt-2 flex items-center gap-2'>
+            <StarRating value={stars} onChange={setStars} />
+            <span className='text-sm text-slate-500'>{stars}/5</span>
+          </div>
         </div>
 
         <div>
