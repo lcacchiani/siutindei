@@ -2483,27 +2483,41 @@ export class ApiStack extends cdk.Stack {
   }
 }
 
+const REQUIRED_PUBLIC_WEB_CORS_ORIGINS = [
+  "https://siutindei.lx-software.com",
+];
+
 // CORS origins must be concrete at synth time for preflight generation.
 function resolveCorsAllowedOrigins(scope: Construct): string[] {
   const defaultOrigins = [
+    ...REQUIRED_PUBLIC_WEB_CORS_ORIGINS,
     "capacitor://localhost",
     "ionic://localhost",
     "http://localhost",
     "http://localhost:3000",
-    "https://siutindei.lx-software.com",
     "https://siutindei-api.lx-software.com",
   ];
   const contextOrigins = normalizeCorsOrigins(
     scope.node.tryGetContext("corsAllowedOrigins")
   );
   if (contextOrigins.length > 0) {
-    return contextOrigins;
+    return ensureRequiredCorsOrigins(contextOrigins);
   }
   const envOrigins = normalizeCorsOrigins(process.env.CORS_ALLOWED_ORIGINS);
   if (envOrigins.length > 0) {
-    return envOrigins;
+    return ensureRequiredCorsOrigins(envOrigins);
   }
-  return defaultOrigins;
+  return ensureRequiredCorsOrigins(defaultOrigins);
+}
+
+function ensureRequiredCorsOrigins(origins: string[]): string[] {
+  return Array.from(
+    new Set(
+      [...REQUIRED_PUBLIC_WEB_CORS_ORIGINS, ...origins].map((origin) =>
+        origin.trim()
+      )
+    )
+  ).filter((origin) => origin.length > 0);
 }
 
 function normalizeCorsOrigins(value: unknown): string[] {

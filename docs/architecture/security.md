@@ -152,23 +152,36 @@ defaultCorsPreflightOptions: {
   allowOrigins: apigateway.Cors.ALL_ORIGINS,
 }
 
-// GOOD - restrict to specific origins
-const corsAllowedOrigins = new cdk.CfnParameter(this, "CorsAllowedOrigins", {
-  type: "CommaDelimitedList",
-  description: "SECURITY: Never use '*' in production.",
-});
+// GOOD - enforce required origin and merge custom inputs safely
+const REQUIRED_PUBLIC_WEB_CORS_ORIGINS = [
+  'https://siutindei.lx-software.com',
+];
 
-defaultCorsPreflightOptions: {
-  allowOrigins: corsAllowedOrigins.valueAsList,
+function ensureRequiredCorsOrigins(origins: string[]): string[] {
+  return Array.from(
+    new Set([...REQUIRED_PUBLIC_WEB_CORS_ORIGINS, ...origins].map(
+      (origin) => origin.trim()
+    ))
+  ).filter((origin) => origin.length > 0);
 }
 ```
 
 ### Default Allowed Origins
 
-If no origins are configured, defaults to mobile app schemes only:
+The backend will always include this required web origin:
+
+- `https://siutindei.lx-software.com`
+
+When no custom origin list is configured, it will also include:
 - `capacitor://localhost`
 - `ionic://localhost`
 - `http://localhost` (for development)
+- `http://localhost:3000` (for development)
+- `https://siutindei-api.lx-software.com`
+
+When custom origins are provided via CDK context or
+`CORS_ALLOWED_ORIGINS`, they will be normalized, deduplicated, and
+merged with required origins (required origins will never be dropped).
 
 ### Input Validation
 
