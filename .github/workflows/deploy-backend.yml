@@ -117,80 +117,6 @@ jobs:
           AWS_REGION: ${{ steps.region.outputs.region }}
           CDK_BOOTSTRAP_QUALIFIER: ${{ vars.CDK_BOOTSTRAP_QUALIFIER }}
 
-      - name: Build CDK secret parameters file
-        if: steps.region.outputs.is_waf != 'true'
-        run: |
-          python3 - <<'PY'
-          import json
-          import os
-          from pathlib import Path
-
-          mapping = {
-              "GoogleClientSecret": os.getenv("CDK_PARAM_GOOGLE_CLIENT_SECRET", ""),
-              "ApplePrivateKey": os.getenv("CDK_PARAM_APPLE_PRIVATE_KEY", ""),
-              "MicrosoftClientSecret": os.getenv("CDK_PARAM_MICROSOFT_CLIENT_SECRET", ""),
-              "PublicApiKeyValue": os.getenv("CDK_PARAM_PUBLIC_API_KEY_VALUE", ""),
-              "AdminBootstrapTempPassword": os.getenv(
-                  "CDK_PARAM_ADMIN_BOOTSTRAP_TEMP_PASSWORD", ""
-              ),
-          }
-          params = {k: v for k, v in mapping.items() if v}
-          if not params:
-              raise SystemExit(0)
-
-          output_path = Path("/tmp/cdk-secret-params.json")
-          output_path.write_text(json.dumps(params), encoding="utf-8")
-          env_path = os.environ["GITHUB_ENV"]
-          with open(env_path, "a", encoding="utf-8") as handle:
-              handle.write(f"CDK_SECRET_PARAM_FILE={output_path}\n")
-          PY
-        env:
-          CDK_PARAM_GOOGLE_CLIENT_SECRET: ${{ secrets.CDK_PARAM_GOOGLE_CLIENT_SECRET }}
-          CDK_PARAM_APPLE_PRIVATE_KEY: ${{ secrets.CDK_PARAM_APPLE_PRIVATE_KEY }}
-          CDK_PARAM_MICROSOFT_CLIENT_SECRET: ${{ secrets.CDK_PARAM_MICROSOFT_CLIENT_SECRET }}
-          CDK_PARAM_PUBLIC_API_KEY_VALUE: ${{ secrets.CDK_PARAM_PUBLIC_API_KEY_VALUE }}
-          CDK_PARAM_ADMIN_BOOTSTRAP_TEMP_PASSWORD: ${{ secrets.CDK_PARAM_ADMIN_BOOTSTRAP_TEMP_PASSWORD }}
-
-      - name: Build CDK non-secret parameters file
-        if: steps.region.outputs.is_waf != 'true'
-        run: |
-          python3 - <<'PY'
-          import os
-          import json
-          from pathlib import Path
-
-          project_number = os.getenv("FIREBASE_MESSAGING_SENDER_ID", "").strip()
-          android_app_id = os.getenv("FIREBASE_ANDROID_APP_ID", "").strip()
-          ios_app_id = os.getenv("FIREBASE_IOS_APP_ID", "").strip()
-          apple_team_id = os.getenv("APPLE_TEAM_ID", "").strip()
-          run_seed_data = os.getenv("RUN_SEED_DATA", "false").strip().lower()
-
-          params = {}
-
-          if apple_team_id:
-              params["AppleTeamId"] = apple_team_id
-
-          if project_number and android_app_id and ios_app_id:
-              audience = (
-                  f"projects/{project_number}/apps/{ios_app_id},"
-                  f"projects/{project_number}/apps/{android_app_id}"
-              )
-              params["DeviceAttestationAudience"] = audience
-
-          if not params:
-              raise SystemExit(0)
-          output_path = Path("/tmp/cdk-non-secret-params.json")
-          output_path.write_text(json.dumps(params), encoding="utf-8")
-          env_path = os.environ["GITHUB_ENV"]
-          with open(env_path, "a", encoding="utf-8") as handle:
-              handle.write(f"CDK_NON_SECRET_PARAM_FILE={output_path}\n")
-          PY
-        env:
-          APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
-          FIREBASE_MESSAGING_SENDER_ID: ${{ vars.FIREBASE_MESSAGING_SENDER_ID }}
-          FIREBASE_ANDROID_APP_ID: ${{ vars.FIREBASE_ANDROID_APP_ID }}
-          FIREBASE_IOS_APP_ID: ${{ vars.FIREBASE_IOS_APP_ID }}
-
       - name: Detect existing database resources
         if: steps.region.outputs.is_waf != 'true'
         run: |
@@ -501,7 +427,6 @@ jobs:
             npx cdk acknowledge 34892 || true
             npm run build --if-present
             PARAM_ARGS=()
-            PARAM_FILES=()
             resolve_param_file() {
               local path="$1"
               if [ -z "$path" ]; then
@@ -530,26 +455,22 @@ jobs:
             if [ -n "${CDK_PARAM_FILE:-}" ]; then
               RESOLVED_PARAM_FILE=$(resolve_param_file "$CDK_PARAM_FILE" || true)
               if [ -n "$RESOLVED_PARAM_FILE" ]; then
-                PARAM_FILES+=("$RESOLVED_PARAM_FILE")
+                CDK_PARAM_FILE="$RESOLVED_PARAM_FILE"
               else
                 echo "CDK_PARAM_FILE '$CDK_PARAM_FILE' not found"
                 exit 1
               fi
             fi
-            if [ -n "${CDK_SECRET_PARAM_FILE:-}" ] && [ -f "$CDK_SECRET_PARAM_FILE" ]; then
-              PARAM_FILES+=("$CDK_SECRET_PARAM_FILE")
-            fi
-            if [ -n "${CDK_NON_SECRET_PARAM_FILE:-}" ] && [ -f "$CDK_NON_SECRET_PARAM_FILE" ]; then
-              PARAM_FILES+=("$CDK_NON_SECRET_PARAM_FILE")
-            fi
-            if [ ${#PARAM_FILES[@]} -gt 0 ]; then
-              PARAM_FILES_CSV=$(IFS=, ; echo "${PARAM_FILES[*]}")
+            if [ -n "${CDK_PARAM_FILE:-}" ]; then
               PARAM_ARGS_FILE="$(mktemp)"
-              PARAM_FILES="$PARAM_FILES_CSV" python3 - <<'PY' > "$PARAM_ARGS_FILE"
+              python3 - <<'PY' > "$PARAM_ARGS_FILE"
           import json
           import os
 
-          paths = [p for p in os.environ.get("PARAM_FILES", "").split(",") if p]
+          paths = []
+          param_file = os.environ.get("CDK_PARAM_FILE", "").strip()
+          if param_file and os.path.isfile(param_file):
+              paths.append(param_file)
           stack_selection = os.environ.get("CDK_STACKS", "").strip()
           if stack_selection:
               stacks = []
@@ -572,6 +493,17 @@ jobs:
               with open(path, "r", encoding="utf-8") as handle:
                   params.update(json.load(handle))
 
+          def resolve_value(raw: str) -> str:
+              """Replace <FROM_GITHUB_SECRET: X> / <FROM_GITHUB_VAR: X> placeholders."""
+              raw = raw.strip()
+              if raw.startswith("<FROM_GITHUB_SECRET:") and raw.endswith(">"):
+                  env_name = raw[len("<FROM_GITHUB_SECRET:") : -1].strip()
+                  return os.environ.get(env_name, "")
+              if raw.startswith("<FROM_GITHUB_VAR:") and raw.endswith(">"):
+                  env_name = raw[len("<FROM_GITHUB_VAR:") : -1].strip()
+                  return os.environ.get(env_name, "")
+              return raw
+
           for key, value in params.items():
               if key in waf_params:
                   target_stack = waf_stack
@@ -583,7 +515,7 @@ jobs:
                   continue
               if value is None:
                   continue
-              value_str = str(value)
+              value_str = resolve_value(str(value))
               value_str = value_str.replace("\r\n", "\n").replace("\r", "\n")
               value_str = value_str.replace("\n", "\\n").strip()
               if not value_str:
@@ -645,8 +577,12 @@ jobs:
           CDK_STACKS: >-
             ${{ github.event.inputs.cdk_stacks || vars.CDK_STACKS || 'all stacks' }}
           CDK_PARAM_FILE: ${{ vars.CDK_PARAM_FILE }}
-          CDK_SECRET_PARAM_FILE: ${{ env.CDK_SECRET_PARAM_FILE }}
-          CDK_NON_SECRET_PARAM_FILE: ${{ env.CDK_NON_SECRET_PARAM_FILE }}
+          CDK_PARAM_GOOGLE_CLIENT_SECRET: ${{ secrets.CDK_PARAM_GOOGLE_CLIENT_SECRET }}
+          CDK_PARAM_APPLE_PRIVATE_KEY: ${{ secrets.CDK_PARAM_APPLE_PRIVATE_KEY }}
+          CDK_PARAM_MICROSOFT_CLIENT_SECRET: ${{ secrets.CDK_PARAM_MICROSOFT_CLIENT_SECRET }}
+          CDK_PARAM_PUBLIC_API_KEY_VALUE: ${{ secrets.CDK_PARAM_PUBLIC_API_KEY_VALUE }}
+          CDK_PARAM_ADMIN_BOOTSTRAP_TEMP_PASSWORD: ${{ secrets.CDK_PARAM_ADMIN_BOOTSTRAP_TEMP_PASSWORD }}
+          APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
           CDK_BOOTSTRAP_QUALIFIER: ${{ vars.CDK_BOOTSTRAP_QUALIFIER }}
           DESTROY_BEFORE_DEPLOY: ${{ github.event.inputs.destroy_before_deploy || 'false' }}
           EXISTING_DB_CREDENTIALS_SECRET_NAME: ${{ env.EXISTING_DB_CREDENTIALS_SECRET_NAME }}
