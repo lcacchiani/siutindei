@@ -12,7 +12,9 @@ their primary responsibilities.
 - `build_lambda_bundle.py` caches Python dependencies under
   `backend/.lambda-build/deps-cache/` using a hash of
   `backend/requirements.txt` and runtime settings, so repeat synth runs do
-  not reinstall pip packages unless requirements change.
+  not reinstall pip packages unless requirements change. Cache pruning keeps
+  only the most recent keys (default: 3), configurable with
+  `LAMBDA_DEPS_CACHE_RETENTION` or `--cache-retention`.
 
 ## API Gateway Lambdas
 

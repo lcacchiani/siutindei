@@ -18,6 +18,8 @@ TARGET_PLATFORM = "manylinux_2_17_aarch64"
 TARGET_IMPLEMENTATION = "cp"
 TARGET_PYTHON_VERSION = "3.12"
 CACHE_FORMAT_VERSION = "1"
+DEFAULT_CACHE_RETENTION = 3
+CACHE_RETENTION_ENV_VAR = "LAMBDA_DEPS_CACHE_RETENTION"
 
 
 def _ensure_python_version() -> None:
@@ -47,6 +49,38 @@ def _cleanup_bundle(output_dir: Path) -> None:
         cache_file.unlink()
     for cache_file in output_dir.rglob("*.pyo"):
         cache_file.unlink()
+
+
+def _parse_cache_retention_value(value: str) -> int:
+    stripped = value.strip()
+    if not stripped:
+        raise ValueError("Cache retention count cannot be empty.")
+
+    try:
+        retention_count = int(stripped)
+    except ValueError as exc:
+        raise ValueError("Cache retention count must be a positive integer.") from exc
+
+    if retention_count < 1:
+        raise ValueError("Cache retention count must be at least 1.")
+    return retention_count
+
+
+def _cache_retention_arg(value: str) -> int:
+    try:
+        return _parse_cache_retention_value(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(str(exc)) from exc
+
+
+def _default_cache_retention() -> int:
+    env_value = os.getenv(CACHE_RETENTION_ENV_VAR)
+    if env_value is None:
+        return DEFAULT_CACHE_RETENTION
+    try:
+        return _parse_cache_retention_value(env_value)
+    except ValueError as exc:
+        raise SystemExit(f"Invalid {CACHE_RETENTION_ENV_VAR}: {exc}") from exc
 
 
 def _dependency_cache_key(requirements: Path) -> str:
@@ -134,15 +168,59 @@ def _build_dependency_cache(
     temp_cache_dir.rename(cache_dir)
 
 
-def _prune_old_dependency_caches(cache_root: Path, active_cache: Path) -> None:
+def _write_cache_marker(cache_dir: Path, cache_key: str) -> None:
+    marker_file = cache_dir / ".ready"
+    marker_file.write_text(f"{cache_key}\n", encoding="utf-8")
+    os.utime(marker_file, times=None)
+
+
+def _touch_cache_marker(cache_dir: Path) -> None:
+    marker_file = cache_dir / ".ready"
+    os.utime(marker_file, times=None)
+
+
+def _ready_caches(cache_root: Path) -> list[Path]:
+    ready_caches: list[Path] = []
     for candidate in cache_root.iterdir():
+        if not candidate.is_dir():
+            continue
+        if candidate.name.startswith("."):
+            continue
+        if not (candidate / ".ready").is_file():
+            continue
+        ready_caches.append(candidate)
+    return ready_caches
+
+
+def _cache_mtime(cache_dir: Path) -> float:
+    return (cache_dir / ".ready").stat().st_mtime
+
+
+def _prune_old_dependency_caches(
+    cache_root: Path,
+    active_cache: Path,
+    retention_count: int,
+) -> None:
+    ready_caches = sorted(
+        _ready_caches(cache_root),
+        key=_cache_mtime,
+        reverse=True,
+    )
+    for candidate in ready_caches[retention_count:]:
         if candidate == active_cache:
             continue
-        if candidate.is_dir():
-            shutil.rmtree(candidate)
+        logger.info(
+            "Pruning stale Lambda dependency cache: %s",
+            candidate.name[:12],
+        )
+        shutil.rmtree(candidate)
 
 
-def _ensure_dependency_cache(source_root: Path, requirements: Path) -> Path:
+def _ensure_dependency_cache(
+    source_root: Path,
+    requirements: Path,
+    cache_retention: int,
+) -> Path:
     if not requirements.is_file():
         raise FileNotFoundError(f"Missing requirements file: {requirements}")
 
@@ -156,20 +234,29 @@ def _ensure_dependency_cache(source_root: Path, requirements: Path) -> Path:
 
     if marker_file.is_file():
         logger.info("Reusing cached Lambda dependencies: %s", key[:12])
-        _prune_old_dependency_caches(cache_root, cache_dir)
+        _touch_cache_marker(cache_dir)
+        _prune_old_dependency_caches(cache_root, cache_dir, cache_retention)
         return cache_dir
 
     logger.info("No dependency cache found for requirements hash %s", key[:12])
     _build_dependency_cache(source_root, requirements, cache_dir, env)
-    marker_file.write_text(f"{key}\n", encoding="utf-8")
+    _write_cache_marker(cache_dir, key)
     logger.info("Lambda dependency cache ready: %s", key[:12])
-    _prune_old_dependency_caches(cache_root, cache_dir)
+    _prune_old_dependency_caches(cache_root, cache_dir, cache_retention)
     return cache_dir
 
 
-def build_bundle(source_root: Path, output_dir: Path) -> None:
+def build_bundle(
+    source_root: Path,
+    output_dir: Path,
+    cache_retention: int,
+) -> None:
     requirements = source_root / "requirements.txt"
-    dependency_cache = _ensure_dependency_cache(source_root, requirements)
+    dependency_cache = _ensure_dependency_cache(
+        source_root,
+        requirements,
+        cache_retention,
+    )
 
     _remove_tree(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -180,6 +267,7 @@ def build_bundle(source_root: Path, output_dir: Path) -> None:
 
 
 def _parse_args() -> argparse.Namespace:
+    default_retention = _default_cache_retention()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--source-root",
@@ -195,6 +283,15 @@ def _parse_args() -> argparse.Namespace:
         "--deps-only",
         action="store_true",
         help="Warm dependency cache without building bundle output.",
+    )
+    parser.add_argument(
+        "--cache-retention",
+        type=_cache_retention_arg,
+        default=default_retention,
+        help=(
+            "Keep this many most-recent dependency cache keys "
+            f"(default: {default_retention}, env: {CACHE_RETENTION_ENV_VAR})."
+        ),
     )
     return parser.parse_args()
 
@@ -212,12 +309,12 @@ def main() -> None:
     requirements = source_root / "requirements.txt"
 
     if args.deps_only:
-        _ensure_dependency_cache(source_root, requirements)
+        _ensure_dependency_cache(source_root, requirements, args.cache_retention)
         logger.info("Lambda dependency cache is ready.")
         return
 
     logger.info("Building Lambda bundle in %s", output_dir)
-    build_bundle(source_root, output_dir)
+    build_bundle(source_root, output_dir, args.cache_retention)
     logger.info("Lambda bundle ready.")
 
 

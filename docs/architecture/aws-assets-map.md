@@ -536,4 +536,5 @@ All other resources are deleted when the stack is deleted (unless they are impor
 5. **Lambda Bundling**: Lambda code is bundled during `cdk synth` using
    Docker or local bundle from `.lambda-build/base`. Python dependencies are
    cached under `.lambda-build/deps-cache` and reused across synth runs until
-   `backend/requirements.txt` changes.
+   `backend/requirements.txt` changes. Cache pruning keeps only the most
+   recent dependency cache keys.
