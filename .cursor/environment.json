@@ -1,4 +1,4 @@
 {
-  "install": "cd backend/infrastructure && npm ci",
-  "start": "cd backend/infrastructure && npm ci"
+  "install": "bash backend/scripts/prepare_infra_synth_env.sh",
+  "start": "bash backend/scripts/prepare_infra_synth_env.sh"
 }

@@ -533,4 +533,7 @@ All other resources are deleted when the stack is deleted (unless they are impor
 2. **API Gateway Access Log Group**: Must exist before deployment (imported, not created).
 3. **Existing Resources**: The workflow detects and imports existing VPC, database, and security group resources to avoid recreation.
 4. **CDK Bootstrap**: Required once per account/region. The workflow runs `cdk bootstrap` if needed.
-5. **Lambda Bundling**: Lambda code is bundled during `cdk synth` using Docker or local bundle from `.lambda-build/base`.
+5. **Lambda Bundling**: Lambda code is bundled during `cdk synth` using
+   Docker or local bundle from `.lambda-build/base`. Python dependencies are
+   cached under `.lambda-build/deps-cache` and reused across synth runs until
+   `backend/requirements.txt` changes.
