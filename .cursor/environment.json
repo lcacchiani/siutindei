@@ -1,0 +1,4 @@
+{
+  "install": "cd backend/infrastructure && npm ci",
+  "start": "cd backend/infrastructure && npm ci"
+}
