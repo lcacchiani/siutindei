@@ -9,6 +9,12 @@ their primary responsibilities.
 - Packaging: deterministic bundling (no bytecode files, repeatable output).
 - CDK runs `backend/scripts/run-cdk-app.sh`, which builds the local
   bundle via `backend/scripts/build_lambda_bundle.py` before synth/deploy.
+- `build_lambda_bundle.py` caches Python dependencies under
+  `backend/.lambda-build/deps-cache/` using a hash of
+  `backend/requirements.txt` and runtime settings, so repeat synth runs do
+  not reinstall pip packages unless requirements change. Cache pruning keeps
+  only the most recent keys (default: 3), configurable with
+  `LAMBDA_DEPS_CACHE_RETENTION` or `--cache-retention`.
 
 ## API Gateway Lambdas
 

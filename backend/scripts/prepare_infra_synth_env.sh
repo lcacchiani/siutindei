@@ -2,6 +2,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 resolve_python312() {
   if command -v python3.12 >/dev/null 2>&1; then
@@ -20,11 +21,14 @@ PY
     fi
   fi
 
-  echo "Python 3.12 is required for Lambda bundling." >&2
+  echo "Python 3.12 is required for Lambda dependency cache warmup." >&2
   return 1
 }
 
+cd "$REPO_ROOT/backend/infrastructure"
+npm ci
+
 PYTHON_BIN="$(resolve_python312)"
-"$PYTHON_BIN" "$SCRIPT_DIR/build_lambda_bundle.py"
-cd "$SCRIPT_DIR/../infrastructure"
-npx ts-node --prefer-ts-exts bin/app.ts
+"$PYTHON_BIN" "$REPO_ROOT/backend/scripts/build_lambda_bundle.py" \
+  --source-root "$REPO_ROOT/backend" \
+  --deps-only

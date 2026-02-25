@@ -85,6 +85,9 @@ Flutter mobile app, Next.js admin console, and AWS serverless backend.
 - Database migrations and seed are executed during CDK deploy
   via a custom resource Lambda.
 - Lambda packaging is deterministic (no bytecode) to reduce no-op deploys.
+- Local CDK synth caches Lambda pip dependencies under
+  `backend/.lambda-build/deps-cache` (keyed by requirements hash) so
+  repeated synth runs avoid reinstalling unchanged Python packages.
 
 ## Authentication
 
