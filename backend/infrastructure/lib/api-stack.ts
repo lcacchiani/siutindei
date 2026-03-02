@@ -862,11 +862,13 @@ export class ApiStack extends cdk.Stack {
     // Without sharing, each PythonLambda construct creates two keys ($1/mo
     // each). With 17+ functions that is ~$34/mo in KMS key costs alone.
     const sharedLambdaEnvKey = new kms.Key(this, "LambdaEnvEncryptionKey", {
+      alias: name("kms-lambda-env"),
       enableKeyRotation: true,
       description: "Shared KMS key for Lambda environment variable encryption",
     });
 
     const sharedLambdaLogKey = new kms.Key(this, "LambdaLogEncryptionKey", {
+      alias: name("kms-lambda-log"),
       enableKeyRotation: true,
       description: "Shared KMS key for Lambda CloudWatch log encryption",
     });
@@ -1301,6 +1303,7 @@ export class ApiStack extends cdk.Stack {
 
     // KMS key for SQS queue encryption (Checkov CKV_AWS_27)
     const sqsEncryptionKey = new kms.Key(this, "SqsEncryptionKey", {
+      alias: name("kms-sqs"),
       enableKeyRotation: true,
       description: "KMS key for SQS queue encryption",
     });
@@ -1680,6 +1683,7 @@ export class ApiStack extends cdk.Stack {
 
     // KMS key for API Gateway access log encryption
     const apiLogEncryptionKey = new kms.Key(this, "ApiLogEncryptionKey", {
+      alias: name("kms-api-log"),
       enableKeyRotation: true,
       description: "KMS key for API Gateway CloudWatch log encryption",
     });
@@ -1915,6 +1919,7 @@ export class ApiStack extends cdk.Stack {
 
     // KMS key for secrets encryption (Checkov CKV_AWS_149)
     const secretsEncryptionKey = new kms.Key(this, "SecretsEncryptionKey", {
+      alias: name("kms-secrets"),
       enableKeyRotation: true,
       description: "KMS key for Secrets Manager encryption",
     });

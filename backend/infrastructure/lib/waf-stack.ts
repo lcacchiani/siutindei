@@ -148,6 +148,7 @@ export class WafStack extends cdk.Stack {
 
     // KMS key for WAF log encryption
     const wafLogEncryptionKey = new kms.Key(this, "WafLogEncryptionKey", {
+      alias: name("kms-waf-log"),
       enableKeyRotation: true,
       description: "KMS key for WAF CloudWatch log encryption",
     });
