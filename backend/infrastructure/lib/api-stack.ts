@@ -857,14 +857,55 @@ export class ApiStack extends cdk.Stack {
     // ---------------------------------------------------------------------
     // Lambda Functions
     // ---------------------------------------------------------------------
+
+    // Shared KMS keys: one for environment variables, one for CloudWatch logs.
+    // Without sharing, each PythonLambda construct creates two keys ($1/mo
+    // each). With 17+ functions that is ~$34/mo in KMS key costs alone.
+    const sharedLambdaEnvKey = new kms.Key(this, "LambdaEnvEncryptionKey", {
+      enableKeyRotation: true,
+      description: "Shared KMS key for Lambda environment variable encryption",
+    });
+
+    const sharedLambdaLogKey = new kms.Key(this, "LambdaLogEncryptionKey", {
+      enableKeyRotation: true,
+      description: "Shared KMS key for Lambda CloudWatch log encryption",
+    });
+    sharedLambdaLogKey.addToResourcePolicy(
+      new iam.PolicyStatement({
+        actions: [
+          "kms:Encrypt*",
+          "kms:Decrypt*",
+          "kms:ReEncrypt*",
+          "kms:GenerateDataKey*",
+          "kms:Describe*",
+        ],
+        principals: [
+          new iam.ServicePrincipal(
+            `logs.${cdk.Stack.of(this).region}.amazonaws.com`
+          ),
+        ],
+        resources: ["*"],
+        conditions: {
+          ArnLike: {
+            "kms:EncryptionContext:aws:logs:arn": `arn:aws:logs:${cdk.Stack.of(this).region}:${cdk.Stack.of(this).account}:*`,
+          },
+        },
+      })
+    );
+
     const lambdaFactory = new PythonLambdaFactory(this, {
       vpc,
       securityGroups: [lambdaSecurityGroup],
+      environmentEncryptionKey: sharedLambdaEnvKey,
+      logEncryptionKey: sharedLambdaLogKey,
     });
 
     // Factory for Lambda functions that run outside VPC (for authorizers that
     // need to fetch JWKS from public Cognito endpoints)
-    const noVpcLambdaFactory = new PythonLambdaFactory(this, {});
+    const noVpcLambdaFactory = new PythonLambdaFactory(this, {
+      environmentEncryptionKey: sharedLambdaEnvKey,
+      logEncryptionKey: sharedLambdaLogKey,
+    });
 
     // Helper to create Lambda functions using the factory
     // Function names use the standard prefix for consistent naming and
