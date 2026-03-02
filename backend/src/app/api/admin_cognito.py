@@ -112,9 +112,11 @@ def _validate_user_sub(user_sub: str) -> str:
 
 
 def _add_user_to_manager_group(user_sub: str) -> None:
-    """Add a user to the 'manager' Cognito group."""
-    valid_user_sub = _validate_user_sub(user_sub)
+    """Add a user to the 'manager' Cognito group (best effort)."""
+    valid_user_sub: Optional[str] = None
+    masked_user_sub = mask_pii(user_sub)
     try:
+        valid_user_sub = _validate_user_sub(user_sub)
         user_pool_id = _require_env("COGNITO_USER_POOL_ID")
         manager_group = os.getenv("MANAGER_GROUP", "manager")
 
@@ -157,13 +159,38 @@ def _add_user_to_manager_group(user_sub: str) -> None:
         )
         _invalidate_user_session(user_pool_id, username)
         logger.info(f"Added user {masked_username} to group {manager_group}")
+    except ValidationError as exc:
+        logger.warning(
+            "Skipped manager group assignment due to invalid user sub",
+            extra={
+                "user_sub": masked_user_sub,
+                "error_type": type(exc).__name__,
+            },
+        )
+    except RuntimeError as exc:
+        logger.error(
+            "Skipped manager group assignment due to missing Cognito config",
+            extra={
+                "user_sub": masked_user_sub,
+                "error_type": type(exc).__name__,
+                "error_message": str(exc),
+            },
+        )
     except AwsProxyError as exc:
         logger.error(
             "Failed to add user to manager group",
             extra={
-                "user_sub": valid_user_sub,
+                "user_sub": valid_user_sub or masked_user_sub,
                 "error_code": exc.code,
                 "error_message": exc.message,
+            },
+        )
+    except Exception as exc:
+        logger.exception(
+            "Unexpected manager group assignment failure",
+            extra={
+                "user_sub": valid_user_sub or masked_user_sub,
+                "error_type": type(exc).__name__,
             },
         )
 
