@@ -6,7 +6,7 @@ from typing import Optional
 from typing import Sequence
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.db.models import (
@@ -88,13 +88,13 @@ class ActivityScheduleRepository(BaseRepository[ActivitySchedule]):
         """
         query = (
             select(ActivitySchedule)
-            .distinct()
             .join(
                 ActivityScheduleEntry,
                 ActivityScheduleEntry.schedule_id == ActivitySchedule.id,
             )
             .where(ActivityScheduleEntry.day_of_week_utc == day_of_week_utc)
-            .order_by(ActivityScheduleEntry.start_minutes_utc)
+            .group_by(ActivitySchedule.id)
+            .order_by(func.min(ActivityScheduleEntry.start_minutes_utc))
             .limit(limit)
         )
         return self._session.execute(query).scalars().all()
