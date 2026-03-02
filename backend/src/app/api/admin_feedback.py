@@ -281,24 +281,15 @@ def _handle_admin_feedback(
     feedback_id: Optional[str],
 ) -> dict[str, Any]:
     """Handle admin feedback CRUD endpoints."""
-    try:
-        if method == "GET":
-            return _list_feedback(event, feedback_id)
-        if method == "POST":
-            return _create_feedback(event)
-        if method == "PUT" and feedback_id:
-            return _update_feedback(event, feedback_id)
-        if method == "DELETE" and feedback_id:
-            return _delete_feedback(event, feedback_id)
-        return json_response(405, {"error": "Method not allowed"}, event=event)
-    except ValidationError as exc:
-        logger.warning(f"Validation error: {exc.message}")
-        return json_response(exc.status_code, exc.to_dict(), event=event)
-    except NotFoundError as exc:
-        return json_response(exc.status_code, exc.to_dict(), event=event)
-    except Exception:
-        logger.exception("Unexpected error in admin feedback handler")
-        return json_response(500, {"error": "Internal server error"}, event=event)
+    if method == "GET":
+        return _list_feedback(event, feedback_id)
+    if method == "POST":
+        return _create_feedback(event)
+    if method == "PUT" and feedback_id:
+        return _update_feedback(event, feedback_id)
+    if method == "DELETE" and feedback_id:
+        return _delete_feedback(event, feedback_id)
+    return json_response(405, {"error": "Method not allowed"}, event=event)
 
 
 def _list_feedback(

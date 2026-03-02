@@ -12,7 +12,7 @@ from app.templates import (
     build_request_decision_template_data,
     render_request_decision_email,
 )
-from app.utils.logging import get_logger
+from app.utils.logging import get_logger, mask_email
 
 logger = get_logger(__name__)
 
@@ -163,7 +163,8 @@ def _send_ticket_decision_email(
                 )
 
         logger.info(
-            f"Ticket decision email sent to {ticket.submitter_email} "
+            f"Ticket decision email sent to "
+            f"{mask_email(ticket.submitter_email)} "
             f"for {ticket.ticket_id}"
         )
     except (ClientError, BotoCoreError, ValueError) as exc:

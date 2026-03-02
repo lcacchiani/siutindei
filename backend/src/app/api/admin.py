@@ -161,7 +161,10 @@ def lambda_handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
             event,
         )
     if resource == "tickets":
-        return _handle_admin_tickets(event, method, resource_id)
+        return _safe_handler(
+            lambda: _handle_admin_tickets(event, method, resource_id),
+            event,
+        )
     if resource == "organization-feedback":
         return _safe_handler(
             lambda: _handle_admin_feedback(event, method, resource_id),
@@ -212,8 +215,8 @@ def _safe_handler(
     except ValueError as exc:
         logger.warning(f"Value error: {exc}")
         return json_response(400, {"error": str(exc)}, event=event)
-    except Exception:  # pragma: no cover
-        logger.exception("Unexpected error in handler")
+    except Exception as exc:  # pragma: no cover
+        logger.exception(f"Unexpected error in handler: {type(exc).__name__}")
         return json_response(500, {"error": "Internal server error"}, event=event)
 
 

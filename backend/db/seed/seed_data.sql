@@ -215,7 +215,7 @@ INSERT INTO organization_feedback (
 SELECT
   'fb111111-1111-1111-1111-111111111111',
   '11111111-1111-1111-1111-111111111111',
-  '00000000-0000-0000-0000-000000000002',
+  '{{SEED_MANAGER_SUB}}',
   'parent@example.com',
   4,
   ARRAY[
@@ -244,7 +244,7 @@ SELECT
   'fc111111-1111-1111-1111-111111111111',
   'R00001',
   'access_request',
-  '00000000-0000-0000-0000-000000000003',
+  '{{SEED_MANAGER_SUB}}',
   'newmanager@example.com',
   'Harbor Arts Studio',
   'I help run classes and need manager access.',

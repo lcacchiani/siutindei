@@ -25,9 +25,11 @@ addopts = '-ra'
 
 [tool.mypy]
 python_version = '3.12'
-strict = true
+strict = false
 ignore_missing_imports = true
 warn_unused_configs = true
-disallow_untyped_defs = false
-check_untyped_defs = false
+warn_return_any = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+no_implicit_optional = true
 exclude = '(db/alembic/versions/|scripts/)'

@@ -14,9 +14,9 @@ permissions.
 
 from __future__ import annotations
 
-import importlib
 from typing import Any
 
+from app.auth.authorizer_helpers import extract_token, policy
 from app.auth.jwt_validator import (
     JWTValidationError,
     decode_and_verify_token,
@@ -25,10 +25,6 @@ from app.utils.logging import configure_logging, get_logger
 
 configure_logging()
 logger = get_logger(__name__)
-
-_common = importlib.import_module("lambda.authorizers._common")
-_extract_token = _common.extract_token
-_policy = _common.policy
 
 
 def lambda_handler(event: dict[str, Any], _context: Any) -> dict[str, Any]:
@@ -51,10 +47,10 @@ def lambda_handler(event: dict[str, Any], _context: Any) -> dict[str, Any]:
     method_arn = event.get("methodArn", "")
 
     # Extract token from Authorization header
-    token = _extract_token(headers)
+    token = extract_token(headers)
     if not token:
         logger.warning("Missing or invalid Authorization header")
-        return _policy("Deny", method_arn, "anonymous", {"reason": "missing_token"})
+        return policy("Deny", method_arn, "anonymous", {"reason": "missing_token"})
 
     try:
         # Verify and decode the JWT token with signature validation
@@ -69,7 +65,7 @@ def lambda_handler(event: dict[str, Any], _context: Any) -> dict[str, Any]:
             f"(groups: {', '.join(user_groups) if user_groups else 'none'})"
         )
 
-        return _policy(
+        return policy(
             "Allow",
             method_arn,
             user_sub,
@@ -82,8 +78,8 @@ def lambda_handler(event: dict[str, Any], _context: Any) -> dict[str, Any]:
 
     except JWTValidationError as exc:
         logger.warning(f"JWT validation failed: {exc.message} (reason: {exc.reason})")
-        return _policy("Deny", method_arn, "invalid", {"reason": exc.reason})
+        return policy("Deny", method_arn, "invalid", {"reason": exc.reason})
     except Exception as exc:
         # SECURITY: Don't expose internal error details
         logger.warning(f"Token validation failed: {type(exc).__name__}")
-        return _policy("Deny", method_arn, "invalid", {"reason": "invalid_token"})
+        return policy("Deny", method_arn, "invalid", {"reason": "invalid_token"})

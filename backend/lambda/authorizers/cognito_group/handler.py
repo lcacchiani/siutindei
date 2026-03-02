@@ -15,10 +15,10 @@ Environment Variables:
 
 from __future__ import annotations
 
-import importlib
 import os
 from typing import Any
 
+from app.auth.authorizer_helpers import extract_token, policy
 from app.auth.jwt_validator import (
     JWTValidationError,
     decode_and_verify_token,
@@ -27,10 +27,6 @@ from app.utils.logging import configure_logging, get_logger
 
 configure_logging()
 logger = get_logger(__name__)
-
-_common = importlib.import_module("lambda.authorizers._common")
-_extract_token = _common.extract_token
-_policy = _common.policy
 
 
 def lambda_handler(event: dict[str, Any], _context: Any) -> dict[str, Any]:
@@ -56,15 +52,15 @@ def lambda_handler(event: dict[str, Any], _context: Any) -> dict[str, Any]:
     allowed_groups_str = os.getenv("ALLOWED_GROUPS", "")
     if not allowed_groups_str:
         logger.error("ALLOWED_GROUPS environment variable not configured")
-        return _policy("Deny", method_arn, "misconfigured", {"reason": "misconfigured"})
+        return policy("Deny", method_arn, "misconfigured", {"reason": "misconfigured"})
 
     allowed_groups = {g.strip() for g in allowed_groups_str.split(",") if g.strip()}
 
     # Extract token from Authorization header
-    token = _extract_token(headers)
+    token = extract_token(headers)
     if not token:
         logger.warning("Missing or invalid Authorization header")
-        return _policy("Deny", method_arn, "anonymous", {"reason": "missing_token"})
+        return policy("Deny", method_arn, "anonymous", {"reason": "missing_token"})
 
     try:
         # Verify and decode the JWT token with signature validation
@@ -82,7 +78,7 @@ def lambda_handler(event: dict[str, Any], _context: Any) -> dict[str, Any]:
                 f"Access granted for user {user_sub[:8]}*** "
                 f"(groups: {', '.join(matching_groups)})"
             )
-            return _policy(
+            return policy(
                 "Allow",
                 method_arn,
                 user_sub,
@@ -98,7 +94,7 @@ def lambda_handler(event: dict[str, Any], _context: Any) -> dict[str, Any]:
                 f"Access denied for user {user_sub[:8]}*** "
                 f"(user groups: {user_groups}, required: {allowed_groups})"
             )
-            return _policy(
+            return policy(
                 "Deny",
                 method_arn,
                 user_sub,
@@ -107,8 +103,8 @@ def lambda_handler(event: dict[str, Any], _context: Any) -> dict[str, Any]:
 
     except JWTValidationError as exc:
         logger.warning(f"JWT validation failed: {exc.message} (reason: {exc.reason})")
-        return _policy("Deny", method_arn, "invalid", {"reason": exc.reason})
+        return policy("Deny", method_arn, "invalid", {"reason": exc.reason})
     except Exception as exc:
         # SECURITY: Don't expose internal error details
         logger.warning(f"Token validation failed: {type(exc).__name__}")
-        return _policy("Deny", method_arn, "invalid", {"reason": "invalid_token"})
+        return policy("Deny", method_arn, "invalid", {"reason": "invalid_token"})

@@ -263,20 +263,11 @@ def _handle_admin_tickets(
     ticket_id_param: Optional[str],
 ) -> dict[str, Any]:
     """Handle admin ticket management."""
-    try:
-        if method == "GET":
-            return _list_admin_tickets(event)
-        if method == "PUT" and ticket_id_param:
-            return _review_ticket(event, ticket_id_param)
-        return json_response(405, {"error": "Method not allowed"}, event=event)
-    except ValidationError as exc:
-        logger.warning(f"Validation error: {exc.message}")
-        return json_response(exc.status_code, exc.to_dict(), event=event)
-    except NotFoundError as exc:
-        return json_response(exc.status_code, exc.to_dict(), event=event)
-    except Exception:
-        logger.exception("Unexpected error in admin tickets handler")
-        return json_response(500, {"error": "Internal server error"}, event=event)
+    if method == "GET":
+        return _list_admin_tickets(event)
+    if method == "PUT" and ticket_id_param:
+        return _review_ticket(event, ticket_id_param)
+    return json_response(405, {"error": "Method not allowed"}, event=event)
 
 
 def _list_admin_tickets(event: Mapping[str, Any]) -> dict[str, Any]:

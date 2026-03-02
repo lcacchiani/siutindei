@@ -22,7 +22,7 @@ from app.exceptions import NotFoundError, ValidationError
 from app.services.aws_proxy import AwsProxyError
 from app.services.aws_proxy import invoke as aws_proxy
 from app.utils import json_response, parse_datetime
-from app.utils.logging import get_logger
+from app.utils.logging import get_logger, mask_email, mask_pii
 
 logger = get_logger(__name__)
 
@@ -31,6 +31,13 @@ USER_SUB_PATTERN = re.compile(
 )
 MAX_COGNITO_LIST_LIMIT = 60
 MAX_ORG_TRANSFER_LIMIT = 1000
+
+
+def _mask_cognito_username(username: str) -> str:
+    """Mask a Cognito username for safe logging."""
+    if "@" in username:
+        return mask_email(username)
+    return mask_pii(username)
 
 
 def _cognito(action: str, **params: Any) -> dict[str, Any]:
@@ -51,6 +58,7 @@ def _handle_user_group(
     user_pool_id = _require_env("COGNITO_USER_POOL_ID")
 
     if method == "POST":
+        masked_username = _mask_cognito_username(username)
         _cognito(
             "admin_add_user_to_group",
             UserPoolId=user_pool_id,
@@ -58,10 +66,11 @@ def _handle_user_group(
             GroupName=group_name,
         )
         _invalidate_user_session(user_pool_id, username)
-        logger.info(f"Added user {username} to group {group_name}")
+        logger.info(f"Added user {masked_username} to group {group_name}")
         return json_response(200, {"status": "added", "group": group_name}, event=event)
 
     if method == "DELETE":
+        masked_username = _mask_cognito_username(username)
         _cognito(
             "admin_remove_user_from_group",
             UserPoolId=user_pool_id,
@@ -69,7 +78,7 @@ def _handle_user_group(
             GroupName=group_name,
         )
         _invalidate_user_session(user_pool_id, username)
-        logger.info(f"Removed user {username} from group {group_name}")
+        logger.info(f"Removed user {masked_username} from group {group_name}")
         return json_response(
             200, {"status": "removed", "group": group_name}, event=event
         )
@@ -79,16 +88,17 @@ def _handle_user_group(
 
 def _invalidate_user_session(user_pool_id: str, username: str) -> None:
     """Invalidate a user's session by signing them out globally."""
+    masked_username = _mask_cognito_username(username)
     try:
         _cognito(
             "admin_user_global_sign_out",
             UserPoolId=user_pool_id,
             Username=username,
         )
-        logger.info(f"Invalidated session for user: {username}")
+        logger.info(f"Invalidated session for user: {masked_username}")
     except AwsProxyError as exc:
         logger.warning(
-            f"Failed to invalidate session for user {username}: "
+            f"Failed to invalidate session for user {masked_username}: "
             f"{exc.code}: {exc.message}"
         )
 
@@ -117,13 +127,16 @@ def _add_user_to_manager_group(user_sub: str) -> None:
 
         users = response.get("Users", [])
         if not users:
-            logger.warning(f"Could not find Cognito user with sub: {user_sub}")
+            logger.warning(
+                f"Could not find Cognito user with sub: {mask_pii(user_sub)}"
+            )
             return
 
         username = users[0].get("Username")
         if not username:
-            logger.warning(f"User with sub {user_sub} has no username")
+            logger.warning(f"User with sub {mask_pii(user_sub)} has no username")
             return
+        masked_username = _mask_cognito_username(username)
 
         groups_response = _cognito(
             "admin_list_groups_for_user",
@@ -133,7 +146,7 @@ def _add_user_to_manager_group(user_sub: str) -> None:
         existing_groups = [g["GroupName"] for g in groups_response.get("Groups", [])]
 
         if manager_group in existing_groups:
-            logger.info(f"User {username} is already in group {manager_group}")
+            logger.info(f"User {masked_username} is already in group {manager_group}")
             return
 
         _cognito(
@@ -143,7 +156,7 @@ def _add_user_to_manager_group(user_sub: str) -> None:
             GroupName=manager_group,
         )
         _invalidate_user_session(user_pool_id, username)
-        logger.info(f"Added user {username} to group {manager_group}")
+        logger.info(f"Added user {masked_username} to group {manager_group}")
     except AwsProxyError as exc:
         logger.error(
             "Failed to add user to manager group",
@@ -182,6 +195,7 @@ def _handle_list_cognito_users(event: Mapping[str, Any]) -> dict[str, Any]:
         if user_data:
             username = user.get("Username")
             if username:
+                masked_username = _mask_cognito_username(username)
                 if not user_data.get("last_auth_time"):
                     last_auth_time = _fetch_last_auth_time(user_pool_id, username)
                     if last_auth_time:
@@ -198,7 +212,7 @@ def _handle_list_cognito_users(event: Mapping[str, Any]) -> dict[str, Any]:
                     logger.warning(
                         "Failed to fetch groups for user",
                         extra={
-                            "username": username,
+                            "username": masked_username,
                             "error_code": exc.code,
                             "error_message": exc.message,
                         },
@@ -253,7 +267,7 @@ def _adjust_user_feedback_stars(user_sub: str, delta: int) -> None:
     user_pool_id = _require_env("COGNITO_USER_POOL_ID")
     result = _get_user_by_sub(user_pool_id, user_sub)
     if result is None:
-        logger.warning(f"Could not find user for feedback stars: {user_sub}")
+        logger.warning(f"Could not find user for feedback stars: {mask_pii(user_sub)}")
         return
     username, attributes = result
     current = _parse_feedback_stars(attributes)
@@ -334,6 +348,7 @@ def _parse_last_auth_time(value: Optional[str]) -> Optional[str]:
 
 
 def _fetch_last_auth_time(user_pool_id: str, username: str) -> Optional[str]:
+    masked_username = _mask_cognito_username(username)
     try:
         response = _cognito(
             "admin_get_user",
@@ -344,7 +359,7 @@ def _fetch_last_auth_time(user_pool_id: str, username: str) -> Optional[str]:
         logger.warning(
             "Failed to fetch last auth time",
             extra={
-                "username": username,
+                "username": masked_username,
                 "error_code": exc.code,
                 "error_message": exc.message,
             },
@@ -400,12 +415,13 @@ def _handle_delete_cognito_user(
         session.commit()
 
     logger.info(
-        f"Transferred {transferred_count} orgs from {user_sub} to {fallback_manager_id}"
+        f"Transferred {transferred_count} orgs from "
+        f"{mask_pii(user_sub)} to {mask_pii(fallback_manager_id)}"
     )
 
     _invalidate_user_session(user_pool_id, username)
     _cognito("admin_delete_user", UserPoolId=user_pool_id, Username=username)
-    logger.info(f"Deleted Cognito user: {username}")
+    logger.info(f"Deleted Cognito user: {_mask_cognito_username(username)}")
 
     return json_response(
         200,
