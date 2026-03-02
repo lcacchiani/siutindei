@@ -5,6 +5,7 @@
   "private": true,
   "main": "dist/index.js",
   "scripts": {
+    "postinstall": "node scripts/patch-bundled-minimatch.js",
     "build": "tsc",
     "cdk": "cdk",
     "synth": "cdk synth",
@@ -16,7 +17,8 @@
   "license": "ISC",
   "dependencies": {
     "aws-cdk-lib": "^2.240.0",
-    "constructs": "^10.4.5"
+    "constructs": "^10.4.5",
+    "minimatch": "10.2.4"
   },
   "devDependencies": {
     "@types/node": "^25.3.3",
