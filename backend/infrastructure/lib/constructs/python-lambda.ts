@@ -142,6 +142,7 @@ export class PythonLambda extends Construct {
     const environmentEncryptionKey =
       props.environmentEncryptionKey ??
       new kms.Key(this, "EnvironmentEncryptionKey", {
+        alias: `${props.functionName}-kms-env`,
         enableKeyRotation: true,
         description: "KMS key for Lambda environment variable encryption",
       });
@@ -161,6 +162,7 @@ export class PythonLambda extends Construct {
       logEncryptionKey = props.logEncryptionKey;
     } else {
       const perFunctionLogKey = new kms.Key(this, "LogEncryptionKey", {
+        alias: `${props.functionName}-kms-log`,
         enableKeyRotation: true,
         description: "KMS key for Lambda CloudWatch log encryption",
       });
