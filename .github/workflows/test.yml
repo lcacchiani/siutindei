@@ -79,6 +79,23 @@ jobs:
   test-python:
     name: Test Python
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: backend_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d backend_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/backend_test
+      TEST_DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/backend_test
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -86,20 +103,20 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          python-version: "3.14"
+          python-version: "3.12"
 
-      - name: Install pytest
+      - name: Install backend test dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install pytest
-
-      - name: Install backend dependencies
-        run: |
-          if [ -f "backend/requirements.txt" ]; then
-            python -m pip install -r backend/requirements.txt
+          if [ -f "backend/dev-requirements.txt" ]; then
+            python -m pip install -r backend/dev-requirements.txt
           else
-            echo "No backend/requirements.txt found"
+            python -m pip install -r backend/requirements.txt
+            python -m pip install 'pytest>=8.0' 'pytest-cov>=5.0'
           fi
+
+      - name: Apply database migrations
+        run: python -m alembic -c backend/db/alembic.ini upgrade head
 
       - name: Run Python tests
         run: |
@@ -109,7 +126,7 @@ jobs:
             echo "No Python tests found"
             exit 0
           fi
-          python -m pytest tests backend
+          python -m pytest tests backend --cov=app --cov-report=xml --cov-report=term-missing --cov-fail-under=35
 
   test-infrastructure:
     name: Test Infrastructure

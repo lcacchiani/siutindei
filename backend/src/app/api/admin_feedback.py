@@ -5,8 +5,8 @@ from __future__ import annotations
 import json
 import os
 from typing import Any, Mapping, Optional
-from uuid import UUID
 
+from botocore.exceptions import BotoCoreError, ClientError
 from sqlalchemy import text as sa_text
 from sqlalchemy.orm import Session
 
@@ -15,18 +15,24 @@ from app.api.admin_auth import (
     _get_user_sub,
     _set_session_audit_context,
 )
-from app.api.admin_cognito import _adjust_user_feedback_stars
+from app.api.admin_feedback_validation import (
+    ensure_organization,
+    parse_feedback_stars,
+    parse_label_ids,
+    require_org_id,
+    validate_feedback_labels,
+)
 from app.api.admin_request import (
     _encode_cursor,
     _parse_body,
     _parse_cursor,
     _parse_uuid,
     _query_param,
+    parse_limit,
 )
 from app.api.admin_tickets import _serialize_ticket
 from app.api.admin_validators import (
     MAX_DESCRIPTION_LENGTH,
-    MAX_FEEDBACK_LABELS_COUNT,
     MAX_NAME_LENGTH,
     _validate_email,
     _validate_string_length,
@@ -41,7 +47,11 @@ from app.db.repositories import (
 )
 from app.exceptions import NotFoundError, ValidationError
 from app.services.aws_clients import get_sns_client
-from app.utils import json_response, parse_int
+from app.utils import json_response
+from app.utils.feedback import (
+    feedback_stars_per_approval,
+    safe_adjust_feedback_stars,
+)
 from app.utils.logging import get_logger
 from app.utils.translations import build_translation_map
 
@@ -132,14 +142,16 @@ def _submit_user_feedback(
         raise ValidationError("organization_id is required", field="organization_id")
     organization_id = _parse_uuid(organization_id_raw)
 
-    stars = _parse_feedback_stars(body.get("stars"))
+    stars = parse_feedback_stars(body.get("stars"))
     description = _validate_string_length(
         body.get("description"),
         "description",
         MAX_DESCRIPTION_LENGTH,
         required=False,
     )
-    label_ids = _parse_label_ids(body.get("label_ids"))
+    label_ids = parse_label_ids(body.get("label_ids"))
+    organization_id_value = ""
+    organization_name = ""
 
     with Session(get_engine()) as session:
         _set_session_audit_context(session, event)
@@ -164,8 +176,10 @@ def _submit_user_feedback(
         organization = org_repo.get_by_id(organization_id)
         if organization is None:
             raise NotFoundError("organization", str(organization_id))
+        organization_id_value = str(organization.id)
+        organization_name = organization.name
 
-        _validate_feedback_labels(label_repo, label_ids)
+        validate_feedback_labels(label_repo, label_ids)
         ticket_id = _generate_feedback_ticket_id(session)
 
     topic_arn = os.getenv("FEEDBACK_TOPIC_ARN") or os.getenv(
@@ -185,8 +199,8 @@ def _submit_user_feedback(
         ticket_id=ticket_id,
         user_sub=user_sub,
         user_email=user_email or "unknown",
-        organization_id=str(organization.id),
-        organization_name=organization.name,
+        organization_id=organization_id_value,
+        organization_name=organization_name,
         stars=stars,
         label_ids=[str(label_id) for label_id in label_ids],
         description=description,
@@ -239,7 +253,7 @@ def _publish_feedback_to_sns(
             },
             event=event,
         )
-    except Exception as exc:
+    except (ClientError, BotoCoreError) as exc:
         logger.exception(f"Failed to publish feedback to SNS: {exc}")
         return json_response(
             500,
@@ -267,26 +281,15 @@ def _handle_admin_feedback(
     feedback_id: Optional[str],
 ) -> dict[str, Any]:
     """Handle admin feedback CRUD endpoints."""
-    try:
-        if method == "GET":
-            return _list_feedback(event, feedback_id)
-        if method == "POST":
-            return _create_feedback(event)
-        if method == "PUT" and feedback_id:
-            return _update_feedback(event, feedback_id)
-        if method == "DELETE" and feedback_id:
-            return _delete_feedback(event, feedback_id)
-        return json_response(405, {"error": "Method not allowed"}, event=event)
-    except ValidationError as exc:
-        logger.warning(f"Validation error: {exc.message}")
-        return json_response(exc.status_code, exc.to_dict(), event=event)
-    except NotFoundError as exc:
-        return json_response(exc.status_code, exc.to_dict(), event=event)
-    except Exception as exc:
-        logger.exception("Unexpected error in admin feedback handler")
-        return json_response(
-            500, {"error": "Internal server error", "detail": str(exc)}, event=event
-        )
+    if method == "GET":
+        return _list_feedback(event, feedback_id)
+    if method == "POST":
+        return _create_feedback(event)
+    if method == "PUT" and feedback_id:
+        return _update_feedback(event, feedback_id)
+    if method == "DELETE" and feedback_id:
+        return _delete_feedback(event, feedback_id)
+    return json_response(405, {"error": "Method not allowed"}, event=event)
 
 
 def _list_feedback(
@@ -294,9 +297,7 @@ def _list_feedback(
     feedback_id: Optional[str],
 ) -> dict[str, Any]:
     """List feedback entries or return a specific one."""
-    limit = parse_int(_query_param(event, "limit")) or 50
-    if limit < 1 or limit > 200:
-        raise ValidationError("limit must be between 1 and 200", field="limit")
+    limit = parse_limit(event)
 
     with Session(get_engine()) as session:
         _set_session_audit_context(session, event)
@@ -328,9 +329,9 @@ def _create_feedback(event: Mapping[str, Any]) -> dict[str, Any]:
     """Create an organization feedback entry."""
     body = _parse_body(event)
 
-    organization_id = _require_org_id(body)
-    stars = _parse_feedback_stars(body.get("stars"))
-    label_ids = _parse_label_ids(body.get("label_ids"))
+    organization_id = require_org_id(body)
+    stars = parse_feedback_stars(body.get("stars"))
+    label_ids = parse_label_ids(body.get("label_ids"))
     description = _validate_string_length(
         body.get("description"),
         "description",
@@ -357,8 +358,8 @@ def _create_feedback(event: Mapping[str, Any]) -> dict[str, Any]:
         label_repo = FeedbackLabelRepository(session)
         repo = OrganizationFeedbackRepository(session)
 
-        _ensure_organization(org_repo, organization_id)
-        _validate_feedback_labels(label_repo, label_ids)
+        ensure_organization(org_repo, organization_id)
+        validate_feedback_labels(label_repo, label_ids)
         entity = OrganizationFeedback(
             organization_id=str(organization_id),
             submitter_id=submitter_id,
@@ -373,9 +374,9 @@ def _create_feedback(event: Mapping[str, Any]) -> dict[str, Any]:
         session.refresh(entity)
 
     if submitter_id:
-        _safe_adjust_feedback_stars(
+        safe_adjust_feedback_stars(
             submitter_id,
-            _feedback_stars_per_approval(),
+            feedback_stars_per_approval(),
         )
 
     return json_response(201, _serialize_feedback(entity), event=event)
@@ -400,14 +401,14 @@ def _update_feedback(
 
         old_submitter_id = entity.submitter_id
         if "organization_id" in body:
-            organization_id = _require_org_id(body)
-            _ensure_organization(org_repo, organization_id)
+            organization_id = require_org_id(body)
+            ensure_organization(org_repo, organization_id)
             entity.organization_id = str(organization_id)
         if "stars" in body:
-            entity.stars = _parse_feedback_stars(body.get("stars"))
+            entity.stars = parse_feedback_stars(body.get("stars"))
         if "label_ids" in body:
-            label_ids = _parse_label_ids(body.get("label_ids"))
-            _validate_feedback_labels(label_repo, label_ids)
+            label_ids = parse_label_ids(body.get("label_ids"))
+            validate_feedback_labels(label_repo, label_ids)
             entity.label_ids = [str(label_id) for label_id in label_ids]
         if "description" in body:
             entity.description = _validate_string_length(
@@ -438,11 +439,11 @@ def _update_feedback(
         session.refresh(entity)
 
     if old_submitter_id != entity.submitter_id:
-        delta = _feedback_stars_per_approval()
+        delta = feedback_stars_per_approval()
         if old_submitter_id:
-            _safe_adjust_feedback_stars(old_submitter_id, -delta)
+            safe_adjust_feedback_stars(old_submitter_id, -delta)
         if entity.submitter_id:
-            _safe_adjust_feedback_stars(entity.submitter_id, delta)
+            safe_adjust_feedback_stars(entity.submitter_id, delta)
 
     return json_response(200, _serialize_feedback(entity), event=event)
 
@@ -464,9 +465,9 @@ def _delete_feedback(
         session.commit()
 
     if submitter_id:
-        _safe_adjust_feedback_stars(
+        safe_adjust_feedback_stars(
             submitter_id,
-            -_feedback_stars_per_approval(),
+            -feedback_stars_per_approval(),
         )
 
     return json_response(204, {}, event=event)
@@ -490,85 +491,3 @@ def _serialize_feedback(entity: OrganizationFeedback) -> dict[str, Any]:
         "created_at": entity.created_at.isoformat() if entity.created_at else None,
         "updated_at": entity.updated_at.isoformat() if entity.updated_at else None,
     }
-
-
-def _parse_feedback_stars(value: Any) -> int:
-    """Parse feedback stars from request payload."""
-    try:
-        stars = int(value)
-    except (TypeError, ValueError) as exc:
-        raise ValidationError("stars must be an integer", field="stars") from exc
-    if stars < 0 or stars > 5:
-        raise ValidationError("stars must be between 0 and 5", field="stars")
-    return stars
-
-
-def _parse_label_ids(value: Any) -> list[UUID]:
-    """Normalize feedback label IDs."""
-    if value is None:
-        return []
-    if not isinstance(value, list):
-        raise ValidationError("label_ids must be a list", field="label_ids")
-    ids: list[UUID] = []
-    seen: set[str] = set()
-    for item in value:
-        parsed = _parse_uuid(str(item))
-        key = str(parsed)
-        if key in seen:
-            continue
-        seen.add(key)
-        ids.append(parsed)
-    if len(ids) > MAX_FEEDBACK_LABELS_COUNT:
-        raise ValidationError(
-            f"label_ids cannot exceed {MAX_FEEDBACK_LABELS_COUNT} items",
-            field="label_ids",
-        )
-    return ids
-
-
-def _validate_feedback_labels(
-    repo: FeedbackLabelRepository,
-    label_ids: list[UUID],
-) -> None:
-    """Validate that feedback labels exist."""
-    if not label_ids:
-        return None
-    labels = list(repo.get_by_ids(label_ids))
-    if len(labels) != len(label_ids):
-        raise ValidationError("One or more labels do not exist", field="label_ids")
-    return None
-
-
-def _require_org_id(body: dict[str, Any]) -> UUID:
-    """Parse and require an organization_id."""
-    org_id_raw = body.get("organization_id")
-    if not org_id_raw:
-        raise ValidationError("organization_id is required", field="organization_id")
-    return _parse_uuid(org_id_raw)
-
-
-def _ensure_organization(repo: OrganizationRepository, org_id: UUID) -> None:
-    """Raise if organization does not exist."""
-    if repo.get_by_id(org_id) is None:
-        raise NotFoundError("organization", str(org_id))
-
-
-def _safe_adjust_feedback_stars(user_sub: str, delta: int) -> None:
-    """Adjust feedback stars without failing the request."""
-    try:
-        _adjust_user_feedback_stars(user_sub, delta)
-    except Exception as exc:
-        logger.error(
-            "Failed to update feedback stars",
-            extra={"user_sub": user_sub, "error": type(exc).__name__},
-        )
-
-
-def _feedback_stars_per_approval() -> int:
-    """Return star increment configured for approvals."""
-    raw = os.getenv("FEEDBACK_STARS_PER_APPROVAL", "1")
-    try:
-        parsed = int(raw)
-    except (TypeError, ValueError):
-        parsed = 1
-    return max(0, parsed)

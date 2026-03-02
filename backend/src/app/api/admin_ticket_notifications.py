@@ -4,13 +4,15 @@ from __future__ import annotations
 
 import os
 
+from botocore.exceptions import BotoCoreError, ClientError
+
 from app.db.models import Ticket, TicketType
 from app.services.email import send_email, send_templated_email
 from app.templates import (
     build_request_decision_template_data,
     render_request_decision_email,
 )
-from app.utils.logging import get_logger
+from app.utils.logging import get_logger, mask_email
 
 logger = get_logger(__name__)
 
@@ -161,8 +163,9 @@ def _send_ticket_decision_email(
                 )
 
         logger.info(
-            f"Ticket decision email sent to {ticket.submitter_email} "
+            f"Ticket decision email sent to "
+            f"{mask_email(ticket.submitter_email)} "
             f"for {ticket.ticket_id}"
         )
-    except Exception as exc:
+    except (ClientError, BotoCoreError, ValueError) as exc:
         logger.error(f"Failed to send ticket decision email: {exc}")

@@ -7,6 +7,7 @@ import os
 from datetime import datetime, timezone
 from typing import Any, Mapping, Optional
 
+from botocore.exceptions import BotoCoreError, ClientError
 from sqlalchemy import text as sa_text
 from sqlalchemy.orm import Session
 
@@ -15,18 +16,16 @@ from app.api.admin_auth import (
     _get_user_sub,
     _set_session_audit_context,
 )
-from app.api.admin_cognito import (
-    _add_user_to_manager_group,
-    _adjust_user_feedback_stars,
-)
-from app.api.admin_ticket_notifications import _send_ticket_decision_email
 from app.api.admin_request import (
     _encode_cursor,
     _parse_body,
     _parse_cursor,
     _parse_uuid,
     _query_param,
+    parse_limit,
 )
+from app.api.admin_ticket_notifications import _send_ticket_decision_email
+from app.api.admin_ticket_review import apply_ticket_approval
 from app.api.admin_validators import (
     MAX_DESCRIPTION_LENGTH,
     MAX_NAME_LENGTH,
@@ -34,23 +33,18 @@ from app.api.admin_validators import (
 )
 from app.db.engine import get_engine
 from app.db.models import (
-    Location,
-    Organization,
-    OrganizationFeedback,
     Ticket,
     TicketStatus,
     TicketType,
 )
 from app.db.repositories import (
-    GeographicAreaRepository,
-    LocationRepository,
     OrganizationRepository,
-    OrganizationFeedbackRepository,
     TicketRepository,
 )
 from app.exceptions import NotFoundError, ValidationError
 from app.services.aws_clients import get_sns_client
-from app.utils import json_response, parse_int
+from app.utils import json_response
+from app.utils.feedback import safe_adjust_feedback_stars
 from app.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -197,7 +191,7 @@ def _publish_manager_request_to_sns(
             event=event,
         )
 
-    except Exception as exc:
+    except (ClientError, BotoCoreError) as exc:
         logger.exception(f"Failed to publish manager request to SNS: {exc}")
         return json_response(
             500,
@@ -269,29 +263,16 @@ def _handle_admin_tickets(
     ticket_id_param: Optional[str],
 ) -> dict[str, Any]:
     """Handle admin ticket management."""
-    try:
-        if method == "GET":
-            return _list_admin_tickets(event)
-        if method == "PUT" and ticket_id_param:
-            return _review_ticket(event, ticket_id_param)
-        return json_response(405, {"error": "Method not allowed"}, event=event)
-    except ValidationError as exc:
-        logger.warning(f"Validation error: {exc.message}")
-        return json_response(exc.status_code, exc.to_dict(), event=event)
-    except NotFoundError as exc:
-        return json_response(exc.status_code, exc.to_dict(), event=event)
-    except Exception as exc:
-        logger.exception("Unexpected error in admin tickets handler")
-        return json_response(
-            500, {"error": "Internal server error", "detail": str(exc)}, event=event
-        )
+    if method == "GET":
+        return _list_admin_tickets(event)
+    if method == "PUT" and ticket_id_param:
+        return _review_ticket(event, ticket_id_param)
+    return json_response(405, {"error": "Method not allowed"}, event=event)
 
 
 def _list_admin_tickets(event: Mapping[str, Any]) -> dict[str, Any]:
     """List all tickets for admin review."""
-    limit = parse_int(_query_param(event, "limit")) or 50
-    if limit < 1 or limit > 200:
-        raise ValidationError("limit must be between 1 and 200", field="limit")
+    limit = parse_limit(event)
 
     status_filter = _query_param(event, "status")
     status = None
@@ -364,9 +345,6 @@ def _review_ticket(
     if not reviewer_sub:
         return json_response(401, {"error": "User identity not found"}, event=event)
 
-    organization_id = body.get("organization_id")
-    create_organization = body.get("create_organization", False)
-
     with Session(get_engine()) as session:
         _set_session_audit_context(session, event)
         repo = TicketRepository(session)
@@ -385,123 +363,13 @@ def _review_ticket(
         organization = None
         feedback_star_delta = 0
 
-        if ticket.ticket_type == TicketType.ACCESS_REQUEST and action == "approve":
-            if not organization_id and not create_organization:
-                raise ValidationError(
-                    "When approving an access request, you must either "
-                    "provide organization_id or set create_organization to true",
-                    field="organization_id",
-                )
-            if organization_id and create_organization:
-                raise ValidationError(
-                    "Cannot both select an existing organization and create a new one",
-                    field="organization_id",
-                )
-
-            org_repo = OrganizationRepository(session)
-
-            if organization_id:
-                organization = org_repo.get_by_id(_parse_uuid(organization_id))
-                if organization is None:
-                    raise NotFoundError("organization", organization_id)
-                organization.manager_id = ticket.submitter_id
-                org_repo.update(organization)
-                logger.info(
-                    f"Assigned organization {organization_id} "
-                    f"to user {ticket.submitter_id}"
-                )
-            elif create_organization:
-                organization = Organization(
-                    name=ticket.organization_name,
-                    description=None,
-                    manager_id=ticket.submitter_id,
-                    media_urls=[],
-                )
-                org_repo.create(organization)
-                logger.info(
-                    f"Created organization '{ticket.organization_name}' "
-                    f"for user {ticket.submitter_id}"
-                )
-
-            _add_user_to_manager_group(ticket.submitter_id)
-
-        if (
-            ticket.ticket_type == TicketType.ORGANIZATION_SUGGESTION
-            and action == "approve"
-            and create_organization
-        ):
-            org_repo = OrganizationRepository(session)
-            location_repo = LocationRepository(session)
-
-            organization = Organization(
-                name=ticket.organization_name,
-                description=ticket.description,
-                manager_id=reviewer_sub,
-                media_urls=ticket.media_urls or [],
+        if action == "approve":
+            organization, feedback_star_delta = apply_ticket_approval(
+                session,
+                ticket,
+                body,
+                reviewer_sub,
             )
-            org_repo.create(organization)
-
-            if ticket.suggested_district:
-                geo_repo = GeographicAreaRepository(session)
-                all_areas = geo_repo.get_all_flat(active_only=False)
-                matched_area = next(
-                    (
-                        area
-                        for area in all_areas
-                        if area.level == "district"
-                        and area.name == ticket.suggested_district
-                    ),
-                    None,
-                )
-                if matched_area is None:
-                    matched_area = next(
-                        (area for area in all_areas if area.level == "district"),
-                        None,
-                    )
-
-                if matched_area is not None:
-                    location = Location(
-                        org_id=organization.id,
-                        area_id=matched_area.id,
-                        address=ticket.suggested_address,
-                        lat=ticket.suggested_lat,
-                        lng=ticket.suggested_lng,
-                    )
-                    location_repo.create(location)
-
-            ticket.created_organization_id = organization.id
-            logger.info(
-                f"Created organization '{ticket.organization_name}' "
-                f"from suggestion {ticket.ticket_id}"
-            )
-
-        if (
-            ticket.ticket_type == TicketType.ORGANIZATION_FEEDBACK
-            and action == "approve"
-        ):
-            if not ticket.organization_id:
-                raise ValidationError(
-                    "organization_id is required for feedback tickets",
-                    field="organization_id",
-                )
-            if ticket.feedback_stars is None:
-                raise ValidationError(
-                    "feedback_stars is required for feedback tickets",
-                    field="feedback_stars",
-                )
-            feedback_repo = OrganizationFeedbackRepository(session)
-            feedback = OrganizationFeedback(
-                organization_id=ticket.organization_id,
-                submitter_id=ticket.submitter_id,
-                submitter_email=ticket.submitter_email,
-                stars=ticket.feedback_stars,
-                label_ids=list(ticket.feedback_label_ids or []),
-                description=ticket.feedback_text,
-                source_ticket_id=ticket.ticket_id,
-            )
-            feedback_repo.create(feedback)
-            if ticket.submitter_id:
-                feedback_star_delta = _feedback_stars_per_approval()
 
         new_status = (
             TicketStatus.APPROVED if action == "approve" else TicketStatus.REJECTED
@@ -519,7 +387,7 @@ def _review_ticket(
             session.refresh(organization)
 
         if feedback_star_delta and ticket.submitter_id:
-            _safe_adjust_feedback_stars(ticket.submitter_id, feedback_star_delta)
+            safe_adjust_feedback_stars(ticket.submitter_id, feedback_star_delta)
 
         logger.info(f"Ticket {ticket_id_param} {action}d by {reviewer_sub}")
 
@@ -537,24 +405,3 @@ def _review_ticket(
             }
 
         return json_response(200, response_data, event=event)
-
-
-def _safe_adjust_feedback_stars(user_sub: str, delta: int) -> None:
-    """Adjust feedback stars without failing the request."""
-    try:
-        _adjust_user_feedback_stars(user_sub, delta)
-    except Exception as exc:
-        logger.error(
-            "Failed to update feedback stars",
-            extra={"user_sub": user_sub, "error": type(exc).__name__},
-        )
-
-
-def _feedback_stars_per_approval() -> int:
-    """Return star increment configured for approvals."""
-    raw = os.getenv("FEEDBACK_STARS_PER_APPROVAL", "1")
-    try:
-        parsed = int(raw)
-    except (TypeError, ValueError):
-        parsed = 1
-    return max(0, parsed)

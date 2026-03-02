@@ -16,12 +16,13 @@ from app.api.admin_request import (
     _parse_cursor,
     _parse_uuid,
     _query_param,
+    parse_limit,
 )
 from app.db.engine import get_engine
 from app.db.models import Activity, Organization
 from app.db.repositories import ActivityRepository
 from app.exceptions import NotFoundError, ValidationError
-from app.utils import json_response, parse_int
+from app.utils import json_response
 from app.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -102,9 +103,7 @@ def _crud_get(
     managed_org_ids: Optional[set[str]] = None,
 ) -> dict[str, Any]:
     """Handle GET requests with optional management filtering."""
-    limit = parse_int(_query_param(event, "limit")) or 50
-    if limit < 1 or limit > 200:
-        raise ValidationError("limit must be between 1 and 200", field="limit")
+    limit = parse_limit(event)
 
     repo = config.repository_class(session)
 
@@ -207,7 +206,9 @@ def _crud_put(
         entity_org_id = _get_entity_org_id(entity, session)
         if entity_org_id not in managed_org_ids:
             return json_response(
-                403, {"error": "You don't have access to this resource"}, event=event
+                403,
+                {"error": "You don't have access to this resource"},
+                event=event,
             )
 
     body = _parse_body(event)
@@ -247,7 +248,9 @@ def _crud_delete(
         entity_org_id = _get_entity_org_id(entity, session)
         if entity_org_id not in managed_org_ids:
             return json_response(
-                403, {"error": "You don't have access to this resource"}, event=event
+                403,
+                {"error": "You don't have access to this resource"},
+                event=event,
             )
 
     repo.delete(entity)

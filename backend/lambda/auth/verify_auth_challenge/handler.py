@@ -8,13 +8,15 @@ SECURITY NOTES:
 - Use constant-time comparison would be ideal but Cognito handles this
 """
 
+from typing import Any
+
 from app.utils.logging import configure_logging, get_logger, mask_email
 
 configure_logging()
 logger = get_logger(__name__)
 
 
-def lambda_handler(event, _context):
+def lambda_handler(event: dict[str, Any], _context: Any) -> dict[str, Any]:
     """Verify the authentication challenge response."""
 
     request = event.get("request", {})

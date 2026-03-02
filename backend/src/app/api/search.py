@@ -9,30 +9,36 @@ from __future__ import annotations
 import base64
 import json
 from dataclasses import replace
-from typing import Any
-from typing import Mapping
+from typing import Any, Mapping
 from uuid import UUID
 
 from sqlalchemy.orm import Session, selectinload
 
-from app.api.schemas import ActivitySchema
-from app.api.schemas import ActivitySearchResponseSchema
-from app.api.schemas import ActivitySearchResultSchema
-from app.api.schemas import LocationSchema
-from app.api.schemas import OrganizationSchema
-from app.api.schemas import PricingSchema
-from app.api.schemas import ScheduleEntrySchema, ScheduleSchema
+from app.api.schemas import (
+    ActivitySchema,
+    ActivitySearchResponseSchema,
+    ActivitySearchResultSchema,
+    LocationSchema,
+    OrganizationSchema,
+    PricingSchema,
+    ScheduleEntrySchema,
+    ScheduleSchema,
+)
 from app.db.engine import get_engine
-from app.db.models import Activity
-from app.db.models import ActivityPricing
-from app.db.models import ActivitySchedule
-from app.db.models import Location
-from app.db.models import Organization
-from app.db.models import PricingType
-from app.db.models import ScheduleType
-from app.db.queries import ActivitySearchCursor
-from app.db.queries import ActivitySearchFilters
-from app.db.queries import build_search_query
+from app.db.models import (
+    Activity,
+    ActivityPricing,
+    ActivitySchedule,
+    Location,
+    Organization,
+    PricingType,
+    ScheduleType,
+)
+from app.db.queries import (
+    ActivitySearchCursor,
+    ActivitySearchFilters,
+    build_search_query,
+)
 from app.exceptions import CursorError, ValidationError
 from app.utils import json_response, parse_decimal, parse_enum, parse_int
 from app.utils.logging import configure_logging, get_logger, set_request_context
@@ -71,10 +77,8 @@ def lambda_handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
         logger.warning(f"Value error: {exc}")
         return json_response(400, {"error": str(exc)}, event=event)
     except Exception as exc:  # pragma: no cover - safety net
-        logger.exception("Unexpected error in search")
-        return json_response(
-            500, {"error": "Internal server error", "detail": str(exc)}, event=event
-        )
+        logger.exception(f"Unexpected error in search: {type(exc).__name__}")
+        return json_response(500, {"error": "Internal server error"}, event=event)
 
 
 def parse_filters(event: Mapping[str, Any]) -> ActivitySearchFilters:

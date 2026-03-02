@@ -30,8 +30,9 @@ import os
 from typing import Any, Mapping, Optional
 from urllib.parse import urlparse
 
-from app.services.aws_clients import get_client
+from botocore.exceptions import BotoCoreError, ClientError
 
+from app.services.aws_clients import get_client
 from app.utils.logging import configure_logging, get_logger
 
 configure_logging()
@@ -110,7 +111,7 @@ def _handle_aws(event: Mapping[str, Any]) -> dict[str, Any]:
         result = method(**params)
         result.pop("ResponseMetadata", None)
         return {"result": json.loads(json.dumps(result, default=str))}
-    except Exception as exc:
+    except (ClientError, BotoCoreError, TypeError, ValueError) as exc:
         code = (
             getattr(exc, "response", {})
             .get("Error", {})
@@ -119,6 +120,14 @@ def _handle_aws(event: Mapping[str, Any]) -> dict[str, Any]:
         message = str(exc)
         logger.warning(f"Proxy AWS call {key} failed: {code}: {message}")
         return {"error": {"code": code, "message": message}}
+    except Exception as exc:
+        logger.exception("Unexpected proxy AWS handler error")
+        return {
+            "error": {
+                "code": type(exc).__name__,
+                "message": "Unexpected proxy error",
+            }
+        }
 
 
 # ------------------------------------------------------------------
@@ -137,8 +146,8 @@ def _handle_http(event: Mapping[str, Any]) -> dict[str, Any]:
         body:    Optional request body (string)
         timeout: Optional timeout in seconds (default 10, max 30)
     """
-    import urllib.request
     import urllib.error
+    import urllib.request
 
     method: str = (event.get("method") or "GET").upper()
     url: str = event.get("url") or ""
@@ -194,7 +203,7 @@ def _handle_http(event: Mapping[str, Any]) -> dict[str, Any]:
         resp_body = ""
         try:
             resp_body = exc.read().decode("utf-8", errors="replace")
-        except Exception:  # nosec B110 - best-effort body read; empty string is fine
+        except (OSError, UnicodeDecodeError, ValueError):
             resp_body = ""
         return {
             "result": {
@@ -203,13 +212,21 @@ def _handle_http(event: Mapping[str, Any]) -> dict[str, Any]:
                 "body": resp_body,
             },
         }
-    except Exception as exc:
+    except (urllib.error.URLError, TimeoutError, OSError, ValueError) as exc:
         logger.warning(f"HTTP request failed: {type(exc).__name__}: {exc}")
         return {
             "error": {
                 "code": type(exc).__name__,
                 "message": str(exc),
             },
+        }
+    except Exception as exc:
+        logger.exception("Unexpected proxy HTTP handler error")
+        return {
+            "error": {
+                "code": type(exc).__name__,
+                "message": "Unexpected proxy error",
+            }
         }
 
 

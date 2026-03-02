@@ -174,7 +174,7 @@ def _extract_user_pool_from_issuer(issuer: str) -> tuple[str, str]:
         user_pool_id = parts[1].rstrip("/")
 
         return region, user_pool_id
-    except Exception as exc:
+    except ValueError as exc:
         raise JWTValidationError(
             f"Could not parse issuer: {issuer}",
             reason="invalid_issuer",
@@ -237,7 +237,7 @@ def decode_and_verify_token(
             "Could not retrieve signing key",
             reason="invalid_token",
         ) from exc
-    except Exception as exc:
+    except (jwt.PyJWTError, TypeError, ValueError) as exc:
         logger.warning(f"Unexpected error getting signing key: {exc}")
         raise JWTValidationError(
             "Error retrieving signing key",
@@ -287,7 +287,7 @@ def decode_and_verify_token(
             f"Missing required claim: {exc}",
             reason="invalid_token",
         ) from exc
-    except Exception as exc:
+    except jwt.PyJWTError as exc:
         logger.warning(f"Unexpected error during token verification: {exc}")
         raise JWTValidationError(
             "Token verification failed",

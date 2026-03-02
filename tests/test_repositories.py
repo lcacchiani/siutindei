@@ -19,6 +19,8 @@ sys.path.append(str(Path(__file__).resolve().parents[1] / 'backend' / 'src'))
 from app.db.repositories.base import BaseRepository
 from app.db.models import Organization
 
+TEST_MANAGER_ID = "00000000-0000-0000-0000-000000000001"
+
 # Skip all tests in this module if not using PostgreSQL
 pytestmark = pytest.mark.skipif(
     'postgresql' not in os.getenv('TEST_DATABASE_URL', ''),
@@ -57,6 +59,7 @@ class TestOrganizationRepository:
         repo = OrganizationRepository(db_session)
         org = repo.create_organization(
             name='Test Org',
+            manager_id=TEST_MANAGER_ID,
             description='Test Description',
         )
 
@@ -71,6 +74,7 @@ class TestOrganizationRepository:
         repo = OrganizationRepository(db_session)
         org = repo.create_organization(
             name='Test Org',
+            manager_id=TEST_MANAGER_ID,
             media_urls=[
                 'https://example.com/pic-1.jpg',
                 'https://example.com/pic-2.jpg',
@@ -87,7 +91,10 @@ class TestOrganizationRepository:
         from app.db.repositories.organization import OrganizationRepository
 
         repo = OrganizationRepository(db_session)
-        created = repo.create_organization(name='Unique Name')
+        created = repo.create_organization(
+            name='Unique Name',
+            manager_id=TEST_MANAGER_ID,
+        )
 
         found = repo.find_by_name('Unique Name')
         assert found is not None
@@ -106,7 +113,10 @@ class TestOrganizationRepository:
         from app.db.repositories.organization import OrganizationRepository
 
         repo = OrganizationRepository(db_session)
-        org = repo.create_organization(name='Original Name')
+        org = repo.create_organization(
+            name='Original Name',
+            manager_id=TEST_MANAGER_ID,
+        )
 
         updated = repo.update_organization(
             org,
@@ -122,7 +132,10 @@ class TestOrganizationRepository:
         from app.db.repositories.organization import OrganizationRepository
 
         repo = OrganizationRepository(db_session)
-        org = repo.create_organization(name='To Delete')
+        org = repo.create_organization(
+            name='To Delete',
+            manager_id=TEST_MANAGER_ID,
+        )
         org_id = org.id
 
         repo.delete(org)
@@ -133,46 +146,89 @@ class TestOrganizationRepository:
 class TestLocationRepository:
     """Tests for LocationRepository class."""
 
-    def test_create_location(self, db_session, sample_organization) -> None:
+    def test_create_location(
+        self,
+        db_session,
+        sample_organization,
+        sample_geographic_area,
+    ) -> None:
         """Should create location with all fields."""
         from decimal import Decimal
+        from app.db.models import Location
         from app.db.repositories.location import LocationRepository
 
         repo = LocationRepository(db_session)
-        location = repo.create_location(
+        location = repo.create(
+            Location(
             org_id=sample_organization.id,
-            district='Central',
+            area_id=sample_geographic_area.id,
             address='123 Test St',
             lat=Decimal('22.28'),
             lng=Decimal('114.15'),
+            )
         )
 
         assert location.id is not None
-        assert location.district == 'Central'
+        assert location.area_id == sample_geographic_area.id
         assert location.org_id == sample_organization.id
 
-    def test_find_by_organization(self, db_session, sample_organization) -> None:
+    def test_find_by_organization(
+        self,
+        db_session,
+        sample_organization,
+        sample_geographic_area,
+    ) -> None:
         """Should find locations by organization."""
+        from app.db.models import Location
         from app.db.repositories.location import LocationRepository
 
         repo = LocationRepository(db_session)
-        repo.create_location(org_id=sample_organization.id, district='Central')
-        repo.create_location(org_id=sample_organization.id, district='Causeway Bay')
+        repo.create(
+            Location(
+                org_id=sample_organization.id,
+                area_id=sample_geographic_area.id,
+                address='Central',
+            )
+        )
+        repo.create(
+            Location(
+                org_id=sample_organization.id,
+                area_id=sample_geographic_area.id,
+                address='Causeway Bay',
+            )
+        )
 
         locations = repo.find_by_organization(sample_organization.id)
         assert len(locations) == 2
 
-    def test_find_by_district(self, db_session, sample_organization) -> None:
-        """Should find locations by district."""
+    def test_find_by_area(
+        self,
+        db_session,
+        sample_organization,
+        sample_geographic_area,
+    ) -> None:
+        """Should find locations by geographic area."""
+        from app.db.models import Location
         from app.db.repositories.location import LocationRepository
 
         repo = LocationRepository(db_session)
-        repo.create_location(org_id=sample_organization.id, district='Central')
-        repo.create_location(org_id=sample_organization.id, district='Causeway Bay')
+        repo.create(
+            Location(
+                org_id=sample_organization.id,
+                area_id=sample_geographic_area.id,
+                address='Central',
+            )
+        )
+        repo.create(
+            Location(
+                org_id=sample_organization.id,
+                area_id=sample_geographic_area.id,
+                address='Causeway Bay',
+            )
+        )
 
-        locations = repo.find_by_district('Central')
-        assert len(locations) == 1
-        assert locations[0].district == 'Central'
+        locations = repo.find_by_area(sample_geographic_area.id)
+        assert len(locations) == 2
 
 
 class TestActivityPricingRepository:
@@ -261,6 +317,7 @@ class TestActivityScheduleRepository:
             day_of_week_utc=1,
             start_minutes_utc=600,
             end_minutes_utc=660,
+            languages=['en'],
         )
         repo.create_weekly_schedule(
             activity_id=sample_activity.id,
@@ -268,6 +325,7 @@ class TestActivityScheduleRepository:
             day_of_week_utc=3,
             start_minutes_utc=600,
             end_minutes_utc=660,
+            languages=['zh'],
         )
 
         monday_schedules = repo.find_weekly_by_day(1)

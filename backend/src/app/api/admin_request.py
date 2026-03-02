@@ -5,11 +5,15 @@ from __future__ import annotations
 import base64
 import json
 import os
-from typing import Any, Mapping, Optional, Tuple
+from typing import Any, Mapping, Optional
 from uuid import UUID
 
 from app.exceptions import ValidationError
+from app.utils import parse_int
 from app.utils.parsers import collect_query_params, first_param
+
+DEFAULT_LIMIT = 50
+DEFAULT_MAX_LIMIT = 200
 
 
 def _parse_body(event: Mapping[str, Any]) -> dict[str, Any]:
@@ -22,7 +26,7 @@ def _parse_body(event: Mapping[str, Any]) -> dict[str, Any]:
     return json.loads(raw)
 
 
-def _parse_path(path: str) -> Tuple[str, str, Optional[str], Optional[str]]:
+def _parse_path(path: str) -> tuple[str, str, Optional[str], Optional[str]]:
     """Parse base path, resource name, and id from the request path.
 
     Returns:
@@ -79,6 +83,23 @@ def _query_param(event: Mapping[str, Any], name: str) -> Optional[str]:
     """Return a query parameter value."""
     params = collect_query_params(event)
     return first_param(params, name)
+
+
+def parse_limit(
+    event: Mapping[str, Any],
+    *,
+    default: int = DEFAULT_LIMIT,
+    max_limit: int = DEFAULT_MAX_LIMIT,
+) -> int:
+    """Parse and validate a standard pagination limit."""
+    parsed = parse_int(_query_param(event, "limit"))
+    limit = default if parsed is None else parsed
+    if limit < 1 or limit > max_limit:
+        raise ValidationError(
+            f"limit must be between 1 and {max_limit}",
+            field="limit",
+        )
+    return limit
 
 
 def _parse_uuid(value: str) -> UUID:

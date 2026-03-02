@@ -7,12 +7,17 @@ from typing import Any, Mapping, Optional
 from sqlalchemy.orm import Session
 
 from app.api.admin_auth import _set_session_audit_context
-from app.api.admin_request import _parse_cursor, _parse_uuid, _query_param
+from app.api.admin_request import (
+    _parse_cursor,
+    _parse_uuid,
+    _query_param,
+    parse_limit,
+)
 from app.db.audit import AuditLogRepository
 from app.db.engine import get_engine
 from app.db.models import AuditLog
 from app.exceptions import NotFoundError, ValidationError
-from app.utils import json_response, parse_datetime, parse_int
+from app.utils import json_response, parse_datetime
 from app.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -76,9 +81,7 @@ def _get_audit_log_by_id(
 
 def _list_audit_logs(event: Mapping[str, Any]) -> dict[str, Any]:
     """List audit logs with optional filtering."""
-    limit = parse_int(_query_param(event, "limit")) or 50
-    if limit < 1 or limit > 200:
-        raise ValidationError("limit must be between 1 and 200", field="limit")
+    limit = parse_limit(event)
 
     table_name = _query_param(event, "table")
     record_id = _query_param(event, "record_id")

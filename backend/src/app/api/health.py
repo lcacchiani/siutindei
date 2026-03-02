@@ -8,12 +8,11 @@ from __future__ import annotations
 
 import os
 import time
-from dataclasses import dataclass
-from dataclasses import field
-from typing import Any
-from typing import Optional
+from dataclasses import dataclass, field
+from typing import Any, Optional
 
 from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 
@@ -105,13 +104,13 @@ def _check_database() -> HealthCheck:
             latency_ms=latency_ms,
             details={"connection": "ok"},
         )
-    except Exception as e:
+    except (SQLAlchemyError, RuntimeError, OSError) as exc:
         latency_ms = (time.perf_counter() - start_time) * 1000
         return HealthCheck(
             name="database",
             healthy=False,
             latency_ms=latency_ms,
-            error=str(e),
+            error=str(exc),
         )
 
 

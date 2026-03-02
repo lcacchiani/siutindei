@@ -6,6 +6,7 @@ import json
 import os
 from typing import Any, Mapping, Optional
 
+from botocore.exceptions import BotoCoreError, ClientError
 from sqlalchemy import text as sa_text
 from sqlalchemy.orm import Session
 
@@ -34,6 +35,7 @@ from app.utils import json_response
 from app.utils.logging import get_logger
 
 logger = get_logger(__name__)
+MAX_SUGGESTED_DISTRICT_LENGTH = 100
 
 
 def _handle_user_organization_suggestion(
@@ -111,7 +113,7 @@ def _submit_organization_suggestion(
     suggested_district = _validate_string_length(
         body.get("suggested_district"),
         "suggested_district",
-        100,
+        MAX_SUGGESTED_DISTRICT_LENGTH,
         required=False,
     )
     suggested_address = _validate_string_length(
@@ -249,7 +251,7 @@ def _publish_suggestion_to_sns(
             },
             event=event,
         )
-    except Exception as exc:
+    except (ClientError, BotoCoreError) as exc:
         logger.exception(f"Failed to publish suggestion to SNS: {exc}")
         return json_response(
             500,

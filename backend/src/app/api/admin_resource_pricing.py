@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from app.api.admin_request import _parse_uuid
@@ -104,7 +104,7 @@ def _validate_pricing_amount(amount: Any) -> None:
     """Validate pricing amount."""
     try:
         amount_val = Decimal(str(amount))
-    except Exception as exc:
+    except (InvalidOperation, TypeError, ValueError) as exc:
         raise ValidationError(
             "amount must be a valid number",
             field="amount",
