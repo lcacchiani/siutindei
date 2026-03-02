@@ -3,6 +3,7 @@
 > **Date:** 2026-03-02
 > **Branch:** `cursor/backend-improvements-assessment-04ed`
 > **Scope:** All Python code under `backend/`, `tests/`, and related Lambda handlers.
+> **Remediation commit:** `f238cdd`
 
 ---
 
