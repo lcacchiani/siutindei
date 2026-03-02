@@ -3,20 +3,34 @@
 from __future__ import annotations
 
 import os
+import re
+from datetime import datetime, timezone
 from typing import Any, Mapping, Optional
 
 from sqlalchemy.orm import Session
 
 from app.api.admin_auth import _get_user_sub, _set_session_audit_context
-from app.api.admin_request import _parse_group_name, _query_param, _require_env
+from app.api.admin_request import (
+    _parse_group_name,
+    _query_param,
+    _require_env,
+    parse_limit,
+)
 from app.db.engine import get_engine
 from app.db.repositories import OrganizationRepository
 from app.exceptions import NotFoundError, ValidationError
-from app.services.aws_proxy import AwsProxyError, invoke as aws_proxy
-from app.utils import json_response, parse_datetime, parse_int
+from app.services.aws_proxy import AwsProxyError
+from app.services.aws_proxy import invoke as aws_proxy
+from app.utils import json_response, parse_datetime
 from app.utils.logging import get_logger
 
 logger = get_logger(__name__)
+
+USER_SUB_PATTERN = re.compile(
+    r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+)
+MAX_COGNITO_LIST_LIMIT = 60
+MAX_ORG_TRANSFER_LIMIT = 1000
 
 
 def _cognito(action: str, **params: Any) -> dict[str, Any]:
@@ -45,7 +59,9 @@ def _handle_user_group(
         )
         _invalidate_user_session(user_pool_id, username)
         logger.info(f"Added user {username} to group {group_name}")
-        return json_response(200, {"status": "added", "group": group_name}, event=event)
+        return json_response(
+            200, {"status": "added", "group": group_name}, event=event
+        )
 
     if method == "DELETE":
         _cognito(
@@ -72,12 +88,24 @@ def _invalidate_user_session(user_pool_id: str, username: str) -> None:
             Username=username,
         )
         logger.info(f"Invalidated session for user: {username}")
-    except Exception as exc:
-        logger.warning(f"Failed to invalidate session for user {username}: {exc}")
+    except AwsProxyError as exc:
+        logger.warning(
+            f"Failed to invalidate session for user {username}: "
+            f"{exc.code}: {exc.message}"
+        )
+
+
+def _validate_user_sub(user_sub: str) -> str:
+    """Validate and normalize a Cognito user sub."""
+    normalized = user_sub.strip().lower()
+    if USER_SUB_PATTERN.fullmatch(normalized) is None:
+        raise ValidationError("Invalid user sub format", field="sub")
+    return normalized
 
 
 def _add_user_to_manager_group(user_sub: str) -> None:
     """Add a user to the 'manager' Cognito group."""
+    valid_user_sub = _validate_user_sub(user_sub)
     try:
         user_pool_id = _require_env("COGNITO_USER_POOL_ID")
         manager_group = os.getenv("MANAGER_GROUP", "manager")
@@ -85,7 +113,7 @@ def _add_user_to_manager_group(user_sub: str) -> None:
         response = _cognito(
             "list_users",
             UserPoolId=user_pool_id,
-            Filter=f'sub = "{user_sub}"',
+            Filter=f'sub = "{valid_user_sub}"',
             Limit=1,
         )
 
@@ -104,7 +132,9 @@ def _add_user_to_manager_group(user_sub: str) -> None:
             UserPoolId=user_pool_id,
             Username=username,
         )
-        existing_groups = [g["GroupName"] for g in groups_response.get("Groups", [])]
+        existing_groups = [
+            g["GroupName"] for g in groups_response.get("Groups", [])
+        ]
 
         if manager_group in existing_groups:
             logger.info(f"User {username} is already in group {manager_group}")
@@ -118,16 +148,20 @@ def _add_user_to_manager_group(user_sub: str) -> None:
         )
         _invalidate_user_session(user_pool_id, username)
         logger.info(f"Added user {username} to group {manager_group}")
-
-    except Exception as exc:
-        logger.error(f"Failed to add user {user_sub} to manager group: {exc}")
+    except AwsProxyError as exc:
+        logger.error(
+            "Failed to add user to manager group",
+            extra={
+                "user_sub": valid_user_sub,
+                "error_code": exc.code,
+                "error_message": exc.message,
+            },
+        )
 
 
 def _handle_list_cognito_users(event: Mapping[str, Any]) -> dict[str, Any]:
     """List Cognito users for manager selection."""
-    limit = parse_int(_query_param(event, "limit")) or 50
-    if limit < 1 or limit > 60:
-        raise ValidationError("limit must be between 1 and 60", field="limit")
+    limit = parse_limit(event, max_limit=MAX_COGNITO_LIST_LIMIT)
 
     pagination_token = _query_param(event, "pagination_token")
     user_pool_id = _require_env("COGNITO_USER_POOL_ID")
@@ -153,7 +187,9 @@ def _handle_list_cognito_users(event: Mapping[str, Any]) -> dict[str, Any]:
             username = user.get("Username")
             if username:
                 if not user_data.get("last_auth_time"):
-                    last_auth_time = _fetch_last_auth_time(user_pool_id, username)
+                    last_auth_time = _fetch_last_auth_time(
+                        user_pool_id, username
+                    )
                     if last_auth_time:
                         user_data["last_auth_time"] = last_auth_time
                 try:
@@ -164,7 +200,15 @@ def _handle_list_cognito_users(event: Mapping[str, Any]) -> dict[str, Any]:
                     )
                     groups = gr.get("Groups", [])
                     user_data["groups"] = [g["GroupName"] for g in groups]
-                except Exception:
+                except AwsProxyError as exc:
+                    logger.warning(
+                        "Failed to fetch groups for user",
+                        extra={
+                            "username": username,
+                            "error_code": exc.code,
+                            "error_message": exc.message,
+                        },
+                    )
                     user_data["groups"] = []
             else:
                 user_data["groups"] = []
@@ -238,10 +282,11 @@ def _get_user_by_sub(
     user_sub: str,
 ) -> Optional[tuple[str, dict[str, str]]]:
     """Return Cognito username and attributes for a given user sub."""
+    valid_user_sub = _validate_user_sub(user_sub)
     response = _cognito(
         "list_users",
         UserPoolId=user_pool_id,
-        Filter=f'sub = "{user_sub}"',
+        Filter=f'sub = "{valid_user_sub}"',
         Limit=1,
     )
     users = response.get("Users", [])
@@ -267,8 +312,6 @@ def _parse_feedback_stars(attributes: Mapping[str, str]) -> int:
 
 
 def _parse_last_auth_time(value: Optional[str]) -> Optional[str]:
-    from datetime import datetime, timezone
-
     if not value:
         return None
 
@@ -303,7 +346,15 @@ def _fetch_last_auth_time(user_pool_id: str, username: str) -> Optional[str]:
             UserPoolId=user_pool_id,
             Username=username,
         )
-    except Exception:
+    except AwsProxyError as exc:
+        logger.warning(
+            "Failed to fetch last auth time",
+            extra={
+                "username": username,
+                "error_code": exc.code,
+                "error_message": exc.message,
+            },
+        )
         return None
 
     raw_attributes = response.get("UserAttributes", [])
@@ -321,7 +372,9 @@ def _handle_delete_cognito_user(
 
     fallback_manager_id = _get_user_sub(event)
     if not fallback_manager_id:
-        return json_response(401, {"error": "User identity not found"}, event=event)
+        return json_response(
+            401, {"error": "User identity not found"}, event=event
+        )
 
     try:
         user_response = _cognito(
@@ -339,15 +392,19 @@ def _handle_delete_cognito_user(
             break
 
     if not user_sub:
-        return json_response(500, {"error": "User has no sub attribute"}, event=event)
+        return json_response(
+            500, {"error": "User has no sub attribute"}, event=event
+        )
     if user_sub == fallback_manager_id:
-        return json_response(400, {"error": "Cannot delete yourself"}, event=event)
+        return json_response(
+            400, {"error": "Cannot delete yourself"}, event=event
+        )
 
     transferred_count = 0
     with Session(get_engine()) as session:
         _set_session_audit_context(session, event)
         org_repo = OrganizationRepository(session)
-        orgs = org_repo.find_by_manager(user_sub, limit=1000)
+        orgs = org_repo.find_by_manager(user_sub, limit=MAX_ORG_TRANSFER_LIMIT)
         for org in orgs:
             org.manager_id = fallback_manager_id
             org_repo.update(org)

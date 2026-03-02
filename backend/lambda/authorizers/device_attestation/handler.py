@@ -11,55 +11,48 @@ SECURITY NOTES:
 
 from __future__ import annotations
 
+import importlib
 import os
-from typing import Any, Dict
+from typing import Any
 
-from app.auth.attestation import is_attestation_enabled, verify_attestation_token
+from app.auth.attestation import (
+    is_attestation_enabled,
+    verify_attestation_token,
+)
 from app.utils.logging import configure_logging, get_logger
 
 configure_logging()
 logger = get_logger(__name__)
-
-
-def _is_fail_closed() -> bool:
-    """Return True if fail-closed mode is enabled (production default)."""
-    return os.getenv("ATTESTATION_FAIL_CLOSED", "true").lower() in {"1", "true", "yes"}
-
-
-def _get_header(headers: Dict[str, Any], name: str) -> str:
-    """Get a header value case-insensitively."""
-
-    for key, value in headers.items():
-        if key.lower() == name.lower():
-            return str(value)
-    return ""
+_common = importlib.import_module("lambda.authorizers._common")
+_get_header = _common.get_header
 
 
 def _policy(
     effect: str,
     method_arn: str,
     principal_id: str,
-    context: Dict[str, Any],
-) -> Dict[str, Any]:
-    """Build an IAM policy document for API Gateway."""
+    context: dict[str, Any],
+) -> dict[str, Any]:
+    """Build policy without resource broadening for attestation checks."""
+    return _common.policy(
+        effect,
+        method_arn,
+        principal_id,
+        context,
+        broaden_resource=False,
+    )
 
-    return {
-        "principalId": principal_id,
-        "policyDocument": {
-            "Version": "2012-10-17",
-            "Statement": [
-                {
-                    "Action": "execute-api:Invoke",
-                    "Effect": effect,
-                    "Resource": method_arn,
-                }
-            ],
-        },
-        "context": context,
+
+def _is_fail_closed() -> bool:
+    """Return True if fail-closed mode is enabled (production default)."""
+    return os.getenv("ATTESTATION_FAIL_CLOSED", "true").lower() in {
+        "1",
+        "true",
+        "yes",
     }
 
 
-def lambda_handler(event, _context):
+def lambda_handler(event: dict[str, Any], _context: Any) -> dict[str, Any]:
     """Authorize requests based on device attestation token."""
 
     headers = event.get("headers") or {}
@@ -87,13 +80,18 @@ def lambda_handler(event, _context):
                 "Device attestation disabled (development mode), allowing request"
             )
             return _policy(
-                "Allow", method_arn, "bypass", {"bypass": "true", "mode": "development"}
+                "Allow",
+                method_arn,
+                "bypass",
+                {"bypass": "true", "mode": "development"},
             )
 
     # Require token when attestation is enabled
     if not token:
         logger.warning("Missing device attestation token")
-        return _policy("Deny", method_arn, "anonymous", {"reason": "missing_token"})
+        return _policy(
+            "Deny", method_arn, "anonymous", {"reason": "missing_token"}
+        )
 
     try:
         decoded = verify_attestation_token(token)
@@ -104,10 +102,14 @@ def lambda_handler(event, _context):
             return _policy("Allow", method_arn, "bypass", {"bypass": "true"})
 
         principal = decoded.get("sub", "device")
-        logger.info(f"Device attestation verified for principal: {principal[:8]}***")
+        logger.info(
+            f"Device attestation verified for principal: {principal[:8]}***"
+        )
         return _policy("Allow", method_arn, principal, {"attested": "true"})
 
     except Exception as exc:
         # SECURITY: Don't expose detailed error messages to clients
         logger.warning(f"Device attestation failed: {type(exc).__name__}")
-        return _policy("Deny", method_arn, "invalid", {"reason": "verification_failed"})
+        return _policy(
+            "Deny", method_arn, "invalid", {"reason": "verification_failed"}
+        )

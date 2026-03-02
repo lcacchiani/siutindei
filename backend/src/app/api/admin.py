@@ -8,18 +8,13 @@ from __future__ import annotations
 
 from typing import Any, Mapping, Optional
 
-from app.api.admin_audit import _handle_audit_logs
 from app.api.admin_address_search import _handle_address_search
 from app.api.admin_areas import (
     _handle_list_activity_categories,
     _handle_list_areas,
     _handle_toggle_area,
 )
-from app.api.admin_feedback import (
-    _handle_admin_feedback,
-    _handle_user_feedback,
-    _handle_user_feedback_labels,
-)
+from app.api.admin_audit import _handle_audit_logs
 from app.api.admin_auth import (
     _get_managed_organization_ids,
     _is_admin,
@@ -31,6 +26,11 @@ from app.api.admin_cognito import (
     _handle_user_group,
 )
 from app.api.admin_crud import _handle_crud
+from app.api.admin_feedback import (
+    _handle_admin_feedback,
+    _handle_user_feedback,
+    _handle_user_feedback_labels,
+)
 from app.api.admin_imports import _handle_admin_imports
 from app.api.admin_media import _handle_organization_media
 from app.api.admin_request import (
@@ -49,8 +49,10 @@ from app.api.admin_resources import (
     _validate_sessions_count,
 )
 from app.api.admin_suggestions import _handle_user_organization_suggestion
-from app.api.admin_tickets import _handle_admin_tickets, _handle_user_access_request
-from app.api.user_organizations import _handle_user_organizations
+from app.api.admin_tickets import (
+    _handle_admin_tickets,
+    _handle_user_access_request,
+)
 from app.api.admin_validators import (
     MAX_DESCRIPTION_LENGTH,
     MAX_LANGUAGES_COUNT,
@@ -69,6 +71,7 @@ from app.api.admin_validators import (
     _validate_string_length,
     _validate_url,
 )
+from app.api.user_organizations import _handle_user_organizations
 from app.exceptions import NotFoundError, ValidationError
 from app.utils import json_response
 from app.utils.logging import configure_logging, get_logger, set_request_context
@@ -165,7 +168,9 @@ def lambda_handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
             event,
         )
     if resource == "audit-logs" and method == "GET":
-        return _safe_handler(lambda: _handle_audit_logs(event, resource_id), event)
+        return _safe_handler(
+            lambda: _handle_audit_logs(event, resource_id), event
+        )
     if resource == "imports":
         return _safe_handler(
             lambda: _handle_admin_imports(event, method, resource_id),
@@ -209,10 +214,10 @@ def _safe_handler(
     except ValueError as exc:
         logger.warning(f"Value error: {exc}")
         return json_response(400, {"error": str(exc)}, event=event)
-    except Exception as exc:  # pragma: no cover
+    except Exception:  # pragma: no cover
         logger.exception("Unexpected error in handler")
         return json_response(
-            500, {"error": "Internal server error", "detail": str(exc)}, event=event
+            500, {"error": "Internal server error"}, event=event
         )
 
 
@@ -293,7 +298,9 @@ def _handle_manager_routes(
 
     if not managed_org_ids:
         if method == "GET" and not resource_id:
-            return json_response(200, {"items": [], "next_cursor": None}, event=event)
+            return json_response(
+                200, {"items": [], "next_cursor": None}, event=event
+            )
         return json_response(
             403, {"error": "You don't manage any organizations"}, event=event
         )
@@ -303,6 +310,8 @@ def _handle_manager_routes(
         return json_response(404, {"error": "Not found"}, event=event)
 
     return _safe_handler(
-        lambda: _handle_crud(event, method, config, resource_id, managed_org_ids),
+        lambda: _handle_crud(
+            event, method, config, resource_id, managed_org_ids
+        ),
         event,
     )

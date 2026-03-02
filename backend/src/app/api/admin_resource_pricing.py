@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from app.api.admin_request import _parse_uuid
@@ -20,7 +20,9 @@ def _create_pricing(
     location_id = body.get("location_id")
     pricing_type = body.get("pricing_type")
     if not activity_id or not location_id or not pricing_type:
-        raise ValidationError("activity_id, location_id, and pricing_type are required")
+        raise ValidationError(
+            "activity_id, location_id, and pricing_type are required"
+        )
 
     pricing_enum = PricingType(pricing_type)
     amount = body.get("amount")
@@ -46,7 +48,9 @@ def _create_pricing(
     sessions_count = body.get("sessions_count")
     if pricing_enum == PricingType.PER_SESSIONS:
         if sessions_count is None:
-            raise ValidationError("sessions_count is required for per_sessions pricing")
+            raise ValidationError(
+                "sessions_count is required for per_sessions pricing"
+            )
         _validate_sessions_count(sessions_count)
     else:
         sessions_count = None
@@ -104,7 +108,7 @@ def _validate_pricing_amount(amount: Any) -> None:
     """Validate pricing amount."""
     try:
         amount_val = Decimal(str(amount))
-    except Exception as exc:
+    except (InvalidOperation, TypeError, ValueError) as exc:
         raise ValidationError(
             "amount must be a valid number",
             field="amount",

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import os
 
+from botocore.exceptions import BotoCoreError, ClientError
+
 from app.db.models import Ticket, TicketType
 from app.services.email import send_email, send_templated_email
 from app.templates import (
@@ -24,7 +26,9 @@ def _send_ticket_decision_email(
     sender_email = os.getenv("SES_SENDER_EMAIL")
 
     if not sender_email:
-        logger.warning("Email notification skipped: SES_SENDER_EMAIL not configured")
+        logger.warning(
+            "Email notification skipped: SES_SENDER_EMAIL not configured"
+        )
         return
 
     if not ticket.submitter_email or ticket.submitter_email == "unknown":
@@ -40,7 +44,9 @@ def _send_ticket_decision_email(
                 ticket_id=ticket.ticket_id,
                 organization_name=ticket.organization_name,
                 reviewed_at=(
-                    ticket.reviewed_at.isoformat() if ticket.reviewed_at else "Unknown"
+                    ticket.reviewed_at.isoformat()
+                    if ticket.reviewed_at
+                    else "Unknown"
                 ),
                 action=action,
                 admin_message=admin_notes if admin_notes else None,
@@ -49,7 +55,9 @@ def _send_ticket_decision_email(
                 ticket_id=ticket.ticket_id,
                 organization_name=ticket.organization_name,
                 reviewed_at=(
-                    ticket.reviewed_at.isoformat() if ticket.reviewed_at else "Unknown"
+                    ticket.reviewed_at.isoformat()
+                    if ticket.reviewed_at
+                    else "Unknown"
                 ),
                 action=action,
                 admin_message=admin_notes if admin_notes else None,
@@ -119,7 +127,9 @@ def _send_ticket_decision_email(
                 )
         else:
             if action == "approve":
-                subject = "Your feedback has been approved! " f"[{ticket.ticket_id}]"
+                subject = (
+                    "Your feedback has been approved! " f"[{ticket.ticket_id}]"
+                )
                 status_message = (
                     f"Thanks for your feedback about '{ticket.organization_name}'. "
                     "It has been approved by our team."
@@ -164,5 +174,5 @@ def _send_ticket_decision_email(
             f"Ticket decision email sent to {ticket.submitter_email} "
             f"for {ticket.ticket_id}"
         )
-    except Exception as exc:
+    except (ClientError, BotoCoreError, ValueError) as exc:
         logger.error(f"Failed to send ticket decision email: {exc}")

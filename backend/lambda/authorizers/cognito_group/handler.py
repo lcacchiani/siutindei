@@ -15,6 +15,7 @@ Environment Variables:
 
 from __future__ import annotations
 
+import importlib
 import os
 from typing import Any
 
@@ -27,66 +28,9 @@ from app.utils.logging import configure_logging, get_logger
 configure_logging()
 logger = get_logger(__name__)
 
-
-def _get_header(headers: dict[str, Any], name: str) -> str:
-    """Get a header value case-insensitively."""
-    for key, value in headers.items():
-        if key.lower() == name.lower():
-            return str(value)
-    return ""
-
-
-def _extract_token(headers: dict[str, Any]) -> str | None:
-    """Extract the JWT token from the Authorization header."""
-    auth_header = _get_header(headers, "authorization")
-    if not auth_header:
-        return None
-
-    # Handle "Bearer <token>" format
-    if auth_header.lower().startswith("bearer "):
-        return auth_header[7:].strip()
-
-    return auth_header.strip()
-
-
-def _policy(
-    effect: str,
-    method_arn: str,
-    principal_id: str,
-    context: dict[str, Any],
-) -> dict[str, Any]:
-    """Build an IAM policy document for API Gateway.
-
-    For Allow policies, we allow all methods on this API to enable
-    policy caching across endpoints.
-    """
-    # For Allow, broaden the resource to enable caching
-    if effect == "Allow":
-        # Convert specific method ARN to wildcard for caching
-        # arn:aws:execute-api:region:account:api-id/stage/METHOD/path
-        # -> arn:aws:execute-api:region:account:api-id/stage/*
-        parts = method_arn.split("/")
-        if len(parts) >= 2:
-            resource = "/".join(parts[:2]) + "/*"
-        else:
-            resource = method_arn
-    else:
-        resource = method_arn
-
-    return {
-        "principalId": principal_id,
-        "policyDocument": {
-            "Version": "2012-10-17",
-            "Statement": [
-                {
-                    "Action": "execute-api:Invoke",
-                    "Effect": effect,
-                    "Resource": resource,
-                }
-            ],
-        },
-        "context": context,
-    }
+_common = importlib.import_module("lambda.authorizers._common")
+_extract_token = _common.extract_token
+_policy = _common.policy
 
 
 def lambda_handler(event: dict[str, Any], _context: Any) -> dict[str, Any]:
@@ -112,15 +56,21 @@ def lambda_handler(event: dict[str, Any], _context: Any) -> dict[str, Any]:
     allowed_groups_str = os.getenv("ALLOWED_GROUPS", "")
     if not allowed_groups_str:
         logger.error("ALLOWED_GROUPS environment variable not configured")
-        return _policy("Deny", method_arn, "misconfigured", {"reason": "misconfigured"})
+        return _policy(
+            "Deny", method_arn, "misconfigured", {"reason": "misconfigured"}
+        )
 
-    allowed_groups = {g.strip() for g in allowed_groups_str.split(",") if g.strip()}
+    allowed_groups = {
+        g.strip() for g in allowed_groups_str.split(",") if g.strip()
+    }
 
     # Extract token from Authorization header
     token = _extract_token(headers)
     if not token:
         logger.warning("Missing or invalid Authorization header")
-        return _policy("Deny", method_arn, "anonymous", {"reason": "missing_token"})
+        return _policy(
+            "Deny", method_arn, "anonymous", {"reason": "missing_token"}
+        )
 
     try:
         # Verify and decode the JWT token with signature validation
@@ -162,9 +112,13 @@ def lambda_handler(event: dict[str, Any], _context: Any) -> dict[str, Any]:
             )
 
     except JWTValidationError as exc:
-        logger.warning(f"JWT validation failed: {exc.message} (reason: {exc.reason})")
+        logger.warning(
+            f"JWT validation failed: {exc.message} (reason: {exc.reason})"
+        )
         return _policy("Deny", method_arn, "invalid", {"reason": exc.reason})
     except Exception as exc:
         # SECURITY: Don't expose internal error details
         logger.warning(f"Token validation failed: {type(exc).__name__}")
-        return _policy("Deny", method_arn, "invalid", {"reason": "invalid_token"})
+        return _policy(
+            "Deny", method_arn, "invalid", {"reason": "invalid_token"}
+        )

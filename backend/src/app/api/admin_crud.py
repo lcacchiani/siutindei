@@ -16,12 +16,13 @@ from app.api.admin_request import (
     _parse_cursor,
     _parse_uuid,
     _query_param,
+    parse_limit,
 )
 from app.db.engine import get_engine
 from app.db.models import Activity, Organization
 from app.db.repositories import ActivityRepository
 from app.exceptions import NotFoundError, ValidationError
-from app.utils import json_response, parse_int
+from app.utils import json_response
 from app.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -83,13 +84,19 @@ def _handle_crud(
         _set_session_audit_context(session, event)
 
         if method == "GET":
-            return _crud_get(event, session, config, resource_id, managed_org_ids)
+            return _crud_get(
+                event, session, config, resource_id, managed_org_ids
+            )
         if method == "POST":
             return _crud_post(event, session, config, managed_org_ids)
         if method == "PUT":
-            return _crud_put(event, session, config, resource_id, managed_org_ids)
+            return _crud_put(
+                event, session, config, resource_id, managed_org_ids
+            )
         if method == "DELETE":
-            return _crud_delete(event, session, config, resource_id, managed_org_ids)
+            return _crud_delete(
+                event, session, config, resource_id, managed_org_ids
+            )
 
     return json_response(405, {"error": "Method not allowed"}, event=event)
 
@@ -102,9 +109,7 @@ def _crud_get(
     managed_org_ids: Optional[set[str]] = None,
 ) -> dict[str, Any]:
     """Handle GET requests with optional management filtering."""
-    limit = parse_int(_query_param(event, "limit")) or 50
-    if limit < 1 or limit > 200:
-        raise ValidationError("limit must be between 1 and 200", field="limit")
+    limit = parse_limit(event)
 
     repo = config.repository_class(session)
 
@@ -134,7 +139,9 @@ def _crud_get(
 
     has_more = len(rows) > limit
     trimmed = list(rows)[:limit]
-    next_cursor = _encode_cursor(trimmed[-1].id) if has_more and trimmed else None
+    next_cursor = (
+        _encode_cursor(trimmed[-1].id) if has_more and trimmed else None
+    )
 
     return json_response(
         200,
@@ -207,13 +214,18 @@ def _crud_put(
         entity_org_id = _get_entity_org_id(entity, session)
         if entity_org_id not in managed_org_ids:
             return json_response(
-                403, {"error": "You don't have access to this resource"}, event=event
+                403,
+                {"error": "You don't have access to this resource"},
+                event=event,
             )
 
     body = _parse_body(event)
 
     # Use manager-specific update handler if available and in manager mode
-    if managed_org_ids is not None and config.manager_update_handler is not None:
+    if (
+        managed_org_ids is not None
+        and config.manager_update_handler is not None
+    ):
         update_handler = config.manager_update_handler
     else:
         update_handler = config.update_handler
@@ -247,7 +259,9 @@ def _crud_delete(
         entity_org_id = _get_entity_org_id(entity, session)
         if entity_org_id not in managed_org_ids:
             return json_response(
-                403, {"error": "You don't have access to this resource"}, event=event
+                403,
+                {"error": "You don't have access to this resource"},
+                event=event,
             )
 
     repo.delete(entity)
@@ -285,7 +299,9 @@ def _get_entity_org_id(entity: Any, session: Session) -> Optional[str]:
     return None
 
 
-def _get_org_id_from_body(body: dict[str, Any], resource_name: str) -> Optional[str]:
+def _get_org_id_from_body(
+    body: dict[str, Any], resource_name: str
+) -> Optional[str]:
     """Extract the organization ID from a request body.
 
     For locations/activities, reads org_id directly.
@@ -341,4 +357,6 @@ def _get_all_filtered_by_org(
 
     if cursor is not None:
         query = query.where(model.id > cursor)
-    return session.execute(query.order_by(model.id).limit(limit)).scalars().all()
+    return (
+        session.execute(query.order_by(model.id).limit(limit)).scalars().all()
+    )

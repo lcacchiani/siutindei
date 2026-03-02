@@ -9,6 +9,8 @@ SECURITY NOTES:
 - Never log OTP codes or passwords
 """
 
+from typing import Any
+
 from app.auth.passwordless import build_challenge, send_sign_in_email
 from app.utils.logging import configure_logging, get_logger, mask_email
 
@@ -16,7 +18,7 @@ configure_logging()
 logger = get_logger(__name__)
 
 
-def lambda_handler(event, _context):
+def lambda_handler(event: dict[str, Any], _context: Any) -> dict[str, Any]:
     """Create a custom authentication challenge."""
 
     request = event.get("request", {})
@@ -40,7 +42,9 @@ def lambda_handler(event, _context):
             logger.info("Challenge email sent successfully")
         except Exception as exc:
             # SECURITY: Log error type but not full details which may contain PII
-            logger.error(f"Failed to send challenge email: {type(exc).__name__}")
+            logger.error(
+                f"Failed to send challenge email: {type(exc).__name__}"
+            )
             raise
 
     response["publicChallengeParameters"] = {"email": email}

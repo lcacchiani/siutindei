@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Optional
-from typing import Sequence
+from typing import Optional, Sequence
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -35,7 +34,9 @@ class OrganizationRepository(BaseRepository[Organization]):
         query = select(Organization).where(Organization.name == name)
         return self._session.execute(query).scalar_one_or_none()
 
-    def find_by_name_case_insensitive(self, name: str) -> Optional[Organization]:
+    def find_by_name_case_insensitive(
+        self, name: str
+    ) -> Optional[Organization]:
         """Find an organization by case-insensitive name."""
         normalized = name.strip()
         query = select(Organization).where(
@@ -90,24 +91,10 @@ class OrganizationRepository(BaseRepository[Organization]):
         )
         return self._session.execute(query).scalars().all()
 
-
-def _escape_like_pattern(pattern: str) -> str:
-    """Escape LIKE pattern special characters.
-
-    Prevents users from injecting wildcards into search patterns.
-
-    Args:
-        pattern: The search pattern to escape.
-
-    Returns:
-        The escaped pattern safe for use in LIKE queries.
-    """
-    # Escape backslash first, then percent and underscore
-    return pattern.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-
     def create_organization(
         self,
         name: str,
+        manager_id: str,
         description: Optional[str] = None,
         media_urls: Optional[Sequence[str]] = None,
     ) -> Organization:
@@ -115,6 +102,7 @@ def _escape_like_pattern(pattern: str) -> str:
 
         Args:
             name: Organization name.
+            manager_id: Cognito user sub for the organization manager.
             description: Optional description.
             media_urls: Optional list of media URLs.
 
@@ -123,6 +111,7 @@ def _escape_like_pattern(pattern: str) -> str:
         """
         org = Organization(
             name=name,
+            manager_id=manager_id,
             description=description,
             media_urls=list(media_urls or []),
         )
@@ -153,3 +142,18 @@ def _escape_like_pattern(pattern: str) -> str:
         if media_urls is not None:
             organization.media_urls = list(media_urls)
         return self.update(organization)
+
+
+def _escape_like_pattern(pattern: str) -> str:
+    """Escape LIKE pattern special characters.
+
+    Prevents users from injecting wildcards into search patterns.
+
+    Args:
+        pattern: The search pattern to escape.
+
+    Returns:
+        The escaped pattern safe for use in LIKE queries.
+    """
+    # Escape backslash first, then percent and underscore
+    return pattern.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")

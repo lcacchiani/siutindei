@@ -183,3 +183,72 @@ WHERE NOT EXISTS (
     AND start_minutes_utc = 120
     AND end_minutes_utc = 210
 );
+
+INSERT INTO feedback_labels (id, name, display_order)
+SELECT 'fa111111-1111-1111-1111-111111111111', 'Service Quality', 1
+WHERE NOT EXISTS (
+  SELECT 1 FROM feedback_labels WHERE id = 'fa111111-1111-1111-1111-111111111111'
+);
+
+INSERT INTO feedback_labels (id, name, display_order)
+SELECT 'fa222222-2222-2222-2222-222222222222', 'Value for Money', 2
+WHERE NOT EXISTS (
+  SELECT 1 FROM feedback_labels WHERE id = 'fa222222-2222-2222-2222-222222222222'
+);
+
+INSERT INTO feedback_labels (id, name, display_order)
+SELECT 'fa333333-3333-3333-3333-333333333333', 'Facilities', 3
+WHERE NOT EXISTS (
+  SELECT 1 FROM feedback_labels WHERE id = 'fa333333-3333-3333-3333-333333333333'
+);
+
+INSERT INTO organization_feedback (
+  id,
+  organization_id,
+  submitter_id,
+  submitter_email,
+  stars,
+  label_ids,
+  description,
+  source_ticket_id
+)
+SELECT
+  'fb111111-1111-1111-1111-111111111111',
+  '11111111-1111-1111-1111-111111111111',
+  '00000000-0000-0000-0000-000000000002',
+  'parent@example.com',
+  4,
+  ARRAY[
+    'fa111111-1111-1111-1111-111111111111'::uuid,
+    'fa222222-2222-2222-2222-222222222222'::uuid
+  ],
+  'Friendly instructors and good class pacing.',
+  'F00001'
+WHERE NOT EXISTS (
+  SELECT 1
+  FROM organization_feedback
+  WHERE id = 'fb111111-1111-1111-1111-111111111111'
+);
+
+INSERT INTO tickets (
+  id,
+  ticket_id,
+  ticket_type,
+  submitter_id,
+  submitter_email,
+  organization_name,
+  message,
+  status
+)
+SELECT
+  'fc111111-1111-1111-1111-111111111111',
+  'R00001',
+  'access_request',
+  '00000000-0000-0000-0000-000000000003',
+  'newmanager@example.com',
+  'Harbor Arts Studio',
+  'I help run classes and need manager access.',
+  'pending'
+WHERE NOT EXISTS (
+  SELECT 1 FROM tickets WHERE ticket_id = 'R00001'
+);

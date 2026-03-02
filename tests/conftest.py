@@ -90,6 +90,7 @@ def sample_organization_data() -> dict:
     return {
         'name': 'Test Organization',
         'description': 'A test organization for unit tests',
+        'manager_id': '00000000-0000-0000-0000-000000000001',
     }
 
 
@@ -116,11 +117,26 @@ def sample_activity_category(db_session):
 
 
 @pytest.fixture
-def sample_location_data(sample_organization) -> dict:
+def sample_geographic_area(db_session):
+    """Create a sample geographic district area in the test database."""
+    from app.db.models import GeographicArea
+
+    area = GeographicArea(
+        name='Central and Western',
+        level='district',
+        active=True,
+    )
+    db_session.add(area)
+    db_session.flush()
+    return area
+
+
+@pytest.fixture
+def sample_location_data(sample_organization, sample_geographic_area) -> dict:
     """Sample data for creating a location."""
     return {
         'org_id': sample_organization.id,
-        'district': 'Central',
+        'area_id': sample_geographic_area.id,
         'address': '123 Test Street',
         'lat': Decimal('22.282667'),
         'lng': Decimal('114.158167'),
@@ -274,7 +290,7 @@ def make_search_filters(**kwargs) -> dict:
     """Create search filter kwargs with defaults."""
     defaults = {
         'age': None,
-        'district': None,
+        'area_id': None,
         'pricing_type': None,
         'price_min': None,
         'price_max': None,
