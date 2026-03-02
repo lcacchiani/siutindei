@@ -50,6 +50,12 @@ export interface PythonLambdaProps {
   reservedConcurrentExecutions?: number;
   /** KMS key to encrypt environment variables. */
   environmentEncryptionKey?: kms.IKey;
+  /**
+   * KMS key to encrypt CloudWatch log groups.
+   * When shared across functions, the caller must attach the CloudWatch Logs
+   * resource policy to the key before passing it here.
+   */
+  logEncryptionKey?: kms.IKey;
   /** Dead letter queue for failed invocations. */
   deadLetterQueue?: sqs.IQueue;
 }
@@ -148,35 +154,40 @@ export class PythonLambda extends Construct {
       });
 
     // SECURITY: KMS key for CloudWatch log encryption
-    // Checkov requires CloudWatch Log Groups to be encrypted with KMS
-    const logEncryptionKey = new kms.Key(this, "LogEncryptionKey", {
-      enableKeyRotation: true,
-      description: "KMS key for Lambda CloudWatch log encryption",
-    });
-
-    // Grant CloudWatch Logs service permission to use the key
-    logEncryptionKey.addToResourcePolicy(
-      new iam.PolicyStatement({
-        actions: [
-          "kms:Encrypt*",
-          "kms:Decrypt*",
-          "kms:ReEncrypt*",
-          "kms:GenerateDataKey*",
-          "kms:Describe*",
-        ],
-        principals: [
-          new iam.ServicePrincipal(
-            `logs.${cdk.Stack.of(this).region}.amazonaws.com`
-          ),
-        ],
-        resources: ["*"],
-        conditions: {
-          ArnLike: {
-            "kms:EncryptionContext:aws:logs:arn": `arn:aws:logs:${cdk.Stack.of(this).region}:${cdk.Stack.of(this).account}:*`,
+    // Checkov requires CloudWatch Log Groups to be encrypted with KMS.
+    // Accept a shared key to avoid creating one per function ($1/month each).
+    let logEncryptionKey: kms.IKey;
+    if (props.logEncryptionKey) {
+      logEncryptionKey = props.logEncryptionKey;
+    } else {
+      const perFunctionLogKey = new kms.Key(this, "LogEncryptionKey", {
+        enableKeyRotation: true,
+        description: "KMS key for Lambda CloudWatch log encryption",
+      });
+      perFunctionLogKey.addToResourcePolicy(
+        new iam.PolicyStatement({
+          actions: [
+            "kms:Encrypt*",
+            "kms:Decrypt*",
+            "kms:ReEncrypt*",
+            "kms:GenerateDataKey*",
+            "kms:Describe*",
+          ],
+          principals: [
+            new iam.ServicePrincipal(
+              `logs.${cdk.Stack.of(this).region}.amazonaws.com`
+            ),
+          ],
+          resources: ["*"],
+          conditions: {
+            ArnLike: {
+              "kms:EncryptionContext:aws:logs:arn": `arn:aws:logs:${cdk.Stack.of(this).region}:${cdk.Stack.of(this).account}:*`,
+            },
           },
-        },
-      })
-    );
+        })
+      );
+      logEncryptionKey = perFunctionLogKey;
+    }
 
     // Standard 90-day log retention for all Lambda functions
     // SECURITY: Encrypted with KMS key
