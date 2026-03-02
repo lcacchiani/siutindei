@@ -59,9 +59,7 @@ def _handle_user_group(
         )
         _invalidate_user_session(user_pool_id, username)
         logger.info(f"Added user {username} to group {group_name}")
-        return json_response(
-            200, {"status": "added", "group": group_name}, event=event
-        )
+        return json_response(200, {"status": "added", "group": group_name}, event=event)
 
     if method == "DELETE":
         _cognito(
@@ -132,9 +130,7 @@ def _add_user_to_manager_group(user_sub: str) -> None:
             UserPoolId=user_pool_id,
             Username=username,
         )
-        existing_groups = [
-            g["GroupName"] for g in groups_response.get("Groups", [])
-        ]
+        existing_groups = [g["GroupName"] for g in groups_response.get("Groups", [])]
 
         if manager_group in existing_groups:
             logger.info(f"User {username} is already in group {manager_group}")
@@ -187,9 +183,7 @@ def _handle_list_cognito_users(event: Mapping[str, Any]) -> dict[str, Any]:
             username = user.get("Username")
             if username:
                 if not user_data.get("last_auth_time"):
-                    last_auth_time = _fetch_last_auth_time(
-                        user_pool_id, username
-                    )
+                    last_auth_time = _fetch_last_auth_time(user_pool_id, username)
                     if last_auth_time:
                         user_data["last_auth_time"] = last_auth_time
                 try:
@@ -372,9 +366,7 @@ def _handle_delete_cognito_user(
 
     fallback_manager_id = _get_user_sub(event)
     if not fallback_manager_id:
-        return json_response(
-            401, {"error": "User identity not found"}, event=event
-        )
+        return json_response(401, {"error": "User identity not found"}, event=event)
 
     try:
         user_response = _cognito(
@@ -392,13 +384,9 @@ def _handle_delete_cognito_user(
             break
 
     if not user_sub:
-        return json_response(
-            500, {"error": "User has no sub attribute"}, event=event
-        )
+        return json_response(500, {"error": "User has no sub attribute"}, event=event)
     if user_sub == fallback_manager_id:
-        return json_response(
-            400, {"error": "Cannot delete yourself"}, event=event
-        )
+        return json_response(400, {"error": "Cannot delete yourself"}, event=event)
 
     transferred_count = 0
     with Session(get_engine()) as session:

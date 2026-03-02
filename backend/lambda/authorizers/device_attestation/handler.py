@@ -89,9 +89,7 @@ def lambda_handler(event: dict[str, Any], _context: Any) -> dict[str, Any]:
     # Require token when attestation is enabled
     if not token:
         logger.warning("Missing device attestation token")
-        return _policy(
-            "Deny", method_arn, "anonymous", {"reason": "missing_token"}
-        )
+        return _policy("Deny", method_arn, "anonymous", {"reason": "missing_token"})
 
     try:
         decoded = verify_attestation_token(token)
@@ -102,14 +100,10 @@ def lambda_handler(event: dict[str, Any], _context: Any) -> dict[str, Any]:
             return _policy("Allow", method_arn, "bypass", {"bypass": "true"})
 
         principal = decoded.get("sub", "device")
-        logger.info(
-            f"Device attestation verified for principal: {principal[:8]}***"
-        )
+        logger.info(f"Device attestation verified for principal: {principal[:8]}***")
         return _policy("Allow", method_arn, principal, {"attested": "true"})
 
     except Exception as exc:
         # SECURITY: Don't expose detailed error messages to clients
         logger.warning(f"Device attestation failed: {type(exc).__name__}")
-        return _policy(
-            "Deny", method_arn, "invalid", {"reason": "verification_failed"}
-        )
+        return _policy("Deny", method_arn, "invalid", {"reason": "verification_failed"})

@@ -11,13 +11,12 @@ dev = [
 ]
 
 [tool.ruff]
-line-length = 80
+line-length = 88
 target-version = 'py312'
 src = ['src', 'lambda']
 
 [tool.ruff.lint]
-select = ['E', 'F', 'I', 'B']
-ignore = ['E501', 'B904']
+select = ['E4', 'E7', 'E9', 'F']
 
 [tool.pytest.ini_options]
 testpaths = ['../tests', 'tests']

@@ -16,9 +16,7 @@ def parse_feedback_stars(value: Any) -> int:
     try:
         stars = int(value)
     except (TypeError, ValueError) as exc:
-        raise ValidationError(
-            "stars must be an integer", field="stars"
-        ) from exc
+        raise ValidationError("stars must be an integer", field="stars") from exc
     if stars < 0 or stars > 5:
         raise ValidationError("stars must be between 0 and 5", field="stars")
     return stars
@@ -56,18 +54,14 @@ def validate_feedback_labels(
         return
     labels = list(repo.get_by_ids(label_ids))
     if len(labels) != len(label_ids):
-        raise ValidationError(
-            "One or more labels do not exist", field="label_ids"
-        )
+        raise ValidationError("One or more labels do not exist", field="label_ids")
 
 
 def require_org_id(body: Mapping[str, Any]) -> UUID:
     """Parse and require an organization_id."""
     org_id_raw = body.get("organization_id")
     if not org_id_raw:
-        raise ValidationError(
-            "organization_id is required", field="organization_id"
-        )
+        raise ValidationError("organization_id is required", field="organization_id")
     return _parse_uuid(str(org_id_raw))
 
 

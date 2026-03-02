@@ -59,9 +59,7 @@ def _handle_user_access_request(
     user_email = _get_user_email(event)
 
     if not user_sub:
-        return json_response(
-            401, {"error": "User identity not found"}, event=event
-        )
+        return json_response(401, {"error": "User identity not found"}, event=event)
 
     if method == "GET":
         with Session(get_engine()) as session:
@@ -113,9 +111,7 @@ def _handle_user_access_request(
             logger.error("MANAGER_REQUEST_TOPIC_ARN not configured")
             return json_response(
                 500,
-                {
-                    "error": "Service configuration error. Please contact support."
-                },
+                {"error": "Service configuration error. Please contact support."},
                 event=event,
             )
 
@@ -231,12 +227,8 @@ def _serialize_ticket(ticket: Optional[Ticket]) -> Optional[dict[str, Any]]:
         "status": ticket.status.value,
         "submitter_email": ticket.submitter_email,
         "submitter_id": ticket.submitter_id,
-        "created_at": (
-            ticket.created_at.isoformat() if ticket.created_at else None
-        ),
-        "reviewed_at": (
-            ticket.reviewed_at.isoformat() if ticket.reviewed_at else None
-        ),
+        "created_at": (ticket.created_at.isoformat() if ticket.created_at else None),
+        "reviewed_at": (ticket.reviewed_at.isoformat() if ticket.reviewed_at else None),
         "reviewed_by": ticket.reviewed_by,
         "admin_notes": ticket.admin_notes,
         "description": ticket.description,
@@ -284,9 +276,7 @@ def _handle_admin_tickets(
         return json_response(exc.status_code, exc.to_dict(), event=event)
     except Exception:
         logger.exception("Unexpected error in admin tickets handler")
-        return json_response(
-            500, {"error": "Internal server error"}, event=event
-        )
+        return json_response(500, {"error": "Internal server error"}, event=event)
 
 
 def _list_admin_tickets(event: Mapping[str, Any]) -> dict[str, Any]:
@@ -330,9 +320,7 @@ def _list_admin_tickets(event: Mapping[str, Any]) -> dict[str, Any]:
         )
         has_more = len(rows) > limit
         trimmed = list(rows)[:limit]
-        next_cursor = (
-            _encode_cursor(trimmed[-1].id) if has_more and trimmed else None
-        )
+        next_cursor = _encode_cursor(trimmed[-1].id) if has_more and trimmed else None
 
         pending_count = repo.count_pending(ticket_type=ticket_type)
 
@@ -364,9 +352,7 @@ def _review_ticket(
 
     reviewer_sub = _get_user_sub(event)
     if not reviewer_sub:
-        return json_response(
-            401, {"error": "User identity not found"}, event=event
-        )
+        return json_response(401, {"error": "User identity not found"}, event=event)
 
     with Session(get_engine()) as session:
         _set_session_audit_context(session, event)
@@ -395,9 +381,7 @@ def _review_ticket(
             )
 
         new_status = (
-            TicketStatus.APPROVED
-            if action == "approve"
-            else TicketStatus.REJECTED
+            TicketStatus.APPROVED if action == "approve" else TicketStatus.REJECTED
         )
         ticket.status = new_status
         ticket.reviewed_at = datetime.now(timezone.utc)

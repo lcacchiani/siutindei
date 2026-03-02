@@ -47,9 +47,7 @@ def _handle_user_organization_suggestion(
     user_email = _get_user_email(event)
 
     if not user_sub:
-        return json_response(
-            401, {"error": "User identity not found"}, event=event
-        )
+        return json_response(401, {"error": "User identity not found"}, event=event)
 
     if method == "GET":
         return _get_user_suggestions(event, user_sub)

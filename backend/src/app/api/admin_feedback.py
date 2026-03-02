@@ -67,9 +67,7 @@ def _handle_user_feedback(
     user_email = _get_user_email(event)
 
     if not user_sub:
-        return json_response(
-            401, {"error": "User identity not found"}, event=event
-        )
+        return json_response(401, {"error": "User identity not found"}, event=event)
 
     if method == "GET":
         return _get_user_feedback(event, user_sub)
@@ -141,9 +139,7 @@ def _submit_user_feedback(
     body = _parse_body(event)
     organization_id_raw = body.get("organization_id")
     if not organization_id_raw:
-        raise ValidationError(
-            "organization_id is required", field="organization_id"
-        )
+        raise ValidationError("organization_id is required", field="organization_id")
     organization_id = _parse_uuid(organization_id_raw)
 
     stars = parse_feedback_stars(body.get("stars"))
@@ -302,9 +298,7 @@ def _handle_admin_feedback(
         return json_response(exc.status_code, exc.to_dict(), event=event)
     except Exception:
         logger.exception("Unexpected error in admin feedback handler")
-        return json_response(
-            500, {"error": "Internal server error"}, event=event
-        )
+        return json_response(500, {"error": "Internal server error"}, event=event)
 
 
 def _list_feedback(
@@ -328,9 +322,7 @@ def _list_feedback(
         rows = repo.get_all(limit=limit + 1, cursor=cursor)
         has_more = len(rows) > limit
         trimmed = list(rows)[:limit]
-        next_cursor = (
-            _encode_cursor(trimmed[-1].id) if has_more and trimmed else None
-        )
+        next_cursor = _encode_cursor(trimmed[-1].id) if has_more and trimmed else None
 
         return json_response(
             200,
@@ -449,9 +441,7 @@ def _update_feedback(
                 required=False,
             )
         if "submitter_email" in body:
-            entity.submitter_email = _validate_email(
-                body.get("submitter_email")
-            )
+            entity.submitter_email = _validate_email(body.get("submitter_email"))
 
         repo.update(entity)
         session.commit()
@@ -507,10 +497,6 @@ def _serialize_feedback(entity: OrganizationFeedback) -> dict[str, Any]:
         "label_ids": [str(label_id) for label_id in (entity.label_ids or [])],
         "description": entity.description,
         "source_ticket_id": entity.source_ticket_id,
-        "created_at": entity.created_at.isoformat()
-        if entity.created_at
-        else None,
-        "updated_at": entity.updated_at.isoformat()
-        if entity.updated_at
-        else None,
+        "created_at": entity.created_at.isoformat() if entity.created_at else None,
+        "updated_at": entity.updated_at.isoformat() if entity.updated_at else None,
     }

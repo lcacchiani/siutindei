@@ -168,9 +168,7 @@ def lambda_handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
             event,
         )
     if resource == "audit-logs" and method == "GET":
-        return _safe_handler(
-            lambda: _handle_audit_logs(event, resource_id), event
-        )
+        return _safe_handler(lambda: _handle_audit_logs(event, resource_id), event)
     if resource == "imports":
         return _safe_handler(
             lambda: _handle_admin_imports(event, method, resource_id),
@@ -216,9 +214,7 @@ def _safe_handler(
         return json_response(400, {"error": str(exc)}, event=event)
     except Exception:  # pragma: no cover
         logger.exception("Unexpected error in handler")
-        return json_response(
-            500, {"error": "Internal server error"}, event=event
-        )
+        return json_response(500, {"error": "Internal server error"}, event=event)
 
 
 def _handle_user_routes(
@@ -298,9 +294,7 @@ def _handle_manager_routes(
 
     if not managed_org_ids:
         if method == "GET" and not resource_id:
-            return json_response(
-                200, {"items": [], "next_cursor": None}, event=event
-            )
+            return json_response(200, {"items": [], "next_cursor": None}, event=event)
         return json_response(
             403, {"error": "You don't manage any organizations"}, event=event
         )
@@ -310,8 +304,6 @@ def _handle_manager_routes(
         return json_response(404, {"error": "Not found"}, event=event)
 
     return _safe_handler(
-        lambda: _handle_crud(
-            event, method, config, resource_id, managed_org_ids
-        ),
+        lambda: _handle_crud(event, method, config, resource_id, managed_org_ids),
         event,
     )

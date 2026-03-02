@@ -188,8 +188,7 @@ def _approve_location_creation(
         (
             area
             for area in all_areas
-            if area.level == "district"
-            and area.name == ticket.suggested_district
+            if area.level == "district" and area.name == ticket.suggested_district
         ),
         None,
     )

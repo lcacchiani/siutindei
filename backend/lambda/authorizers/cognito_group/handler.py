@@ -56,21 +56,15 @@ def lambda_handler(event: dict[str, Any], _context: Any) -> dict[str, Any]:
     allowed_groups_str = os.getenv("ALLOWED_GROUPS", "")
     if not allowed_groups_str:
         logger.error("ALLOWED_GROUPS environment variable not configured")
-        return _policy(
-            "Deny", method_arn, "misconfigured", {"reason": "misconfigured"}
-        )
+        return _policy("Deny", method_arn, "misconfigured", {"reason": "misconfigured"})
 
-    allowed_groups = {
-        g.strip() for g in allowed_groups_str.split(",") if g.strip()
-    }
+    allowed_groups = {g.strip() for g in allowed_groups_str.split(",") if g.strip()}
 
     # Extract token from Authorization header
     token = _extract_token(headers)
     if not token:
         logger.warning("Missing or invalid Authorization header")
-        return _policy(
-            "Deny", method_arn, "anonymous", {"reason": "missing_token"}
-        )
+        return _policy("Deny", method_arn, "anonymous", {"reason": "missing_token"})
 
     try:
         # Verify and decode the JWT token with signature validation
@@ -112,13 +106,9 @@ def lambda_handler(event: dict[str, Any], _context: Any) -> dict[str, Any]:
             )
 
     except JWTValidationError as exc:
-        logger.warning(
-            f"JWT validation failed: {exc.message} (reason: {exc.reason})"
-        )
+        logger.warning(f"JWT validation failed: {exc.message} (reason: {exc.reason})")
         return _policy("Deny", method_arn, "invalid", {"reason": exc.reason})
     except Exception as exc:
         # SECURITY: Don't expose internal error details
         logger.warning(f"Token validation failed: {type(exc).__name__}")
-        return _policy(
-            "Deny", method_arn, "invalid", {"reason": "invalid_token"}
-        )
+        return _policy("Deny", method_arn, "invalid", {"reason": "invalid_token"})

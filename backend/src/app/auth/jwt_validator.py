@@ -216,9 +216,7 @@ def decode_and_verify_token(
     issuer = unverified_claims.get("iss", "")
     if not user_pool_id or not region:
         try:
-            extracted_region, extracted_pool_id = (
-                _extract_user_pool_from_issuer(issuer)
-            )
+            extracted_region, extracted_pool_id = _extract_user_pool_from_issuer(issuer)
             region = region or extracted_region
             user_pool_id = user_pool_id or extracted_pool_id
         except JWTValidationError:
@@ -227,9 +225,7 @@ def decode_and_verify_token(
             user_pool_id = user_pool_id or _get_user_pool_id()
 
     # Build expected issuer
-    expected_issuer = (
-        f"https://cognito-idp.{region}.amazonaws.com/{user_pool_id}"
-    )
+    expected_issuer = f"https://cognito-idp.{region}.amazonaws.com/{user_pool_id}"
 
     # Get JWKS client and signing key
     try:

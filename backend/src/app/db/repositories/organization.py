@@ -34,9 +34,7 @@ class OrganizationRepository(BaseRepository[Organization]):
         query = select(Organization).where(Organization.name == name)
         return self._session.execute(query).scalar_one_or_none()
 
-    def find_by_name_case_insensitive(
-        self, name: str
-    ) -> Optional[Organization]:
+    def find_by_name_case_insensitive(self, name: str) -> Optional[Organization]:
         """Find an organization by case-insensitive name."""
         normalized = name.strip()
         query = select(Organization).where(

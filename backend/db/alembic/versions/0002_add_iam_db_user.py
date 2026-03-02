@@ -26,7 +26,17 @@ def upgrade() -> None:
         $$;
         """
     )
-    op.execute("GRANT rds_iam TO siutindei_app;")
+    op.execute(
+        """
+        DO $$
+        BEGIN
+          IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'rds_iam') THEN
+            GRANT rds_iam TO siutindei_app;
+          END IF;
+        END
+        $$;
+        """
+    )
     op.execute(
         """
         DO $$
@@ -41,7 +51,17 @@ def upgrade() -> None:
     op.execute(
         "ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO siutindei_app;"
     )
-    op.execute("GRANT rds_iam TO CURRENT_USER;")
+    op.execute(
+        """
+        DO $$
+        BEGIN
+          IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'rds_iam') THEN
+            GRANT rds_iam TO CURRENT_USER;
+          END IF;
+        END
+        $$;
+        """
+    )
 
 
 def downgrade() -> None:
@@ -55,7 +75,9 @@ def downgrade() -> None:
             REVOKE USAGE ON SCHEMA public FROM siutindei_app;
             REVOKE SELECT ON ALL TABLES IN SCHEMA public FROM siutindei_app;
             ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE SELECT ON TABLES FROM siutindei_app;
-            REVOKE rds_iam FROM siutindei_app;
+            IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'rds_iam') THEN
+              REVOKE rds_iam FROM siutindei_app;
+            END IF;
             DROP ROLE siutindei_app;
           END IF;
         END

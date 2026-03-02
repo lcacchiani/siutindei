@@ -54,9 +54,7 @@ def lambda_handler(event: dict[str, Any], _context: Any) -> dict[str, Any]:
     token = _extract_token(headers)
     if not token:
         logger.warning("Missing or invalid Authorization header")
-        return _policy(
-            "Deny", method_arn, "anonymous", {"reason": "missing_token"}
-        )
+        return _policy("Deny", method_arn, "anonymous", {"reason": "missing_token"})
 
     try:
         # Verify and decode the JWT token with signature validation
@@ -83,13 +81,9 @@ def lambda_handler(event: dict[str, Any], _context: Any) -> dict[str, Any]:
         )
 
     except JWTValidationError as exc:
-        logger.warning(
-            f"JWT validation failed: {exc.message} (reason: {exc.reason})"
-        )
+        logger.warning(f"JWT validation failed: {exc.message} (reason: {exc.reason})")
         return _policy("Deny", method_arn, "invalid", {"reason": exc.reason})
     except Exception as exc:
         # SECURITY: Don't expose internal error details
         logger.warning(f"Token validation failed: {type(exc).__name__}")
-        return _policy(
-            "Deny", method_arn, "invalid", {"reason": "invalid_token"}
-        )
+        return _policy("Deny", method_arn, "invalid", {"reason": "invalid_token"})

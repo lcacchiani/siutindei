@@ -78,9 +78,7 @@ def lambda_handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
         return json_response(400, {"error": str(exc)}, event=event)
     except Exception:  # pragma: no cover - safety net
         logger.exception("Unexpected error in search")
-        return json_response(
-            500, {"error": "Internal server error"}, event=event
-        )
+        return json_response(500, {"error": "Internal server error"}, event=event)
 
 
 def parse_filters(event: Mapping[str, Any]) -> ActivitySearchFilters:
@@ -94,9 +92,7 @@ def parse_filters(event: Mapping[str, Any]) -> ActivitySearchFilters:
     return ActivitySearchFilters(
         age=parse_int(first_param(params, "age")),
         area_id=area_id,
-        pricing_type=parse_enum(
-            first_param(params, "pricing_type"), PricingType
-        ),
+        pricing_type=parse_enum(first_param(params, "pricing_type"), PricingType),
         price_min=parse_decimal(first_param(params, "price_min")),
         price_max=parse_decimal(first_param(params, "price_max")),
         schedule_type=parse_enum(

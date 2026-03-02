@@ -42,9 +42,7 @@ def lambda_handler(event: dict[str, Any], _context: Any) -> dict[str, Any]:
             logger.info("Challenge email sent successfully")
         except Exception as exc:
             # SECURITY: Log error type but not full details which may contain PII
-            logger.error(
-                f"Failed to send challenge email: {type(exc).__name__}"
-            )
+            logger.error(f"Failed to send challenge email: {type(exc).__name__}")
             raise
 
     response["publicChallengeParameters"] = {"email": email}

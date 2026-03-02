@@ -20,9 +20,7 @@ def lambda_handler(event: dict[str, Any], _context: Any) -> dict[str, Any]:
     session = event.get("request", {}).get("session", []) or []
     response = event.setdefault("response", {})
     username = (
-        event.get("request", {})
-        .get("userAttributes", {})
-        .get("email", "unknown")
+        event.get("request", {}).get("userAttributes", {}).get("email", "unknown")
     )
 
     masked_username = mask_email(str(username))
