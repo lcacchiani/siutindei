@@ -317,6 +317,7 @@ class TestActivityScheduleRepository:
             day_of_week_utc=1,
             start_minutes_utc=600,
             end_minutes_utc=660,
+            languages=['en'],
         )
         repo.create_weekly_schedule(
             activity_id=sample_activity.id,
@@ -324,6 +325,7 @@ class TestActivityScheduleRepository:
             day_of_week_utc=3,
             start_minutes_utc=600,
             end_minutes_utc=660,
+            languages=['zh'],
         )
 
         monday_schedules = repo.find_weekly_by_day(1)
