@@ -91,7 +91,7 @@ test.describe('Organizations Panel', () => {
 
     // Select manager
     const managerSelect = adminPage.getByLabel('Manager');
-    await managerSelect.selectOption({ label: /manager@example\.com/ });
+    await managerSelect.selectOption({ index: 1 });
 
     // Fill description
     await adminPage.getByLabel('Description').fill('This is a test organization description');

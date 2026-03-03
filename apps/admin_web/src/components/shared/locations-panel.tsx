@@ -1,13 +1,15 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useGeographicAreas } from '../../hooks/use-geographic-areas';
+import { useFormValidation } from '../../hooks/use-form-validation';
 import { useOrganizationsByMode } from '../../hooks/use-organizations-by-mode';
 import { useResourcePanel } from '../../hooks/use-resource-panel';
 import type { GeographicAreaNode } from '../../lib/api-client';
 import { parseOptionalNumber } from '../../lib/number-parsers';
 import type { ApiMode } from '../../lib/resource-api';
+import { normalizeKey } from '../../lib/string-utils';
 import type { Location } from '../../types/admin';
 import {
   AddressAutocomplete,
@@ -36,10 +38,6 @@ const MAP_ICONS = {
   appleMaps: buildMapIconUrl('apple', '000000'),
 };
 
-function normalizeKey(value: string): string {
-  return value.trim().toLowerCase();
-}
-
 function MapServiceIcon({
   className,
   src,
@@ -48,7 +46,6 @@ function MapServiceIcon({
   src: string;
 }) {
   return (
-    // eslint-disable-next-line @next/next/no-img-element
     <img
       className={className}
       src={src}
@@ -152,52 +149,26 @@ export function LocationsPanel({ mode }: LocationsPanelProps) {
     return map;
   }, [tree]);
 
-  function getAreaName(areaId?: string) {
-    return (areaId ? areaNameById.get(areaId) : undefined) ?? '—';
-  }
+  const getAreaName = useCallback(
+    (areaId?: string) =>
+      (areaId ? areaNameById.get(areaId) : undefined) ?? '—',
+    [areaNameById]
+  );
 
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
 
-  const [touchedState, setTouchedState] = useState<{
-    key: string;
-    fields: Record<string, boolean>;
-  }>({ key: '', fields: {} });
-  const [submittedState, setSubmittedState] = useState<{
-    key: string;
-    value: boolean;
-  }>({ key: '', value: false });
-
-  const requiredIndicator = (
-    <span className='text-red-500' aria-hidden='true'>
-      *
-    </span>
+  const formKey = panel.editingId ?? 'new';
+  const validation = useFormValidation(
+    ['org_id', 'area_id', 'address'],
+    formKey
   );
+  const requiredIndicator = validation.requiredIndicator;
   const errorInputClassName =
     'border-red-500 focus:border-red-500 focus:ring-red-500';
-
-  const markTouched = (field: string) => {
-    setTouchedState((prev) => {
-      if (prev.key !== formKey) {
-        return { key: formKey, fields: { [field]: true } };
-      }
-      if (prev.fields[field]) {
-        return prev;
-      }
-      return { key: formKey, fields: { ...prev.fields, [field]: true } };
-    });
-    setSubmittedState((prev) => {
-      if (prev.key !== formKey || isFormEmpty) {
-        return { key: formKey, value: false };
-      }
-      return prev;
-    });
-  };
+  const { markTouched } = validation;
   const shouldShowError = (field: string, message: string) =>
-    Boolean(
-      message &&
-        (hasSubmitted || activeTouchedFields[field])
-    );
+    validation.shouldShowError(field, Boolean(message));
 
   // For managers with a single org, auto-select and disable the dropdown
   const isSingleOrgManager = !isAdmin && organizations.length === 1;
@@ -213,19 +184,6 @@ export function LocationsPanel({ mode }: LocationsPanelProps) {
       prev.org_id === orgId ? prev : { ...prev, org_id: orgId }
     );
   }, [isAdmin, organizations, setFormState]);
-
-  const isFormEmpty =
-    panel.formState.org_id === '' &&
-    panel.formState.area_id === '' &&
-    panel.formState.address.trim() === '' &&
-    panel.formState.lat.trim() === '' &&
-    panel.formState.lng.trim() === '';
-
-  const formKey = panel.editingId ?? 'new';
-  const activeTouchedFields =
-    isFormEmpty || touchedState.key !== formKey ? {} : touchedState.fields;
-  const hasSubmitted =
-    isFormEmpty || submittedState.key !== formKey ? false : submittedState.value;
 
   const handleAddressSelect = (selection: AddressSelection) => {
     // Try to reverse-match the Nominatim result to the area tree
@@ -311,7 +269,8 @@ export function LocationsPanel({ mode }: LocationsPanelProps) {
   });
 
   const handleSubmit = () => {
-    setSubmittedState({ key: formKey, value: true });
+    validation.setHasSubmitted(true);
+    validation.markAllTouched();
     return panel.handleSubmit(formToPayload, validate);
   };
 
@@ -360,36 +319,39 @@ export function LocationsPanel({ mode }: LocationsPanelProps) {
     );
   }
 
-  const columns = [
-    {
-      key: 'area',
-      header: 'Area',
-      primary: true,
-      render: (item: Location) => (
-        <span className='font-medium'>{getAreaName(item.area_id)}</span>
-      ),
-    },
-    ...(isAdmin
-      ? [
-          {
-            key: 'organization',
-            header: 'Organization',
-            secondary: true,
-            render: (item: Location) => (
-              <span className='text-slate-600'>
-                {organizations.find((org) => org.id === item.org_id)?.name ||
-                  item.org_id}
-              </span>
-            ),
-          },
-        ]
-      : []),
-    {
-      key: 'address',
-      header: 'Address',
-      render: (item: Location) => renderAddressCell(item),
-    },
-  ];
+  const columns = useMemo(
+    () => [
+      {
+        key: 'area',
+        header: 'Area',
+        primary: true,
+        render: (item: Location) => (
+          <span className='font-medium'>{getAreaName(item.area_id)}</span>
+        ),
+      },
+      ...(isAdmin
+        ? [
+            {
+              key: 'organization',
+              header: 'Organization',
+              secondary: true,
+              render: (item: Location) => (
+                <span className='text-slate-600'>
+                  {organizations.find((org) => org.id === item.org_id)?.name ||
+                    item.org_id}
+                </span>
+              ),
+            },
+          ]
+        : []),
+      {
+        key: 'address',
+        header: 'Address',
+        render: (item: Location) => renderAddressCell(item),
+      },
+    ],
+    [getAreaName, isAdmin, organizations]
+  );
 
   // Filter items based on search query
   const filteredItems = panel.items.filter((item) => {
@@ -575,6 +537,7 @@ export function LocationsPanel({ mode }: LocationsPanelProps) {
           </div>
         )}
       </Card>
+      {panel.confirmDialog}
     </div>
   );
 }

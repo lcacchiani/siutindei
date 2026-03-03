@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { useResourcePanel } from '../../hooks/use-resource-panel';
 import { ApiError, listResource } from '../../lib/api-client';
+import { formatDate } from '../../lib/date-utils';
 import type {
   FeedbackLabel,
   Organization,
@@ -49,15 +50,6 @@ function itemToForm(item: OrganizationFeedback): FeedbackFormState {
     description: item.description ?? '',
     source_ticket_id: item.source_ticket_id ?? '',
   };
-}
-
-function formatDate(dateStr: string | null | undefined) {
-  if (!dateStr) return '—';
-  return new Date(dateStr).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  });
 }
 
 export function FeedbackPanel() {
@@ -134,51 +126,54 @@ export function FeedbackPanel() {
     source_ticket_id: form.source_ticket_id.trim() || undefined,
   });
 
-  const columns = [
-    {
-      key: 'organization',
-      header: 'Organization',
-      primary: true,
-      render: (item: OrganizationFeedback) =>
-        item.organization_name || item.organization_id,
-    },
-    {
-      key: 'stars',
-      header: 'Stars',
-      render: (item: OrganizationFeedback) => item.stars,
-    },
-    {
-      key: 'labels',
-      header: 'Labels',
-      render: (item: OrganizationFeedback) => {
-        const names =
-          item.label_ids?.map((id) => labelNameById.get(id) || id) ?? [];
-        return (
-          <span className='text-slate-600'>
-            {names.length ? names.join(', ') : '—'}
-          </span>
-        );
+  const columns = useMemo(
+    () => [
+      {
+        key: 'organization',
+        header: 'Organization',
+        primary: true,
+        render: (item: OrganizationFeedback) =>
+          item.organization_name || item.organization_id,
       },
-    },
-    {
-      key: 'submitter',
-      header: 'Submitter',
-      render: (item: OrganizationFeedback) => (
-        <span className='text-slate-600'>
-          {item.submitter_email || item.submitter_id || '—'}
-        </span>
-      ),
-    },
-    {
-      key: 'created',
-      header: 'Submitted',
-      render: (item: OrganizationFeedback) => (
-        <span className='text-slate-600'>
-          {formatDate(item.created_at)}
-        </span>
-      ),
-    },
-  ];
+      {
+        key: 'stars',
+        header: 'Stars',
+        render: (item: OrganizationFeedback) => item.stars,
+      },
+      {
+        key: 'labels',
+        header: 'Labels',
+        render: (item: OrganizationFeedback) => {
+          const names =
+            item.label_ids?.map((id) => labelNameById.get(id) || id) ?? [];
+          return (
+            <span className='text-slate-600'>
+              {names.length ? names.join(', ') : '—'}
+            </span>
+          );
+        },
+      },
+      {
+        key: 'submitter',
+        header: 'Submitter',
+        render: (item: OrganizationFeedback) => (
+          <span className='text-slate-600'>
+            {item.submitter_email || item.submitter_id || '—'}
+          </span>
+        ),
+      },
+      {
+        key: 'created',
+        header: 'Submitted',
+        render: (item: OrganizationFeedback) => (
+          <span className='text-slate-600'>
+            {formatDate(item.created_at)}
+          </span>
+        ),
+      },
+    ],
+    [labelNameById]
+  );
 
   return (
     <div className='space-y-6'>
@@ -372,6 +367,7 @@ export function FeedbackPanel() {
           emptyMessage='No feedback entries found.'
         />
       </Card>
+      {panel.confirmDialog}
     </div>
   );
 }

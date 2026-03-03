@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import currencyCodes from 'currency-codes';
 
 import { useActivitiesByMode } from '../../hooks/use-activities-by-mode';
+import { useFormValidation } from '../../hooks/use-form-validation';
 import { useLocationsByMode } from '../../hooks/use-locations-by-mode';
 import { useResourcePanel } from '../../hooks/use-resource-panel';
 import {
@@ -13,84 +14,18 @@ import {
 } from '../../lib/number-parsers';
 import type { ApiMode } from '../../lib/resource-api';
 import type { ActivityPricing } from '../../types/admin';
-import { Button } from '../ui/button';
-import { Card } from '../ui/card';
-import { DataTable } from '../ui/data-table';
-import { Input } from '../ui/input';
-import { Label } from '../ui/label';
-import { SearchInput } from '../ui/search-input';
-import { Select } from '../ui/select';
-import { StatusBanner } from '../status-banner';
-
-
-interface PricingFormState {
-  activity_id: string;
-  location_id: string;
-  pricing_type: string;
-  amount: string;
-  currency: string;
-  sessions_count: string;
-  free_trial_class_offered: boolean;
-}
-
-interface CurrencyOption {
-  code: string;
-  name: string;
-  label: string;
-}
-
-const defaultCurrencyCode = 'HKD';
-
-const emptyForm: PricingFormState = {
-  activity_id: '',
-  location_id: '',
-  pricing_type: 'per_class',
-  amount: '',
-  currency: defaultCurrencyCode,
-  sessions_count: '',
-  free_trial_class_offered: false,
-};
-
-const pricingOptions = [
-  { value: 'per_class', label: 'Per class' },
-  { value: 'per_sessions', label: 'Per term' },
-  { value: 'per_hour', label: 'Hourly' },
-  { value: 'per_day', label: 'Daily' },
-  { value: 'free', label: 'Free' },
-];
-
-const pricingTypeLabelByValue = new Map(
-  pricingOptions.map((option) => [option.value, option.label])
-);
-
-function getPricingTypeLabel(value: string): string {
-  return pricingTypeLabelByValue.get(value) ?? value;
-}
-
-function itemToForm(item: ActivityPricing): PricingFormState {
-  return {
-    activity_id: item.activity_id ?? '',
-    location_id: item.location_id ?? '',
-    pricing_type: item.pricing_type,
-    amount:
-      item.pricing_type === 'free'
-        ? ''
-        : item.amount != null
-          ? String(item.amount)
-          : '',
-    currency: normalizeCurrencyCode(item.currency),
-    sessions_count: item.sessions_count ? `${item.sessions_count}` : '',
-    free_trial_class_offered: Boolean(item.free_trial_class_offered),
-  };
-}
-
-function normalizeCurrencyCode(value?: string | null): string {
-  const trimmed = value?.trim();
-  if (!trimmed) {
-    return defaultCurrencyCode;
-  }
-  return trimmed.toUpperCase();
-}
+import { PricingFormCard } from './pricing/pricing-form-card';
+import { PricingTableCard } from './pricing/pricing-table-card';
+import {
+  defaultCurrencyCode,
+  emptyForm,
+  getPricingTypeLabel,
+  itemToForm,
+  normalizeCurrencyCode,
+  pricingOptions,
+  type CurrencyOption,
+  type PricingFormState,
+} from './pricing/pricing-types';
 
 interface PricingPanelProps {
   mode: ApiMode;
@@ -111,45 +46,17 @@ export function PricingPanel({ mode }: PricingPanelProps) {
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
 
-  const [touchedState, setTouchedState] = useState<{
-    key: string;
-    fields: Record<string, boolean>;
-  }>({ key: '', fields: {} });
-  const [submittedState, setSubmittedState] = useState<{
-    key: string;
-    value: boolean;
-  }>({ key: '', value: false });
-
-  const requiredIndicator = (
-    <span className='text-red-500' aria-hidden='true'>
-      *
-    </span>
+  const formKey = panel.editingId ?? 'new';
+  const validation = useFormValidation(
+    ['location_id', 'activity_id', 'sessions_count', 'amount'],
+    formKey
   );
+  const requiredIndicator = validation.requiredIndicator;
   const errorInputClassName =
     'border-red-500 focus:border-red-500 focus:ring-red-500';
-
-  const markTouched = (field: string) => {
-    setTouchedState((prev) => {
-      if (prev.key !== formKey) {
-        return { key: formKey, fields: { [field]: true } };
-      }
-      if (prev.fields[field]) {
-        return prev;
-      }
-      return { key: formKey, fields: { ...prev.fields, [field]: true } };
-    });
-    setSubmittedState((prev) => {
-      if (prev.key !== formKey || isFormEmpty) {
-        return { key: formKey, value: false };
-      }
-      return prev;
-    });
-  };
+  const { markTouched } = validation;
   const shouldShowError = (field: string, message: string) =>
-    Boolean(
-      message &&
-        (hasSubmitted || activeTouchedFields[field])
-    );
+    validation.shouldShowError(field, Boolean(message));
 
   useEffect(() => {
     if (editingId) {
@@ -189,21 +96,6 @@ export function PricingPanel({ mode }: PricingPanelProps) {
     formState.location_id,
     setFormState,
   ]);
-
-  const isFormEmpty =
-    panel.formState.activity_id === '' &&
-    panel.formState.location_id === '' &&
-    panel.formState.pricing_type === emptyForm.pricing_type &&
-    panel.formState.amount.trim() === '' &&
-    panel.formState.currency === defaultCurrencyCode &&
-    panel.formState.sessions_count.trim() === '' &&
-    panel.formState.free_trial_class_offered === false;
-
-  const formKey = panel.editingId ?? 'new';
-  const activeTouchedFields =
-    isFormEmpty || touchedState.key !== formKey ? {} : touchedState.fields;
-  const hasSubmitted =
-    isFormEmpty || submittedState.key !== formKey ? false : submittedState.value;
 
   const currencyOptions = useMemo<CurrencyOption[]>(() => {
     const display =
@@ -348,68 +240,72 @@ export function PricingPanel({ mode }: PricingPanelProps) {
   };
 
   const handleSubmit = () => {
-    setSubmittedState({ key: formKey, value: true });
+    validation.setHasSubmitted(true);
+    validation.markAllTouched();
     return panel.handleSubmit(formToPayload, validate);
   };
 
-  function getActivityName(activityId: string) {
-    return (
+  const getActivityName = useCallback(
+    (activityId: string) =>
       activities.find((activity) => activity.id === activityId)?.name ??
-      activityId
-    );
-  }
+      activityId,
+    [activities]
+  );
 
-  function getLocationName(locationId: string) {
-    return (
+  const getLocationName = useCallback(
+    (locationId: string) =>
       locations.find((location) => location.id === locationId)?.address ??
-      locationId
-    );
-  }
+      locationId,
+    [locations]
+  );
 
-  const columns = [
-    {
-      key: 'location',
-      header: 'Location',
-      primary: true,
-      render: (item: ActivityPricing) => (
-        <span className='font-medium'>
-          {getLocationName(item.location_id)}
-        </span>
-      ),
-    },
-    {
-      key: 'activity',
-      header: 'Activity',
-      secondary: true,
-      render: (item: ActivityPricing) => (
-        <span className='text-slate-600'>
-          {getActivityName(item.activity_id)}
-        </span>
-      ),
-    },
-    {
-      key: 'type',
-      header: 'Type',
-      render: (item: ActivityPricing) => (
-        <span className='text-slate-600'>
-          {getPricingTypeLabel(item.pricing_type)}
-        </span>
-      ),
-    },
-    {
-      key: 'amount',
-      header: 'Amount',
-      render: (item: ActivityPricing) =>
-        item.pricing_type === 'free' ? (
-          <span className='text-slate-600'>-</span>
-        ) : (
-          <span className='text-slate-600'>
-            {getCurrencyDisplay(item.currency)}{' '}
-            {formatPriceAmount(item.amount)}
+  const columns = useMemo(
+    () => [
+      {
+        key: 'location',
+        header: 'Location',
+        primary: true,
+        render: (item: ActivityPricing) => (
+          <span className='font-medium'>
+            {getLocationName(item.location_id)}
           </span>
         ),
-    },
-  ];
+      },
+      {
+        key: 'activity',
+        header: 'Activity',
+        secondary: true,
+        render: (item: ActivityPricing) => (
+          <span className='text-slate-600'>
+            {getActivityName(item.activity_id)}
+          </span>
+        ),
+      },
+      {
+        key: 'type',
+        header: 'Type',
+        render: (item: ActivityPricing) => (
+          <span className='text-slate-600'>
+            {getPricingTypeLabel(item.pricing_type)}
+          </span>
+        ),
+      },
+      {
+        key: 'amount',
+        header: 'Amount',
+        render: (item: ActivityPricing) =>
+          item.pricing_type === 'free' ? (
+            <span className='text-slate-600'>-</span>
+          ) : (
+            <span className='text-slate-600'>
+              {getCurrencyDisplay(item.currency)}{' '}
+              {formatPriceAmount(item.amount)}
+            </span>
+          ),
+      },
+    ],
+    [getActivityName, getLocationName]
+  );
 
   // Filter items based on search query
   const filteredItems = panel.items.filter((item) => {
@@ -445,270 +341,101 @@ export function PricingPanel({ mode }: PricingPanelProps) {
 
   return (
     <div className='space-y-6'>
-      <Card title='Pricing' description='Manage pricing entries.'>
-        {panel.error && (
-          <div className='mb-4'>
-            <StatusBanner variant='error' title='Error'>
-              {panel.error}
-            </StatusBanner>
-          </div>
-        )}
-        <div className='grid gap-4 md:grid-cols-2'>
-          <div className='space-y-1'>
-            <Label htmlFor='pricing-location'>
-              Location{' '}
-              <span className='ml-1'>{requiredIndicator}</span>
-            </Label>
-            <Select
-              id='pricing-location'
-              value={panel.formState.location_id}
-              onChange={(e) => {
-                markTouched('location_id');
-                panel.setFormState((prev) => ({
-                  ...prev,
-                  location_id: e.target.value,
-                }));
-              }}
-              className={showLocationError ? errorInputClassName : ''}
-              aria-invalid={showLocationError || undefined}
-            >
-              <option value=''>Select location</option>
-              {locations.map((location) => (
-                <option key={location.id} value={location.id}>
-                  {location.address || location.area_id}
-                </option>
-              ))}
-            </Select>
-            {showLocationError ? (
-              <p className='text-xs text-red-600'>{locationError}</p>
-            ) : null}
-          </div>
-          <div className='space-y-1'>
-            <Label htmlFor='pricing-activity'>
-              Activity{' '}
-              <span className='ml-1'>{requiredIndicator}</span>
-            </Label>
-            <Select
-              id='pricing-activity'
-              value={panel.formState.activity_id}
-              onChange={(e) => {
-                markTouched('activity_id');
-                panel.setFormState((prev) => ({
-                  ...prev,
-                  activity_id: e.target.value,
-                }));
-              }}
-              className={showActivityError ? errorInputClassName : ''}
-              aria-invalid={showActivityError || undefined}
-            >
-              <option value=''>Select activity</option>
-              {activities.map((activity) => (
-                <option key={activity.id} value={activity.id}>
-                  {activity.name}
-                </option>
-              ))}
-            </Select>
-            {showActivityError ? (
-              <p className='text-xs text-red-600'>{activityError}</p>
-            ) : null}
-          </div>
-          <div className='md:col-span-2'>
-            <div className='grid gap-4 sm:grid-cols-2'>
-              <div>
-                <Label htmlFor='pricing-type'>Pricing Type</Label>
-                <Select
-                  id='pricing-type'
-                  value={panel.formState.pricing_type}
-                  onChange={(e) =>
-                    panel.setFormState((prev) => {
-                      const nextType = e.target.value;
-                      return {
-                        ...prev,
-                        pricing_type: nextType,
-                        sessions_count:
-                          nextType === 'per_sessions'
-                            ? prev.sessions_count
-                            : '',
-                        free_trial_class_offered:
-                          nextType === 'per_sessions'
-                            ? prev.free_trial_class_offered
-                            : false,
-                        amount: nextType === 'free' ? '' : prev.amount,
-                        currency:
-                          nextType === 'free'
-                            ? defaultCurrencyCode
-                            : prev.currency,
-                      };
-                    })
-                  }
-                >
-                  {pricingOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </Select>
-              </div>
-              {showSessionsField && (
-                <div className='space-y-1'>
-                  <Label htmlFor='pricing-sessions'>
-                    Classes per term{' '}
-                    <span className='ml-1'>{requiredIndicator}</span>
-                  </Label>
-                  <Input
-                    id='pricing-sessions'
-                    type='number'
-                    min='1'
-                    value={panel.formState.sessions_count}
-                    onChange={(e) => {
-                      markTouched('sessions_count');
-                      panel.setFormState((prev) => ({
-                        ...prev,
-                        sessions_count: e.target.value,
-                      }));
-                    }}
-                    className={showSessionsError ? errorInputClassName : ''}
-                    aria-invalid={showSessionsError || undefined}
-                  />
-                  {showSessionsError ? (
-                    <p className='text-xs text-red-600'>{sessionsError}</p>
-                  ) : null}
-                </div>
-              )}
-              {showFreeTrialToggle && (
-                <div className='sm:col-span-2'>
-                  <label className='flex items-center gap-2 text-sm'>
-                    <input
-                      id='pricing-free-trial'
-                      type='checkbox'
-                      checked={panel.formState.free_trial_class_offered}
-                      onChange={(e) =>
-                        panel.setFormState((prev) => ({
-                          ...prev,
-                          free_trial_class_offered: e.target.checked,
-                        }))
-                      }
-                      className='h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-500'
-                    />
-                    <span>Free trial class offered</span>
-                  </label>
-                </div>
-              )}
-            </div>
-          </div>
-          <div className='md:col-span-2'>
-            <div className='grid gap-4 sm:grid-cols-2'>
-              <div>
-                <Label htmlFor='pricing-currency'>Currency</Label>
-                <Select
-                  id='pricing-currency'
-                  value={panel.formState.currency}
-                  disabled={isFreeType}
-                  onChange={(e) =>
-                    panel.setFormState((prev) => ({
-                      ...prev,
-                      currency: normalizeCurrencyCode(e.target.value),
-                    }))
-                  }
-                >
-                  {currencyOptions.map((option) => (
-                    <option key={option.code} value={option.code}>
-                      {option.label}
-                    </option>
-                  ))}
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor='pricing-amount'>
-                  Amount
-                  {!isFreeType ? (
-                    <span className='ml-1'>{requiredIndicator}</span>
-                  ) : null}
-                </Label>
-                <Input
-                  id='pricing-amount'
-                  type='number'
-                  step='0.01'
-                  value={panel.formState.amount}
-                  disabled={isFreeType}
-                  onChange={(e) => {
-                    markTouched('amount');
-                    panel.setFormState((prev) => ({
-                      ...prev,
-                      amount: e.target.value,
-                    }));
-                  }}
-                  className={showAmountError ? errorInputClassName : ''}
-                  aria-invalid={showAmountError || undefined}
-                />
-                {showAmountError ? (
-                  <p className='text-xs text-red-600'>{amountError}</p>
-                ) : null}
-              </div>
-            </div>
-          </div>
-        </div>
-        <div className='mt-4 flex flex-wrap gap-3'>
-          <Button
-            type='button'
-            onClick={handleSubmit}
-            disabled={panel.isSaving}
-          >
-            {panel.editingId ? 'Update Pricing' : 'Add Pricing'}
-          </Button>
-          {panel.editingId && (
-            <Button
-              type='button'
-              variant='secondary'
-              onClick={panel.resetForm}
-              disabled={panel.isSaving}
-            >
-              Cancel
-            </Button>
-          )}
-        </div>
-      </Card>
+      <PricingFormCard
+        error={panel.error}
+        formState={panel.formState}
+        locations={locations}
+        activities={activities}
+        currencyOptions={currencyOptions}
+        pricingOptions={pricingOptions}
+        requiredIndicator={requiredIndicator}
+        errorInputClassName={errorInputClassName}
+        isFreeType={isFreeType}
+        showSessionsField={showSessionsField}
+        showFreeTrialToggle={showFreeTrialToggle}
+        showLocationError={showLocationError}
+        showActivityError={showActivityError}
+        showAmountError={showAmountError}
+        showSessionsError={showSessionsError}
+        locationError={locationError}
+        activityError={activityError}
+        amountError={amountError}
+        sessionsError={sessionsError}
+        isSaving={panel.isSaving}
+        editingId={panel.editingId}
+        onLocationChange={(value) => {
+          markTouched('location_id');
+          panel.setFormState((prev) => ({
+            ...prev,
+            location_id: value,
+          }));
+        }}
+        onActivityChange={(value) => {
+          markTouched('activity_id');
+          panel.setFormState((prev) => ({
+            ...prev,
+            activity_id: value,
+          }));
+        }}
+        onPricingTypeChange={(value) =>
+          panel.setFormState((prev) => ({
+            ...prev,
+            pricing_type: value,
+            sessions_count: value === 'per_sessions' ? prev.sessions_count : '',
+            free_trial_class_offered:
+              value === 'per_sessions' ? prev.free_trial_class_offered : false,
+            amount: value === 'free' ? '' : prev.amount,
+            currency: value === 'free' ? defaultCurrencyCode : prev.currency,
+          }))
+        }
+        onSessionsChange={(value) => {
+          markTouched('sessions_count');
+          panel.setFormState((prev) => ({
+            ...prev,
+            sessions_count: value,
+          }));
+        }}
+        onFreeTrialToggle={(value) =>
+          panel.setFormState((prev) => ({
+            ...prev,
+            free_trial_class_offered: value,
+          }))
+        }
+        onCurrencyChange={(value) =>
+          panel.setFormState((prev) => ({
+            ...prev,
+            currency: normalizeCurrencyCode(value),
+          }))
+        }
+        onAmountChange={(value) => {
+          markTouched('amount');
+          panel.setFormState((prev) => ({
+            ...prev,
+            amount: value,
+          }));
+        }}
+        onSubmit={handleSubmit}
+        onCancel={panel.resetForm}
+      />
 
-      <Card
-        title='Existing Pricing'
-        description='Select a pricing entry to edit or delete.'
-      >
-        {panel.isLoading ? (
-          <p className='text-sm text-slate-600'>Loading pricing...</p>
-        ) : panel.items.length === 0 ? (
-          <p className='text-sm text-slate-600'>No pricing entries yet.</p>
-        ) : (
-          <div className='space-y-4'>
-            <div className='max-w-full sm:max-w-sm'>
-              <SearchInput
-                placeholder='Search pricing...'
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
-            <DataTable
-              columns={columns}
-              data={filteredItems}
-              keyExtractor={(item) => item.id}
-              onEdit={(item) => panel.startEdit(item)}
-              onDelete={(item) =>
-                panel.handleDelete({
-                  ...item,
-                  name: getActivityName(item.activity_id),
-                })
-              }
-              nextCursor={panel.nextCursor}
-              onLoadMore={panel.loadMore}
-              isLoading={panel.isLoading}
-              emptyMessage={
-                searchQuery.trim()
-                  ? 'No pricing entries match your search.'
-                  : 'No pricing entries yet.'
-              }
-            />
-          </div>
-        )}
-      </Card>
+      <PricingTableCard
+        isLoading={panel.isLoading}
+        hasItems={panel.items.length > 0}
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        columns={columns}
+        data={filteredItems}
+        onEdit={(item) => panel.startEdit(item)}
+        onDelete={(item) =>
+          panel.handleDelete({
+            ...item,
+            name: getActivityName(item.activity_id),
+          })
+        }
+        nextCursor={panel.nextCursor}
+        onLoadMore={panel.loadMore}
+      />
+      {panel.confirmDialog}
     </div>
   );
 }

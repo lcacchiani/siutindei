@@ -1,23 +1,17 @@
 'use client';
 
-import type { Ticket } from '../../lib/api-client';
+import type { Ticket } from '../../lib/api-client-user';
+import { formatDateTime } from '../../lib/date-utils';
 import { Card } from '../ui/card';
 import { StatusBanner } from '../status-banner';
+import { StatusBadge } from '../ui/status-badge';
 
 interface PendingRequestNoticeProps {
   request: Ticket;
 }
 
 export function PendingRequestNotice({ request }: PendingRequestNoticeProps) {
-  const formattedDate = request.created_at
-    ? new Date(request.created_at).toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      })
-    : 'Unknown';
+  const formattedDate = formatDateTime(request.created_at);
 
   return (
     <div className='mx-auto max-w-2xl'>
@@ -68,9 +62,7 @@ export function PendingRequestNotice({ request }: PendingRequestNoticeProps) {
             <div>
               <dt className='text-sm font-medium text-slate-500'>Status</dt>
               <dd className='mt-1'>
-                <span className='inline-flex items-center rounded-full bg-yellow-100 px-2.5 py-0.5 text-xs font-medium text-yellow-800'>
-                  Pending Review
-                </span>
+                <StatusBadge status={request.status} />
               </dd>
             </div>
           </div>

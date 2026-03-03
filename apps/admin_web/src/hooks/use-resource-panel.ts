@@ -1,7 +1,9 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import type { Dispatch, ReactElement, SetStateAction } from 'react';
 
+import { useConfirmDialog } from './use-confirm-dialog';
 import {
   ApiError,
   ApiMode,
@@ -30,8 +32,9 @@ interface ResourcePanelActions<T, TForm> {
     validate?: () => string | null
   ) => Promise<void>;
   handleDelete: (item: T & { id: string; name?: string }) => Promise<void>;
+  confirmDialog: ReactElement;
   formState: TForm;
-  setFormState: React.Dispatch<React.SetStateAction<TForm>>;
+  setFormState: Dispatch<SetStateAction<TForm>>;
 }
 
 export function useResourcePanel<T extends { id: string }, TForm>(
@@ -47,6 +50,7 @@ export function useResourcePanel<T extends { id: string }, TForm>(
   const [error, setError] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formState, setFormState] = useState<TForm>(emptyForm);
+  const { confirm, confirmDialog } = useConfirmDialog();
 
   const api = useMemo(() => getResourceApi<T>(resource, mode), [resource, mode]);
 
@@ -144,10 +148,14 @@ export function useResourcePanel<T extends { id: string }, TForm>(
   const handleDelete = useCallback(
     async (item: T & { id: string; name?: string }) => {
       const displayName = item.name || item.id;
-      const confirmed = window.confirm(
-        `Delete ${resource.slice(0, -1)} "${displayName}"? This cannot be undone.`
+      const confirmed = await confirm(
+        `Delete ${resource.slice(0, -1)} "${displayName}"?`,
+        'This action cannot be undone.',
+        { variant: 'danger', confirmLabel: 'Delete' }
       );
-      if (!confirmed) return;
+      if (!confirmed) {
+        return;
+      }
 
       setError('');
       try {
@@ -164,7 +172,7 @@ export function useResourcePanel<T extends { id: string }, TForm>(
         setError(message);
       }
     },
-    [api, editingId, resetForm, resource]
+    [api, confirm, editingId, resetForm, resource]
   );
 
   return {
@@ -185,6 +193,7 @@ export function useResourcePanel<T extends { id: string }, TForm>(
     resetForm,
     handleSubmit,
     handleDelete,
+    confirmDialog,
     setFormState,
   };
 }

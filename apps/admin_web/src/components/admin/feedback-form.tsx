@@ -2,15 +2,16 @@
 
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 
+import { ApiError } from '../../lib/api-client';
 import {
-  ApiError,
   listFeedbackLabels,
   searchUserOrganizations,
   submitUserFeedback,
   type Ticket,
   type UserFeedbackCreatePayload,
-} from '../../lib/api-client';
+} from '../../lib/api-client-user';
 import type { FeedbackLabel } from '../../types/admin';
+import { useFormValidation } from '../../hooks/use-form-validation';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
 import { Input } from '../ui/input';
@@ -42,6 +43,10 @@ export function FeedbackForm({ onFeedbackSubmitted }: FeedbackFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [error, setError] = useState('');
+  const validation = useFormValidation(
+    ['organization', 'stars'] as const,
+    selectedOrganization?.id ?? ''
+  );
 
   useEffect(() => {
     const loadLabels = async () => {
@@ -93,6 +98,8 @@ export function FeedbackForm({ onFeedbackSubmitted }: FeedbackFormProps) {
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     setError('');
+    validation.setHasSubmitted(true);
+    validation.markAllTouched();
 
     if (!selectedOrganization) {
       setError('Please select an organization.');
@@ -143,6 +150,15 @@ export function FeedbackForm({ onFeedbackSubmitted }: FeedbackFormProps) {
     }
   };
 
+  const hasOrganizationError = validation.shouldShowError(
+    'organization',
+    !selectedOrganization
+  );
+  const hasStarsError = validation.shouldShowError(
+    'stars',
+    !Number.isInteger(stars) || stars < 1 || stars > 5
+  );
+
   return (
     <Card
       title='Leave Feedback'
@@ -158,16 +174,26 @@ export function FeedbackForm({ onFeedbackSubmitted }: FeedbackFormProps) {
 
       <form onSubmit={handleSubmit} className='space-y-4'>
         <div>
-          <Label htmlFor='feedback-org'>Organization</Label>
+          <Label htmlFor='feedback-org'>
+            Organization
+            {validation.requiredIndicator}
+          </Label>
           <Input
             id='feedback-org'
+            className={validation.errorClassName('organization', !selectedOrganization)}
             value={organizationQuery}
             onChange={(e) => {
               setOrganizationQuery(e.target.value);
               setSelectedOrganization(null);
             }}
+            onBlur={() => validation.markTouched('organization')}
             placeholder='Search organizations...'
           />
+          {hasOrganizationError && (
+            <p className='mt-1 text-sm text-red-600'>
+              Please select an organization.
+            </p>
+          )}
           {isSearching && (
             <p className='mt-1 text-xs text-slate-500'>Searching...</p>
           )}
@@ -197,11 +223,25 @@ export function FeedbackForm({ onFeedbackSubmitted }: FeedbackFormProps) {
         </div>
 
         <div>
-          <Label htmlFor='feedback-stars'>Stars</Label>
+          <Label htmlFor='feedback-stars'>
+            Stars
+            {validation.requiredIndicator}
+          </Label>
           <div className='mt-2 flex items-center gap-2'>
-            <StarRating value={stars} onChange={setStars} />
+            <StarRating
+              value={stars}
+              onChange={(value) => {
+                setStars(value);
+                validation.markTouched('stars');
+              }}
+            />
             <span className='text-sm text-slate-500'>{stars}/5</span>
           </div>
+          {hasStarsError && (
+            <p className='mt-1 text-sm text-red-600'>
+              Stars must be a whole number between 1 and 5.
+            </p>
+          )}
         </div>
 
         <div>

@@ -1,6 +1,7 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
+import { useQueryState } from 'nuqs';
 
 import { AppShell } from '../app-shell';
 import { useAuth } from '../auth-provider';
@@ -40,18 +41,36 @@ const sectionLabels = [
   { key: 'imports', label: 'Imports' },
 ];
 
-interface AdminDashboardProps {
-  initialSection?: string;
-}
-
-export function AdminDashboard({ initialSection }: AdminDashboardProps) {
+export function AdminDashboard() {
   const { status, user, isAdmin, isManager, logout, error } = useAuth();
-  const [activeSection, setActiveSection] = useState(() => {
-    const hasSection = sectionLabels.some(
-      (section) => section.key === initialSection
-    );
-    return hasSection ? initialSection ?? 'organizations' : 'organizations';
-  });
+  const [sectionParam, setSectionParam] = useQueryState('section');
+  const isValidSectionParam = useMemo(
+    () => sectionLabels.some((section) => section.key === sectionParam),
+    [sectionParam]
+  );
+  const activeSection = useMemo(() => {
+    return isValidSectionParam && sectionParam ? sectionParam : 'organizations';
+  }, [isValidSectionParam, sectionParam]);
+
+  useEffect(() => {
+    if (sectionParam && isValidSectionParam) {
+      return;
+    }
+    void setSectionParam(activeSection, { history: 'replace' });
+  }, [activeSection, isValidSectionParam, sectionParam, setSectionParam]);
+
+  const handleSelectSection = useCallback(
+    (nextSection: string) => {
+      const isValidSection = sectionLabels.some(
+        (section) => section.key === nextSection
+      );
+      if (!isValidSection) {
+        return;
+      }
+      void setSectionParam(nextSection, { history: 'push' });
+    },
+    [setSectionParam]
+  );
 
   const activeContent = useMemo(() => {
     switch (activeSection) {
@@ -116,7 +135,7 @@ export function AdminDashboard({ initialSection }: AdminDashboardProps) {
     <AppShell
       sections={sectionLabels}
       activeKey={activeSection}
-      onSelect={setActiveSection}
+      onSelect={handleSelectSection}
       onLogout={logout}
       userEmail={user?.email}
       lastAuthTime={user?.lastAuthTime}

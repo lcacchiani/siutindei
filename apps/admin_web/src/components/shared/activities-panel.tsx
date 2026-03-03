@@ -3,10 +3,12 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import { useActivityCategories } from '../../hooks/use-activity-categories';
+import { useFormValidation } from '../../hooks/use-form-validation';
 import { useOrganizationsByMode } from '../../hooks/use-organizations-by-mode';
 import { useResourcePanel } from '../../hooks/use-resource-panel';
 import { parseRequiredNumber } from '../../lib/number-parsers';
 import type { ApiMode } from '../../lib/resource-api';
+import { normalizeKey } from '../../lib/string-utils';
 import {
   buildTranslationsPayload,
   emptyTranslations,
@@ -61,16 +63,6 @@ function itemToForm(item: Activity): ActivityFormState {
   };
 }
 
-function normalizeKey(value: string): string {
-  return value.trim().toLowerCase();
-}
-
-function isTranslationsEmpty(
-  translations: Record<TranslationLanguageCode, string>
-): boolean {
-  return Object.values(translations).every((value) => !value.trim());
-}
-
 interface ActivitiesPanelProps {
   mode: ApiMode;
 }
@@ -109,45 +101,17 @@ export function ActivitiesPanel({ mode }: ActivitiesPanelProps) {
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
 
-  const [touchedState, setTouchedState] = useState<{
-    key: string;
-    fields: Record<string, boolean>;
-  }>({ key: '', fields: {} });
-  const [submittedState, setSubmittedState] = useState<{
-    key: string;
-    value: boolean;
-  }>({ key: '', value: false });
-
-  const requiredIndicator = (
-    <span className='text-red-500' aria-hidden='true'>
-      *
-    </span>
+  const formKey = panel.editingId ?? 'new';
+  const validation = useFormValidation(
+    ['org_id', 'name', 'category_id', 'age_min', 'age_max'],
+    formKey
   );
+  const requiredIndicator = validation.requiredIndicator;
   const errorInputClassName =
     'border-red-500 focus:border-red-500 focus:ring-red-500';
-
-  const markTouched = (field: string) => {
-    setTouchedState((prev) => {
-      if (prev.key !== formKey) {
-        return { key: formKey, fields: { [field]: true } };
-      }
-      if (prev.fields[field]) {
-        return prev;
-      }
-      return { key: formKey, fields: { ...prev.fields, [field]: true } };
-    });
-    setSubmittedState((prev) => {
-      if (prev.key !== formKey || isFormEmpty) {
-        return { key: formKey, value: false };
-      }
-      return prev;
-    });
-  };
+  const { markTouched } = validation;
   const shouldShowError = (field: string, message: string) =>
-    Boolean(
-      message &&
-        (hasSubmitted || activeTouchedFields[field])
-    );
+    validation.shouldShowError(field, Boolean(message));
 
   // For managers with a single org, auto-select and disable the dropdown
   const isSingleOrgManager = !isAdmin && organizations.length === 1;
@@ -163,22 +127,6 @@ export function ActivitiesPanel({ mode }: ActivitiesPanelProps) {
       prev.org_id === orgId ? prev : { ...prev, org_id: orgId }
     );
   }, [isAdmin, organizations, setFormState]);
-
-  const isFormEmpty =
-    panel.formState.org_id === '' &&
-    panel.formState.category_id === '' &&
-    panel.formState.name.trim() === '' &&
-    panel.formState.description.trim() === '' &&
-    panel.formState.age_min.trim() === '' &&
-    panel.formState.age_max.trim() === '' &&
-    isTranslationsEmpty(panel.formState.name_translations) &&
-    isTranslationsEmpty(panel.formState.description_translations);
-
-  const formKey = panel.editingId ?? 'new';
-  const activeTouchedFields =
-    isFormEmpty || touchedState.key !== formKey ? {} : touchedState.fields;
-  const hasSubmitted =
-    isFormEmpty || submittedState.key !== formKey ? false : submittedState.value;
 
   const validate = () => {
     const ageMin = parseRequiredNumber(panel.formState.age_min);
@@ -314,7 +262,8 @@ export function ActivitiesPanel({ mode }: ActivitiesPanelProps) {
   });
 
   const handleSubmit = () => {
-    setSubmittedState({ key: formKey, value: true });
+    validation.setHasSubmitted(true);
+    validation.markAllTouched();
     return panel.handleSubmit(formToPayload, validate);
   };
 
@@ -388,9 +337,9 @@ export function ActivitiesPanel({ mode }: ActivitiesPanelProps) {
   const showAgeMaxError = shouldShowError('age_max', ageMaxError);
   const showAgeRangeError = Boolean(
     ageRangeError &&
-      (hasSubmitted ||
-        activeTouchedFields.age_min ||
-        activeTouchedFields.age_max)
+      (validation.hasSubmitted ||
+        validation.touched.age_min ||
+        validation.touched.age_max)
   );
 
   return (
@@ -601,6 +550,7 @@ export function ActivitiesPanel({ mode }: ActivitiesPanelProps) {
           </div>
         )}
       </Card>
+      {panel.confirmDialog}
     </div>
   );
 }

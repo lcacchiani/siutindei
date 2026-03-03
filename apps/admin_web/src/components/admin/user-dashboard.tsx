@@ -1,15 +1,15 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
+import { ApiError } from '../../lib/api-client';
 import {
-  ApiError,
   getUserAccessStatus,
   getUserFeedback,
   getUserSuggestions,
-  type Ticket,
   type ManagerStatusResponse,
-} from '../../lib/api-client';
+  type Ticket,
+} from '../../lib/api-client-user';
 import { useAuth } from '../auth-provider';
 import { AppShell } from '../app-shell';
 import { StatusBanner } from '../status-banner';
@@ -46,7 +46,7 @@ export function UserDashboard() {
     useState<Ticket | null>(null);
   const [pendingFeedback, setPendingFeedback] = useState<Ticket | null>(null);
 
-  const loadUserStatus = async () => {
+  const loadUserStatus = useCallback(async () => {
     setIsLoading(true);
     setError('');
     try {
@@ -90,11 +90,11 @@ export function UserDashboard() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     loadUserStatus();
-  }, []);
+  }, [loadUserStatus]);
 
   const handleRequestSubmitted = (request: Ticket) => {
     setPendingRequest(request);

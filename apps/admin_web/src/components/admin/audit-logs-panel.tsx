@@ -1,13 +1,14 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import {
   ApiError,
-  listAuditLogs,
-  listCognitoUsers,
   type AuditLogsFilters,
 } from '../../lib/api-client';
+import { listAuditLogs } from '../../lib/api-client-audit';
+import { listCognitoUsers } from '../../lib/api-client-cognito';
+import { formatDateTime } from '../../lib/date-utils';
 import type { AuditLog } from '../../types/admin';
 import { ViewIcon } from '../icons/action-icons';
 import { Button } from '../ui/button';
@@ -17,6 +18,11 @@ import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Select } from '../ui/select';
 import { StatusBanner } from '../status-banner';
+import {
+  ActionBadge,
+  DetailModal,
+  SourceBadge,
+} from './audit-logs/detail-modal';
 
 type ActionFilter = 'all' | 'INSERT' | 'UPDATE' | 'DELETE';
 type TableFilter = 'all' | string;
@@ -55,183 +61,6 @@ function getTimestamp(range: string): string | undefined {
     default:
       return undefined;
   }
-}
-
-function ActionBadge({ action }: { action: AuditLog['action'] }) {
-  const colors = {
-    INSERT: 'bg-green-100 text-green-800',
-    UPDATE: 'bg-blue-100 text-blue-800',
-    DELETE: 'bg-red-100 text-red-800',
-  };
-
-  return (
-    <span
-      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${colors[action]}`}
-    >
-      {action}
-    </span>
-  );
-}
-
-function SourceBadge({ source }: { source: AuditLog['source'] }) {
-  const colors: Record<string, string> = {
-    trigger: 'bg-slate-100 text-slate-700',
-    application: 'bg-purple-100 text-purple-700',
-  };
-
-  return (
-    <span
-      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${colors[source] ?? 'bg-gray-100 text-gray-700'}`}
-    >
-      {source}
-    </span>
-  );
-}
-
-interface DetailModalProps {
-  log: AuditLog;
-  onClose: () => void;
-  userEmailById: Record<string, string>;
-}
-
-function formatJson(obj: Record<string, unknown> | null | undefined): string {
-  if (!obj) return '—';
-  return JSON.stringify(obj, null, 2);
-}
-
-function DetailModal({ log, onClose, userEmailById }: DetailModalProps) {
-  const userEmail = log.user_id ? userEmailById[log.user_id] : null;
-
-  return (
-    <div className='fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center sm:p-4'>
-      <div className='max-h-[90vh] w-full overflow-y-auto rounded-t-xl bg-white p-4 shadow-xl sm:max-w-2xl sm:rounded-xl sm:p-6'>
-        <div className='mb-4 flex items-start justify-between'>
-          <h3 className='text-base font-semibold sm:text-lg'>Audit Log Detail</h3>
-          <button
-            type='button'
-            onClick={onClose}
-            className='rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600'
-            aria-label='Close'
-          >
-            <svg className='h-5 w-5' viewBox='0 0 20 20' fill='currentColor'>
-              <path
-                fillRule='evenodd'
-                d='M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z'
-                clipRule='evenodd'
-              />
-            </svg>
-          </button>
-        </div>
-
-        <div className='space-y-4'>
-          <div className='grid grid-cols-2 gap-4 text-sm'>
-            <div>
-              <span className='font-medium text-slate-500'>ID</span>
-              <p className='mt-1 break-all font-mono text-xs'>{log.id}</p>
-            </div>
-            <div>
-              <span className='font-medium text-slate-500'>Timestamp</span>
-              <p className='mt-1'>{formatDate(log.timestamp)}</p>
-            </div>
-            <div>
-              <span className='font-medium text-slate-500'>Table</span>
-              <p className='mt-1'>{log.table_name}</p>
-            </div>
-            <div>
-              <span className='font-medium text-slate-500'>Record ID</span>
-              <p className='mt-1 break-all font-mono text-xs'>{log.record_id}</p>
-            </div>
-            <div>
-              <span className='font-medium text-slate-500'>Action</span>
-              <p className='mt-1'>
-                <ActionBadge action={log.action} />
-              </p>
-            </div>
-            <div>
-              <span className='font-medium text-slate-500'>Source</span>
-              <p className='mt-1'>
-                <SourceBadge source={log.source} />
-              </p>
-            </div>
-            <div>
-              <span className='font-medium text-slate-500'>User Email</span>
-              <p className='mt-1 break-all font-mono text-xs'>
-                {userEmail || '—'}
-              </p>
-            </div>
-            <div>
-              <span className='font-medium text-slate-500'>Request ID</span>
-              <p className='mt-1 break-all font-mono text-xs'>{log.request_id || '—'}</p>
-            </div>
-          </div>
-
-          {log.changed_fields && log.changed_fields.length > 0 && (
-            <div>
-              <span className='font-medium text-slate-500'>Changed Fields</span>
-              <div className='mt-1 flex flex-wrap gap-1'>
-                {log.changed_fields.map((field) => (
-                  <span
-                    key={field}
-                    className='rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-700'
-                  >
-                    {field}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {log.old_values && Object.keys(log.old_values).length > 0 && (
-            <div>
-              <span className='font-medium text-slate-500'>Old Values</span>
-              <pre className='mt-1 max-h-40 overflow-auto rounded bg-red-50 p-3 text-xs text-red-900'>
-                {formatJson(log.old_values)}
-              </pre>
-            </div>
-          )}
-
-          {log.new_values && Object.keys(log.new_values).length > 0 && (
-            <div>
-              <span className='font-medium text-slate-500'>New Values</span>
-              <pre className='mt-1 max-h-40 overflow-auto rounded bg-green-50 p-3 text-xs text-green-900'>
-                {formatJson(log.new_values)}
-              </pre>
-            </div>
-          )}
-
-          {(log.ip_address || log.user_agent) && (
-            <div className='border-t border-slate-200 pt-4'>
-              <span className='font-medium text-slate-500'>Client Info</span>
-              <div className='mt-1 text-sm'>
-                {log.ip_address && <p>IP: {log.ip_address}</p>}
-                {log.user_agent && (
-                  <p className='truncate text-xs text-slate-500'>{log.user_agent}</p>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className='mt-6 flex justify-end'>
-          <Button type='button' variant='secondary' onClick={onClose}>
-            Close
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function formatDate(dateStr: string | null | undefined) {
-  if (!dateStr) return '—';
-  return new Date(dateStr).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  });
 }
 
 function formatGmtOffset(date: Date = new Date()) {
@@ -421,51 +250,54 @@ export function AuditLogsPanel() {
     [userEmailById]
   );
 
-  const columns = [
-    {
-      key: 'timestamp',
-      header: timestampHeader,
-      secondary: true,
-      render: (item: AuditLog) => (
-        <span className='text-slate-600'>{formatDate(item.timestamp)}</span>
-      ),
-    },
-    {
-      key: 'table',
-      header: 'Table',
-      primary: true,
-      render: (item: AuditLog) => (
-        <span className='font-medium'>{item.table_name}</span>
-      ),
-    },
-    {
-      key: 'action',
-      header: 'Action',
-      render: (item: AuditLog) => <ActionBadge action={item.action} />,
-    },
-    {
-      key: 'user-id',
-      header: 'User Email',
-      render: (item: AuditLog) => (
-        <span className='font-mono text-xs text-slate-600'>
-          {getUserEmail(item.user_id)}
-        </span>
-      ),
-    },
-    {
-      key: 'changed-fields',
-      header: 'Changed Fields',
-      headerClassName: 'md:hidden',
-      cellClassName: 'md:hidden',
-      render: (item: AuditLog) => (
-        <span className='text-slate-500'>
-          {item.changed_fields?.length
-            ? item.changed_fields.join(', ')
-            : '—'}
-        </span>
-      ),
-    },
-  ];
+  const columns = useMemo(
+    () => [
+      {
+        key: 'timestamp',
+        header: timestampHeader,
+        secondary: true,
+        render: (item: AuditLog) => (
+          <span className='text-slate-600'>{formatDateTime(item.timestamp)}</span>
+        ),
+      },
+      {
+        key: 'table',
+        header: 'Table',
+        primary: true,
+        render: (item: AuditLog) => (
+          <span className='font-medium'>{item.table_name}</span>
+        ),
+      },
+      {
+        key: 'action',
+        header: 'Action',
+        render: (item: AuditLog) => <ActionBadge action={item.action} />,
+      },
+      {
+        key: 'user-id',
+        header: 'User Email',
+        render: (item: AuditLog) => (
+          <span className='font-mono text-xs text-slate-600'>
+            {getUserEmail(item.user_id)}
+          </span>
+        ),
+      },
+      {
+        key: 'changed-fields',
+        header: 'Changed Fields',
+        headerClassName: 'md:hidden',
+        cellClassName: 'md:hidden',
+        render: (item: AuditLog) => (
+          <span className='text-slate-500'>
+            {item.changed_fields?.length
+              ? item.changed_fields.join(', ')
+              : '—'}
+          </span>
+        ),
+      },
+    ],
+    [getUserEmail, timestampHeader]
+  );
 
   function renderActions(item: AuditLog, context: 'desktop' | 'mobile') {
     return (

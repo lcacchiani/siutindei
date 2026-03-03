@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 
+import { useFormValidation } from '../../hooks/use-form-validation';
 import { useResourcePanel } from '../../hooks/use-resource-panel';
 import {
   buildTranslationsPayload,
@@ -65,54 +66,11 @@ export function ActivityCategoriesPanel() {
   );
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [touchedState, setTouchedState] = useState<{
-    key: string;
-    fields: Record<string, boolean>;
-  }>({ key: '', fields: {} });
-  const [submittedState, setSubmittedState] = useState<{
-    key: string;
-    value: boolean;
-  }>({ key: '', value: false });
-
-  const isFormEmpty =
-    panel.formState.name.trim() === '' &&
-    panel.formState.parent_id === '' &&
-    panel.formState.display_order.trim() === emptyForm.display_order &&
-    Object.values(panel.formState.name_translations).every(
-      (value) => !value.trim()
-    );
-
   const formKey = panel.editingId ?? 'new';
-  const activeTouchedFields =
-    isFormEmpty || touchedState.key !== formKey ? {} : touchedState.fields;
-  const hasSubmitted =
-    isFormEmpty || submittedState.key !== formKey ? false : submittedState.value;
-
-  const errorInputClassName =
-    'border-red-500 focus:border-red-500 focus:ring-red-500';
-
-  const markTouched = (field: string) => {
-    setTouchedState((prev) => {
-      if (prev.key !== formKey) {
-        return { key: formKey, fields: { [field]: true } };
-      }
-      if (prev.fields[field]) {
-        return prev;
-      }
-      return { key: formKey, fields: { ...prev.fields, [field]: true } };
-    });
-    setSubmittedState((prev) => {
-      if (prev.key !== formKey || isFormEmpty) {
-        return { key: formKey, value: false };
-      }
-      return prev;
-    });
-  };
-  const shouldShowError = (field: string, message: string) =>
-    Boolean(
-      message &&
-        (hasSubmitted || activeTouchedFields[field])
-    );
+  const validation = useFormValidation(
+    ['name', 'display_order'],
+    formKey
+  );
 
   const childrenByParent = useMemo(() => {
     const map = new Map<string, ActivityCategory[]>();
@@ -204,7 +162,7 @@ export function ActivityCategoriesPanel() {
   }, [panel.formState.display_order]);
 
   const handleNameChange = (language: LanguageCode, value: string) => {
-    markTouched('name');
+    validation.markTouched('name');
     panel.setFormState((prev) =>
       language === 'en'
         ? { ...prev, name: value }
@@ -226,7 +184,8 @@ export function ActivityCategoriesPanel() {
   });
 
   const handleSubmit = () => {
-    setSubmittedState({ key: formKey, value: true });
+    validation.setHasSubmitted(true);
+    validation.markAllTouched();
     return panel.handleSubmit(formToPayload, validate);
   };
 
@@ -244,26 +203,32 @@ export function ActivityCategoriesPanel() {
     );
   });
 
-  const showNameError = shouldShowError('name', nameError);
-  const showDisplayOrderError = shouldShowError(
+  const showNameError = validation.shouldShowError(
+    'name',
+    Boolean(nameError)
+  );
+  const showDisplayOrderError = validation.shouldShowError(
     'display_order',
-    displayOrderError
+    Boolean(displayOrderError)
   );
 
-  const columns = [
-    {
-      key: 'path',
-      header: 'Path',
-      primary: true,
-      render: (item: ActivityCategory) =>
-        categoryPathById.get(item.id) || item.name,
-    },
-    {
-      key: 'display-order',
-      header: 'Display Order',
-      render: (item: ActivityCategory) => item.display_order ?? 0,
-    },
-  ];
+  const columns = useMemo(
+    () => [
+      {
+        key: 'path',
+        header: 'Path',
+        primary: true,
+        render: (item: ActivityCategory) =>
+          categoryPathById.get(item.id) || item.name,
+      },
+      {
+        key: 'display-order',
+        header: 'Display Order',
+        render: (item: ActivityCategory) => item.display_order ?? 0,
+      },
+    ],
+    [categoryPathById]
+  );
 
   return (
     <div className='space-y-6'>
@@ -291,7 +256,10 @@ export function ActivityCategoriesPanel() {
               }}
               onChange={handleNameChange}
               hasError={showNameError}
-              inputClassName={showNameError ? errorInputClassName : ''}
+              inputClassName={validation.errorClassName(
+                'name',
+                Boolean(nameError)
+              )}
             />
             {showNameError ? (
               <p className='text-xs text-red-600'>{nameError}</p>
@@ -326,13 +294,16 @@ export function ActivityCategoriesPanel() {
               step='1'
               value={panel.formState.display_order}
               onChange={(e) => {
-                markTouched('display_order');
+                validation.markTouched('display_order');
                 panel.setFormState((prev) => ({
                   ...prev,
                   display_order: e.target.value,
                 }));
               }}
-              className={showDisplayOrderError ? errorInputClassName : ''}
+              className={validation.errorClassName(
+                'display_order',
+                Boolean(displayOrderError)
+              )}
               aria-invalid={showDisplayOrderError || undefined}
             />
             {showDisplayOrderError ? (
@@ -396,6 +367,7 @@ export function ActivityCategoriesPanel() {
           </div>
         )}
       </Card>
+      {panel.confirmDialog}
     </div>
   );
 }

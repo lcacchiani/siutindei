@@ -76,32 +76,37 @@ export function CascadingCategorySelect({
       ? overrideState.selections
       : derivedSelections;
 
-  const levels: {
-    label: string;
-    options: ActivityCategoryNode[];
-    index: number;
-  }[] = [];
+  const levels = useMemo(() => {
+    const nextLevels: {
+      label: string;
+      options: ActivityCategoryNode[];
+      index: number;
+    }[] = [];
 
-  levels.push({
-    label: 'Category',
-    options: tree,
-    index: 0,
-  });
-
-  let parentId = selections[0];
-  let depth = 1;
-  while (parentId) {
-    const parent = nodesById.get(parentId);
-    if (!parent || !parent.children || parent.children.length === 0) break;
-    const label = depth === 1 ? 'Subcategory' : `Subcategory ${depth}`;
-    levels.push({
-      label,
-      options: parent.children,
-      index: depth,
+    nextLevels.push({
+      label: 'Category',
+      options: tree,
+      index: 0,
     });
-    parentId = selections[depth];
-    depth++;
-  }
+
+    let parentId = selections[0];
+    let depth = 1;
+    while (parentId) {
+      const parent = nodesById.get(parentId);
+      if (!parent || !parent.children || parent.children.length === 0) {
+        break;
+      }
+      const label = depth === 1 ? 'Subcategory' : `Subcategory ${depth}`;
+      nextLevels.push({
+        label,
+        options: parent.children,
+        index: depth,
+      });
+      parentId = selections[depth];
+      depth++;
+    }
+    return nextLevels;
+  }, [nodesById, selections, tree]);
 
   const handleSelect = (levelIndex: number, selectedId: string) => {
     let updated = selections.slice(0, levelIndex);

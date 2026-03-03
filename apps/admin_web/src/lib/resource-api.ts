@@ -74,48 +74,46 @@ export function getResourceApi<T>(
   switch (resource) {
     case 'organizations':
       return {
-        list: () =>
-          listManagerOrganizations() as unknown as Promise<ListResponse<T>>,
+        list: () => listManagerOrganizations<T>(),
         // Managers cannot create organizations
         update: <TInput>(id: string, payload: TInput) =>
-          updateManagerOrganization(id, payload) as unknown as Promise<T>,
+          updateManagerOrganization<TInput, T>(id, payload),
         delete: (id: string) => deleteManagerOrganization(id),
       };
     case 'locations':
       return {
-        list: () => listManagerLocations() as unknown as Promise<ListResponse<T>>,
+        list: () => listManagerLocations<T>(),
         create: <TInput>(payload: TInput) =>
-          createManagerLocation(payload) as unknown as Promise<T>,
+          createManagerLocation<TInput, T>(payload),
         update: <TInput>(id: string, payload: TInput) =>
-          updateManagerLocation(id, payload) as unknown as Promise<T>,
+          updateManagerLocation<TInput, T>(id, payload),
         delete: (id: string) => deleteManagerLocation(id),
       };
     case 'activities':
       return {
-        list: () =>
-          listManagerActivities() as unknown as Promise<ListResponse<T>>,
+        list: () => listManagerActivities<T>(),
         create: <TInput>(payload: TInput) =>
-          createManagerActivity(payload) as unknown as Promise<T>,
+          createManagerActivity<TInput, T>(payload),
         update: <TInput>(id: string, payload: TInput) =>
-          updateManagerActivity(id, payload) as unknown as Promise<T>,
+          updateManagerActivity<TInput, T>(id, payload),
         delete: (id: string) => deleteManagerActivity(id),
       };
     case 'pricing':
       return {
-        list: () => listManagerPricing() as unknown as Promise<ListResponse<T>>,
+        list: () => listManagerPricing<T>(),
         create: <TInput>(payload: TInput) =>
-          createManagerPricing(payload) as unknown as Promise<T>,
+          createManagerPricing<TInput, T>(payload),
         update: <TInput>(id: string, payload: TInput) =>
-          updateManagerPricing(id, payload) as unknown as Promise<T>,
+          updateManagerPricing<TInput, T>(id, payload),
         delete: (id: string) => deleteManagerPricing(id),
       };
     case 'schedules':
       return {
-        list: () => listManagerSchedules() as unknown as Promise<ListResponse<T>>,
+        list: () => listManagerSchedules<T>(),
         create: <TInput>(payload: TInput) =>
-          createManagerSchedule(payload) as unknown as Promise<T>,
+          createManagerSchedule<TInput, T>(payload),
         update: <TInput>(id: string, payload: TInput) =>
-          updateManagerSchedule(id, payload) as unknown as Promise<T>,
+          updateManagerSchedule<TInput, T>(id, payload),
         delete: (id: string) => deleteManagerSchedule(id),
       };
     default:

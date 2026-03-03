@@ -103,6 +103,7 @@ export function DataTable<T>({
                           variant='secondary'
                           onClick={() => onEdit(item)}
                           title='Edit'
+                          aria-label='Edit'
                         >
                           <EditIcon className='h-4 w-4' />
                         </Button>
@@ -114,6 +115,7 @@ export function DataTable<T>({
                           variant='danger'
                           onClick={() => onDelete(item)}
                           title='Delete'
+                          aria-label='Delete'
                         >
                           <DeleteIcon className='h-4 w-4' />
                         </Button>
@@ -174,6 +176,7 @@ export function DataTable<T>({
                     onClick={() => onEdit(item)}
                     className='flex-1'
                     title='Edit'
+                    aria-label='Edit'
                   >
                     <EditIcon className='h-4 w-4' />
                   </Button>
@@ -186,6 +189,7 @@ export function DataTable<T>({
                     onClick={() => onDelete(item)}
                     className='flex-1'
                     title='Delete'
+                    aria-label='Delete'
                   >
                     <DeleteIcon className='h-4 w-4' />
                   </Button>

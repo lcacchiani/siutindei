@@ -92,45 +92,51 @@ export function CascadingAreaSelect({
       ? overrideState.selections
       : derivedSelections;
 
-  // Get the options at each level
-  const levels: {
-    label: string;
-    options: GeographicAreaNode[];
-    index: number;
-    isCountry?: boolean;
-  }[] = [];
+  // Get the options at each level.
+  const levels = useMemo(() => {
+    const nextLevels: {
+      label: string;
+      options: GeographicAreaNode[];
+      index: number;
+      isCountry?: boolean;
+    }[] = [];
 
-  // Level 0: countries (root nodes)
-  levels.push({
-    label: 'Country',
-    options: tree,
-    index: 0,
-    isCountry: true,
-  });
-
-  // Subsequent levels: children of the selected node at each depth
-  let parentId = selections[0];
-  let depth = 1;
-  while (parentId) {
-    const parent = nodesById.get(parentId);
-    if (!parent || !parent.children || parent.children.length === 0) break;
-
-    const levelLabel =
-      parent.children[0]?.level === 'region'
-        ? 'Region'
-        : parent.children[0]?.level === 'city'
-          ? 'City'
-          : 'District';
-
-    levels.push({
-      label: levelLabel,
-      options: parent.children,
-      index: depth,
+    // Level 0: countries (root nodes)
+    nextLevels.push({
+      label: 'Country',
+      options: tree,
+      index: 0,
+      isCountry: true,
     });
 
-    parentId = selections[depth];
-    depth++;
-  }
+    // Subsequent levels: children of the selected node at each depth
+    let parentId = selections[0];
+    let depth = 1;
+    while (parentId) {
+      const parent = nodesById.get(parentId);
+      if (!parent || !parent.children || parent.children.length === 0) {
+        break;
+      }
+
+      const levelLabel =
+        parent.children[0]?.level === 'region'
+          ? 'Region'
+          : parent.children[0]?.level === 'city'
+            ? 'City'
+            : 'District';
+
+      nextLevels.push({
+        label: levelLabel,
+        options: parent.children,
+        index: depth,
+      });
+
+      parentId = selections[depth];
+      depth++;
+    }
+
+    return nextLevels;
+  }, [nodesById, selections, tree]);
 
   const handleSelect = (levelIndex: number, selectedId: string) => {
     let updated = [...selections.slice(0, levelIndex), selectedId];

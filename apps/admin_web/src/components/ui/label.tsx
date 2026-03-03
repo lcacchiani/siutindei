@@ -1,5 +1,3 @@
-'use client';
-
 import type { LabelHTMLAttributes } from 'react';
 
 export interface LabelProps
