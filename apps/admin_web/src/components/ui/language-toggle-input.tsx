@@ -98,7 +98,6 @@ export function LanguageToggleInput({
                 title={option.label}
                 data-has-value={hasValue}
               >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={option.flagSrc}
                   alt={`${option.label} flag`}

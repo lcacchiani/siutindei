@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useActivitiesByMode } from '../../hooks/use-activities-by-mode';
+import { useFormValidation } from '../../hooks/use-form-validation';
 import { useLocationsByMode } from '../../hooks/use-locations-by-mode';
 import { useResourcePanel } from '../../hooks/use-resource-panel';
 import { parseOptionalNumber } from '../../lib/number-parsers';
@@ -268,40 +269,15 @@ export function SchedulesPanel({ mode }: SchedulesPanelProps) {
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
 
-  const [touchedState, setTouchedState] = useState<{
-    key: string;
-    fields: Record<string, boolean>;
-  }>({ key: '', fields: {} });
-  const [submittedState, setSubmittedState] = useState<{
-    key: string;
-    value: boolean;
-  }>({ key: '', value: false });
-
-  const requiredIndicator = (
-    <span className='text-red-500' aria-hidden='true'>
-      *
-    </span>
+  const formKey = panel.editingId ?? 'new';
+  const validation = useFormValidation(
+    ['location_id', 'activity_id', 'days', 'languages'],
+    formKey
   );
+  const requiredIndicator = validation.requiredIndicator;
   const errorInputClassName =
     'border-red-500 focus:border-red-500 focus:ring-red-500';
-
-  const markTouched = (field: string) => {
-    setTouchedState((prev) => {
-      if (prev.key !== formKey) {
-        return { key: formKey, fields: { [field]: true } };
-      }
-      if (prev.fields[field]) {
-        return prev;
-      }
-      return { key: formKey, fields: { ...prev.fields, [field]: true } };
-    });
-    setSubmittedState((prev) => {
-      if (prev.key !== formKey || isFormEmpty) {
-        return { key: formKey, value: false };
-      }
-      return prev;
-    });
-  };
+  const { markTouched } = validation;
 
   useEffect(() => {
     if (editingId) {
@@ -341,18 +317,6 @@ export function SchedulesPanel({ mode }: SchedulesPanelProps) {
     formState.location_id,
     setFormState,
   ]);
-
-  const isFormEmpty =
-    panel.formState.activity_id === '' &&
-    panel.formState.location_id === '' &&
-    panel.formState.weekly_entries.length === 0 &&
-    panel.formState.languages.length === 0;
-
-  const formKey = panel.editingId ?? 'new';
-  const activeTouchedFields =
-    isFormEmpty || touchedState.key !== formKey ? {} : touchedState.fields;
-  const hasSubmitted =
-    isFormEmpty || submittedState.key !== formKey ? false : submittedState.value;
 
   const validate = () => {
     const form = panel.formState;
@@ -465,7 +429,8 @@ export function SchedulesPanel({ mode }: SchedulesPanelProps) {
   };
 
   const handleSubmit = () => {
-    setSubmittedState({ key: formKey, value: true });
+    validation.setHasSubmitted(true);
+    validation.markAllTouched();
     return panel.handleSubmit(formToPayload, validate);
   };
 
@@ -564,15 +529,19 @@ export function SchedulesPanel({ mode }: SchedulesPanelProps) {
     }));
   };
 
-  function getActivityName(activityId: string) {
-    return activities.find((activity) => activity.id === activityId)?.name ??
-      activityId;
-  }
+  const getActivityName = useCallback(
+    (activityId: string) =>
+      activities.find((activity) => activity.id === activityId)?.name ??
+      activityId,
+    [activities]
+  );
 
-  function getLocationName(locationId: string) {
-    return locations.find((location) => location.id === locationId)?.address ??
-      locationId;
-  }
+  const getLocationName = useCallback(
+    (locationId: string) =>
+      locations.find((location) => location.id === locationId)?.address ??
+      locationId,
+    [locations]
+  );
 
   function toggleLanguage(code: LanguageCode) {
     markTouched('languages');
@@ -585,7 +554,7 @@ export function SchedulesPanel({ mode }: SchedulesPanelProps) {
     });
   }
 
-  function getLocalEntries(item: ActivitySchedule) {
+  const getLocalEntries = useCallback((item: ActivitySchedule) => {
     const entries = item.weekly_entries ?? [];
     return entries
       .map((entry) => {
@@ -609,114 +578,122 @@ export function SchedulesPanel({ mode }: SchedulesPanelProps) {
         }
         return left.endMinutes - right.endMinutes;
       });
-  }
+  }, []);
 
-  function getDayLabel(dayOfWeek: number) {
-    return (
+  const getDayLabel = useCallback(
+    (dayOfWeek: number) =>
       dayOfWeekOptions.find((option) => Number(option.value) === dayOfWeek)
-        ?.label ?? `Day ${dayOfWeek}`
-    );
-  }
+        ?.label ?? `Day ${dayOfWeek}`,
+    []
+  );
 
-  function renderWeeklyEntries(item: ActivitySchedule) {
-    const localEntries = getLocalEntries(item);
-    if (localEntries.length === 0) {
-      return <span>—</span>;
-    }
-    return (
-      <div className='space-y-1 text-slate-600'>
-        {localEntries.map((entry) => (
-          <div
-            key={`${entry.dayOfWeek}-${entry.startMinutes}-${entry.endMinutes}`}
-          >
-            <span className='font-medium text-slate-700'>
-              {getDayLabel(entry.dayOfWeek)}
-            </span>{' '}
-            {formatTimeLabel(entry.startMinutes)}-
-            {formatTimeLabel(entry.endMinutes)}
-          </div>
-        ))}
-      </div>
-    );
-  }
+  const renderWeeklyEntries = useCallback(
+    (item: ActivitySchedule) => {
+      const localEntries = getLocalEntries(item);
+      if (localEntries.length === 0) {
+        return <span>—</span>;
+      }
+      return (
+        <div className='space-y-1 text-slate-600'>
+          {localEntries.map((entry) => (
+            <div
+              key={`${entry.dayOfWeek}-${entry.startMinutes}-${entry.endMinutes}`}
+            >
+              <span className='font-medium text-slate-700'>
+                {getDayLabel(entry.dayOfWeek)}
+              </span>{' '}
+              {formatTimeLabel(entry.startMinutes)}-
+              {formatTimeLabel(entry.endMinutes)}
+            </div>
+          ))}
+        </div>
+      );
+    },
+    [getDayLabel, getLocalEntries]
+  );
 
-  function weeklyEntriesLabel(item: ActivitySchedule) {
-    const localEntries = getLocalEntries(item);
-    return localEntries
-      .map((entry) => {
-        const label = getDayLabel(entry.dayOfWeek);
-        const start = formatTimeLabel(entry.startMinutes);
-        const end = formatTimeLabel(entry.endMinutes);
-        return `${label} ${start}-${end}`;
-      })
-      .join(', ');
-  }
+  const weeklyEntriesLabel = useCallback(
+    (item: ActivitySchedule) => {
+      const localEntries = getLocalEntries(item);
+      return localEntries
+        .map((entry) => {
+          const label = getDayLabel(entry.dayOfWeek);
+          const start = formatTimeLabel(entry.startMinutes);
+          const end = formatTimeLabel(entry.endMinutes);
+          return `${label} ${start}-${end}`;
+        })
+        .join(', ');
+    },
+    [getDayLabel, getLocalEntries]
+  );
 
-  const columns = [
-    {
-      key: 'location',
-      header: 'Location',
-      primary: true,
-      render: (item: ActivitySchedule) => (
-        <span className='font-medium'>
-          {getLocationName(item.location_id)}
-        </span>
-      ),
-    },
-    {
-      key: 'activity',
-      header: 'Activity',
-      secondary: true,
-      render: (item: ActivitySchedule) => (
-        <span className='text-slate-600'>
-          {getActivityName(item.activity_id)}
-        </span>
-      ),
-    },
-    {
-      key: 'day-time',
-      header: 'Day/Time',
-      render: (item: ActivitySchedule) => renderWeeklyEntries(item),
-    },
-    {
-      key: 'languages',
-      header: 'Languages',
-      render: (item: ActivitySchedule) => (
-        <div className='flex flex-wrap items-center gap-2 text-slate-600'>
-          {item.languages?.length ? (
-            item.languages.map((language) => {
-              const option = getLanguageOption(language);
-              if (!option) {
+  const columns = useMemo(
+    () => [
+      {
+        key: 'location',
+        header: 'Location',
+        primary: true,
+        render: (item: ActivitySchedule) => (
+          <span className='font-medium'>
+            {getLocationName(item.location_id)}
+          </span>
+        ),
+      },
+      {
+        key: 'activity',
+        header: 'Activity',
+        secondary: true,
+        render: (item: ActivitySchedule) => (
+          <span className='text-slate-600'>
+            {getActivityName(item.activity_id)}
+          </span>
+        ),
+      },
+      {
+        key: 'day-time',
+        header: 'Day/Time',
+        render: (item: ActivitySchedule) => renderWeeklyEntries(item),
+      },
+      {
+        key: 'languages',
+        header: 'Languages',
+        render: (item: ActivitySchedule) => (
+          <div className='flex flex-wrap items-center gap-2 text-slate-600'>
+            {item.languages?.length ? (
+              item.languages.map((language) => {
+                const option = getLanguageOption(language);
+                if (!option) {
+                  return (
+                    <span key={language} className='text-xs uppercase'>
+                      {language}
+                    </span>
+                  );
+                }
                 return (
-                  <span key={language} className='text-xs uppercase'>
-                    {language}
+                  <span
+                    key={option.code}
+                    className='inline-flex items-center justify-center rounded border border-slate-200 bg-white px-1.5 py-1'
+                    title={option.label}
+                  >
+                    <img
+                      src={option.flagSrc}
+                      alt={`${option.label} flag`}
+                      width={20}
+                      height={14}
+                      loading='lazy'
+                    />
                   </span>
                 );
-              }
-              return (
-                <span
-                  key={option.code}
-                  className='inline-flex items-center justify-center rounded border border-slate-200 bg-white px-1.5 py-1'
-                  title={option.label}
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={option.flagSrc}
-                    alt={`${option.label} flag`}
-                    width={20}
-                    height={14}
-                    loading='lazy'
-                  />
-                </span>
-              );
-            })
-          ) : (
-            <span>—</span>
-          )}
-        </div>
-      ),
-    },
-  ];
+              })
+            ) : (
+              <span>—</span>
+            )}
+          </div>
+        ),
+      },
+    ],
+    [getActivityName, getLocationName, renderWeeklyEntries]
+  );
 
   // Filter items based on search query
   const filteredItems = panel.items.filter((item) => {
@@ -734,21 +711,18 @@ export function SchedulesPanel({ mode }: SchedulesPanelProps) {
     );
   });
 
-  const showLocationError = Boolean(
-    locationError &&
-      (hasSubmitted || activeTouchedFields.location_id)
+  const showLocationError = validation.shouldShowError(
+    'location_id',
+    Boolean(locationError)
   );
-  const showActivityError = Boolean(
-    activityError &&
-      (hasSubmitted || activeTouchedFields.activity_id)
+  const showActivityError = validation.shouldShowError(
+    'activity_id',
+    Boolean(activityError)
   );
-  const showDaysError = Boolean(
-    daysError &&
-      (hasSubmitted || activeTouchedFields.days)
-  );
-  const showLanguagesError = Boolean(
-    languagesError &&
-      (hasSubmitted || activeTouchedFields.languages)
+  const showDaysError = validation.shouldShowError('days', Boolean(daysError));
+  const showLanguagesError = validation.shouldShowError(
+    'languages',
+    Boolean(languagesError)
   );
 
   return (
@@ -903,19 +877,19 @@ export function SchedulesPanel({ mode }: SchedulesPanelProps) {
                       };
                       const showStartError = Boolean(
                         entryError.start &&
-                          (hasSubmitted ||
-                            activeTouchedFields[startTouchedKey])
+                          (validation.hasSubmitted ||
+                            validation.touched[startTouchedKey])
                       );
                       const showEndError = Boolean(
                         entryError.end &&
-                          (hasSubmitted ||
-                            activeTouchedFields[endTouchedKey])
+                          (validation.hasSubmitted ||
+                            validation.touched[endTouchedKey])
                       );
                       const showRangeError = Boolean(
                         entryError.range &&
-                          (hasSubmitted ||
-                            activeTouchedFields[startTouchedKey] ||
-                            activeTouchedFields[endTouchedKey])
+                          (validation.hasSubmitted ||
+                            validation.touched[startTouchedKey] ||
+                            validation.touched[endTouchedKey])
                       );
                       return (
                         <div
@@ -1058,7 +1032,6 @@ export function SchedulesPanel({ mode }: SchedulesPanelProps) {
                       aria-label={`Toggle ${option.label}`}
                       title={option.label}
                     >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={option.flagSrc}
                         alt={`${option.label} flag`}
@@ -1137,6 +1110,7 @@ export function SchedulesPanel({ mode }: SchedulesPanelProps) {
           </div>
         )}
       </Card>
+      {panel.confirmDialog}
     </div>
   );
 }

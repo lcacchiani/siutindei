@@ -15,9 +15,12 @@ import {
   type CountryCode,
 } from 'libphonenumber-js';
 
+import { useFormValidation } from '../../hooks/use-form-validation';
 import { useResourcePanel } from '../../hooks/use-resource-panel';
-import { ApiError, listCognitoUsers } from '../../lib/api-client';
+import { ApiError } from '../../lib/api-client';
+import { listCognitoUsers } from '../../lib/api-client-cognito';
 import type { ApiMode } from '../../lib/resource-api';
+import { normalizeKey } from '../../lib/string-utils';
 import {
   buildTranslationsPayload,
   emptyTranslations,
@@ -83,7 +86,6 @@ function EmailIcon({ className }: IconProps) {
 
 function ServiceIcon({ className, src }: IconProps & { src: string }) {
   return (
-    // eslint-disable-next-line @next/next/no-img-element
     <img
       className={className}
       src={src}
@@ -116,10 +118,6 @@ function ContactIcon({
 
 function hasValue(value?: string | null): boolean {
   return Boolean(value && value.trim().length > 0);
-}
-
-function normalizeKey(value: string): string {
-  return value.trim().toLowerCase();
 }
 
 function looksLikeUrl(value: string): boolean {
@@ -171,12 +169,6 @@ function normalizePhoneNumber(value: string): string {
 
 function isValidEmail(value: string): boolean {
   return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value);
-}
-
-function isTranslationsEmpty(
-  translations: Record<TranslationLanguageCode, string>
-): boolean {
-  return Object.values(translations).every((value) => !value.trim());
 }
 
 function isValidPhoneNumber(
@@ -341,45 +333,24 @@ export function OrganizationsPanel({ mode }: OrganizationsPanelProps) {
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
 
-  const [touchedState, setTouchedState] = useState<{
-    key: string;
-    fields: Record<string, boolean>;
-  }>({ key: '', fields: {} });
-  const [submittedState, setSubmittedState] = useState<{
-    key: string;
-    value: boolean;
-  }>({ key: '', value: false });
-
-  const requiredIndicator = (
-    <span className='text-red-500' aria-hidden='true'>
-      *
-    </span>
+  const formKey = panel.editingId ?? 'new';
+  const validation = useFormValidation(
+    [
+      'name',
+      'manager_id',
+      'email',
+      'phone_country_code',
+      'phone_number',
+      ...SOCIAL_FIELDS.map((field) => field.key),
+    ],
+    formKey
   );
+  const requiredIndicator = validation.requiredIndicator;
   const errorInputClassName =
     'border-red-500 focus:border-red-500 focus:ring-red-500';
-
-  const markTouched = (field: string) => {
-    setTouchedState((prev) => {
-      if (prev.key !== formKey) {
-        return { key: formKey, fields: { [field]: true } };
-      }
-      if (prev.fields[field]) {
-        return prev;
-      }
-      return { key: formKey, fields: { ...prev.fields, [field]: true } };
-    });
-    setSubmittedState((prev) => {
-      if (prev.key !== formKey || isFormEmpty) {
-        return { key: formKey, value: false };
-      }
-      return prev;
-    });
-  };
+  const { markTouched } = validation;
   const shouldShowError = (field: string, message: string) =>
-    Boolean(
-      message &&
-        (hasSubmitted || activeTouchedFields[field])
-    );
+    validation.shouldShowError(field, Boolean(message));
 
   // Extract setError for stable reference in useEffect
   const { setError } = panel;
@@ -426,29 +397,6 @@ export function OrganizationsPanel({ mode }: OrganizationsPanelProps) {
     }
     startEdit(items[0]);
   }, [editingId, isManager, items, startEdit]);
-
-  const isFormEmpty =
-    panel.formState.name.trim() === '' &&
-    panel.formState.description.trim() === '' &&
-    panel.formState.manager_id === '' &&
-    panel.formState.phone_number.trim() === '' &&
-    panel.formState.email.trim() === '' &&
-    panel.formState.whatsapp.trim() === '' &&
-    panel.formState.facebook.trim() === '' &&
-    panel.formState.instagram.trim() === '' &&
-    panel.formState.tiktok.trim() === '' &&
-    panel.formState.twitter.trim() === '' &&
-    panel.formState.xiaohongshu.trim() === '' &&
-    panel.formState.wechat.trim() === '' &&
-    panel.formState.phone_country_code === emptyForm.phone_country_code &&
-    isTranslationsEmpty(panel.formState.name_translations) &&
-    isTranslationsEmpty(panel.formState.description_translations);
-
-  const formKey = panel.editingId ?? 'new';
-  const activeTouchedFields =
-    isFormEmpty || touchedState.key !== formKey ? {} : touchedState.fields;
-  const hasSubmitted =
-    isFormEmpty || submittedState.key !== formKey ? false : submittedState.value;
 
   const countryOptions = useMemo(() => {
     const display =
@@ -671,7 +619,8 @@ export function OrganizationsPanel({ mode }: OrganizationsPanelProps) {
   };
 
   const handleSubmit = () => {
-    setSubmittedState({ key: formKey, value: true });
+    validation.setHasSubmitted(true);
+    validation.markAllTouched();
     return panel.handleSubmit(formToPayload, validate);
   };
 
@@ -753,35 +702,38 @@ export function OrganizationsPanel({ mode }: OrganizationsPanelProps) {
     );
   };
 
-  const columns = [
-    {
-      key: 'name',
-      header: 'Name',
-      primary: true,
-      render: (item: Organization) => item.name,
-    },
-    ...(isAdmin
-      ? [
-          {
-            key: 'manager',
-            header: 'Manager',
-            secondary: true,
-            render: (item: Organization) =>
-              getManagerDisplayName(item.manager_id, cognitoUsers),
-          },
-        ]
-      : []),
-    {
-      key: 'description',
-      header: 'Description',
-      render: (item: Organization) => item.description || '—',
-    },
-    {
-      key: 'contact',
-      header: 'Contact',
-      render: (item: Organization) => renderContactIcons(item),
-    },
-  ];
+  const columns = useMemo(
+    () => [
+      {
+        key: 'name',
+        header: 'Name',
+        primary: true,
+        render: (item: Organization) => item.name,
+      },
+      ...(isAdmin
+        ? [
+            {
+              key: 'manager',
+              header: 'Manager',
+              secondary: true,
+              render: (item: Organization) =>
+                getManagerDisplayName(item.manager_id, cognitoUsers),
+            },
+          ]
+        : []),
+      {
+        key: 'description',
+        header: 'Description',
+        render: (item: Organization) => item.description || '—',
+      },
+      {
+        key: 'contact',
+        header: 'Contact',
+        render: (item: Organization) => renderContactIcons(item),
+      },
+    ],
+    [cognitoUsers, isAdmin]
+  );
 
   return (
     <div className='space-y-6'>
@@ -1056,6 +1008,7 @@ export function OrganizationsPanel({ mode }: OrganizationsPanelProps) {
           </div>
         )}
       </Card>
+      {panel.confirmDialog}
     </div>
   );
 }

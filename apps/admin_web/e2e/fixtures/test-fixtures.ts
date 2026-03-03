@@ -374,6 +374,58 @@ export const mockLocations = [
   },
 ];
 
+export const mockPricing = [
+  {
+    id: 'pricing-1',
+    activity_id: 'activity-1',
+    location_id: 'loc-1',
+    pricing_type: 'per_class',
+    amount: 220,
+    currency: 'HKD',
+    sessions_count: null,
+    free_trial_class_offered: false,
+    created_at: '2024-01-05T00:00:00Z',
+    updated_at: '2024-01-05T00:00:00Z',
+  },
+];
+
+export const mockSchedules = [
+  {
+    id: 'schedule-1',
+    activity_id: 'activity-1',
+    location_id: 'loc-1',
+    schedule_type: 'weekly',
+    weekly_entries: [
+      {
+        day_of_week_utc: 1,
+        start_minutes_utc: 60,
+        end_minutes_utc: 120,
+      },
+    ],
+    languages: ['en'],
+    created_at: '2024-01-06T00:00:00Z',
+    updated_at: '2024-01-06T00:00:00Z',
+  },
+];
+
+export const mockAuditLogs = [
+  {
+    id: 'audit-1',
+    table_name: 'organizations',
+    record_id: 'org-1',
+    action: 'UPDATE',
+    source: 'admin',
+    user_id: 'admin-user-id-123',
+    request_id: 'req-1',
+    changed_fields: ['name', 'description'],
+    old_values: { name: 'Test Organization 1' },
+    new_values: { name: 'Test Organization 1 Updated' },
+    timestamp: '2024-01-07T10:00:00Z',
+    ip_address: '127.0.0.1',
+    user_agent: 'playwright',
+  },
+];
+
 export const mockAreaTree = [
   {
     id: 'area-hk',
@@ -776,6 +828,31 @@ export async function setupApiMocks(page: Page): Promise<void> {
     });
   });
 
+  // Mock address search (user endpoint)
+  await page.route('**/api/mock/**/user/address-search*', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        items: [
+          {
+            place_id: 1,
+            display_name: '123 Test Street, Wan Chai, Hong Kong',
+            lat: '22.278',
+            lon: '114.175',
+            type: 'building',
+            address: {
+              road: 'Test Street',
+              city_district: 'Wan Chai',
+              country: 'Hong Kong',
+              country_code: 'hk',
+            },
+          },
+        ],
+      }),
+    });
+  });
+
   // Mock locations list
   await page.route('**/api/mock/**/admin/locations*', async (route) => {
     const method = route.request().method();
@@ -785,6 +862,43 @@ export async function setupApiMocks(page: Page): Promise<void> {
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({ items: mockLocations, next_cursor: null }),
+      });
+    } else if (method === 'POST') {
+      const body = route.request().postDataJSON();
+      const created = {
+        id: 'loc-new-' + Date.now(),
+        ...body,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      await route.fulfill({
+        status: 201,
+        contentType: 'application/json',
+        body: JSON.stringify(created),
+      });
+    } else {
+      await route.continue();
+    }
+  });
+
+  // Mock location by ID
+  await page.route('**/api/mock/**/admin/locations/*', async (route) => {
+    const method = route.request().method();
+    const locationId = route.request().url().split('/').pop()?.split('?')[0];
+
+    if (method === 'DELETE') {
+      await route.fulfill({ status: 204 });
+    } else if (method === 'PUT') {
+      const body = route.request().postDataJSON();
+      const updated = {
+        id: locationId,
+        ...body,
+        updated_at: new Date().toISOString(),
+      };
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(updated),
       });
     } else {
       await route.continue();
@@ -832,6 +946,31 @@ export async function setupApiMocks(page: Page): Promise<void> {
       return;
     }
     await route.continue();
+  });
+
+  await page.route('**/api/mock/**/admin/tickets/*/review', async (route) => {
+    if (route.request().method() !== 'PUT') {
+      await route.continue();
+      return;
+    }
+    const body = route.request().postDataJSON();
+    const url = route.request().url();
+    const parts = url.split('/');
+    const ticketId = parts[parts.length - 2];
+    const existing = mockTickets.find((ticket) => ticket.id === ticketId);
+    const updated = {
+      ...(existing ?? mockTickets[0]),
+      id: ticketId ?? mockTickets[0].id,
+      status: body.action === 'approve' ? 'approved' : 'rejected',
+      admin_notes: body.admin_notes ?? null,
+      reviewed_at: new Date().toISOString(),
+      reviewed_by: 'admin-user-id-123',
+    };
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ message: 'Ticket reviewed', ticket: updated }),
+    });
   });
 
   // Mock user access request status endpoint
@@ -918,38 +1057,126 @@ export async function setupApiMocks(page: Page): Promise<void> {
 
   // Mock manager pricing list
   await page.route('**/api/mock/**/manager/pricing*', async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({ items: [], next_cursor: null }),
-    });
+    const method = route.request().method();
+    if (method === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ items: mockPricing, next_cursor: null }),
+      });
+    } else {
+      await route.continue();
+    }
   });
 
   // Mock manager schedules list
   await page.route('**/api/mock/**/manager/schedules*', async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({ items: [], next_cursor: null }),
-    });
+    const method = route.request().method();
+    if (method === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ items: mockSchedules, next_cursor: null }),
+      });
+    } else {
+      await route.continue();
+    }
   });
 
   // Mock pricing list
   await page.route('**/api/mock/**/admin/pricing*', async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({ items: [], next_cursor: null }),
-    });
+    const method = route.request().method();
+    if (method === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ items: mockPricing, next_cursor: null }),
+      });
+    } else if (method === 'POST') {
+      const body = route.request().postDataJSON();
+      const created = {
+        id: 'pricing-new-' + Date.now(),
+        ...body,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      await route.fulfill({
+        status: 201,
+        contentType: 'application/json',
+        body: JSON.stringify(created),
+      });
+    } else {
+      await route.continue();
+    }
+  });
+
+  await page.route('**/api/mock/**/admin/pricing/*', async (route) => {
+    const method = route.request().method();
+    const pricingId = route.request().url().split('/').pop()?.split('?')[0];
+    if (method === 'DELETE') {
+      await route.fulfill({ status: 204 });
+    } else if (method === 'PUT') {
+      const body = route.request().postDataJSON();
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          id: pricingId,
+          ...body,
+          updated_at: new Date().toISOString(),
+        }),
+      });
+    } else {
+      await route.continue();
+    }
   });
 
   // Mock schedules list
   await page.route('**/api/mock/**/admin/schedules*', async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({ items: [], next_cursor: null }),
-    });
+    const method = route.request().method();
+    if (method === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ items: mockSchedules, next_cursor: null }),
+      });
+    } else if (method === 'POST') {
+      const body = route.request().postDataJSON();
+      const created = {
+        id: 'schedule-new-' + Date.now(),
+        ...body,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      await route.fulfill({
+        status: 201,
+        contentType: 'application/json',
+        body: JSON.stringify(created),
+      });
+    } else {
+      await route.continue();
+    }
+  });
+
+  await page.route('**/api/mock/**/admin/schedules/*', async (route) => {
+    const method = route.request().method();
+    const scheduleId = route.request().url().split('/').pop()?.split('?')[0];
+    if (method === 'DELETE') {
+      await route.fulfill({ status: 204 });
+    } else if (method === 'PUT') {
+      const body = route.request().postDataJSON();
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          id: scheduleId,
+          ...body,
+          updated_at: new Date().toISOString(),
+        }),
+      });
+    } else {
+      await route.continue();
+    }
   });
 
   // Mock audit logs list
@@ -957,16 +1184,118 @@ export async function setupApiMocks(page: Page): Promise<void> {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify({ items: [], next_cursor: null }),
+      body: JSON.stringify({ items: mockAuditLogs, next_cursor: null }),
     });
   });
 
-  // Mock media upload
-  await page.route('**/api/mock/**/admin/media*', async (route) => {
+  await page.route('**/api/mock/**/admin/cognito-users/groups/*', async (route) => {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify({ items: [], next_cursor: null }),
+      body: JSON.stringify({ message: 'ok' }),
+    });
+  });
+
+  await page.route('**/api/mock/**/admin/cognito-users/*', async (route) => {
+    const method = route.request().method();
+    if (method === 'DELETE') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          message: 'deleted',
+          transferred_organizations_count: 0,
+        }),
+      });
+      return;
+    }
+    await route.continue();
+  });
+
+  // Mock media upload/delete presign endpoints
+  await page.route(
+    '**/api/mock/**/admin/organizations/*/media',
+    async (route) => {
+      const method = route.request().method();
+      if (method === 'POST') {
+        const body = route.request().postDataJSON();
+        const fileName = body.file_name || 'upload.jpg';
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            upload_url: `http://localhost:3000/mock-upload/${Date.now()}`,
+            media_url: `https://example.com/${fileName}`,
+            object_key: `uploads/${fileName}`,
+            expires_in: 300,
+          }),
+        });
+        return;
+      }
+      if (method === 'DELETE') {
+        await route.fulfill({ status: 204 });
+        return;
+      }
+      await route.continue();
+    }
+  );
+
+  await page.route('**/mock-upload/*', async (route) => {
+    await route.fulfill({ status: 200 });
+  });
+
+  // Mock imports endpoints
+  await page.route('**/api/mock/**/admin/imports/presign*', async (route) => {
+    if (route.request().method() !== 'POST') {
+      await route.continue();
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        upload_url: `http://localhost:3000/mock-upload/import-${Date.now()}`,
+        object_key: `imports/mock-${Date.now()}.json`,
+        expires_in: 300,
+      }),
+    });
+  });
+
+  await page.route('**/api/mock/**/admin/imports/export*', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        download_url: 'https://example.com/export.json',
+        object_key: 'exports/export.json',
+        file_name: 'export.json',
+        expires_in: 300,
+        warnings: [],
+      }),
+    });
+  });
+
+  await page.route('**/api/mock/**/admin/imports', async (route) => {
+    if (route.request().method() !== 'POST') {
+      await route.continue();
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        summary: {
+          organizations: { created: 1, updated: 0, failed: 0, skipped: 0 },
+          locations: { created: 1, updated: 0, failed: 0, skipped: 0 },
+          activities: { created: 1, updated: 0, failed: 0, skipped: 0 },
+          pricing: { created: 1, updated: 0, failed: 0, skipped: 0 },
+          schedules: { created: 1, updated: 0, failed: 0, skipped: 0 },
+          warnings: 0,
+          errors: 0,
+        },
+        results: [],
+        file_warnings: [],
+      }),
     });
   });
 }

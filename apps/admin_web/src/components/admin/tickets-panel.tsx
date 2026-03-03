@@ -1,18 +1,21 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import {
   ApiError,
-  listTickets,
-  listCognitoUsers,
   listResource,
-  reviewTicket,
-  type Ticket,
-  type TicketType,
-  type TicketStatus,
-  type ReviewTicketPayload,
 } from '../../lib/api-client';
+import { listCognitoUsers } from '../../lib/api-client-cognito';
+import { formatDateTime } from '../../lib/date-utils';
+import {
+  listTickets,
+  reviewTicket,
+  type ReviewTicketPayload,
+  type Ticket,
+  type TicketStatus,
+  type TicketType,
+} from '../../lib/api-client-tickets';
 import type { CognitoUser, FeedbackLabel, Organization } from '../../types/admin';
 import { ReviewIcon } from '../icons/action-icons';
 import { Button } from '../ui/button';
@@ -21,6 +24,7 @@ import { DataTable } from '../ui/data-table';
 import { Label } from '../ui/label';
 import { SearchInput } from '../ui/search-input';
 import { Select } from '../ui/select';
+import { StatusBadge } from '../ui/status-badge';
 import { Textarea } from '../ui/textarea';
 import { StatusBanner } from '../status-banner';
 
@@ -62,6 +66,8 @@ function ReviewModal({
   const [selectedOrgId, setSelectedOrgId] = useState<string>('');
   const [orgTouched, setOrgTouched] = useState(false);
   const [hasSubmitted, setHasSubmitted] = useState(false);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
 
   const isAccessRequest = ticket.ticket_type === 'access_request';
   const feedbackLabels =
@@ -109,6 +115,56 @@ function ReviewModal({
     loadOrgs();
   }, [isAccessRequest]);
 
+  useEffect(() => {
+    previousFocusRef.current =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    const initialFocusable = dialogRef.current?.querySelector<HTMLElement>(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+    );
+    initialFocusable?.focus();
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        onClose();
+        return;
+      }
+      if (event.key !== 'Tab') {
+        return;
+      }
+      const dialog = dialogRef.current;
+      if (!dialog) {
+        return;
+      }
+      const focusable = Array.from(
+        dialog.querySelectorAll<HTMLElement>(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        )
+      ).filter((element) => !element.hasAttribute('disabled'));
+      if (focusable.length === 0) {
+        return;
+      }
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const active = document.activeElement;
+      if (event.shiftKey && active === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && active === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      previousFocusRef.current?.focus();
+    };
+  }, [onClose]);
+
   const handleSubmit = async () => {
     setHasSubmitted(true);
     if (isAccessRequest && action === 'approve') {
@@ -151,9 +207,22 @@ function ReviewModal({
   };
 
   return (
-    <div className='fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center sm:p-4'>
-      <div className='max-h-[90vh] w-full overflow-y-auto rounded-t-xl bg-white p-4 shadow-xl sm:max-w-lg sm:rounded-xl sm:p-6'>
-        <h3 className='mb-4 text-base font-semibold sm:text-lg'>
+    <div
+      className='fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center sm:p-4'
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) {
+          onClose();
+        }
+      }}
+    >
+      <div
+        ref={dialogRef}
+        role='dialog'
+        aria-modal='true'
+        aria-labelledby='ticket-review-title'
+        className='max-h-[90vh] w-full overflow-y-auto rounded-t-xl bg-white p-4 shadow-xl sm:max-w-lg sm:rounded-xl sm:p-6'
+      >
+        <h3 id='ticket-review-title' className='mb-4 text-base font-semibold sm:text-lg'>
           Review Ticket: <span className='break-all'>{ticket.ticket_id}</span>
         </h3>
 
@@ -382,23 +451,6 @@ function ReviewModal({
   );
 }
 
-// --- Badges ---
-
-function StatusBadge({ status }: { status: TicketStatus }) {
-  const colors = {
-    pending: 'bg-yellow-100 text-yellow-800',
-    approved: 'bg-green-100 text-green-800',
-    rejected: 'bg-red-100 text-red-800',
-  };
-  return (
-    <span
-      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${colors[status]}`}
-    >
-      {status.charAt(0).toUpperCase() + status.slice(1)}
-    </span>
-  );
-}
-
 function TicketTypeBadge({ type }: { type: TicketType }) {
   const config = {
     access_request: {
@@ -438,33 +490,35 @@ export function TicketsPanel() {
   const [searchQuery, setSearchQuery] = useState('');
   const [feedbackLabels, setFeedbackLabels] = useState<FeedbackLabel[]>([]);
 
-  const loadItems = async (cursor?: string, reset = false) => {
-    setIsLoading(true);
-    setError('');
-    try {
-      const filterStatus =
-        statusFilter === 'all' ? undefined : (statusFilter as TicketStatus);
-      const filterType =
-        typeFilter === 'all' ? undefined : (typeFilter as TicketType);
-      const response = await listTickets(filterType, filterStatus, cursor);
-      setItems((prev) =>
-        reset || !cursor ? response.items : [...prev, ...response.items]
-      );
-      setNextCursor(response.next_cursor ?? null);
-      setPendingCount(response.pending_count);
-    } catch (err) {
-      const message =
-        err instanceof ApiError ? err.message : 'Failed to load tickets.';
-      setError(message);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const loadItems = useCallback(
+    async (cursor?: string, reset = false) => {
+      setIsLoading(true);
+      setError('');
+      try {
+        const filterStatus =
+          statusFilter === 'all' ? undefined : (statusFilter as TicketStatus);
+        const filterType =
+          typeFilter === 'all' ? undefined : (typeFilter as TicketType);
+        const response = await listTickets(filterType, filterStatus, cursor);
+        setItems((prev) =>
+          reset || !cursor ? response.items : [...prev, ...response.items]
+        );
+        setNextCursor(response.next_cursor ?? null);
+        setPendingCount(response.pending_count);
+      } catch (err) {
+        const message =
+          err instanceof ApiError ? err.message : 'Failed to load tickets.';
+        setError(message);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [statusFilter, typeFilter]
+  );
 
   useEffect(() => {
-    loadItems(undefined, true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter, typeFilter]);
+    void loadItems(undefined, true);
+  }, [loadItems]);
 
   useEffect(() => {
     const loadLabels = async () => {
@@ -483,18 +537,7 @@ export function TicketsPanel() {
       prev.map((item) => (item.id === updated.id ? updated : item))
     );
     setReviewingTicket(null);
-    loadItems(undefined, true);
-  };
-
-  const formatDate = (dateStr: string | null | undefined) => {
-    if (!dateStr) return '\u2014';
-    return new Date(dateStr).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    void loadItems(undefined, true);
   };
 
   const filteredItems = items.filter((item) => {
@@ -518,61 +561,64 @@ export function TicketsPanel() {
     return map;
   }, [feedbackLabels]);
 
-  const columns = [
-    {
-      key: 'ticket-id',
-      header: 'Ticket ID',
-      secondary: true,
-      render: (item: Ticket) => (
-        <span className='font-mono text-xs text-slate-600'>
-          {item.ticket_id}
-        </span>
-      ),
-    },
-    {
-      key: 'type',
-      header: 'Type',
-      render: (item: Ticket) => <TicketTypeBadge type={item.ticket_type} />,
-    },
-    {
-      key: 'organization',
-      header: 'Organization',
-      primary: true,
-      render: (item: Ticket) => (
-        <span className='font-medium'>{item.organization_name}</span>
-      ),
-    },
-    {
-      key: 'district',
-      header: 'District',
-      headerClassName: 'md:hidden',
-      cellClassName: 'md:hidden',
-      render: (item: Ticket) => (
-        <span className='text-slate-600'>
-          {item.suggested_district || '—'}
-        </span>
-      ),
-    },
-    {
-      key: 'submitted-by',
-      header: 'Submitted By',
-      render: (item: Ticket) => (
-        <span className='text-slate-600'>{item.submitter_email}</span>
-      ),
-    },
-    {
-      key: 'status',
-      header: 'Status',
-      render: (item: Ticket) => <StatusBadge status={item.status} />,
-    },
-    {
-      key: 'submitted',
-      header: 'Submitted',
-      render: (item: Ticket) => (
-        <span className='text-slate-600'>{formatDate(item.created_at)}</span>
-      ),
-    },
-  ];
+  const columns = useMemo(
+    () => [
+      {
+        key: 'ticket-id',
+        header: 'Ticket ID',
+        secondary: true,
+        render: (item: Ticket) => (
+          <span className='font-mono text-xs text-slate-600'>
+            {item.ticket_id}
+          </span>
+        ),
+      },
+      {
+        key: 'type',
+        header: 'Type',
+        render: (item: Ticket) => <TicketTypeBadge type={item.ticket_type} />,
+      },
+      {
+        key: 'organization',
+        header: 'Organization',
+        primary: true,
+        render: (item: Ticket) => (
+          <span className='font-medium'>{item.organization_name}</span>
+        ),
+      },
+      {
+        key: 'district',
+        header: 'District',
+        headerClassName: 'md:hidden',
+        cellClassName: 'md:hidden',
+        render: (item: Ticket) => (
+          <span className='text-slate-600'>
+            {item.suggested_district || '—'}
+          </span>
+        ),
+      },
+      {
+        key: 'submitted-by',
+        header: 'Submitted By',
+        render: (item: Ticket) => (
+          <span className='text-slate-600'>{item.submitter_email}</span>
+        ),
+      },
+      {
+        key: 'status',
+        header: 'Status',
+        render: (item: Ticket) => <StatusBadge status={item.status} />,
+      },
+      {
+        key: 'submitted',
+        header: 'Submitted',
+        render: (item: Ticket) => (
+          <span className='text-slate-600'>{formatDateTime(item.created_at)}</span>
+        ),
+      },
+    ],
+    []
+  );
 
   function renderActions(item: Ticket, context: 'desktop' | 'mobile') {
     if (item.status === 'pending') {
@@ -590,7 +636,7 @@ export function TicketsPanel() {
       );
     }
     const reviewedLabel = item.reviewed_at
-      ? `Reviewed ${formatDate(item.reviewed_at)}`
+      ? `Reviewed ${formatDateTime(item.reviewed_at)}`
       : '—';
     return (
       <span

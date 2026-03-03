@@ -28,6 +28,7 @@ function SearchIcon({ className = '' }: { className?: string }) {
 export function SearchInput({
   className = '',
   placeholder = 'Search...',
+  'aria-label': ariaLabel = 'Search',
   ...props
 }: SearchInputProps) {
   return (
@@ -44,6 +45,7 @@ export function SearchInput({
           `disabled:bg-slate-100 sm:h-9 sm:text-sm ${className}`
         }
         placeholder={placeholder}
+        aria-label={ariaLabel}
         {...props}
       />
     </div>

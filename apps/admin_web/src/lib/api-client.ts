@@ -639,10 +639,10 @@ export async function fetchActivityCategories(): Promise<{
 /**
  * List organizations managed by the current user.
  */
-export async function listManagerOrganizations(): Promise<
-  ListResponse<import('../types/admin').Organization>
-> {
-  return request<ListResponse<import('../types/admin').Organization>>(
+export async function listManagerOrganizations<
+  T = import('../types/admin').Organization,
+>(): Promise<ListResponse<T>> {
+  return request<ListResponse<T>>(
     buildManagerUrl('organizations')
   );
 }
@@ -661,11 +661,14 @@ export async function getManagerOrganization(
 /**
  * Update an organization managed by the current user.
  */
-export async function updateManagerOrganization<TInput>(
+export async function updateManagerOrganization<
+  TInput,
+  TOutput = import('../types/admin').Organization,
+>(
   id: string,
   payload: TInput
-): Promise<import('../types/admin').Organization> {
-  return request<import('../types/admin').Organization>(
+): Promise<TOutput> {
+  return request<TOutput>(
     buildManagerUrl('organizations', id),
     {
       method: 'PUT',
@@ -691,10 +694,10 @@ export async function deleteManagerOrganization(id: string): Promise<void> {
 /**
  * List locations in organizations managed by the current user.
  */
-export async function listManagerLocations(): Promise<
-  ListResponse<import('../types/admin').Location>
-> {
-  return request<ListResponse<import('../types/admin').Location>>(
+export async function listManagerLocations<
+  T = import('../types/admin').Location,
+>(): Promise<ListResponse<T>> {
+  return request<ListResponse<T>>(
     buildManagerUrl('locations')
   );
 }
@@ -713,10 +716,13 @@ export async function getManagerLocation(
 /**
  * Create a location in a managed organization.
  */
-export async function createManagerLocation<TInput>(
+export async function createManagerLocation<
+  TInput,
+  TOutput = import('../types/admin').Location,
+>(
   payload: TInput
-): Promise<import('../types/admin').Location> {
-  return request<import('../types/admin').Location>(buildManagerUrl('locations'), {
+): Promise<TOutput> {
+  return request<TOutput>(buildManagerUrl('locations'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
@@ -726,11 +732,14 @@ export async function createManagerLocation<TInput>(
 /**
  * Update a location in a managed organization.
  */
-export async function updateManagerLocation<TInput>(
+export async function updateManagerLocation<
+  TInput,
+  TOutput = import('../types/admin').Location,
+>(
   id: string,
   payload: TInput
-): Promise<import('../types/admin').Location> {
-  return request<import('../types/admin').Location>(
+): Promise<TOutput> {
+  return request<TOutput>(
     buildManagerUrl('locations', id),
     {
       method: 'PUT',
@@ -754,10 +763,10 @@ export async function deleteManagerLocation(id: string): Promise<void> {
 /**
  * List activities in organizations managed by the current user.
  */
-export async function listManagerActivities(): Promise<
-  ListResponse<import('../types/admin').Activity>
-> {
-  return request<ListResponse<import('../types/admin').Activity>>(
+export async function listManagerActivities<
+  T = import('../types/admin').Activity,
+>(): Promise<ListResponse<T>> {
+  return request<ListResponse<T>>(
     buildManagerUrl('activities')
   );
 }
@@ -776,10 +785,13 @@ export async function getManagerActivity(
 /**
  * Create an activity in a managed organization.
  */
-export async function createManagerActivity<TInput>(
+export async function createManagerActivity<
+  TInput,
+  TOutput = import('../types/admin').Activity,
+>(
   payload: TInput
-): Promise<import('../types/admin').Activity> {
-  return request<import('../types/admin').Activity>(
+): Promise<TOutput> {
+  return request<TOutput>(
     buildManagerUrl('activities'),
     {
       method: 'POST',
@@ -792,11 +804,14 @@ export async function createManagerActivity<TInput>(
 /**
  * Update an activity in a managed organization.
  */
-export async function updateManagerActivity<TInput>(
+export async function updateManagerActivity<
+  TInput,
+  TOutput = import('../types/admin').Activity,
+>(
   id: string,
   payload: TInput
-): Promise<import('../types/admin').Activity> {
-  return request<import('../types/admin').Activity>(
+): Promise<TOutput> {
+  return request<TOutput>(
     buildManagerUrl('activities', id),
     {
       method: 'PUT',
@@ -820,10 +835,10 @@ export async function deleteManagerActivity(id: string): Promise<void> {
 /**
  * List pricing in organizations managed by the current user.
  */
-export async function listManagerPricing(): Promise<
-  ListResponse<import('../types/admin').ActivityPricing>
-> {
-  return request<ListResponse<import('../types/admin').ActivityPricing>>(
+export async function listManagerPricing<
+  T = import('../types/admin').ActivityPricing,
+>(): Promise<ListResponse<T>> {
+  return request<ListResponse<T>>(
     buildManagerUrl('pricing')
   );
 }
@@ -840,10 +855,13 @@ export async function getManagerPricing(
 /**
  * Create pricing in a managed organization.
  */
-export async function createManagerPricing<TInput>(
+export async function createManagerPricing<
+  TInput,
+  TOutput = import('../types/admin').ActivityPricing,
+>(
   payload: TInput
-): Promise<import('../types/admin').ActivityPricing> {
-  return request<import('../types/admin').ActivityPricing>(buildManagerUrl('pricing'), {
+): Promise<TOutput> {
+  return request<TOutput>(buildManagerUrl('pricing'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
@@ -853,11 +871,14 @@ export async function createManagerPricing<TInput>(
 /**
  * Update pricing in a managed organization.
  */
-export async function updateManagerPricing<TInput>(
+export async function updateManagerPricing<
+  TInput,
+  TOutput = import('../types/admin').ActivityPricing,
+>(
   id: string,
   payload: TInput
-): Promise<import('../types/admin').ActivityPricing> {
-  return request<import('../types/admin').ActivityPricing>(
+): Promise<TOutput> {
+  return request<TOutput>(
     buildManagerUrl('pricing', id),
     {
       method: 'PUT',
@@ -881,10 +902,10 @@ export async function deleteManagerPricing(id: string): Promise<void> {
 /**
  * List schedules in organizations managed by the current user.
  */
-export async function listManagerSchedules(): Promise<
-  ListResponse<import('../types/admin').ActivitySchedule>
-> {
-  return request<ListResponse<import('../types/admin').ActivitySchedule>>(
+export async function listManagerSchedules<
+  T = import('../types/admin').ActivitySchedule,
+>(): Promise<ListResponse<T>> {
+  return request<ListResponse<T>>(
     buildManagerUrl('schedules')
   );
 }
@@ -903,10 +924,13 @@ export async function getManagerSchedule(
 /**
  * Create a schedule in a managed organization.
  */
-export async function createManagerSchedule<TInput>(
+export async function createManagerSchedule<
+  TInput,
+  TOutput = import('../types/admin').ActivitySchedule,
+>(
   payload: TInput
-): Promise<import('../types/admin').ActivitySchedule> {
-  return request<import('../types/admin').ActivitySchedule>(buildManagerUrl('schedules'), {
+): Promise<TOutput> {
+  return request<TOutput>(buildManagerUrl('schedules'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
@@ -916,11 +940,14 @@ export async function createManagerSchedule<TInput>(
 /**
  * Update a schedule in a managed organization.
  */
-export async function updateManagerSchedule<TInput>(
+export async function updateManagerSchedule<
+  TInput,
+  TOutput = import('../types/admin').ActivitySchedule,
+>(
   id: string,
   payload: TInput
-): Promise<import('../types/admin').ActivitySchedule> {
-  return request<import('../types/admin').ActivitySchedule>(
+): Promise<TOutput> {
+  return request<TOutput>(
     buildManagerUrl('schedules', id),
     {
       method: 'PUT',

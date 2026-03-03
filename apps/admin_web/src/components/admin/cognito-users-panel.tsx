@@ -1,15 +1,19 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import {
   ApiError,
-  listCognitoUsers,
-  addUserToGroup,
-  removeUserFromGroup,
-  deleteCognitoUser,
-  type CognitoUsersResponse,
 } from '../../lib/api-client';
+import {
+  addUserToGroup,
+  deleteCognitoUser,
+  listCognitoUsers,
+  removeUserFromGroup,
+  type CognitoUsersResponse,
+} from '../../lib/api-client-cognito';
+import { formatDate, formatDateTime } from '../../lib/date-utils';
+import { useConfirmDialog } from '../../hooks/use-confirm-dialog';
 import type { CognitoUser } from '../../types/admin';
 import { useAuth } from '../auth-provider';
 import {
@@ -117,8 +121,8 @@ export function CognitoUsersPanel() {
   const [error, setError] = useState('');
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [actionError, setActionError] = useState('');
-  const [deleteConfirm, setDeleteConfirm] = useState<CognitoUser | null>(null);
   const [selectedUser, setSelectedUser] = useState<CognitoUser | null>(null);
+  const { confirm, ConfirmDialog } = useConfirmDialog();
 
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
@@ -200,7 +204,6 @@ export function CognitoUsersPanel() {
     const actionKey = `delete-${targetUser.sub}`;
     setActionLoading(actionKey);
     setActionError('');
-    setDeleteConfirm(null);
 
     try {
       const response = await deleteCognitoUser(targetUser.username);
@@ -222,46 +225,23 @@ export function CognitoUsersPanel() {
     }
   };
 
-  const isCurrentUser = (cognitoUser: CognitoUser) => {
-    // Compare by subject (Cognito subject identifier)
-    return currentUser?.subject === cognitoUser.sub;
-  };
-
-  const formatDate = (dateStr: string | null | undefined) => {
-    if (!dateStr) return '-';
-    return new Date(dateStr).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
-  };
-
-  /**
-   * Format a datetime string for display with both date and time.
-   * Uses the browser's timezone for display, falling back to UTC if unavailable.
-   */
-  const formatDateTime = (dateStr: string | null | undefined) => {
-    if (!dateStr) return '-';
-    try {
-      const date = new Date(dateStr);
-      if (isNaN(date.getTime())) return '-';
-
-      // Get the browser's timezone
-      const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
-
-      return date.toLocaleString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        timeZone,
-        timeZoneName: 'short',
-      });
-    } catch {
-      return '-';
+  const requestDeleteUser = async (targetUser: CognitoUser) => {
+    const identifier = targetUser.email || targetUser.username || 'this user';
+    const confirmed = await confirm(
+      'Delete user?',
+      `Delete ${identifier}? This action cannot be undone.`,
+      { variant: 'danger', confirmLabel: 'Delete User' }
+    );
+    if (!confirmed) {
+      return;
     }
+    await handleDeleteUser(targetUser);
   };
+
+  const isCurrentUser = useCallback(
+    (cognitoUser: CognitoUser) => currentUser?.subject === cognitoUser.sub,
+    [currentUser?.subject]
+  );
 
   // Filter users based on search query
   const filteredUsers = users.filter((cognitoUser) => {
@@ -277,68 +257,71 @@ export function CognitoUsersPanel() {
     );
   });
 
-  const columns = [
-    {
-      key: 'email',
-      header: 'Email',
-      primary: true,
-      render: (cognitoUser: CognitoUser) => {
-        const isCurrent = isCurrentUser(cognitoUser);
-        return (
-          <div className='min-w-0'>
-            <div className='flex items-center gap-2'>
-              <span className='truncate font-medium'>
-                {cognitoUser.email || cognitoUser.username || 'Unknown'}
-              </span>
-              <IdentityProviderBadge username={cognitoUser.username} />
-              {isCurrent && (
-                <span className='rounded bg-slate-200 px-1.5 py-0.5 text-xs text-slate-600'>
-                  You
+  const columns = useMemo(
+    () => [
+      {
+        key: 'email',
+        header: 'Email',
+        primary: true,
+        render: (cognitoUser: CognitoUser) => {
+          const isCurrent = isCurrentUser(cognitoUser);
+          return (
+            <div className='min-w-0'>
+              <div className='flex items-center gap-2'>
+                <span className='truncate font-medium'>
+                  {cognitoUser.email || cognitoUser.username || 'Unknown'}
                 </span>
+                <IdentityProviderBadge username={cognitoUser.username} />
+                {isCurrent && (
+                  <span className='rounded bg-slate-200 px-1.5 py-0.5 text-xs text-slate-600'>
+                    You
+                  </span>
+                )}
+              </div>
+              {cognitoUser.name && (
+                <div className='text-xs text-slate-500'>
+                  {cognitoUser.name}
+                </div>
               )}
             </div>
-            {cognitoUser.name && (
-              <div className='text-xs text-slate-500'>
-                {cognitoUser.name}
-              </div>
-            )}
-          </div>
-        );
+          );
+        },
       },
-    },
-    {
-      key: 'roles',
-      header: 'Roles',
-      render: (cognitoUser: CognitoUser) => {
-        const hasAdminRole = cognitoUser.groups?.includes('admin') || false;
-        const hasManagerRole = cognitoUser.groups?.includes('manager') || false;
-        return (
-          <div className='flex gap-1'>
-            <RoleBadge role='admin' isActive={hasAdminRole} />
-            <RoleBadge role='manager' isActive={hasManagerRole} />
-          </div>
-        );
+      {
+        key: 'roles',
+        header: 'Roles',
+        render: (cognitoUser: CognitoUser) => {
+          const hasAdminRole = cognitoUser.groups?.includes('admin') || false;
+          const hasManagerRole = cognitoUser.groups?.includes('manager') || false;
+          return (
+            <div className='flex gap-1'>
+              <RoleBadge role='admin' isActive={hasAdminRole} />
+              <RoleBadge role='manager' isActive={hasManagerRole} />
+            </div>
+          );
+        },
       },
-    },
-    {
-      key: 'last-login',
-      header: 'Last Login',
-      render: (cognitoUser: CognitoUser) => (
-        <span className='text-slate-600'>
-          {formatDateTime(cognitoUser.last_auth_time)}
-        </span>
-      ),
-    },
-    {
-      key: 'created',
-      header: 'Created',
-      render: (cognitoUser: CognitoUser) => (
-        <span className='text-slate-600'>
-          {formatDate(cognitoUser.created_at)}
-        </span>
-      ),
-    },
-  ];
+      {
+        key: 'last-login',
+        header: 'Last Login',
+        render: (cognitoUser: CognitoUser) => (
+          <span className='text-slate-600'>
+            {formatDateTime(cognitoUser.last_auth_time)}
+          </span>
+        ),
+      },
+      {
+        key: 'created',
+        header: 'Created',
+        render: (cognitoUser: CognitoUser) => (
+          <span className='text-slate-600'>
+            {formatDate(cognitoUser.created_at)}
+          </span>
+        ),
+      },
+    ],
+    [isCurrentUser]
+  );
 
   function renderActions(
     cognitoUser: CognitoUser,
@@ -397,7 +380,9 @@ export function CognitoUsersPanel() {
           type='button'
           size='sm'
           variant='danger'
-          onClick={() => setDeleteConfirm(cognitoUser)}
+          onClick={() => {
+            void requestDeleteUser(cognitoUser);
+          }}
           disabled={actionLoading === `delete-${cognitoUser.sub}`}
           title='Delete User'
         >
@@ -486,50 +471,7 @@ export function CognitoUsersPanel() {
           </div>
         )}
       </Card>
-
-      {/* Delete Confirmation Modal */}
-      {deleteConfirm && (
-        <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/50'>
-          <div className='mx-4 w-full max-w-md rounded-lg bg-white p-6 shadow-xl'>
-            <h3 className='text-lg font-semibold text-slate-900'>
-              Delete User
-            </h3>
-            <p className='mt-2 text-sm text-slate-600'>
-              Are you sure you want to delete{' '}
-              <span className='font-medium'>
-                {deleteConfirm.email || deleteConfirm.username}
-              </span>
-              ?
-            </p>
-            <p className='mt-2 text-sm text-slate-600'>
-              Any organizations they manage will be transferred to you as the fallback manager.
-            </p>
-            <p className='mt-2 text-sm font-medium text-red-600'>
-              This action cannot be undone.
-            </p>
-            <div className='mt-6 flex justify-end gap-3'>
-              <Button
-                type='button'
-                variant='secondary'
-                onClick={() => setDeleteConfirm(null)}
-                disabled={actionLoading === `delete-${deleteConfirm.sub}`}
-              >
-                Cancel
-              </Button>
-              <Button
-                type='button'
-                variant='danger'
-                onClick={() => handleDeleteUser(deleteConfirm)}
-                disabled={actionLoading === `delete-${deleteConfirm.sub}`}
-              >
-                {actionLoading === `delete-${deleteConfirm.sub}`
-                  ? 'Deleting...'
-                  : 'Delete User'}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      {ConfirmDialog}
 
       {selectedUser && (
         <UserAttributesModal
@@ -552,15 +494,82 @@ function UserAttributesModal({
   const attributeEntries = Object.entries(attributes).sort((a, b) =>
     a[0].localeCompare(b[0])
   );
+  const panelRef = useRef<HTMLDivElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    previousFocusRef.current =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    closeButtonRef.current?.focus();
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        onClose();
+        return;
+      }
+
+      if (event.key !== 'Tab') {
+        return;
+      }
+
+      const panel = panelRef.current;
+      if (!panel) {
+        return;
+      }
+      const focusable = Array.from(
+        panel.querySelectorAll<HTMLElement>(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        )
+      ).filter((element) => !element.hasAttribute('disabled'));
+      if (focusable.length === 0) {
+        return;
+      }
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const active = document.activeElement;
+
+      if (event.shiftKey && active === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && active === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      previousFocusRef.current?.focus();
+    };
+  }, [onClose]);
 
   return (
-    <div className='fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center sm:p-4'>
-      <div className='max-h-[90vh] w-full overflow-y-auto rounded-t-xl bg-white p-4 shadow-xl sm:max-w-2xl sm:rounded-xl sm:p-6'>
+    <div
+      className='fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center sm:p-4'
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) {
+          onClose();
+        }
+      }}
+    >
+      <div
+        ref={panelRef}
+        role='dialog'
+        aria-modal='true'
+        aria-labelledby='user-attributes-title'
+        className='max-h-[90vh] w-full overflow-y-auto rounded-t-xl bg-white p-4 shadow-xl sm:max-w-2xl sm:rounded-xl sm:p-6'
+      >
         <div className='mb-4 flex items-start justify-between'>
-          <h3 className='text-base font-semibold sm:text-lg'>
+          <h3 id='user-attributes-title' className='text-base font-semibold sm:text-lg'>
             User Attributes
           </h3>
           <button
+            ref={closeButtonRef}
             type='button'
             onClick={onClose}
             className='rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600'

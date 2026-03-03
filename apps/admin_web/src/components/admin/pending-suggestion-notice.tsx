@@ -1,43 +1,18 @@
 'use client';
 
-import type { Ticket } from '../../lib/api-client';
+import type { Ticket } from '../../lib/api-client-user';
+import { formatDateTime } from '../../lib/date-utils';
 import { Card } from '../ui/card';
+import { StatusBadge } from '../ui/status-badge';
 import { StatusBanner } from '../status-banner';
 
 interface PendingSuggestionNoticeProps {
   suggestion: Ticket;
 }
 
-function StatusBadge({ status }: { status: Ticket['status'] }) {
-  const colors = {
-    pending: 'bg-yellow-100 text-yellow-800',
-    approved: 'bg-green-100 text-green-800',
-    rejected: 'bg-red-100 text-red-800',
-  };
-
-  return (
-    <span
-      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${colors[status]}`}
-    >
-      {status.charAt(0).toUpperCase() + status.slice(1)}
-    </span>
-  );
-}
-
 export function PendingSuggestionNotice({
   suggestion,
 }: PendingSuggestionNoticeProps) {
-  const formatDate = (dateStr: string | null | undefined) => {
-    if (!dateStr) return '—';
-    return new Date(dateStr).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
-
   return (
     <Card
       title='Your Suggestion'
@@ -85,7 +60,7 @@ export function PendingSuggestionNotice({
 
         <div>
           <span className='text-sm text-slate-500'>Submitted</span>
-          <p className='text-sm'>{formatDate(suggestion.created_at)}</p>
+          <p className='text-sm'>{formatDateTime(suggestion.created_at)}</p>
         </div>
       </div>
 

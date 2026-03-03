@@ -2,29 +2,15 @@
 
 import { useEffect, useMemo, useState } from 'react';
 
-import { listFeedbackLabels, type Ticket } from '../../lib/api-client';
+import { listFeedbackLabels, type Ticket } from '../../lib/api-client-user';
+import { formatDateTime } from '../../lib/date-utils';
 import type { FeedbackLabel } from '../../types/admin';
 import { Card } from '../ui/card';
+import { StatusBadge } from '../ui/status-badge';
 import { StatusBanner } from '../status-banner';
 
 interface PendingFeedbackNoticeProps {
   feedback: Ticket;
-}
-
-function StatusBadge({ status }: { status: Ticket['status'] }) {
-  const colors = {
-    pending: 'bg-yellow-100 text-yellow-800',
-    approved: 'bg-green-100 text-green-800',
-    rejected: 'bg-red-100 text-red-800',
-  };
-
-  return (
-    <span
-      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${colors[status]}`}
-    >
-      {status.charAt(0).toUpperCase() + status.slice(1)}
-    </span>
-  );
 }
 
 export function PendingFeedbackNotice({
@@ -50,17 +36,6 @@ export function PendingFeedbackNotice({
       (id) => map.get(id) || id
     );
   }, [feedback.feedback_label_ids, labels]);
-
-  const formatDate = (dateStr: string | null | undefined) => {
-    if (!dateStr) return '—';
-    return new Date(dateStr).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
 
   return (
     <Card
@@ -107,7 +82,7 @@ export function PendingFeedbackNotice({
 
         <div>
           <span className='text-sm text-slate-500'>Submitted</span>
-          <p className='text-sm'>{formatDate(feedback.created_at)}</p>
+          <p className='text-sm'>{formatDateTime(feedback.created_at)}</p>
         </div>
       </div>
 

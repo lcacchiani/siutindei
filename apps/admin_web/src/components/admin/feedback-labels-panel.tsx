@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 
+import { useFormValidation } from '../../hooks/use-form-validation';
 import { useResourcePanel } from '../../hooks/use-resource-panel';
 import {
   buildTranslationsPayload,
@@ -60,51 +61,11 @@ export function FeedbackLabelsPanel() {
   );
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [touchedState, setTouchedState] = useState<{
-    key: string;
-    fields: Record<string, boolean>;
-  }>({ key: '', fields: {} });
-  const [submittedState, setSubmittedState] = useState<{
-    key: string;
-    value: boolean;
-  }>({ key: '', value: false });
-
-  const isFormEmpty =
-    panel.formState.name.trim() === '' &&
-    panel.formState.display_order.trim() === emptyForm.display_order &&
-    Object.values(panel.formState.name_translations).every(
-      (value) => !value.trim()
-    );
-
   const formKey = panel.editingId ?? 'new';
-  const activeTouchedFields =
-    isFormEmpty || touchedState.key !== formKey ? {} : touchedState.fields;
-  const hasSubmitted =
-    isFormEmpty || submittedState.key !== formKey ? false : submittedState.value;
-
-  const errorInputClassName =
-    'border-red-500 focus:border-red-500 focus:ring-red-500';
-
-  const markTouched = (field: string) => {
-    setTouchedState((prev) => {
-      if (prev.key !== formKey) {
-        return { key: formKey, fields: { [field]: true } };
-      }
-      if (prev.fields[field]) {
-        return prev;
-      }
-      return { key: formKey, fields: { ...prev.fields, [field]: true } };
-    });
-    setSubmittedState((prev) => {
-      if (prev.key !== formKey || isFormEmpty) {
-        return { key: formKey, value: false };
-      }
-      return prev;
-    });
-  };
-
-  const shouldShowError = (field: string, message: string) =>
-    Boolean(message && (hasSubmitted || activeTouchedFields[field]));
+  const validation = useFormValidation(
+    ['name', 'display_order'],
+    formKey
+  );
 
   const validate = () => {
     if (!panel.formState.name.trim()) {
@@ -129,7 +90,7 @@ export function FeedbackLabelsPanel() {
   }, [panel.formState.display_order]);
 
   const handleNameChange = (language: LanguageCode, value: string) => {
-    markTouched('name');
+    validation.markTouched('name');
     panel.setFormState((prev) =>
       language === 'en'
         ? { ...prev, name: value }
@@ -150,7 +111,8 @@ export function FeedbackLabelsPanel() {
   });
 
   const handleSubmit = () => {
-    setSubmittedState({ key: formKey, value: true });
+    validation.setHasSubmitted(true);
+    validation.markAllTouched();
     return panel.handleSubmit(formToPayload, validate);
   };
 
@@ -165,43 +127,49 @@ export function FeedbackLabelsPanel() {
     );
   });
 
-  const showNameError = shouldShowError('name', nameError);
-  const showDisplayOrderError = shouldShowError(
+  const showNameError = validation.shouldShowError(
+    'name',
+    Boolean(nameError)
+  );
+  const showDisplayOrderError = validation.shouldShowError(
     'display_order',
-    displayOrderError
+    Boolean(displayOrderError)
   );
 
-  const columns = [
-    {
-      key: 'name',
-      header: 'Label',
-      primary: true,
-      render: (item: FeedbackLabel) => item.name,
-    },
-    {
-      key: 'translations',
-      header: 'Translations',
-      render: (item: FeedbackLabel) => {
-        const translations = Object.entries(item.name_translations ?? {})
-          .map(([lang, value]) => `${lang}: ${value}`)
-          .join(', ');
-        return (
-          <span className='text-xs text-slate-500'>
-            {translations || '—'}
-          </span>
-        );
+  const columns = useMemo(
+    () => [
+      {
+        key: 'name',
+        header: 'Label',
+        primary: true,
+        render: (item: FeedbackLabel) => item.name,
       },
-    },
-    {
-      key: 'display-order',
-      header: 'Order',
-      render: (item: FeedbackLabel) => (
-        <span className='text-slate-600'>
-          {item.display_order ?? 0}
-        </span>
-      ),
-    },
-  ];
+      {
+        key: 'translations',
+        header: 'Translations',
+        render: (item: FeedbackLabel) => {
+          const translations = Object.entries(item.name_translations ?? {})
+            .map(([lang, value]) => `${lang}: ${value}`)
+            .join(', ');
+          return (
+            <span className='text-xs text-slate-500'>
+              {translations || '—'}
+            </span>
+          );
+        },
+      },
+      {
+        key: 'display-order',
+        header: 'Order',
+        render: (item: FeedbackLabel) => (
+          <span className='text-slate-600'>
+            {item.display_order ?? 0}
+          </span>
+        ),
+      },
+    ],
+    []
+  );
 
   return (
     <div className='space-y-6'>
@@ -230,7 +198,10 @@ export function FeedbackLabelsPanel() {
               }}
               onChange={handleNameChange}
               hasError={showNameError}
-              inputClassName={showNameError ? errorInputClassName : ''}
+              inputClassName={validation.errorClassName(
+                'name',
+                Boolean(nameError)
+              )}
             />
             {showNameError ? (
               <p className='text-xs text-red-600'>{nameError}</p>
@@ -244,14 +215,17 @@ export function FeedbackLabelsPanel() {
               type='number'
               value={panel.formState.display_order}
               onChange={(e) => {
-                markTouched('display_order');
+                validation.markTouched('display_order');
                 panel.setFormState((prev) => ({
                   ...prev,
                   display_order: e.target.value,
                 }));
               }}
-              onBlur={() => markTouched('display_order')}
-              className={showDisplayOrderError ? errorInputClassName : ''}
+              onBlur={() => validation.markTouched('display_order')}
+              className={validation.errorClassName(
+                'display_order',
+                Boolean(displayOrderError)
+              )}
               aria-invalid={showDisplayOrderError || undefined}
             />
             {showDisplayOrderError ? (
@@ -305,6 +279,7 @@ export function FeedbackLabelsPanel() {
           emptyMessage='No feedback labels found.'
         />
       </Card>
+      {panel.confirmDialog}
     </div>
   );
 }

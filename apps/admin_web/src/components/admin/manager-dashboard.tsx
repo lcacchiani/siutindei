@@ -1,16 +1,19 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useQueryState } from 'nuqs';
 
 import {
   ApiError,
+} from '../../lib/api-client';
+import { listManagerOrganizations } from '../../lib/api-client-manager';
+import {
   getUserAccessStatus,
   getUserFeedback,
   getUserSuggestions,
-  listManagerOrganizations,
-  type Ticket,
   type ManagerStatusResponse,
-} from '../../lib/api-client';
+  type Ticket,
+} from '../../lib/api-client-user';
 import { useAuth } from '../auth-provider';
 import { AppShell } from '../app-shell';
 import { StatusBanner } from '../status-banner';
@@ -31,6 +34,17 @@ import { PendingSuggestionNotice } from './pending-suggestion-notice';
 
 type ManagerView = 'loading' | 'request-form' | 'pending' | 'dashboard';
 
+const managerSectionLabels = [
+  { key: 'organizations', label: 'Organizations' },
+  { key: 'media', label: 'Media' },
+  { key: 'locations', label: 'Locations' },
+  { key: 'activities', label: 'Activities' },
+  { key: 'pricing', label: 'Pricing' },
+  { key: 'schedules', label: 'Schedules' },
+  { key: 'suggest-place', label: 'Suggest a Place', dividerBefore: true },
+  { key: 'feedback', label: 'Feedback' },
+];
+
 export function ManagerDashboard() {
   const { user, logout, error: authError } = useAuth();
   const [managerStatus, setManagerStatus] = useState<ManagerStatusResponse | null>(
@@ -43,8 +57,8 @@ export function ManagerDashboard() {
   const [pendingSuggestion, setPendingSuggestion] =
     useState<Ticket | null>(null);
   const [pendingFeedback, setPendingFeedback] = useState<Ticket | null>(null);
-  const [activeSection, setActiveSection] = useState('organizations');
   const [managerOrgName, setManagerOrgName] = useState<string | null>(null);
+  const [sectionParam, setSectionParam] = useQueryState('section');
 
   const loadManagerOrgName = useCallback(async (): Promise<string | null> => {
     try {
@@ -135,17 +149,31 @@ export function ManagerDashboard() {
     ? `Manage your organization, ${managerOrgName}.`
     : 'Manage your organization.';
 
-  // Sections available to managers
-  const sectionLabels = [
-    { key: 'organizations', label: 'Organizations' },
-    { key: 'media', label: 'Media' },
-    { key: 'locations', label: 'Locations' },
-    { key: 'activities', label: 'Activities' },
-    { key: 'pricing', label: 'Pricing' },
-    { key: 'schedules', label: 'Schedules' },
-    { key: 'suggest-place', label: 'Suggest a Place', dividerBefore: true },
-    { key: 'feedback', label: 'Feedback' },
-  ];
+  const activeSection = useMemo(() => {
+    const isValidSection = managerSectionLabels.some(
+      (section) => section.key === sectionParam
+    );
+    return isValidSection && sectionParam ? sectionParam : 'organizations';
+  }, [sectionParam]);
+
+  useEffect(() => {
+    if (sectionParam !== activeSection) {
+      void setSectionParam(activeSection, { history: 'replace' });
+    }
+  }, [activeSection, sectionParam, setSectionParam]);
+
+  const handleSelectSection = useCallback(
+    (nextSection: string) => {
+      const isValidSection = managerSectionLabels.some(
+        (section) => section.key === nextSection
+      );
+      if (!isValidSection) {
+        return;
+      }
+      void setSectionParam(nextSection, { history: 'push' });
+    },
+    [setSectionParam]
+  );
 
   // Use shared components with mode='manager'
   const activeContent = useMemo(() => {
@@ -256,9 +284,9 @@ export function ManagerDashboard() {
   // Dashboard view (manager has organizations)
   return (
     <AppShell
-      sections={sectionLabels}
+      sections={managerSectionLabels}
       activeKey={activeSection}
-      onSelect={setActiveSection}
+      onSelect={handleSelectSection}
       onLogout={logout}
       userEmail={user?.email}
       lastAuthTime={user?.lastAuthTime}

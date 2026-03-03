@@ -2,14 +2,17 @@
 
 import { useState } from 'react';
 
+import { useFormValidation } from '../../hooks/use-form-validation';
 import { useGeographicAreas } from '../../hooks/use-geographic-areas';
 import {
   ApiError,
-  submitOrganizationSuggestion,
   type GeographicAreaNode,
+} from '../../lib/api-client';
+import {
+  submitOrganizationSuggestion,
   type SubmitSuggestionPayload,
   type Ticket,
-} from '../../lib/api-client';
+} from '../../lib/api-client-user';
 import {
   AddressAutocomplete,
 } from '../ui/address-autocomplete';
@@ -37,25 +40,17 @@ export function SuggestionForm({ onSuggestionSubmitted }: SuggestionFormProps) {
   const [selectedLng, setSelectedLng] = useState<number | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
-  const [touchedFields, setTouchedFields] = useState<Record<string, boolean>>(
-    {}
+  const validation = useFormValidation(
+    ['organizationName'],
+    null
   );
-  const [hasSubmitted, setHasSubmitted] = useState(false);
-
-  const requiredIndicator = (
-    <span className='text-red-500' aria-hidden='true'>
-      *
-    </span>
-  );
-  const errorInputClassName =
-    'border-red-500 focus:border-red-500 focus:ring-red-500';
 
   const orgNameError = organizationName.trim()
     ? ''
     : 'Enter an organization or place name.';
-  const showOrgNameError = Boolean(
-    orgNameError &&
-      (hasSubmitted || touchedFields.organizationName)
+  const showOrgNameError = validation.shouldShowError(
+    'organizationName',
+    Boolean(orgNameError)
   );
 
   const handleAddressSelect = (selection: import('../ui/address-autocomplete').AddressSelection) => {
@@ -75,8 +70,8 @@ export function SuggestionForm({ onSuggestionSubmitted }: SuggestionFormProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setHasSubmitted(true);
-    setTouchedFields((prev) => ({ ...prev, organizationName: true }));
+    validation.setHasSubmitted(true);
+    validation.markAllTouched();
 
     if (!organizationName.trim()) {
       setError('Organization name is required');
@@ -165,30 +160,25 @@ export function SuggestionForm({ onSuggestionSubmitted }: SuggestionFormProps) {
         <div className='space-y-1'>
           <Label htmlFor='organization-name'>
             Organization/Place Name{' '}
-            <span className='ml-1'>{requiredIndicator}</span>
+            {validation.requiredIndicator}
           </Label>
           <Input
             id='organization-name'
             type='text'
             value={organizationName}
             onChange={(e) => {
-              setTouchedFields((prev) => ({
-                ...prev,
-                organizationName: true,
-              }));
+              validation.markTouched('organizationName');
               setOrganizationName(e.target.value);
             }}
             placeholder='e.g., Happy Kids Dance Studio'
             required
             maxLength={200}
-            className={showOrgNameError ? errorInputClassName : ''}
+            className={validation.errorClassName(
+              'organizationName',
+              Boolean(orgNameError)
+            )}
             aria-invalid={showOrgNameError || undefined}
-            onBlur={() =>
-              setTouchedFields((prev) => ({
-                ...prev,
-                organizationName: true,
-              }))
-            }
+            onBlur={() => validation.markTouched('organizationName')}
           />
           {showOrgNameError ? (
             <p className='text-xs text-red-600'>{orgNameError}</p>

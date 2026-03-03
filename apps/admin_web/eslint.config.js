@@ -5,4 +5,9 @@ module.exports = [
   {
     ignores: ['node_modules/**', 'e2e/**', 'playwright.config.ts'],
   },
+  {
+    rules: {
+      '@next/next/no-img-element': 'off',
+    },
+  },
 ];

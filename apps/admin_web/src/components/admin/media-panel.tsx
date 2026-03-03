@@ -1,15 +1,18 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import type { ChangeEvent, DragEvent } from 'react';
+import { useEffect, useReducer, useState } from 'react';
+import type { ChangeEvent, DragEvent, SetStateAction } from 'react';
 import Image, { type ImageLoaderProps } from 'next/image';
 
 import {
   ApiError,
-  createOrganizationMediaUpload,
-  deleteOrganizationMedia,
   updateResource,
 } from '../../lib/api-client';
+import {
+  createOrganizationMediaUpload,
+  deleteOrganizationMedia,
+} from '../../lib/api-client-media';
+import { useConfirmDialog } from '../../hooks/use-confirm-dialog';
 import { useOrganizationsByMode } from '../../hooks/use-organizations-by-mode';
 import type { ApiMode } from '../../lib/resource-api';
 import type { Organization } from '../../types/admin';
@@ -119,6 +122,85 @@ interface MediaPanelProps {
   mode?: ApiMode;
 }
 
+interface MediaPanelState {
+  selectedOrgId: string;
+  orgTouched: boolean;
+  orgActionAttempted: boolean;
+  isSaving: boolean;
+  isProcessingMedia: boolean;
+  error: string;
+  successMessage: string;
+  mediaUrls: string[];
+  logoMediaUrl: string | null;
+  newMediaUrl: string;
+  pendingMediaDeletes: string[];
+  uploadedMediaUrls: string[];
+  hasUnsavedChanges: boolean;
+  dragIndex: number | null;
+  dragOverIndex: number | null;
+}
+
+type MediaPanelAction =
+  | {
+      type: 'set-field';
+      field: keyof MediaPanelState;
+      value: unknown;
+    }
+  | {
+      type: 'set-field-updater';
+      field: keyof MediaPanelState;
+      updater: (previous: unknown) => unknown;
+    }
+  | {
+      type: 'patch';
+      payload: Partial<MediaPanelState>;
+    };
+
+const initialMediaPanelState: MediaPanelState = {
+  selectedOrgId: '',
+  orgTouched: false,
+  orgActionAttempted: false,
+  isSaving: false,
+  isProcessingMedia: false,
+  error: '',
+  successMessage: '',
+  mediaUrls: [],
+  logoMediaUrl: null,
+  newMediaUrl: '',
+  pendingMediaDeletes: [],
+  uploadedMediaUrls: [],
+  hasUnsavedChanges: false,
+  dragIndex: null,
+  dragOverIndex: null,
+};
+
+function mediaPanelReducer(
+  state: MediaPanelState,
+  action: MediaPanelAction
+): MediaPanelState {
+  switch (action.type) {
+    case 'set-field':
+      return {
+        ...state,
+        [action.field]: action.value,
+      };
+    case 'set-field-updater': {
+      const previousValue = state[action.field];
+      return {
+        ...state,
+        [action.field]: action.updater(previousValue),
+      };
+    }
+    case 'patch':
+      return {
+        ...state,
+        ...action.payload,
+      };
+    default:
+      return state;
+  }
+}
+
 export function MediaPanel({ mode = 'admin' }: MediaPanelProps) {
   const isAdmin = mode === 'admin';
   const {
@@ -127,25 +209,74 @@ export function MediaPanel({ mode = 'admin' }: MediaPanelProps) {
     error: organizationsError,
   } = useOrganizationsByMode(mode, { fetchAll: true, limit: 50 });
   const [organizations, setOrganizations] = useState<Organization[]>([]);
-  const [selectedOrgId, setSelectedOrgId] = useState<string>('');
-  const [orgTouched, setOrgTouched] = useState(false);
-  const [orgActionAttempted, setOrgActionAttempted] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [isProcessingMedia, setIsProcessingMedia] = useState(false);
-  const [error, setError] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');
-  const [mediaUrls, setMediaUrls] = useState<string[]>([]);
-  const [logoMediaUrl, setLogoMediaUrl] = useState<string | null>(null);
-  const [newMediaUrl, setNewMediaUrl] = useState('');
-  const [pendingMediaDeletes, setPendingMediaDeletes] = useState<
-    string[]
-  >([]);
-  const [uploadedMediaUrls, setUploadedMediaUrls] = useState<string[]>(
-    []
+  const [mediaState, dispatchMedia] = useReducer(
+    mediaPanelReducer,
+    initialMediaPanelState
   );
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-  const [dragIndex, setDragIndex] = useState<number | null>(null);
-  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const {
+    selectedOrgId,
+    orgTouched,
+    orgActionAttempted,
+    isSaving,
+    isProcessingMedia,
+    error,
+    successMessage,
+    mediaUrls,
+    logoMediaUrl,
+    newMediaUrl,
+    pendingMediaDeletes,
+    uploadedMediaUrls,
+    hasUnsavedChanges,
+    dragIndex,
+    dragOverIndex,
+  } = mediaState;
+
+  const setMediaField = <K extends keyof MediaPanelState>(
+    field: K,
+    value: SetStateAction<MediaPanelState[K]>
+  ) => {
+    if (typeof value === 'function') {
+      dispatchMedia({
+        type: 'set-field-updater',
+        field,
+        updater: value as (previous: unknown) => unknown,
+      });
+      return;
+    }
+    dispatchMedia({ type: 'set-field', field, value });
+  };
+
+  const setSelectedOrgId = (value: SetStateAction<string>) =>
+    setMediaField('selectedOrgId', value);
+  const setOrgTouched = (value: SetStateAction<boolean>) =>
+    setMediaField('orgTouched', value);
+  const setOrgActionAttempted = (value: SetStateAction<boolean>) =>
+    setMediaField('orgActionAttempted', value);
+  const setIsSaving = (value: SetStateAction<boolean>) =>
+    setMediaField('isSaving', value);
+  const setIsProcessingMedia = (value: SetStateAction<boolean>) =>
+    setMediaField('isProcessingMedia', value);
+  const setError = (value: SetStateAction<string>) =>
+    setMediaField('error', value);
+  const setSuccessMessage = (value: SetStateAction<string>) =>
+    setMediaField('successMessage', value);
+  const setMediaUrls = (value: SetStateAction<string[]>) =>
+    setMediaField('mediaUrls', value);
+  const setLogoMediaUrl = (value: SetStateAction<string | null>) =>
+    setMediaField('logoMediaUrl', value);
+  const setNewMediaUrl = (value: SetStateAction<string>) =>
+    setMediaField('newMediaUrl', value);
+  const setPendingMediaDeletes = (value: SetStateAction<string[]>) =>
+    setMediaField('pendingMediaDeletes', value);
+  const setUploadedMediaUrls = (value: SetStateAction<string[]>) =>
+    setMediaField('uploadedMediaUrls', value);
+  const setHasUnsavedChanges = (value: SetStateAction<boolean>) =>
+    setMediaField('hasUnsavedChanges', value);
+  const setDragIndex = (value: SetStateAction<number | null>) =>
+    setMediaField('dragIndex', value);
+  const setDragOverIndex = (value: SetStateAction<number | null>) =>
+    setMediaField('dragOverIndex', value);
+  const { confirm, ConfirmDialog } = useConfirmDialog();
 
   const requiredIndicator = (
     <span className='text-red-500' aria-hidden='true'>
@@ -176,26 +307,38 @@ export function MediaPanel({ mode = 'admin' }: MediaPanelProps) {
     if (orgItems.length === 1) {
       const singleOrg = orgItems[0];
       const nextMediaUrls = singleOrg.media_urls ?? [];
-      setSelectedOrgId(singleOrg.id);
-      setOrgTouched(false);
-      setOrgActionAttempted(false);
-      setMediaUrls(nextMediaUrls);
-      setLogoMediaUrl(
-        resolveLogoMediaUrl(nextMediaUrls, singleOrg.logo_media_url)
-      );
+      dispatchMedia({
+        type: 'patch',
+        payload: {
+          selectedOrgId: singleOrg.id,
+          orgTouched: false,
+          orgActionAttempted: false,
+          mediaUrls: nextMediaUrls,
+          logoMediaUrl: resolveLogoMediaUrl(
+            nextMediaUrls,
+            singleOrg.logo_media_url
+          ),
+        },
+      });
     }
   }, [isAdmin, orgItems, selectedOrgId]);
 
   useEffect(() => {
     if (organizationsError) {
-      setError(organizationsError);
+      dispatchMedia({
+        type: 'set-field',
+        field: 'error',
+        value: organizationsError,
+      });
     }
   }, [organizationsError]);
 
-  const handleSelectOrganization = (orgId: string) => {
+  const handleSelectOrganization = async (orgId: string) => {
     if (hasUnsavedChanges) {
-      const confirmed = window.confirm(
-        'You have unsaved changes. Are you sure you want to switch organizations?'
+      const confirmed = await confirm(
+        'Switch organizations?',
+        'You have unsaved changes. Switch organizations and discard them?',
+        { confirmLabel: 'Switch', variant: 'danger' }
       );
       if (!confirmed) {
         return;
@@ -531,9 +674,9 @@ export function MediaPanel({ mode = 'admin' }: MediaPanelProps) {
             <Select
               id='org-select'
               value={selectedOrgId}
-              onChange={(event) =>
-                handleSelectOrganization(event.target.value)
-              }
+              onChange={(event) => {
+                void handleSelectOrganization(event.target.value);
+              }}
               disabled={isLoadingOrgs || isMediaBusy || isSingleOrgManager}
               className={showOrgError ? errorInputClassName : ''}
               aria-invalid={showOrgError || undefined}
@@ -754,6 +897,7 @@ export function MediaPanel({ mode = 'admin' }: MediaPanelProps) {
           </p>
         </Card>
       )}
+      {ConfirmDialog}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import type { Ticket } from '../../lib/api-client';
+import type { Ticket } from '../../lib/api-client-user';
 import { Card } from '../ui/card';
 import { StatusBanner } from '../status-banner';
 

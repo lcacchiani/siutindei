@@ -2,14 +2,14 @@
 
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 
+import { ApiError } from '../../lib/api-client';
 import {
-  ApiError,
   listFeedbackLabels,
   searchUserOrganizations,
   submitUserFeedback,
   type Ticket,
   type UserFeedbackCreatePayload,
-} from '../../lib/api-client';
+} from '../../lib/api-client-user';
 import type { FeedbackLabel } from '../../types/admin';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';

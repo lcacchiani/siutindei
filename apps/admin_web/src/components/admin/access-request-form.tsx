@@ -4,9 +4,9 @@ import { useState } from 'react';
 
 import {
   ApiError,
-  submitAccessRequest,
-  type Ticket,
 } from '../../lib/api-client';
+import { useFormValidation } from '../../hooks/use-form-validation';
+import { submitAccessRequest, type Ticket } from '../../lib/api-client-user';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
 import { Input } from '../ui/input';
@@ -23,31 +23,23 @@ export function AccessRequestForm({ onRequestSubmitted }: AccessRequestFormProps
   const [requestMessage, setRequestMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
-  const [touchedFields, setTouchedFields] = useState<Record<string, boolean>>(
-    {}
+  const validation = useFormValidation(
+    ['organizationName'],
+    null
   );
-  const [hasSubmitted, setHasSubmitted] = useState(false);
-
-  const requiredIndicator = (
-    <span className='text-red-500' aria-hidden='true'>
-      *
-    </span>
-  );
-  const errorInputClassName =
-    'border-red-500 focus:border-red-500 focus:ring-red-500';
 
   const orgNameError = organizationName.trim()
     ? ''
     : 'Enter an organization name.';
-  const showOrgNameError = Boolean(
-    orgNameError &&
-      (hasSubmitted || touchedFields.organizationName)
+  const showOrgNameError = validation.shouldShowError(
+    'organizationName',
+    Boolean(orgNameError)
   );
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    setHasSubmitted(true);
-    setTouchedFields((prev) => ({ ...prev, organizationName: true }));
+    validation.setHasSubmitted(true);
+    validation.markAllTouched();
 
     if (!organizationName.trim()) {
       setError('Organization name is required.');
@@ -106,17 +98,14 @@ export function AccessRequestForm({ onRequestSubmitted }: AccessRequestFormProps
           <div className='space-y-1'>
             <Label htmlFor='organization-name'>
               Organization Name{' '}
-              <span className='ml-1'>{requiredIndicator}</span>
+              {validation.requiredIndicator}
             </Label>
             <Input
               id='organization-name'
               type='text'
               value={organizationName}
               onChange={(e) => {
-                setTouchedFields((prev) => ({
-                  ...prev,
-                  organizationName: true,
-                }));
+                validation.markTouched('organizationName');
                 setOrganizationName(e.target.value);
               }}
               placeholder={
@@ -124,14 +113,12 @@ export function AccessRequestForm({ onRequestSubmitted }: AccessRequestFormProps
                 'create'
               }
               disabled={isSubmitting}
-              className={showOrgNameError ? errorInputClassName : ''}
+              className={validation.errorClassName(
+                'organizationName',
+                Boolean(orgNameError)
+              )}
               aria-invalid={showOrgNameError || undefined}
-              onBlur={() =>
-                setTouchedFields((prev) => ({
-                  ...prev,
-                  organizationName: true,
-                }))
-              }
+              onBlur={() => validation.markTouched('organizationName')}
             />
             {showOrgNameError ? (
               <p className='text-xs text-red-600'>{orgNameError}</p>

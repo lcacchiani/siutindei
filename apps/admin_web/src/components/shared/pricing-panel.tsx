@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import currencyCodes from 'currency-codes';
 
 import { useActivitiesByMode } from '../../hooks/use-activities-by-mode';
+import { useFormValidation } from '../../hooks/use-form-validation';
 import { useLocationsByMode } from '../../hooks/use-locations-by-mode';
 import { useResourcePanel } from '../../hooks/use-resource-panel';
 import {
@@ -111,45 +112,17 @@ export function PricingPanel({ mode }: PricingPanelProps) {
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
 
-  const [touchedState, setTouchedState] = useState<{
-    key: string;
-    fields: Record<string, boolean>;
-  }>({ key: '', fields: {} });
-  const [submittedState, setSubmittedState] = useState<{
-    key: string;
-    value: boolean;
-  }>({ key: '', value: false });
-
-  const requiredIndicator = (
-    <span className='text-red-500' aria-hidden='true'>
-      *
-    </span>
+  const formKey = panel.editingId ?? 'new';
+  const validation = useFormValidation(
+    ['location_id', 'activity_id', 'sessions_count', 'amount'],
+    formKey
   );
+  const requiredIndicator = validation.requiredIndicator;
   const errorInputClassName =
     'border-red-500 focus:border-red-500 focus:ring-red-500';
-
-  const markTouched = (field: string) => {
-    setTouchedState((prev) => {
-      if (prev.key !== formKey) {
-        return { key: formKey, fields: { [field]: true } };
-      }
-      if (prev.fields[field]) {
-        return prev;
-      }
-      return { key: formKey, fields: { ...prev.fields, [field]: true } };
-    });
-    setSubmittedState((prev) => {
-      if (prev.key !== formKey || isFormEmpty) {
-        return { key: formKey, value: false };
-      }
-      return prev;
-    });
-  };
+  const { markTouched } = validation;
   const shouldShowError = (field: string, message: string) =>
-    Boolean(
-      message &&
-        (hasSubmitted || activeTouchedFields[field])
-    );
+    validation.shouldShowError(field, Boolean(message));
 
   useEffect(() => {
     if (editingId) {
@@ -189,21 +162,6 @@ export function PricingPanel({ mode }: PricingPanelProps) {
     formState.location_id,
     setFormState,
   ]);
-
-  const isFormEmpty =
-    panel.formState.activity_id === '' &&
-    panel.formState.location_id === '' &&
-    panel.formState.pricing_type === emptyForm.pricing_type &&
-    panel.formState.amount.trim() === '' &&
-    panel.formState.currency === defaultCurrencyCode &&
-    panel.formState.sessions_count.trim() === '' &&
-    panel.formState.free_trial_class_offered === false;
-
-  const formKey = panel.editingId ?? 'new';
-  const activeTouchedFields =
-    isFormEmpty || touchedState.key !== formKey ? {} : touchedState.fields;
-  const hasSubmitted =
-    isFormEmpty || submittedState.key !== formKey ? false : submittedState.value;
 
   const currencyOptions = useMemo<CurrencyOption[]>(() => {
     const display =
@@ -348,68 +306,72 @@ export function PricingPanel({ mode }: PricingPanelProps) {
   };
 
   const handleSubmit = () => {
-    setSubmittedState({ key: formKey, value: true });
+    validation.setHasSubmitted(true);
+    validation.markAllTouched();
     return panel.handleSubmit(formToPayload, validate);
   };
 
-  function getActivityName(activityId: string) {
-    return (
+  const getActivityName = useCallback(
+    (activityId: string) =>
       activities.find((activity) => activity.id === activityId)?.name ??
-      activityId
-    );
-  }
+      activityId,
+    [activities]
+  );
 
-  function getLocationName(locationId: string) {
-    return (
+  const getLocationName = useCallback(
+    (locationId: string) =>
       locations.find((location) => location.id === locationId)?.address ??
-      locationId
-    );
-  }
+      locationId,
+    [locations]
+  );
 
-  const columns = [
-    {
-      key: 'location',
-      header: 'Location',
-      primary: true,
-      render: (item: ActivityPricing) => (
-        <span className='font-medium'>
-          {getLocationName(item.location_id)}
-        </span>
-      ),
-    },
-    {
-      key: 'activity',
-      header: 'Activity',
-      secondary: true,
-      render: (item: ActivityPricing) => (
-        <span className='text-slate-600'>
-          {getActivityName(item.activity_id)}
-        </span>
-      ),
-    },
-    {
-      key: 'type',
-      header: 'Type',
-      render: (item: ActivityPricing) => (
-        <span className='text-slate-600'>
-          {getPricingTypeLabel(item.pricing_type)}
-        </span>
-      ),
-    },
-    {
-      key: 'amount',
-      header: 'Amount',
-      render: (item: ActivityPricing) =>
-        item.pricing_type === 'free' ? (
-          <span className='text-slate-600'>-</span>
-        ) : (
-          <span className='text-slate-600'>
-            {getCurrencyDisplay(item.currency)}{' '}
-            {formatPriceAmount(item.amount)}
+  const columns = useMemo(
+    () => [
+      {
+        key: 'location',
+        header: 'Location',
+        primary: true,
+        render: (item: ActivityPricing) => (
+          <span className='font-medium'>
+            {getLocationName(item.location_id)}
           </span>
         ),
-    },
-  ];
+      },
+      {
+        key: 'activity',
+        header: 'Activity',
+        secondary: true,
+        render: (item: ActivityPricing) => (
+          <span className='text-slate-600'>
+            {getActivityName(item.activity_id)}
+          </span>
+        ),
+      },
+      {
+        key: 'type',
+        header: 'Type',
+        render: (item: ActivityPricing) => (
+          <span className='text-slate-600'>
+            {getPricingTypeLabel(item.pricing_type)}
+          </span>
+        ),
+      },
+      {
+        key: 'amount',
+        header: 'Amount',
+        render: (item: ActivityPricing) =>
+          item.pricing_type === 'free' ? (
+            <span className='text-slate-600'>-</span>
+          ) : (
+            <span className='text-slate-600'>
+              {getCurrencyDisplay(item.currency)}{' '}
+              {formatPriceAmount(item.amount)}
+            </span>
+          ),
+      },
+    ],
+    [getActivityName, getLocationName]
+  );
 
   // Filter items based on search query
   const filteredItems = panel.items.filter((item) => {
@@ -709,6 +671,7 @@ export function PricingPanel({ mode }: PricingPanelProps) {
           </div>
         )}
       </Card>
+      {panel.confirmDialog}
     </div>
   );
 }

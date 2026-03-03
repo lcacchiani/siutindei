@@ -1,13 +1,14 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import {
   ApiError,
-  listAuditLogs,
-  listCognitoUsers,
   type AuditLogsFilters,
 } from '../../lib/api-client';
+import { listAuditLogs } from '../../lib/api-client-audit';
+import { listCognitoUsers } from '../../lib/api-client-cognito';
+import { formatDateTime } from '../../lib/date-utils';
 import type { AuditLog } from '../../types/admin';
 import { ViewIcon } from '../icons/action-icons';
 import { Button } from '../ui/button';
@@ -101,13 +102,79 @@ function formatJson(obj: Record<string, unknown> | null | undefined): string {
 
 function DetailModal({ log, onClose, userEmailById }: DetailModalProps) {
   const userEmail = log.user_id ? userEmailById[log.user_id] : null;
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    previousFocusRef.current =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    closeButtonRef.current?.focus();
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        onClose();
+        return;
+      }
+      if (event.key !== 'Tab') {
+        return;
+      }
+      const dialog = dialogRef.current;
+      if (!dialog) {
+        return;
+      }
+      const focusable = Array.from(
+        dialog.querySelectorAll<HTMLElement>(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        )
+      ).filter((element) => !element.hasAttribute('disabled'));
+      if (focusable.length === 0) {
+        return;
+      }
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const active = document.activeElement;
+      if (event.shiftKey && active === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && active === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      previousFocusRef.current?.focus();
+    };
+  }, [onClose]);
 
   return (
-    <div className='fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center sm:p-4'>
-      <div className='max-h-[90vh] w-full overflow-y-auto rounded-t-xl bg-white p-4 shadow-xl sm:max-w-2xl sm:rounded-xl sm:p-6'>
+    <div
+      className='fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center sm:p-4'
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) {
+          onClose();
+        }
+      }}
+    >
+      <div
+        ref={dialogRef}
+        role='dialog'
+        aria-modal='true'
+        aria-labelledby='audit-log-detail-title'
+        className='max-h-[90vh] w-full overflow-y-auto rounded-t-xl bg-white p-4 shadow-xl sm:max-w-2xl sm:rounded-xl sm:p-6'
+      >
         <div className='mb-4 flex items-start justify-between'>
-          <h3 className='text-base font-semibold sm:text-lg'>Audit Log Detail</h3>
+          <h3 id='audit-log-detail-title' className='text-base font-semibold sm:text-lg'>
+            Audit Log Detail
+          </h3>
           <button
+            ref={closeButtonRef}
             type='button'
             onClick={onClose}
             className='rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600'
@@ -131,7 +198,7 @@ function DetailModal({ log, onClose, userEmailById }: DetailModalProps) {
             </div>
             <div>
               <span className='font-medium text-slate-500'>Timestamp</span>
-              <p className='mt-1'>{formatDate(log.timestamp)}</p>
+              <p className='mt-1'>{formatDateTime(log.timestamp)}</p>
             </div>
             <div>
               <span className='font-medium text-slate-500'>Table</span>
@@ -220,18 +287,6 @@ function DetailModal({ log, onClose, userEmailById }: DetailModalProps) {
       </div>
     </div>
   );
-}
-
-function formatDate(dateStr: string | null | undefined) {
-  if (!dateStr) return '—';
-  return new Date(dateStr).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  });
 }
 
 function formatGmtOffset(date: Date = new Date()) {
@@ -421,51 +476,54 @@ export function AuditLogsPanel() {
     [userEmailById]
   );
 
-  const columns = [
-    {
-      key: 'timestamp',
-      header: timestampHeader,
-      secondary: true,
-      render: (item: AuditLog) => (
-        <span className='text-slate-600'>{formatDate(item.timestamp)}</span>
-      ),
-    },
-    {
-      key: 'table',
-      header: 'Table',
-      primary: true,
-      render: (item: AuditLog) => (
-        <span className='font-medium'>{item.table_name}</span>
-      ),
-    },
-    {
-      key: 'action',
-      header: 'Action',
-      render: (item: AuditLog) => <ActionBadge action={item.action} />,
-    },
-    {
-      key: 'user-id',
-      header: 'User Email',
-      render: (item: AuditLog) => (
-        <span className='font-mono text-xs text-slate-600'>
-          {getUserEmail(item.user_id)}
-        </span>
-      ),
-    },
-    {
-      key: 'changed-fields',
-      header: 'Changed Fields',
-      headerClassName: 'md:hidden',
-      cellClassName: 'md:hidden',
-      render: (item: AuditLog) => (
-        <span className='text-slate-500'>
-          {item.changed_fields?.length
-            ? item.changed_fields.join(', ')
-            : '—'}
-        </span>
-      ),
-    },
-  ];
+  const columns = useMemo(
+    () => [
+      {
+        key: 'timestamp',
+        header: timestampHeader,
+        secondary: true,
+        render: (item: AuditLog) => (
+          <span className='text-slate-600'>{formatDateTime(item.timestamp)}</span>
+        ),
+      },
+      {
+        key: 'table',
+        header: 'Table',
+        primary: true,
+        render: (item: AuditLog) => (
+          <span className='font-medium'>{item.table_name}</span>
+        ),
+      },
+      {
+        key: 'action',
+        header: 'Action',
+        render: (item: AuditLog) => <ActionBadge action={item.action} />,
+      },
+      {
+        key: 'user-id',
+        header: 'User Email',
+        render: (item: AuditLog) => (
+          <span className='font-mono text-xs text-slate-600'>
+            {getUserEmail(item.user_id)}
+          </span>
+        ),
+      },
+      {
+        key: 'changed-fields',
+        header: 'Changed Fields',
+        headerClassName: 'md:hidden',
+        cellClassName: 'md:hidden',
+        render: (item: AuditLog) => (
+          <span className='text-slate-500'>
+            {item.changed_fields?.length
+              ? item.changed_fields.join(', ')
+              : '—'}
+          </span>
+        ),
+      },
+    ],
+    [getUserEmail, timestampHeader]
+  );
 
   function renderActions(item: AuditLog, context: 'desktop' | 'mobile') {
     return (
