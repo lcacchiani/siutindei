@@ -149,18 +149,22 @@ export function ManagerDashboard() {
     ? `Manage your organization, ${managerOrgName}.`
     : 'Manage your organization.';
 
-  const activeSection = useMemo(() => {
-    const isValidSection = managerSectionLabels.some(
-      (section) => section.key === sectionParam
-    );
-    return isValidSection && sectionParam ? sectionParam : 'organizations';
-  }, [sectionParam]);
+  const isValidSectionParam = useMemo(
+    () => managerSectionLabels.some((section) => section.key === sectionParam),
+    [sectionParam]
+  );
+  const activeSection = useMemo(
+    () =>
+      isValidSectionParam && sectionParam ? sectionParam : 'organizations',
+    [isValidSectionParam, sectionParam]
+  );
 
   useEffect(() => {
-    if (sectionParam !== activeSection) {
-      void setSectionParam(activeSection, { history: 'replace' });
+    if (sectionParam && isValidSectionParam) {
+      return;
     }
-  }, [activeSection, sectionParam, setSectionParam]);
+    void setSectionParam(activeSection, { history: 'replace' });
+  }, [activeSection, isValidSectionParam, sectionParam, setSectionParam]);
 
   const handleSelectSection = useCallback(
     (nextSection: string) => {

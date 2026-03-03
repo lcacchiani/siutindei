@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useId, useRef } from 'react';
 
 interface ConfirmDialogProps {
   open: boolean;
@@ -33,6 +33,7 @@ export function ConfirmDialog({
 }: ConfirmDialogProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
+  const titleId = useId();
 
   useEffect(() => {
     if (!open) {
@@ -112,10 +113,10 @@ export function ConfirmDialog({
         ref={containerRef}
         role='dialog'
         aria-modal='true'
-        aria-labelledby='confirm-dialog-title'
+        aria-labelledby={titleId}
         className='w-full max-w-md rounded-lg bg-white p-6 shadow-xl'
       >
-        <h2 id='confirm-dialog-title' className='text-lg font-semibold text-slate-900'>
+        <h2 id={titleId} className='text-lg font-semibold text-slate-900'>
           {title}
         </h2>
         <p className='mt-2 text-sm text-slate-600'>{message}</p>

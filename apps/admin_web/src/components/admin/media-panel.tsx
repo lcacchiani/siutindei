@@ -2,19 +2,16 @@
 
 import { useEffect, useReducer, useState } from 'react';
 import type { ChangeEvent, DragEvent, SetStateAction } from 'react';
-import Image, { type ImageLoaderProps } from 'next/image';
 
 import {
   ApiError,
   updateResource,
 } from '../../lib/api-client';
 import {
-  createOrganizationMediaUpload,
   deleteOrganizationMedia,
 } from '../../lib/api-client-media';
 import { useConfirmDialog } from '../../hooks/use-confirm-dialog';
 import { useOrganizationsByMode } from '../../hooks/use-organizations-by-mode';
-import type { ApiMode } from '../../lib/resource-api';
 import type { Organization } from '../../types/admin';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
@@ -23,6 +20,19 @@ import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Select } from '../ui/select';
 import { StatusBanner } from '../status-banner';
+import { MediaGrid } from './media/media-grid';
+import {
+  initialMediaPanelState,
+  isManagedMediaUrl,
+  mediaPanelReducer,
+  normalizeMediaUrls,
+  reorderMediaUrls,
+  resolveLogoMediaUrl,
+  type MediaPanelAction,
+  type MediaPanelProps,
+  type MediaPanelState,
+  uploadMediaFile,
+} from './media/media-panel-utils';
 
 function PlusIcon({ className }: { className?: string }) {
   return (
@@ -39,166 +49,6 @@ function PlusIcon({ className }: { className?: string }) {
       <line x1="5" y1="12" x2="19" y2="12" />
     </svg>
   );
-}
-
-function normalizeMediaUrls(urls: string[]) {
-  const cleaned = urls
-    .map((url) => url.trim())
-    .filter((url) => url.length > 0);
-  return Array.from(new Set(cleaned));
-}
-
-function reorderMediaUrls(
-  urls: string[],
-  fromIndex: number,
-  toIndex: number
-) {
-  if (
-    fromIndex < 0 ||
-    toIndex < 0 ||
-    fromIndex >= urls.length ||
-    toIndex >= urls.length ||
-    fromIndex === toIndex
-  ) {
-    return urls;
-  }
-  const next = [...urls];
-  const [moved] = next.splice(fromIndex, 1);
-  next.splice(toIndex, 0, moved);
-  return next;
-}
-
-function resolveLogoMediaUrl(
-  mediaUrls: string[],
-  logoMediaUrl?: string | null
-) {
-  if (!logoMediaUrl) {
-    return null;
-  }
-  return mediaUrls.includes(logoMediaUrl) ? logoMediaUrl : null;
-}
-
-function imageLoader({ src }: ImageLoaderProps) {
-  return src;
-}
-
-function isManagedMediaUrl(url: string) {
-  return url.startsWith('http') && url.includes('amazonaws.com/');
-}
-
-async function uploadMediaFile(
-  organizationId: string,
-  file: File
-): Promise<string> {
-  if (!file.type.startsWith('image/')) {
-    throw new Error('Only image files are supported.');
-  }
-
-  const payload = {
-    file_name: file.name,
-    content_type: file.type,
-  };
-  const upload = await createOrganizationMediaUpload(
-    organizationId,
-    payload
-  );
-
-  const response = await fetch(upload.upload_url, {
-    method: 'PUT',
-    headers: {
-      'Content-Type': file.type,
-    },
-    body: file,
-  });
-
-  if (!response.ok) {
-    throw new Error('Failed to upload media.');
-  }
-
-  return upload.media_url;
-}
-
-interface MediaPanelProps {
-  mode?: ApiMode;
-}
-
-interface MediaPanelState {
-  selectedOrgId: string;
-  orgTouched: boolean;
-  orgActionAttempted: boolean;
-  isSaving: boolean;
-  isProcessingMedia: boolean;
-  error: string;
-  successMessage: string;
-  mediaUrls: string[];
-  logoMediaUrl: string | null;
-  newMediaUrl: string;
-  pendingMediaDeletes: string[];
-  uploadedMediaUrls: string[];
-  hasUnsavedChanges: boolean;
-  dragIndex: number | null;
-  dragOverIndex: number | null;
-}
-
-type MediaPanelAction =
-  | {
-      type: 'set-field';
-      field: keyof MediaPanelState;
-      value: unknown;
-    }
-  | {
-      type: 'set-field-updater';
-      field: keyof MediaPanelState;
-      updater: (previous: unknown) => unknown;
-    }
-  | {
-      type: 'patch';
-      payload: Partial<MediaPanelState>;
-    };
-
-const initialMediaPanelState: MediaPanelState = {
-  selectedOrgId: '',
-  orgTouched: false,
-  orgActionAttempted: false,
-  isSaving: false,
-  isProcessingMedia: false,
-  error: '',
-  successMessage: '',
-  mediaUrls: [],
-  logoMediaUrl: null,
-  newMediaUrl: '',
-  pendingMediaDeletes: [],
-  uploadedMediaUrls: [],
-  hasUnsavedChanges: false,
-  dragIndex: null,
-  dragOverIndex: null,
-};
-
-function mediaPanelReducer(
-  state: MediaPanelState,
-  action: MediaPanelAction
-): MediaPanelState {
-  switch (action.type) {
-    case 'set-field':
-      return {
-        ...state,
-        [action.field]: action.value,
-      };
-    case 'set-field-updater': {
-      const previousValue = state[action.field];
-      return {
-        ...state,
-        [action.field]: action.updater(previousValue),
-      };
-    }
-    case 'patch':
-      return {
-        ...state,
-        ...action.payload,
-      };
-    default:
-      return state;
-  }
 }
 
 export function MediaPanel({ mode = 'admin' }: MediaPanelProps) {
@@ -276,7 +126,7 @@ export function MediaPanel({ mode = 'admin' }: MediaPanelProps) {
     setMediaField('dragIndex', value);
   const setDragOverIndex = (value: SetStateAction<number | null>) =>
     setMediaField('dragOverIndex', value);
-  const { confirm, ConfirmDialog } = useConfirmDialog();
+  const { confirm, confirmDialog } = useConfirmDialog();
 
   const requiredIndicator = (
     <span className='text-red-500' aria-hidden='true'>
@@ -741,107 +591,20 @@ export function MediaPanel({ mode = 'admin' }: MediaPanelProps) {
             </div>
 
             {mediaUrls.length > 0 ? (
-              <div className='grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'>
-                {mediaUrls.map((url, index) => {
-                  const isDropTarget =
-                    dragOverIndex === index && dragIndex !== null;
-                  const isFirst = index === 0;
-                  const isLast = index === mediaUrls.length - 1;
-                  return (
-                    <div
-                      key={`${url}-${index}`}
-                      className={`overflow-hidden rounded-lg border border-slate-200 ${
-                        isDropTarget ? 'ring-2 ring-sky-400' : ''
-                      }`}
-                      onDragOver={(event) => handleDragOver(event, index)}
-                      onDrop={(event) => handleDrop(event, index)}
-                    >
-                      <Image
-                        src={url}
-                        alt={`Organization media ${index + 1}`}
-                        width={320}
-                        height={112}
-                        sizes={
-                          '(min-width: 1024px) 33vw, ' +
-                          '(min-width: 640px) 50vw, 100vw'
-                        }
-                        className='h-32 w-full object-cover sm:h-28'
-                        loading='lazy'
-                        loader={imageLoader}
-                      />
-                      <div className='flex items-center justify-between gap-2 px-3 py-2 text-xs'>
-                        <div className='flex items-center gap-2'>
-                          <Button
-                            type='button'
-                            size='sm'
-                            variant='ghost'
-                            className='px-2 text-xs'
-                            draggable={!isMediaBusy}
-                            onDragStart={(event) =>
-                              handleDragStart(event, index)
-                            }
-                            onDragEnd={handleDragEnd}
-                            disabled={isMediaBusy}
-                          >
-                            Drag
-                          </Button>
-                          <label className='flex items-center gap-2 text-slate-600'>
-                            <input
-                              type='radio'
-                              name='logo_media'
-                              value={url}
-                              checked={logoMediaUrl === url}
-                              onChange={() => handleSelectLogo(url)}
-                              disabled={isMediaBusy}
-                              className='h-3 w-3'
-                            />
-                            <span>Logo</span>
-                          </label>
-                        </div>
-                        <div className='flex items-center gap-1'>
-                          <Button
-                            type='button'
-                            size='sm'
-                            variant='ghost'
-                            onClick={() => moveMediaTo(index, index - 1)}
-                            disabled={isMediaBusy || isFirst}
-                          >
-                            Up
-                          </Button>
-                          <Button
-                            type='button'
-                            size='sm'
-                            variant='ghost'
-                            onClick={() => moveMediaTo(index, index + 1)}
-                            disabled={isMediaBusy || isLast}
-                          >
-                            Down
-                          </Button>
-                        </div>
-                      </div>
-                      <div className='flex items-center justify-between gap-2 px-3 pb-3 text-xs'>
-                        <a
-                          href={url}
-                          target='_blank'
-                          rel='noreferrer'
-                          className='truncate text-slate-600 hover:text-slate-900'
-                        >
-                          Open
-                        </a>
-                        <Button
-                          type='button'
-                          size='sm'
-                          variant='danger'
-                          onClick={() => removeMediaAt(index)}
-                          disabled={isMediaBusy}
-                        >
-                          Remove
-                        </Button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+              <MediaGrid
+                mediaUrls={mediaUrls}
+                logoMediaUrl={logoMediaUrl}
+                isMediaBusy={isMediaBusy}
+                dragIndex={dragIndex}
+                dragOverIndex={dragOverIndex}
+                onDragOver={handleDragOver}
+                onDrop={handleDrop}
+                onDragStart={handleDragStart}
+                onDragEnd={handleDragEnd}
+                onSelectLogo={handleSelectLogo}
+                onMoveMedia={moveMediaTo}
+                onRemoveMedia={removeMediaAt}
+              />
             ) : (
               <p className='text-sm text-slate-500'>
                 No media added yet. Upload files or add URLs above.
@@ -897,7 +660,7 @@ export function MediaPanel({ mode = 'admin' }: MediaPanelProps) {
           </p>
         </Card>
       )}
-      {ConfirmDialog}
+      {confirmDialog}
     </div>
   );
 }

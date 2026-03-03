@@ -1,6 +1,12 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  createElement,
+  useCallback,
+  useEffect,
+  useState,
+  type ReactElement,
+} from 'react';
 
 import { ConfirmDialog } from '../components/ui/confirm-dialog';
 
@@ -19,6 +25,15 @@ interface ConfirmDialogOptions {
   variant?: 'danger' | 'default';
 }
 
+interface UseConfirmDialogResult {
+  confirm: (
+    title: string,
+    message: string,
+    options?: ConfirmDialogOptions
+  ) => Promise<boolean>;
+  confirmDialog: ReactElement;
+}
+
 const defaultState: ConfirmDialogState = {
   open: false,
   title: '',
@@ -28,15 +43,17 @@ const defaultState: ConfirmDialogState = {
   variant: 'default',
 };
 
-export function useConfirmDialog() {
+export function useConfirmDialog(): UseConfirmDialogResult {
   const [state, setState] = useState<ConfirmDialogState>(defaultState);
-  const resolverRef = useRef<((value: boolean) => void) | null>(null);
+  const [resolver, setResolver] = useState<((value: boolean) => void) | null>(
+    null
+  );
 
   const closeWithResult = useCallback((result: boolean) => {
-    resolverRef.current?.(result);
-    resolverRef.current = null;
+    resolver?.(result);
+    setResolver(null);
     setState(defaultState);
-  }, []);
+  }, [resolver]);
 
   const confirm = useCallback(
     (
@@ -45,7 +62,7 @@ export function useConfirmDialog() {
       options: ConfirmDialogOptions = {}
     ): Promise<boolean> =>
       new Promise((resolve) => {
-        resolverRef.current = resolve;
+        setResolver(() => resolve);
         setState({
           open: true,
           title,
@@ -60,29 +77,33 @@ export function useConfirmDialog() {
 
   useEffect(
     () => () => {
-      if (resolverRef.current) {
-        resolverRef.current(false);
-        resolverRef.current = null;
+      if (resolver) {
+        resolver(false);
       }
     },
-    []
+    [resolver]
   );
 
-  const confirmDialogElement = (
-    <ConfirmDialog
-      open={state.open}
-      title={state.title}
-      message={state.message}
-      confirmLabel={state.confirmLabel}
-      cancelLabel={state.cancelLabel}
-      variant={state.variant}
-      onConfirm={() => closeWithResult(true)}
-      onCancel={() => closeWithResult(false)}
-    />
-  );
+  const handleConfirm = useCallback(() => {
+    closeWithResult(true);
+  }, [closeWithResult]);
+  const handleCancel = useCallback(() => {
+    closeWithResult(false);
+  }, [closeWithResult]);
+
+  const confirmDialog = createElement(ConfirmDialog, {
+    open: state.open,
+    title: state.title,
+    message: state.message,
+    confirmLabel: state.confirmLabel,
+    cancelLabel: state.cancelLabel,
+    variant: state.variant,
+    onConfirm: handleConfirm,
+    onCancel: handleCancel,
+  });
 
   return {
     confirm,
-    ConfirmDialog: confirmDialogElement,
+    confirmDialog,
   };
 }

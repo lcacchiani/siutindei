@@ -50,7 +50,7 @@ export function useResourcePanel<T extends { id: string }, TForm>(
   const [error, setError] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formState, setFormState] = useState<TForm>(emptyForm);
-  const { confirm, ConfirmDialog } = useConfirmDialog();
+  const { confirm, confirmDialog } = useConfirmDialog();
 
   const api = useMemo(() => getResourceApi<T>(resource, mode), [resource, mode]);
 
@@ -193,7 +193,7 @@ export function useResourcePanel<T extends { id: string }, TForm>(
     resetForm,
     handleSubmit,
     handleDelete,
-    confirmDialog: ConfirmDialog,
+    confirmDialog,
     setFormState,
   };
 }

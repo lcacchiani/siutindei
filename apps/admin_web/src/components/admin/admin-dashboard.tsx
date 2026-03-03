@@ -44,18 +44,20 @@ const sectionLabels = [
 export function AdminDashboard() {
   const { status, user, isAdmin, isManager, logout, error } = useAuth();
   const [sectionParam, setSectionParam] = useQueryState('section');
+  const isValidSectionParam = useMemo(
+    () => sectionLabels.some((section) => section.key === sectionParam),
+    [sectionParam]
+  );
   const activeSection = useMemo(() => {
-    const isValidSection = sectionLabels.some(
-      (section) => section.key === sectionParam
-    );
-    return isValidSection && sectionParam ? sectionParam : 'organizations';
-  }, [sectionParam]);
+    return isValidSectionParam && sectionParam ? sectionParam : 'organizations';
+  }, [isValidSectionParam, sectionParam]);
 
   useEffect(() => {
-    if (sectionParam !== activeSection) {
-      void setSectionParam(activeSection, { history: 'replace' });
+    if (sectionParam && isValidSectionParam) {
+      return;
     }
-  }, [activeSection, sectionParam, setSectionParam]);
+    void setSectionParam(activeSection, { history: 'replace' });
+  }, [activeSection, isValidSectionParam, sectionParam, setSectionParam]);
 
   const handleSelectSection = useCallback(
     (nextSection: string) => {

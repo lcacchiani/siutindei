@@ -1,6 +1,7 @@
 'use client';
 
 import {
+  createElement,
   useCallback,
   useMemo,
   useState,
@@ -19,6 +20,12 @@ interface UseFormValidationResult {
   resetValidation: () => void;
 }
 
+interface ValidationState {
+  key: unknown;
+  touched: Record<string, boolean>;
+  hasSubmitted: boolean;
+}
+
 const formErrorClassName =
   'border-red-500 focus:border-red-500 focus:ring-red-500';
 
@@ -26,9 +33,9 @@ export function useFormValidation(
   fields: readonly string[],
   resetDependency: unknown
 ): UseFormValidationResult {
-  const [state, setState] = useState(() => ({
+  const [state, setState] = useState<ValidationState>(() => ({
     key: resetDependency,
-    touched: {} as Record<string, boolean>,
+    touched: {},
     hasSubmitted: false,
   }));
 
@@ -39,16 +46,17 @@ export function useFormValidation(
         : ({} as Record<string, boolean>),
     [resetDependency, state.key, state.touched]
   );
+
   const hasSubmitted =
     state.key === resetDependency ? state.hasSubmitted : false;
 
   const ensureCurrentState = useCallback(
-    (previous: typeof state) =>
+    (previous: ValidationState): ValidationState =>
       previous.key === resetDependency
         ? previous
         : {
             key: resetDependency,
-            touched: {} as Record<string, boolean>,
+            touched: {},
             hasSubmitted: false,
           },
     [resetDependency]
@@ -62,18 +70,21 @@ export function useFormValidation(
     });
   }, [resetDependency]);
 
-  const markTouched = useCallback((field: string) => {
-    setState((prev) => {
-      const current = ensureCurrentState(prev);
-      if (current.touched[field]) {
-        return current;
-      }
-      return {
-        ...current,
-        touched: { ...current.touched, [field]: true },
-      };
-    });
-  }, [ensureCurrentState]);
+  const markTouched = useCallback(
+    (field: string) => {
+      setState((prev) => {
+        const current = ensureCurrentState(prev);
+        if (current.touched[field]) {
+          return current;
+        }
+        return {
+          ...current,
+          touched: { ...current.touched, [field]: true },
+        };
+      });
+    },
+    [ensureCurrentState]
+  );
 
   const markAllTouched = useCallback(() => {
     const touchedFields: Record<string, boolean> = {};
@@ -112,11 +123,12 @@ export function useFormValidation(
   );
 
   const requiredIndicator = useMemo(
-    () => (
-      <span className='ml-0.5 text-red-500' aria-hidden='true'>
-        *
-      </span>
-    ),
+    () =>
+      createElement(
+        'span',
+        { className: 'ml-0.5 text-red-500', 'aria-hidden': true },
+        '*'
+      ),
     []
   );
 
