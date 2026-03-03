@@ -16,5 +16,6 @@ test.describe('Pricing Panel', () => {
     await expect(
       adminPage.getByRole('table').getByText('HKD 250.00')
     ).toBeVisible();
+    await expect(adminPage.getByRole('table')).toContainText('Per class');
   });
 });

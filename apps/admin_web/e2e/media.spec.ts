@@ -20,6 +20,7 @@ test.describe('Media Panel', () => {
 
     await adminPage.getByRole('button', { name: 'Down' }).first().click();
     await adminPage.getByRole('button', { name: 'Remove' }).first().click();
+    await expect(adminPage.getByRole('button', { name: 'Remove' })).toHaveCount(1);
 
     await adminPage.getByRole('button', { name: 'Save media' }).click();
     await expect(adminPage.getByText('Media saved successfully.')).toBeVisible();

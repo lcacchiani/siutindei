@@ -11,9 +11,13 @@ test.describe('Audit Logs Panel', () => {
 
     await adminPage.getByLabel('Action').selectOption('UPDATE');
     await adminPage.getByRole('button', { name: 'Apply Filters' }).click();
+    await expect(adminPage.getByRole('table')).toContainText('UPDATE');
 
     await adminPage.getByRole('button', { name: 'View details' }).first().click();
-    await expect(adminPage.getByText('Audit Log Detail')).toBeVisible();
-    await adminPage.getByRole('dialog').getByLabel('Close').click();
+    const detailDialog = adminPage.getByRole('dialog');
+    await expect(detailDialog.getByText('Audit Log Detail')).toBeVisible();
+    await expect(detailDialog.getByText('Record ID')).toBeVisible();
+    await detailDialog.getByLabel('Close').click();
+    await expect(adminPage.getByText('Audit Log Detail')).not.toBeVisible();
   });
 });

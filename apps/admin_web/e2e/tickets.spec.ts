@@ -24,8 +24,10 @@ test.describe('Tickets Panel', () => {
   test('reviews a pending ticket', async ({ adminPage }) => {
     await adminPage.getByRole('button', { name: 'Review ticket' }).first().click();
     await expect(adminPage.getByText('Review Ticket:')).toBeVisible();
+    await expect(adminPage.getByLabel('Action')).toHaveValue('approve');
 
     await adminPage.getByRole('button', { name: 'Approve' }).click();
-    await expect(adminPage.getByText('Failed to process ticket')).not.toBeVisible();
+    await expect(adminPage.getByRole('dialog')).not.toBeVisible();
+    await expect(adminPage.getByText('Failed to process ticket')).toHaveCount(0);
   });
 });

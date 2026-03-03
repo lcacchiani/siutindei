@@ -15,5 +15,6 @@ test.describe('Locations Panel', () => {
       .getByRole('dialog')
       .getByRole('button', { name: 'Delete' })
       .click();
+    await expect(adminPage.getByRole('dialog')).not.toBeVisible();
   });
 });

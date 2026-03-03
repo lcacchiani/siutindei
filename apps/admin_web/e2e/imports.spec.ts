@@ -16,5 +16,6 @@ test.describe('Imports Panel', () => {
     await adminPage.getByRole('button', { name: 'Upload & Import' }).click();
 
     await expect(adminPage.getByText('Summary')).toBeVisible();
+    await expect(adminPage.getByText(/^Organizations:/)).toBeVisible();
   });
 });

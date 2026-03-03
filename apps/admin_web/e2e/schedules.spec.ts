@@ -17,5 +17,6 @@ test.describe('Schedules Panel', () => {
 
     await adminPage.getByRole('button', { name: 'Add Schedule' }).click();
     await expect(adminPage.getByRole('table')).toContainText('01:00-02:00');
+    await expect(adminPage.getByRole('table')).toContainText('Monday');
   });
 });

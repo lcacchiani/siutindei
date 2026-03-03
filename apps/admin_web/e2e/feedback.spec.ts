@@ -11,5 +11,9 @@ test.describe('Feedback Panel', () => {
 
     await adminPage.getByRole('button', { name: 'Edit' }).first().click();
     await expect(adminPage.getByRole('heading', { name: 'Edit Feedback' })).toBeVisible();
+    await expect(
+      adminPage.getByRole('button', { name: /Set rating to 5 stars/ })
+    ).toBeVisible();
+    await expect(adminPage.getByLabel('Description')).toBeVisible();
   });
 });
