@@ -2,7 +2,7 @@
 
 import type { ReactNode } from 'react';
 
-import { DeleteIcon, EditIcon } from '../icons/action-icons';
+import { DeleteIcon } from '../icons/action-icons';
 import { Button } from './button';
 
 export interface DataTableColumn<T> {
@@ -55,7 +55,8 @@ export function DataTable<T>({
   const detailColumns = columns.filter(
     (c) => !c.primary && !c.secondary && !c.hideOnMobile
   );
-  const hasActions = Boolean(onEdit || onDelete || renderActions);
+  const isRowEditable = Boolean(onEdit);
+  const hasActions = Boolean(onDelete || renderActions);
 
   return (
     <>
@@ -81,7 +82,19 @@ export function DataTable<T>({
           </thead>
           <tbody>
             {data.map((item) => (
-              <tr key={keyExtractor(item)} className='border-b border-slate-100'>
+              <tr
+                key={keyExtractor(item)}
+                className={`border-b border-slate-100${
+                  isRowEditable ? ' cursor-pointer hover:bg-slate-50' : ''
+                }`}
+                onClick={
+                  onEdit
+                    ? () => {
+                        onEdit(item);
+                      }
+                    : undefined
+                }
+              >
                 {columns.map((column) => (
                   <td
                     key={column.key}
@@ -93,21 +106,14 @@ export function DataTable<T>({
                   </td>
                 ))}
                 {hasActions && (
-                  <td className='py-2 text-right'>
+                  <td
+                    className='py-2 text-right'
+                    onClick={(event) => {
+                      event.stopPropagation();
+                    }}
+                  >
                     <div className='flex justify-end gap-2'>
                       {renderActions ? renderActions(item, 'desktop') : null}
-                      {onEdit && (
-                        <Button
-                          type='button'
-                          size='sm'
-                          variant='secondary'
-                          onClick={() => onEdit(item)}
-                          title='Edit'
-                          aria-label='Edit'
-                        >
-                          <EditIcon className='h-4 w-4' />
-                        </Button>
-                      )}
                       {onDelete && (
                         <Button
                           type='button'
@@ -134,7 +140,16 @@ export function DataTable<T>({
         {data.map((item) => (
           <div
             key={keyExtractor(item)}
-            className='rounded-lg border border-slate-200 bg-slate-50 p-3'
+            className={`rounded-lg border border-slate-200 bg-slate-50 p-3${
+              isRowEditable ? ' cursor-pointer' : ''
+            }`}
+            onClick={
+              onEdit
+                ? () => {
+                    onEdit(item);
+                  }
+                : undefined
+            }
           >
             {/* Primary info */}
             {primaryColumn && (
@@ -166,21 +181,13 @@ export function DataTable<T>({
             )}
             {/* Actions */}
             {hasActions && (
-              <div className='mt-3 flex gap-2 border-t border-slate-200 pt-3'>
+              <div
+                className='mt-3 flex gap-2 border-t border-slate-200 pt-3'
+                onClick={(event) => {
+                  event.stopPropagation();
+                }}
+              >
                 {renderActions ? renderActions(item, 'mobile') : null}
-                {onEdit && (
-                  <Button
-                    type='button'
-                    size='sm'
-                    variant='secondary'
-                    onClick={() => onEdit(item)}
-                    className='flex-1'
-                    title='Edit'
-                    aria-label='Edit'
-                  >
-                    <EditIcon className='h-4 w-4' />
-                  </Button>
-                )}
                 {onDelete && (
                   <Button
                     type='button'

@@ -143,12 +143,12 @@ test.describe('Activities Panel', () => {
     // Form should be reset after successful creation
   });
 
-  test('should show edit form when clicking Edit button', async ({ adminPage }) => {
+  test('should show edit form when clicking row', async ({ adminPage }) => {
     // Wait for the table to load
     await expect(adminPage.getByText('Swimming Class')).toBeVisible();
 
-    // Click Edit on first activity
-    await adminPage.getByRole('row', { name: /Swimming Class/ }).getByRole('button', { name: 'Edit' }).click();
+    // Click first activity row
+    await adminPage.getByRole('row', { name: /Swimming Class/ }).click();
 
     // Cancel button should appear
     await expect(adminPage.getByRole('button', { name: 'Cancel' })).toBeVisible();
@@ -161,8 +161,8 @@ test.describe('Activities Panel', () => {
     // Wait for the table to load
     await expect(adminPage.getByText('Swimming Class')).toBeVisible();
 
-    // Click Edit
-    await adminPage.getByRole('row', { name: /Swimming Class/ }).getByRole('button', { name: 'Edit' }).click();
+    // Click row
+    await adminPage.getByRole('row', { name: /Swimming Class/ }).click();
 
     // Form should be populated with existing data
     await expect(adminPage.getByLabel('Name')).toHaveValue('Swimming Class');
@@ -175,8 +175,8 @@ test.describe('Activities Panel', () => {
     // Wait for the table to load
     await expect(adminPage.getByText('Swimming Class')).toBeVisible();
 
-    // Click Edit
-    await adminPage.getByRole('row', { name: /Swimming Class/ }).getByRole('button', { name: 'Edit' }).click();
+    // Click row
+    await adminPage.getByRole('row', { name: /Swimming Class/ }).click();
 
     // Verify we're in edit mode
     await expect(adminPage.getByRole('button', { name: 'Update Activity' })).toBeVisible();

@@ -118,26 +118,26 @@ test.describe('Manager Organizations Panel', () => {
     await expect(managerPage.getByRole('columnheader', { name: 'Manager' })).not.toBeVisible();
   });
 
-  test('should be able to edit their organizations', async ({ managerPage }) => {
+  test('should show selectable organization row', async ({ managerPage }) => {
     await managerPage.goto('/admin/dashboard');
 
     // Wait for org table to load
     await expect(managerPage.getByText('Test Organization 1')).toBeVisible();
 
-    // Should have Edit button
+    // Should show organization row
     await expect(
-      managerPage.getByRole('row', { name: /Test Organization 1/ }).getByRole('button', { name: 'Edit' })
+      managerPage.getByRole('row', { name: /Test Organization 1/ })
     ).toBeVisible();
   });
 
-  test('should show edit form when clicking Edit', async ({ managerPage }) => {
+  test('should show edit form when clicking row', async ({ managerPage }) => {
     await managerPage.goto('/admin/dashboard');
 
     // Wait for org table to load
     await expect(managerPage.getByText('Test Organization 1')).toBeVisible();
 
-    // Click Edit
-    await managerPage.getByRole('row', { name: /Test Organization 1/ }).getByRole('button', { name: 'Edit' }).click();
+    // Click row
+    await managerPage.getByRole('row', { name: /Test Organization 1/ }).click();
 
     // Should see "Edit Organization" form
     await expect(managerPage.getByRole('heading', { name: 'Edit Organization' })).toBeVisible();

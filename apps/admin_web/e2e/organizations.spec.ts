@@ -116,12 +116,12 @@ test.describe('Organizations Panel', () => {
     // Note: In real test, we'd verify the API was called and the table updated
   });
 
-  test('should show edit form when clicking Edit button', async ({ adminPage }) => {
+  test('should show edit form when clicking row', async ({ adminPage }) => {
     // Wait for the table to load
     await expect(adminPage.getByText('Test Organization 1')).toBeVisible();
 
-    // Click Edit on first organization
-    await adminPage.getByRole('row', { name: /Test Organization 1/ }).getByRole('button', { name: 'Edit' }).click();
+    // Click first organization row
+    await adminPage.getByRole('row', { name: /Test Organization 1/ }).click();
 
     // Form title should change to "Edit Organization"
     await expect(adminPage.getByRole('heading', { name: 'Edit Organization' })).toBeVisible();
@@ -137,8 +137,8 @@ test.describe('Organizations Panel', () => {
     // Wait for the table to load
     await expect(adminPage.getByText('Test Organization 1')).toBeVisible();
 
-    // Click Edit
-    await adminPage.getByRole('row', { name: /Test Organization 1/ }).getByRole('button', { name: 'Edit' }).click();
+    // Click row
+    await adminPage.getByRole('row', { name: /Test Organization 1/ }).click();
 
     // Form should be populated with existing data
     await expect(adminPage.getByLabel('Name')).toHaveValue('Test Organization 1');
@@ -149,8 +149,8 @@ test.describe('Organizations Panel', () => {
     // Wait for the table to load
     await expect(adminPage.getByText('Test Organization 1')).toBeVisible();
 
-    // Click Edit
-    await adminPage.getByRole('row', { name: /Test Organization 1/ }).getByRole('button', { name: 'Edit' }).click();
+    // Click row
+    await adminPage.getByRole('row', { name: /Test Organization 1/ }).click();
 
     // Verify we're in edit mode
     await expect(adminPage.getByRole('heading', { name: 'Edit Organization' })).toBeVisible();
