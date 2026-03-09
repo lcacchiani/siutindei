@@ -225,6 +225,19 @@ Go to **Settings** → **Secrets and variables** → **Actions** → **Variables
 
 ### Required Variables
 
+#### `PLAY_STORE_UPLOAD_ENABLED`
+
+Controls whether the CI workflow attempts to upload to Play Console.
+
+**Allowed values:**
+- `true` - enable Play upload step
+- unset/any other value - skip Play upload step
+
+**Recommended:** Set to `true` only after Play Console and service-account
+permissions are fully configured.
+
+---
+
 #### `ANDROID_PACKAGE_NAME`
 
 Your app's package name (application ID).
@@ -366,6 +379,7 @@ Testers can install via:
 - Verify service account has correct permissions
 - Ensure service account is linked to the app in Play Console
 - Check `GOOGLE_PLAY_SERVICE_ACCOUNT` contains valid JSON
+- Confirm `PLAY_STORE_UPLOAD_ENABLED` is set to `true`
 
 ### "Version code already exists"
 
@@ -454,6 +468,7 @@ internal → alpha → beta → production
 - [ ] `AMPLIFY_API_KEY`
 
 ### Variables
+- [ ] `PLAY_STORE_UPLOAD_ENABLED` (set to `true` when ready to upload)
 - [ ] `ANDROID_PACKAGE_NAME`
 - [ ] `ANDROID_RELEASE_TRACK`
 - [ ] Firebase variables (if applicable)
