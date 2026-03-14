@@ -71,6 +71,7 @@ For the OIDC provider itself, add the same tags:
 - `CDK_PARAM_FILE` (e.g. `backend/infrastructure/params/production.json`)
 - `AMPLIFY_APP_ID`
 - `AMPLIFY_BRANCH`
+- `ANDROID_PLAY_UPLOAD_ENABLED` (`true` to upload to Play Store, otherwise skip)
 - `ANDROID_PACKAGE_NAME`
 - `ANDROID_RELEASE_TRACK`
 - `IOS_BUNDLE_ID`
@@ -193,7 +194,10 @@ existing secrets when possible.
    - `ANDROID_KEY_PASSWORD` = private key password (set when running `openssl genrsa -aes256`)
    - `ANDROID_KEY_ALIAS` = alias (e.g., `siutindei_release`)
 4. Set GitHub Variables:
-  - `ANDROID_PACKAGE_NAME` (from `apps/siutindei_app/android/app/build.gradle.kts`, `applicationId`)
+   - `ANDROID_PLAY_UPLOAD_ENABLED` (`true` to enable Play upload in CI;
+     leave unset or set to `false` to skip upload)
+   - `ANDROID_PACKAGE_NAME` (from
+     `apps/siutindei_app/android/app/build.gradle.kts`, `applicationId`)
    - `ANDROID_RELEASE_TRACK` (`internal`, `alpha`, `beta`, or `production`)
 5. Create a Play Console service account:
    - Google Cloud Console -> IAM & Admin -> Service Accounts -> Create

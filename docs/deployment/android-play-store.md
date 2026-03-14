@@ -225,6 +225,17 @@ Go to **Settings** → **Secrets and variables** → **Actions** → **Variables
 
 ### Required Variables
 
+#### `ANDROID_PLAY_UPLOAD_ENABLED`
+
+Feature flag for CI Play Store upload.
+
+Set to `true` only after the Play Console app exists, the service account is
+linked, and the first manual AAB upload is complete.
+
+**Recommended default:** `false`
+
+---
+
 #### `ANDROID_PACKAGE_NAME`
 
 Your app's package name (application ID).
@@ -366,6 +377,7 @@ Testers can install via:
 - Verify service account has correct permissions
 - Ensure service account is linked to the app in Play Console
 - Check `GOOGLE_PLAY_SERVICE_ACCOUNT` contains valid JSON
+- Temporarily set `ANDROID_PLAY_UPLOAD_ENABLED=false` if Play setup is not complete yet
 
 ### "Version code already exists"
 
@@ -454,6 +466,7 @@ internal → alpha → beta → production
 - [ ] `AMPLIFY_API_KEY`
 
 ### Variables
+- [ ] `ANDROID_PLAY_UPLOAD_ENABLED` (`true` only after Play setup is complete)
 - [ ] `ANDROID_PACKAGE_NAME`
 - [ ] `ANDROID_RELEASE_TRACK`
 - [ ] Firebase variables (if applicable)
