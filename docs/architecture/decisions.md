@@ -251,6 +251,7 @@ Lambdas or NAT Gateway.
 - `CDK_PARAM_FILE` (optional path to CDK parameter JSON)
 - `AMPLIFY_APP_ID`
 - `AMPLIFY_BRANCH`
+- `ANDROID_PLAY_UPLOAD_ENABLED` (set to `"true"` to enable Play uploads)
 - `ANDROID_PACKAGE_NAME`
 - `ANDROID_RELEASE_TRACK`
 - `IOS_BUNDLE_ID`
