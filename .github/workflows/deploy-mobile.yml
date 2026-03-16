@@ -72,6 +72,11 @@ jobs:
       - name: Check Play Store upload prerequisites
         id: playstore
         run: |
+          if [ "$ANDROID_PLAY_UPLOAD_ENABLED" != "true" ]; then
+            echo "Skipping Play Store upload (disabled)"
+            echo "should_upload=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           if [ -z "$GOOGLE_PLAY_SERVICE_ACCOUNT" ] || [ -z "$ANDROID_PACKAGE_NAME" ] || [ -z "$ANDROID_RELEASE_TRACK" ]; then
             echo "Skipping Play Store upload (missing config)"
             echo "should_upload=false" >> "$GITHUB_OUTPUT"
@@ -84,6 +89,7 @@ jobs:
           fi
           echo "should_upload=true" >> "$GITHUB_OUTPUT"
         env:
+          ANDROID_PLAY_UPLOAD_ENABLED: ${{ vars.ANDROID_PLAY_UPLOAD_ENABLED }}
           GOOGLE_PLAY_SERVICE_ACCOUNT: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT }}
           ANDROID_PACKAGE_NAME: ${{ vars.ANDROID_PACKAGE_NAME }}
           ANDROID_RELEASE_TRACK: ${{ vars.ANDROID_RELEASE_TRACK }}
