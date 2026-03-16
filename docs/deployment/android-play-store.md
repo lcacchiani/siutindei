@@ -225,6 +225,19 @@ Go to **Settings** → **Secrets and variables** → **Actions** → **Variables
 
 ### Required Variables
 
+#### `PLAY_STORE_UPLOAD_ENABLED`
+
+Controls whether CI attempts to upload the generated AAB to Google Play.
+
+**Values:**
+- `true`: run Play Store upload step
+- any other value (or unset): skip upload and keep the workflow green
+
+**Recommended default:** unset (or `false`) until the Play Console app and
+service-account access are fully configured.
+
+---
+
 #### `ANDROID_PACKAGE_NAME`
 
 Your app's package name (application ID).
@@ -454,6 +467,7 @@ internal → alpha → beta → production
 - [ ] `AMPLIFY_API_KEY`
 
 ### Variables
+- [ ] `PLAY_STORE_UPLOAD_ENABLED` (`true` only when Play upload is configured)
 - [ ] `ANDROID_PACKAGE_NAME`
 - [ ] `ANDROID_RELEASE_TRACK`
 - [ ] Firebase variables (if applicable)
