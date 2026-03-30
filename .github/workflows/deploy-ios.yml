@@ -37,7 +37,7 @@ jobs:
         working-directory: apps/siutindei_app
 
       - name: Setup SSH for certificates repo
-        uses: webfactory/ssh-agent@v0.9.1
+        uses: webfactory/ssh-agent@v0.10.0
         if: ${{ env.MATCH_DEPLOY_KEY != '' }}
         with:
           ssh-private-key: ${{ env.MATCH_DEPLOY_KEY }}
