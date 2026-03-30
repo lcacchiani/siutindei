@@ -29,7 +29,6 @@ updates:
       prefix: "chore(deps)"
     labels:
       - "dependencies"
-      - "infrastructure"
     groups:
       aws-cdk:
         patterns:
@@ -61,7 +60,6 @@ updates:
       prefix: "chore(deps)"
     labels:
       - "dependencies"
-      - "backend"
     groups:
       aws:
         patterns:
@@ -86,6 +84,13 @@ updates:
         update-types:
           - "minor"
           - "patch"
+    ignore:
+      # psycopg[binary] currently requires psycopg-binary releases that
+      # lag behind psycopg minor versions, so only accept patch updates.
+      - dependency-name: "psycopg"
+        update-types: ["version-update:semver-minor", "version-update:semver-major"]
+      - dependency-name: "psycopg-binary"
+        update-types: ["version-update:semver-minor", "version-update:semver-major"]
 
   # Pub - Flutter mobile app
   - package-ecosystem: "pub"
@@ -97,7 +102,6 @@ updates:
       prefix: "chore(deps)"
     labels:
       - "dependencies"
-      - "mobile"
     groups:
       flutter:
         patterns:
