@@ -48,6 +48,10 @@ updates:
           - "minor"
           - "patch"
     ignore:
+      # Transitive-only advisory path in aws-cdk-lib currently yields
+      # no lockfile changes and causes Dependabot refresh failures.
+      - dependency-name: "brace-expansion"
+        update-types: ["version-update:semver-patch", "version-update:semver-minor", "version-update:semver-major"]
       # Ignore major version updates - review manually
       - dependency-name: "*"
         update-types: ["version-update:semver-major"]
