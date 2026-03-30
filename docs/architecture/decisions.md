@@ -211,6 +211,8 @@ Lambdas or NAT Gateway.
 - Weekly schedule (Mondays) to reduce PR noise.
 - Dependencies grouped by category (AWS CDK, Firebase, database, etc.).
 - Major version updates ignored to require manual review.
+- `brace-expansion` is ignored in `/backend/infrastructure` because
+  `aws-cdk-lib` bundles it; `postinstall` patches the bundled copy.
 - PRs labeled by ecosystem (`dependencies`, `ci`, `backend`, `mobile`, `infrastructure`).
 
 **Dependabot commands:**
