@@ -48,11 +48,6 @@ updates:
           - "minor"
           - "patch"
     ignore:
-      # aws-cdk-lib ships a bundled minimatch/brace-expansion tree inside
-      # its published tarball. Dependabot cannot update bundled files and
-      # fails refreshes with NoChangeError for brace-expansion.
-      # We patch the bundled copy via backend/infrastructure postinstall.
-      - dependency-name: "brace-expansion"
       # Ignore major version updates - review manually
       - dependency-name: "*"
         update-types: ["version-update:semver-major"]
