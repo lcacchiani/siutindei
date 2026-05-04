@@ -14,7 +14,7 @@ dependencies:
   amplify_auth_cognito: ^2.9.0
   amplify_api: ^2.11.0
   firebase_core: ^4.5.0
-  firebase_app_check: ^0.4.2
+  firebase_app_check: ^0.4.3
 
 dev_dependencies:
   flutter_test:
