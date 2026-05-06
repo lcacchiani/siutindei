@@ -6,22 +6,22 @@ admin console, and backend services.
 ## High-level diagram
 
 ```
-Flutter Mobile / Next.js Admin
-        |
-        v
-    Cognito (Auth)
-        |
-        v
-    API Gateway
-        |
-        v
-      Lambda (Python)
-        |
-        v
-     RDS Proxy
-        |
-        v
- Aurora PostgreSQL (Serverless v2)
+Public Website (Next.js static export)        Flutter Mobile / Next.js Admin
+        |                                              |
+        v                                              v
+   CloudFront + S3                              Cognito (Auth)
+                                                      |
+                                                      v
+                                                  API Gateway
+                                                      |
+                                                      v
+                                                Lambda (Python)
+                                                      |
+                                                      v
+                                                  RDS Proxy
+                                                      |
+                                                      v
+                                          Aurora PostgreSQL (Serverless v2)
 ```
 
 ## Components
@@ -35,6 +35,20 @@ Flutter Mobile / Next.js Admin
 ### Admin console (Next.js App Router)
 - Admin users manage organizations, activities, schedules, and pricing.
 - Hosted on Amplify Hosting (release jobs triggered in CI).
+
+### Public website (Next.js static export)
+- Marketing/landing site for Siu Tin Dei (`apps/public_www`).
+- Deployed as a static export to S3 and served via CloudFront with
+  WAF, HSTS, CSP, and the standard security headers.
+- Two parallel CloudFront distributions (production + staging) live in the
+  same `lxsoftware-siutindei-public-www` CloudFormation stack, with the
+  staging distribution noindexed via `X-Robots-Tag` and a deny-all
+  `robots.txt` synced by the deploy script.
+- Releases are deployed to staging on push-to-main, then promoted to
+  production via `workflow_dispatch` (`Promote Public Website Release`).
+  Promotion can be a fresh production-built static export *or* an
+  S3-only artifact copy from `releases/<id>/` on the staging bucket.
+- See [`docs/architecture/public-www.md`](public-www.md) for the design.
 
 ### Backend
 - API Gateway exposes REST endpoints for public search, admin CRUD,

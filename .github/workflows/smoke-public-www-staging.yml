@@ -1,0 +1,75 @@
+name: Smoke Public Website Staging
+
+on:
+  workflow_dispatch:
+    inputs:
+      max_pages:
+        description: 'Optional max number of pages to check'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: smoke-public-www-staging
+  cancel-in-progress: false
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: staging
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Resolve staging site origin from infrastructure params
+        id: resolve_staging_site_origin
+        run: |
+          STAGING_SITE_DOMAIN="$(python3 -c "import json; from pathlib import Path; params=json.loads(Path('backend/infrastructure/params/production.json').read_text(encoding='utf-8')); print(str(params.get('PublicWwwStagingDomainName', '')).strip())")"
+          if [ -z "$STAGING_SITE_DOMAIN" ]; then
+            echo "PublicWwwStagingDomainName is required in backend/infrastructure/params/production.json"
+            exit 1
+          fi
+          echo "staging_site_origin=https://${STAGING_SITE_DOMAIN}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: apps/public_www/package-lock.json
+
+      - name: Install dependencies
+        working-directory: apps/public_www
+        run: npm ci
+
+      - name: Run staging smoke checks
+        working-directory: apps/public_www
+        env:
+          NEXT_TELEMETRY_DISABLED: '1'
+          SMOKE_BASE_URL: ${{ steps.resolve_staging_site_origin.outputs.staging_site_origin }}
+          REQUESTED_MAX_PAGES: ${{ github.event.inputs.max_pages || '' }}
+        run: |
+          set -euo pipefail
+          if [ -n "${REQUESTED_MAX_PAGES:-}" ]; then
+            export SMOKE_MAX_PAGES="${REQUESTED_MAX_PAGES}"
+          fi
+          npm run smoke:staging
+
+      - name: Publish smoke summary
+        if: always()
+        env:
+          SUMMARY_TARGET_URL: ${{ steps.resolve_staging_site_origin.outputs.staging_site_origin }}
+          SUMMARY_MAX_PAGES: ${{ github.event.inputs.max_pages || '' }}
+        run: |
+          {
+            echo '## Public Website staging smoke test'
+            echo ''
+            echo "- Target URL: \`${SUMMARY_TARGET_URL}\`"
+            echo "- Trigger: \`workflow_dispatch\`"
+            if [ -n "${SUMMARY_MAX_PAGES}" ]; then
+              echo "- Max pages: \`${SUMMARY_MAX_PAGES}\`"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

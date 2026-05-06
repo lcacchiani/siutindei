@@ -1,0 +1,106 @@
+name: Lighthouse Public Website
+
+on:
+  workflow_dispatch:
+    inputs:
+      page_paths:
+        description: 'Comma/newline-separated page paths or full URLs to audit'
+        required: false
+        default: '/'
+
+permissions:
+  contents: read
+
+jobs:
+  lighthouse:
+    name: Lighthouse audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Resolve public site origin from infrastructure params
+        id: resolve_public_site_origin
+        run: |
+          SITE_DOMAIN="$(python3 -c "import json; from pathlib import Path; params=json.loads(Path('backend/infrastructure/params/production.json').read_text(encoding='utf-8')); print(str(params.get('PublicWwwDomainName', '')).strip())")"
+          if [ -z "$SITE_DOMAIN" ]; then
+            echo "PublicWwwDomainName is required in backend/infrastructure/params/production.json"
+            exit 1
+          fi
+          echo "site_origin=https://${SITE_DOMAIN}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: apps/public_www/package-lock.json
+
+      - name: Restore Next.js build cache (public_www)
+        uses: actions/cache@v5
+        with:
+          path: apps/public_www/.next/cache
+          key: ${{ runner.os }}-nextjs-public-www-lh-${{ hashFiles('apps/public_www/package-lock.json') }}-${{ hashFiles('apps/public_www/src/**/*.{ts,tsx,css}', 'apps/public_www/scripts/**/*.mjs', 'apps/public_www/next.config.*') }}
+          restore-keys: |
+            ${{ runner.os }}-nextjs-public-www-lh-${{ hashFiles('apps/public_www/package-lock.json') }}-
+
+      - name: Install dependencies
+        working-directory: apps/public_www
+        run: npm ci
+
+      - name: Build static website
+        working-directory: apps/public_www
+        env:
+          NEXT_TELEMETRY_DISABLED: '1'
+          NEXT_PUBLIC_SITE_ORIGIN: ${{ steps.resolve_public_site_origin.outputs.site_origin }}
+          NEXT_PUBLIC_SITE_NAME: ${{ vars.NEXT_PUBLIC_SITE_NAME }}
+          NEXT_PUBLIC_SITE_TAGLINE: ${{ vars.NEXT_PUBLIC_SITE_TAGLINE }}
+        run: npm run build
+
+      - name: Run Lighthouse CI
+        working-directory: apps/public_www
+        env:
+          LIGHTHOUSE_PAGE_PATHS: ${{ inputs.page_paths }}
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const path = require('node:path');
+
+          const baseConfigPath = path.resolve('.lighthouserc.json');
+          const runtimeConfigPath = path.resolve('.lighthouserc.runtime.json');
+          const rawInput = (process.env.LIGHTHOUSE_PAGE_PATHS ?? '').trim();
+          const defaultTargets = ['/'];
+          const requestedTargets = (rawInput ? rawInput.split(/[\n,]+/) : defaultTargets)
+            .map((value) => value.trim())
+            .filter(Boolean);
+
+          const normalizedUrls = requestedTargets.map((target) => {
+            if (/^https?:\/\//i.test(target)) {
+              return target;
+            }
+            const normalizedPath = target.startsWith('/') ? target : `/${target}`;
+            return `http://localhost:9000${normalizedPath}`;
+          });
+
+          const config = JSON.parse(fs.readFileSync(baseConfigPath, 'utf8'));
+          config.ci = config.ci ?? {};
+          config.ci.collect = config.ci.collect ?? {};
+          config.ci.collect.url = normalizedUrls;
+          fs.writeFileSync(runtimeConfigPath, `${JSON.stringify(config, null, 2)}\n`);
+          console.log('Lighthouse targets:');
+          for (const url of normalizedUrls) {
+            console.log(`- ${url}`);
+          }
+          NODE
+
+          npx lhci autorun --config=.lighthouserc.runtime.json
+
+      - name: Upload Lighthouse artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: lighthouse-public-www-results
+          path: apps/public_www/.lighthouseci/**
+          if-no-files-found: warn
+          include-hidden-files: true

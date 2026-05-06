@@ -6,6 +6,18 @@ This document maps all AWS resources created by the `backend-deploy` workflow (`
 **CDK App:** `backend/infrastructure/bin/app.ts`  
 **Stack Definition:** `backend/infrastructure/lib/api-stack.ts`
 
+> Sister stacks created from the same CDK app:
+>
+> - `lxsoftware-siutindei-admin-web` — admin console CloudFront/S3
+>   (`backend/infrastructure/lib/admin-web-stack.ts`).
+> - `lxsoftware-siutindei-public-www` — public website CloudFront/S3, both
+>   production and staging environments
+>   (`backend/infrastructure/lib/public-www-stack.ts`). See
+>   [`public-www.md`](public-www.md) for the full asset list.
+> - `lxsoftware-siutindei-waf` — WAFv2 WebACL in `us-east-1` reused by both
+>   admin-web and public-www CloudFront distributions
+>   (`backend/infrastructure/lib/waf-stack.ts`).
+
 ---
 
 ## CDK Bootstrap Stack (CDKToolkit)

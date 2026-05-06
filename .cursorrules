@@ -210,6 +210,61 @@ repo root
 - ALWAYS validate and sanitize user input before processing.
 - ALWAYS use SSL for database connections (sslmode=require).
 
+### Public Website rules (MANDATORY for `apps/public_www/**`)
+
+- The public website is built as a **Next.js static export** (`output: 'export'`)
+  hosted on CloudFront + S3. Two parallel environments (production + staging)
+  live in `lxsoftware-siutindei-public-www`. See
+  `docs/architecture/public-www.md` for the design.
+- Stack source of truth: `backend/infrastructure/lib/public-www-stack.ts`.
+  When changing CloudFront behaviors or response headers there, update
+  `docs/architecture/public-www.md` and `docs/architecture/security.md`.
+- Deploy script source of truth:
+  `scripts/deploy/deploy-public-www.sh`. Workflows in
+  `.github/workflows/{deploy,promote,smoke,lighthouse}-public-www*.yml` must
+  call this script and not duplicate its logic.
+- Forbidden in `apps/public_www/**`:
+  - `dangerouslySetInnerHTML`
+  - `eval(...)` / `new Function(...)`
+  - inline `<svg>...</svg>` markup in TSX components (store SVGs in
+    `apps/public_www/public/images/` and reference them via `/images/...`)
+  - `style={...}` JSX attributes / `React.CSSProperties`
+  - Hardcoded environment-specific values (domains, origins, emails) — read
+    them from `apps/public_www/src/lib/site-config.ts`
+- The build pipeline must keep `npm run csp:inject && npm run csp:validate`
+  in `apps/public_www/package.json#scripts.build`.
+- The build env contract enforced by
+  `apps/public_www/scripts/assert-build-env-contract.mjs` must list every
+  `NEXT_PUBLIC_*` variable that the static export depends on at build time.
+  Keep that list in sync with the env blocks in the deploy and promote
+  workflows.
+- Do not bypass `apps/public_www/src/lib/site-config.ts` to read
+  `process.env.NEXT_PUBLIC_*` directly from components.
+- Component layout (mirrors evolvesprouts):
+  - page composition components → `apps/public_www/src/components/pages/**`
+  - section components → `apps/public_www/src/components/sections/**`
+  - shared UI primitives → `apps/public_www/src/components/shared/**`
+  - all unit/component tests → `apps/public_www/tests/**` (no `*.test.*` /
+    `*.spec.*` files under `apps/public_www/src/**`)
+- Maintenance-mode contract: when adding new placeholders to
+  `apps/public_www/maintenance/index.html` of the form
+  `__NEXT_PUBLIC_FOO__`, also update
+  `inject_maintenance_contact_values()` in
+  `scripts/deploy/deploy-public-www.sh` and the corresponding
+  `validate_maintenance_contact_settings()` checks.
+- Bucket naming: any new S3 bucket added to `PublicWwwStack` must keep the
+  full physical name (`prefix-{accountId}-{region}`) under 63 characters in
+  the smallest region used by the project.
+- Promotion model: do not change the deploy script's promotion contract
+  (`PUBLIC_WWW_PROMOTE_RELEASE_ID` + optional `PUBLIC_WWW_PROMOTION_BUILD_DIR`)
+  without an accompanying update to `promote-public-www.yml`.
+- When introducing a public API for the website, port the `/www/*`
+  CloudFront behavior + allow-list CloudFront Function pattern from
+  `lcacchiani/evolvesprouts/backend/infrastructure/lib/public-www-stack.ts`.
+  Re-introduce the `addDependency` chain across CloudFront Functions so
+  that CloudFormation does not breach the regional CloudFront Functions
+  rate limit.
+
 ### Code style and structure
 - Write concise and efficient source code.
 - Strive for source code that is easy to read and maintain, and provide accurate examples.
