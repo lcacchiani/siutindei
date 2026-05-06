@@ -1,4 +1,0 @@
-{
-  "install": "bash backend/scripts/prepare_infra_synth_env.sh",
-  "start": "bash backend/scripts/prepare_infra_synth_env.sh"
-}
