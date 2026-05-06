@@ -1,0 +1,113 @@
+name: Deploy Public Website Staging
+
+on:
+  repository_dispatch:
+    types: [deploy-public-www]
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - 'apps/public_www/**'
+      - 'scripts/deploy/deploy-public-www.sh'
+      - '.github/workflows/deploy-public-www.yml'
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: deploy-public-www-staging
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Resolve public site domains from infrastructure params
+        id: resolve_public_site_domains
+        run: |
+          PRODUCTION_SITE_DOMAIN="$(python3 -c "import json; from pathlib import Path; params=json.loads(Path('backend/infrastructure/params/production.json').read_text(encoding='utf-8')); print(str(params.get('PublicWwwDomainName', '')).strip())")"
+          STAGING_SITE_DOMAIN="$(python3 -c "import json; from pathlib import Path; params=json.loads(Path('backend/infrastructure/params/production.json').read_text(encoding='utf-8')); print(str(params.get('PublicWwwStagingDomainName', '')).strip())")"
+          if [ -z "$PRODUCTION_SITE_DOMAIN" ] || [ -z "$STAGING_SITE_DOMAIN" ]; then
+            echo "PublicWwwDomainName and PublicWwwStagingDomainName are required in backend/infrastructure/params/production.json"
+            exit 1
+          fi
+          echo "production_site_origin=https://${PRODUCTION_SITE_DOMAIN}" >> "$GITHUB_OUTPUT"
+          echo "staging_site_origin=https://${STAGING_SITE_DOMAIN}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: apps/public_www/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: apps/public_www
+
+      - name: Audit public website production dependencies
+        run: npm run audit:deps:prod
+        working-directory: apps/public_www
+
+      - name: Audit public website assets
+        run: npm run audit:assets
+        working-directory: apps/public_www
+
+      - name: Verify public website build env contract
+        run: npm run assert:build-env-contract
+        working-directory: apps/public_www
+        env:
+          NEXT_PUBLIC_SITE_ORIGIN: ${{ steps.resolve_public_site_domains.outputs.staging_site_origin }}
+          NEXT_PUBLIC_SITE_NAME: ${{ vars.NEXT_PUBLIC_SITE_NAME }}
+
+      - name: Restore Next.js build cache
+        uses: actions/cache@v5
+        with:
+          path: apps/public_www/.next/cache
+          key: ${{ runner.os }}-nextjs-public-www-${{ hashFiles('apps/public_www/package-lock.json') }}
+          restore-keys: ${{ runner.os }}-nextjs-public-www-
+
+      - name: Build public website
+        run: npm run build
+        working-directory: apps/public_www
+        env:
+          NEXT_TELEMETRY_DISABLED: '1'
+          NEXT_PUBLIC_SITE_ORIGIN: ${{ steps.resolve_public_site_domains.outputs.staging_site_origin }}
+          NEXT_PUBLIC_SITE_NAME: ${{ vars.NEXT_PUBLIC_SITE_NAME }}
+          NEXT_PUBLIC_SITE_TAGLINE: ${{ vars.NEXT_PUBLIC_SITE_TAGLINE }}
+          NEXT_PUBLIC_EMAIL: ${{ vars.NEXT_PUBLIC_EMAIL }}
+          NEXT_PUBLIC_WHATSAPP_URL: ${{ vars.NEXT_PUBLIC_WHATSAPP_URL }}
+          NEXT_PUBLIC_INSTAGRAM_URL: ${{ vars.NEXT_PUBLIC_INSTAGRAM_URL }}
+          NEXT_PUBLIC_STAGING_BADGE_ENABLED: 'true'
+
+      - name: Configure AWS credentials
+        if: ${{ vars.AWS_ACCOUNT_ID != '' && vars.AWS_REGION != '' }}
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/GitHubActionsRole
+          aws-region: ${{ vars.AWS_REGION }}
+          role-session-name: GitHubActions-${{ github.run_id }}
+
+      - name: Deploy public website
+        run: bash 'scripts/deploy/deploy-public-www.sh'
+        env:
+          PUBLIC_WWW_STACK_NAME: lxsoftware-siutindei-public-www
+          PUBLIC_WWW_ENVIRONMENT: staging
+          PUBLIC_WWW_RELEASE_ID: ${{ github.sha }}
+
+      - name: Publish staging release summary
+        run: |
+          {
+            echo '## Public Website staging deploy'
+            echo ''
+            echo '- Stack: `lxsoftware-siutindei-public-www`'
+            echo '- Target environment: `staging`'
+            echo "- Release ID: \`${GITHUB_SHA}\`"
+            echo "- Staging URL: \`${{ steps.resolve_public_site_domains.outputs.staging_site_origin }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"

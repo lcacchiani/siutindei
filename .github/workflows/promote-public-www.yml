@@ -1,0 +1,180 @@
+name: Promote Public Website Release
+
+on:
+  repository_dispatch:
+    types: [promote-public-www]
+  workflow_dispatch:
+    inputs:
+      promotion_mode:
+        description: 'Operation mode'
+        required: true
+        default: 'latest_staging'
+        type: choice
+        options:
+          - latest_staging
+          - release_id
+          - maintenance_on
+      release_id:
+        description: 'Required when promotion_mode=release_id'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: promote-public-www
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Resolve public site domains from infrastructure params
+        id: resolve_public_site_domains
+        run: |
+          PRODUCTION_SITE_DOMAIN="$(python3 -c "import json; from pathlib import Path; params=json.loads(Path('backend/infrastructure/params/production.json').read_text(encoding='utf-8')); print(str(params.get('PublicWwwDomainName', '')).strip())")"
+          STAGING_SITE_DOMAIN="$(python3 -c "import json; from pathlib import Path; params=json.loads(Path('backend/infrastructure/params/production.json').read_text(encoding='utf-8')); print(str(params.get('PublicWwwStagingDomainName', '')).strip())")"
+          if [ -z "$PRODUCTION_SITE_DOMAIN" ] || [ -z "$STAGING_SITE_DOMAIN" ]; then
+            echo "PublicWwwDomainName and PublicWwwStagingDomainName are required in backend/infrastructure/params/production.json"
+            exit 1
+          fi
+          echo "production_site_origin=https://${PRODUCTION_SITE_DOMAIN}" >> "$GITHUB_OUTPUT"
+          echo "staging_site_origin=https://${STAGING_SITE_DOMAIN}" >> "$GITHUB_OUTPUT"
+
+      - name: Validate AWS configuration
+        run: |
+          if [ -z "$AWS_ACCOUNT_ID" ] || [ -z "$AWS_REGION" ]; then
+            echo 'AWS_ACCOUNT_ID and AWS_REGION variables are required'
+            exit 1
+          fi
+        env:
+          AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
+          AWS_REGION: ${{ vars.AWS_REGION }}
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/GitHubActionsRole
+          aws-region: ${{ vars.AWS_REGION }}
+          role-session-name: GitHubActions-${{ github.run_id }}
+
+      - name: Resolve release ID
+        id: resolve_release
+        env:
+          PROMOTION_MODE: ${{ inputs.promotion_mode }}
+          INPUT_RELEASE_ID: ${{ inputs.release_id }}
+          STACK_NAME: lxsoftware-siutindei-public-www
+        run: |
+          RESOLVED_PROMOTION_MODE="${PROMOTION_MODE:-latest_staging}"
+
+          if [ "$RESOLVED_PROMOTION_MODE" = "maintenance_on" ]; then
+            echo "release_id=" >> "$GITHUB_OUTPUT"
+            echo "maintenance_mode=true" >> "$GITHUB_OUTPUT"
+            echo "promotion_mode=$RESOLVED_PROMOTION_MODE" >> "$GITHUB_OUTPUT"
+            exit 0
+          elif [ "$RESOLVED_PROMOTION_MODE" = "release_id" ]; then
+            if [ -z "$INPUT_RELEASE_ID" ]; then
+              echo 'release_id is required when promotion_mode=release_id'
+              exit 1
+            fi
+            SELECTED_RELEASE_ID="$INPUT_RELEASE_ID"
+          elif [ "$RESOLVED_PROMOTION_MODE" = "latest_staging" ]; then
+            STAGING_BUCKET="$(aws cloudformation describe-stacks \
+              --stack-name "$STACK_NAME" \
+              --query "Stacks[0].Outputs[?OutputKey=='PublicWwwStagingBucketName'].OutputValue" \
+              --output text)"
+            if [ -z "$STAGING_BUCKET" ] || [ "$STAGING_BUCKET" = "None" ]; then
+              echo 'Staging bucket output not found on Public Website stack'
+              exit 1
+            fi
+            MARKER_FILE="$(mktemp)"
+            aws s3 cp \
+              "s3://$STAGING_BUCKET/releases/latest-release-id.txt" \
+              "$MARKER_FILE"
+            SELECTED_RELEASE_ID="$(tr -d '\r\n' < "$MARKER_FILE")"
+            rm -f "$MARKER_FILE"
+            if [ -z "$SELECTED_RELEASE_ID" ]; then
+              echo 'Latest staging release marker is empty'
+              exit 1
+            fi
+          else
+            echo "Unsupported promotion_mode: $RESOLVED_PROMOTION_MODE"
+            exit 1
+          fi
+
+          echo "release_id=$SELECTED_RELEASE_ID" >> "$GITHUB_OUTPUT"
+          echo "maintenance_mode=false" >> "$GITHUB_OUTPUT"
+          echo "promotion_mode=$RESOLVED_PROMOTION_MODE" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Node.js
+        if: ${{ steps.resolve_release.outputs.maintenance_mode != 'true' }}
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: apps/public_www/package-lock.json
+
+      - name: Install public website dependencies
+        if: ${{ steps.resolve_release.outputs.maintenance_mode != 'true' }}
+        run: npm ci
+        working-directory: apps/public_www
+
+      - name: Build public website for production
+        if: ${{ steps.resolve_release.outputs.maintenance_mode != 'true' }}
+        run: npm run build
+        working-directory: apps/public_www
+        env:
+          NEXT_TELEMETRY_DISABLED: '1'
+          NEXT_PUBLIC_SITE_ORIGIN: ${{ steps.resolve_public_site_domains.outputs.production_site_origin }}
+          NEXT_PUBLIC_SITE_NAME: ${{ vars.NEXT_PUBLIC_SITE_NAME }}
+          NEXT_PUBLIC_SITE_TAGLINE: ${{ vars.NEXT_PUBLIC_SITE_TAGLINE }}
+          NEXT_PUBLIC_EMAIL: ${{ vars.NEXT_PUBLIC_EMAIL }}
+          NEXT_PUBLIC_WHATSAPP_URL: ${{ vars.NEXT_PUBLIC_WHATSAPP_URL }}
+          NEXT_PUBLIC_INSTAGRAM_URL: ${{ vars.NEXT_PUBLIC_INSTAGRAM_URL }}
+          NEXT_PUBLIC_STAGING_BADGE_ENABLED: 'false'
+
+      - name: Promote release or enable maintenance mode
+        run: bash 'scripts/deploy/deploy-public-www.sh'
+        env:
+          PUBLIC_WWW_STACK_NAME: lxsoftware-siutindei-public-www
+          PUBLIC_WWW_ENVIRONMENT: production
+          PUBLIC_WWW_MAINTENANCE_MODE: ${{ steps.resolve_release.outputs.maintenance_mode }}
+          PUBLIC_WWW_PROMOTE_RELEASE_ID: ${{ steps.resolve_release.outputs.release_id }}
+          PUBLIC_WWW_PROMOTION_BUILD_DIR: ${{ steps.resolve_release.outputs.maintenance_mode != 'true' && format('{0}/apps/public_www/out', github.workspace) || '' }}
+          NEXT_PUBLIC_EMAIL: ${{ vars.NEXT_PUBLIC_EMAIL }}
+          NEXT_PUBLIC_WHATSAPP_URL: ${{ vars.NEXT_PUBLIC_WHATSAPP_URL }}
+          NEXT_PUBLIC_INSTAGRAM_URL: ${{ vars.NEXT_PUBLIC_INSTAGRAM_URL }}
+
+      - name: Publish promotion summary
+        env:
+          PROMOTION_MODE: ${{ steps.resolve_release.outputs.promotion_mode }}
+          RELEASE_ID: ${{ steps.resolve_release.outputs.release_id }}
+        run: |
+          if [ "$PROMOTION_MODE" = "maintenance_on" ]; then
+            {
+              echo '## Public Website maintenance mode enabled'
+              echo ''
+              echo '- Operation mode: `maintenance_on`'
+              echo '- Target environment: `production`'
+              echo '- Stack: `lxsoftware-siutindei-public-www`'
+              echo "- Production URL: \`${{ steps.resolve_public_site_domains.outputs.production_site_origin }}\`"
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            {
+              echo '## Public Website promotion'
+              echo ''
+              echo "- Promotion mode: \`${PROMOTION_MODE}\`"
+              echo "- Release ID: \`${RELEASE_ID}\`"
+              echo '- Source environment: `staging`'
+              echo '- Target environment: `production`'
+              echo '- Build: fresh static export with **production** GitHub Environment variables'
+              echo '- Stack: `lxsoftware-siutindei-public-www`'
+              echo "- Production URL: \`${{ steps.resolve_public_site_domains.outputs.production_site_origin }}\`"
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi

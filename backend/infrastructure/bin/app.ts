@@ -1,6 +1,7 @@
 import * as cdk from "aws-cdk-lib";
 import { ApiStack } from "../lib/api-stack";
 import { AdminWebStack } from "../lib/admin-web-stack";
+import { PublicWwwStack } from "../lib/public-www-stack";
 import { WafStack } from "../lib/waf-stack";
 
 const app = new cdk.App();
@@ -23,6 +24,17 @@ new ApiStack(app, "lxsoftware-siutindei", {
 
 new AdminWebStack(app, "lxsoftware-siutindei-admin-web", {
   description: "LX Software Siu Tin Dei Admin Web",
+  env: {
+    account: process.env.CDK_DEFAULT_ACCOUNT,
+    region: process.env.CDK_DEFAULT_REGION,
+  },
+  synthesizer: bootstrapQualifier
+    ? new cdk.DefaultStackSynthesizer({ qualifier: bootstrapQualifier })
+    : undefined,
+});
+
+new PublicWwwStack(app, "lxsoftware-siutindei-public-www", {
+  description: "LX Software Siu Tin Dei Public Website (staging + production)",
   env: {
     account: process.env.CDK_DEFAULT_ACCOUNT,
     region: process.env.CDK_DEFAULT_REGION,

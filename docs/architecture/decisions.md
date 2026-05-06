@@ -33,6 +33,48 @@ Flutter mobile app, Next.js admin console, and AWS serverless backend.
 - Imports use environment variables for existing resource identifiers,
   including security groups and Secrets Manager references.
 
+## 3) Public Website (Marketing)
+
+**Decision:** Next.js static export hosted on CloudFront + S3 with two
+parallel environments (production + staging) inside a single CDK stack
+(`lxsoftware-siutindei-public-www`).
+
+**Why:**
+- A purely static site keeps marketing pages cheap, fast, and free of
+  attack surface tied to runtime servers.
+- Promoting a release from staging to production by **byte-for-byte S3
+  artifact copy** removes the "rebuild between environments" risk entirely.
+  The same artifact that passed the smoke test in staging is the artifact
+  that goes live.
+- Two CloudFront distributions in one stack (instead of two stacks) keep
+  the response-headers policy, CloudFront Functions, and WAF wiring in a
+  single place and let CDK deduplicate IAM and parameter logic.
+- The CloudFront response headers policy is the source of truth for HSTS,
+  CSP, Permissions-Policy, X-Frame-Options, Referrer-Policy, and the
+  staging-only `X-Robots-Tag: noindex`. The build also injects a CSP
+  `<meta http-equiv>` tag for defense in depth.
+- The deploy script enforces a deny-all `robots.txt` on the staging bucket
+  on every run so the staging URL never gets indexed even if a build
+  accidentally ships an index-allow `robots.txt`.
+
+**Canonical structure:**
+- App: `apps/public_www/` (Next.js App Router, `output: 'export'`).
+- Stack: `backend/infrastructure/lib/public-www-stack.ts`.
+- Deploy: `scripts/deploy/deploy-public-www.sh`.
+- Workflows: `.github/workflows/deploy-public-www.yml`,
+  `.github/workflows/promote-public-www.yml`,
+  `.github/workflows/smoke-public-www-staging.yml`,
+  `.github/workflows/lighthouse-public-www.yml`.
+- Design: [`docs/architecture/public-www.md`](public-www.md).
+
+**Promotion modes (workflow_dispatch):**
+
+| Mode | Effect |
+|---|---|
+| `latest_staging` (default) | Read `releases/latest-release-id.txt` from the staging bucket, S3-copy that release into the production bucket, invalidate. |
+| `release_id` | Operator supplies the SHA. The workflow rebuilds with **production** env vars and uploads the local build to production (the release id only gates eligibility). |
+| `maintenance_on` | Upload `apps/public_www/maintenance/` to the production bucket with `Cache-Control: no-store`, invalidate. |
+
 ## Database schema (Aurora PostgreSQL)
 
 **Decisions:**

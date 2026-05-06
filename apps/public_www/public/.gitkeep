@@ -1,0 +1,3 @@
+# Static asset root. The build (next export) merges this directory into out/.
+# Add favicon.ico, robots/static files, and images here. Operator note: a
+# real favicon.ico must be added before the first staging deploy.
