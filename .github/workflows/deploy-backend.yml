@@ -485,9 +485,19 @@ jobs:
           admin_web_stack = "lxsoftware-siutindei-admin-web"
           api_stack = "lxsoftware-siutindei"
           waf_stack = "lxsoftware-siutindei-waf"
+          public_www_stack = "lxsoftware-siutindei-public-www"
           admin_web_params = {"AdminWebDomainName", "AdminWebCertificateArn", "WafWebAclArn"}
           # WAF stack has no parameters that need to be passed
           waf_params = set()
+          # Public website stack params. Note: WafWebAclArn is shared with
+          # admin-web; it stays in admin_web_params because deploy-backend.yml
+          # does not deploy the public-www stack (deploy-public-www.yml does).
+          public_www_params = {
+              "PublicWwwDomainName",
+              "PublicWwwCertificateArn",
+              "PublicWwwStagingDomainName",
+              "PublicWwwStagingCertificateArn",
+          }
           params = {}
           for path in paths:
               with open(path, "r", encoding="utf-8") as handle:
@@ -509,6 +519,8 @@ jobs:
                   target_stack = waf_stack
               elif key in admin_web_params:
                   target_stack = admin_web_stack
+              elif key in public_www_params:
+                  target_stack = public_www_stack
               else:
                   target_stack = api_stack
               if target_stack not in stack_set:
