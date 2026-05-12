@@ -228,7 +228,7 @@ Organization profile with:
 
 Authentication UI with:
 - Email/phone input
-- Sign in options (email OTP, Google, Apple, Microsoft)
+- Sign in options (email OTP, Google, Apple)
 - Social login buttons
 
 ## Performance Patterns

@@ -19,11 +19,6 @@ export interface IdentityProviderConfig {
     keyId: string;
     privateKey: string;
   };
-  microsoft?: {
-    tenantId: string;
-    clientId: string;
-    clientSecret: string;
-  };
 }
 
 /**
@@ -66,7 +61,7 @@ export interface AuthConstructProps {
  *
  * Creates:
  * - Cognito User Pool with email sign-in
- * - Google, Apple, and Microsoft identity providers
+ * - Google and Apple identity providers
  * - User Pool Client with OAuth configuration
  * - Admin group
  * - Optional bootstrap admin user
@@ -169,30 +164,6 @@ export class AuthConstruct extends Construct {
       );
       providers.push(appleProvider);
       supportedProviders.push("SignInWithApple");
-    }
-
-    if (props.identityProviders.microsoft) {
-      const microsoftProvider = new cognito.CfnUserPoolIdentityProvider(
-        this,
-        "MicrosoftProvider",
-        {
-          providerName: "Microsoft",
-          providerType: "OIDC",
-          userPoolId: this.userPool.userPoolId,
-          attributeMapping: {
-            email: "email",
-          },
-          providerDetails: {
-            client_id: props.identityProviders.microsoft.clientId,
-            client_secret: props.identityProviders.microsoft.clientSecret,
-            attributes_request_method: "GET",
-            oidc_issuer: `https://login.microsoftonline.com/${props.identityProviders.microsoft.tenantId}/v2.0`,
-            authorize_scopes: "openid email profile",
-          },
-        }
-      );
-      providers.push(microsoftProvider);
-      supportedProviders.push("Microsoft");
     }
 
     // User Pool Domain

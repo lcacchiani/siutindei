@@ -3,11 +3,7 @@
 import { useState, type FormEvent } from 'react';
 
 import { useAuth } from './auth-provider';
-import {
-  AppleIcon,
-  GoogleIcon,
-  MicrosoftIcon,
-} from './icons/action-icons';
+import { AppleIcon, GoogleIcon } from './icons/action-icons';
 import { StatusBanner } from './status-banner';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
@@ -26,12 +22,6 @@ const socialProviders = [
     label: 'Continue with Apple',
     provider: 'SignInWithApple',
     Icon: AppleIcon,
-  },
-  {
-    key: 'microsoft',
-    label: 'Continue with Microsoft',
-    provider: 'Microsoft',
-    Icon: MicrosoftIcon,
   },
 ] as const;
 

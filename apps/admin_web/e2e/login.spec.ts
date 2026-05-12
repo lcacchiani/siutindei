@@ -16,9 +16,6 @@ test.describe('Login Screen', () => {
     await expect(
       unauthenticatedPage.getByRole('button', { name: 'Continue with Apple' })
     ).toBeVisible();
-    await expect(
-      unauthenticatedPage.getByRole('button', { name: 'Continue with Microsoft' })
-    ).toBeVisible();
 
     // Check for email magic link
     await expect(

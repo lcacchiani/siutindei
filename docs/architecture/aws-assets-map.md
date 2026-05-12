@@ -183,12 +183,11 @@ Cognito operations are proxied through `AwsApiProxyFunction` instead.
 |--------------|------------|---------------|-------|
 | User Pool Identity Provider | `GoogleIdentityProvider` | `Google` | Google OAuth |
 | User Pool Identity Provider | `AppleIdentityProvider` | `SignInWithApple` | Apple Sign In |
-| User Pool Identity Provider | `MicrosoftIdentityProvider` | `Microsoft` | Microsoft OIDC |
 
 **User Pool Client Configuration:**
 - OAuth Flows: `code`
 - OAuth Scopes: `openid`, `email`, `profile`
-- Supported Providers: `COGNITO`, `Google`, `SignInWithApple`, `Microsoft`
+- Supported Providers: `Google`, `SignInWithApple`
 - Explicit Auth Flows: `ALLOW_CUSTOM_AUTH`, `ALLOW_REFRESH_TOKEN_AUTH`
 
 ---
@@ -413,9 +412,6 @@ read error status codes instead of silently blocking them.
 | `AppleTeamId` | String | Yes | No | Apple developer team ID |
 | `AppleKeyId` | String | Yes | No | Apple Sign In key ID |
 | `ApplePrivateKey` | String | Yes | Yes | Apple Sign In private key |
-| `MicrosoftTenantId` | String | Yes | No | Microsoft Entra tenant ID |
-| `MicrosoftClientId` | String | Yes | No | Microsoft OAuth client ID |
-| `MicrosoftClientSecret` | String | Yes | Yes | Microsoft OAuth client secret |
 | `AuthEmailFromAddress` | String | Yes | No | SES-verified email for passwordless auth |
 | `LoginLinkBaseUrl` | String | No | No | Base URL for magic links (default: empty) |
 | `MaxChallengeAttempts` | Number | No | No | Max passwordless auth attempts (default: 3) |

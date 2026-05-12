@@ -380,23 +380,6 @@ export class ApiStack extends cdk.Stack {
       "\n",
       cdk.Fn.split("\\n", applePrivateKey.valueAsString)
     );
-    const microsoftTenantId = new cdk.CfnParameter(this, "MicrosoftTenantId", {
-      type: "String",
-      description: "Microsoft Entra tenant ID",
-    });
-    const microsoftClientId = new cdk.CfnParameter(this, "MicrosoftClientId", {
-      type: "String",
-      description: "Microsoft OAuth client ID",
-    });
-    const microsoftClientSecret = new cdk.CfnParameter(
-      this,
-      "MicrosoftClientSecret",
-      {
-        type: "String",
-        noEcho: true,
-        description: "Microsoft OAuth client secret",
-      }
-    );
     const authEmailFromAddress = new cdk.CfnParameter(
       this,
       "AuthEmailFromAddress",
@@ -644,26 +627,6 @@ export class ApiStack extends cdk.Stack {
       }
     );
 
-    const microsoftProvider = new cognito.CfnUserPoolIdentityProvider(
-      this,
-      "MicrosoftIdentityProvider",
-      {
-        providerName: "Microsoft",
-        providerType: "OIDC",
-        userPoolId: userPool.userPoolId,
-        attributeMapping: {
-          email: "email",
-        },
-        providerDetails: {
-          client_id: microsoftClientId.valueAsString,
-          client_secret: microsoftClientSecret.valueAsString,
-          attributes_request_method: "GET",
-          oidc_issuer: `https://login.microsoftonline.com/${microsoftTenantId.valueAsString}/v2.0`,
-          authorize_scopes: "openid email profile",
-        },
-      }
-    );
-
     const useCustomDomain = new cdk.CfnCondition(this, "UseCustomAuthDomain", {
       expression: cdk.Fn.conditionAnd(
         cdk.Fn.conditionNot(
@@ -777,7 +740,6 @@ export class ApiStack extends cdk.Stack {
         supportedIdentityProviders: [
           "Google",
           "SignInWithApple",
-          "Microsoft",
         ],
         explicitAuthFlows: [
           "ALLOW_CUSTOM_AUTH",
@@ -789,7 +751,6 @@ export class ApiStack extends cdk.Stack {
 
     userPoolClient.addDependency(googleProvider);
     userPoolClient.addDependency(appleProvider);
-    userPoolClient.addDependency(microsoftProvider);
 
     // Create Cognito user pool groups using AwsCustomResource
     // Using createGroup for both onCreate and onUpdate ensures groups are always created

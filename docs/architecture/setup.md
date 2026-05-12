@@ -90,7 +90,6 @@ For the OIDC provider itself, add the same tags:
 
 - `CDK_PARAM_GOOGLE_CLIENT_SECRET`
 - `CDK_PARAM_APPLE_PRIVATE_KEY`
-- `CDK_PARAM_MICROSOFT_CLIENT_SECRET`
 - `CDK_PARAM_PUBLIC_API_KEY_VALUE`
 - `CDK_PARAM_ADMIN_BOOTSTRAP_TEMP_PASSWORD` (optional)
 - `AMPLIFY_API_KEY`
@@ -246,15 +245,6 @@ existing secrets when possible.
 7. Firebase iOS config:
    - Firebase Console -> Project Settings -> iOS app
    - Copy `FIREBASE_IOS_APP_ID` and set `FIREBASE_IOS_BUNDLE_ID`
-
-### Microsoft (Entra ID)
-1. Go to **Azure Portal → Microsoft Entra ID → App registrations**.
-2. Create an app registration.
-3. Copy:
-   - **Tenant ID** → `MicrosoftTenantId`
-   - **Client ID** → `MicrosoftClientId`
-4. Create a client secret:
-   - **Client Secret** → `CDK_PARAM_MICROSOFT_CLIENT_SECRET`
 
 ### Apple (Sign in with Apple)
 1. Go to **Apple Developer → Certificates, Identifiers & Profiles**.
