@@ -6,7 +6,6 @@ import {
   AppleIcon,
   EmailIcon,
   GoogleIcon,
-  MicrosoftIcon,
 } from '../../icons/action-icons';
 
 export function RoleBadge({
@@ -31,7 +30,7 @@ export function RoleBadge({
   );
 }
 
-type IdentityProvider = 'Google' | 'Apple' | 'Microsoft' | 'Email';
+type IdentityProvider = 'Google' | 'Apple' | 'Email';
 
 function getIdentityProvider(
   username: string | null | undefined
@@ -40,12 +39,6 @@ function getIdentityProvider(
   const lowerUsername = username.toLowerCase();
   if (lowerUsername.startsWith('google_')) return 'Google';
   if (lowerUsername.startsWith('signinwithapple_')) return 'Apple';
-  if (
-    lowerUsername.startsWith('azuread_') ||
-    lowerUsername.startsWith('microsoft_')
-  ) {
-    return 'Microsoft';
-  }
   return 'Email';
 }
 
@@ -92,7 +85,6 @@ export function IdentityProviderBadge({
   const icons: Record<IdentityProvider, ReactNode> = {
     Google: <GoogleIcon className='h-4 w-4' />,
     Apple: <AppleIcon className='h-4 w-4' />,
-    Microsoft: <MicrosoftIcon className='h-4 w-4' />,
     Email: <EmailIcon className='h-4 w-4 text-slate-500' />,
   };
 

@@ -73,7 +73,7 @@ Public Website (Next.js static export)        Flutter Mobile / Next.js Admin
   during deploy.
 - Cognito User Pool secures admin/manager routes; any-user routes require
   only a valid JWT. Passwordless email challenges and federated sign-in
-  (Google, Apple, Microsoft) are supported.
+  (Google, Apple) are supported.
 - API keys are rotated automatically every 90 days via a scheduled Lambda.
 
 ## Data model
@@ -144,7 +144,7 @@ pull requests for dependency updates:
 - API keys are rotated every 90 days via a scheduled Lambda.
 - Optional CDK parameters can bootstrap an initial admin user.
 - Passwordless email sign-in uses Cognito custom auth triggers.
-- Hosted UI enables Google, Apple, and Microsoft IdPs via OAuth.
+- Hosted UI enables Google and Apple IdPs via OAuth.
 - Database audit logging tracks all data changes (see [`audit-logging.md`](audit-logging.md)).
 - See [`docs/architecture/security.md`](security.md) for full security guidelines.
 

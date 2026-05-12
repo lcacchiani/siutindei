@@ -140,7 +140,7 @@ parallel environments (production + staging) inside a single CDK stack
 - Admin and manager groups are created via CDK.
 - Admin bootstrap user can be created with CDK parameters.
 - Authentication is passwordless: email custom challenge (OTP + optional magic
-  link) and federated sign-in via Google, Apple, and Microsoft (OIDC).
+  link) and federated sign-in via Google and Apple.
 - Device attestation validates JWTs against a JWKS URL configured in CDK
   parameters.
 - Hosted UI uses OAuth code flow with callback/logout URLs supplied via CDK
@@ -314,7 +314,6 @@ Lambdas or NAT Gateway.
 - `AMPLIFY_API_KEY` (mobile API key injected at build time)
 - `CDK_PARAM_GOOGLE_CLIENT_SECRET`
 - `CDK_PARAM_APPLE_PRIVATE_KEY`
-- `CDK_PARAM_MICROSOFT_CLIENT_SECRET`
 - `CDK_PARAM_PUBLIC_API_KEY_VALUE`
 - `CDK_PARAM_ADMIN_BOOTSTRAP_TEMP_PASSWORD` (optional)
 - `APPSTORE_API_KEY_JSON` (recommended single JSON secret with issuer_id,
