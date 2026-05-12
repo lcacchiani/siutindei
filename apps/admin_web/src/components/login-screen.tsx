@@ -239,7 +239,6 @@ export function LoginScreen() {
                       autoFocus
                       className={showEmailError ? errorInputClassName : ''}
                       aria-invalid={showEmailError || undefined}
-                      onBlur={() => setEmailTouched(true)}
                     />
                     {showEmailError ? (
                       <p className='text-xs text-red-600'>{emailError}</p>
@@ -280,7 +279,6 @@ export function LoginScreen() {
                       autoFocus
                       className={showCodeError ? errorInputClassName : ''}
                       aria-invalid={showCodeError || undefined}
-                      onBlur={() => setCodeTouched(true)}
                     />
                     {showCodeError ? (
                       <p className='text-xs text-red-600'>{codeError}</p>
