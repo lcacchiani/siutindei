@@ -1,10 +1,14 @@
 name: CDK Diff
 
 on:
+  repository_dispatch:
+    types: [cdk-diff]
   workflow_dispatch:
     inputs:
       stacks:
-        description: "Optional space/comma-separated CDK stack names"
+        description: >-
+          Optional stack names or menu labels (all stacks, lambda apis,
+          admin web, public website, waf (us-east-1))
         required: false
         default: ""
 
@@ -26,33 +30,33 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: "24"
+          node-version: "lts/*"
           cache: "npm"
           cache-dependency-path: backend/infrastructure/package-lock.json
 
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.12"
-
-      - name: Upgrade pip
-        run: python -m pip install --upgrade pip
+      - name: Determine deployment region
+        id: region
+        env:
+          INPUT_CDK_STACKS: ${{ inputs.stacks }}
+          INPUT_AWS_REGION: ${{ vars.AWS_REGION }}
+        run: |
+          if [ "$INPUT_CDK_STACKS" = "waf (us-east-1)" ] || \
+            [ "$INPUT_CDK_STACKS" = "lxsoftware-siutindei-waf" ]; then
+            echo "region=us-east-1" >> "$GITHUB_OUTPUT"
+          else
+            echo "region=$INPUT_AWS_REGION" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/GitHubActionsRole
-          aws-region: ${{ vars.AWS_REGION }}
+          aws-region: ${{ steps.region.outputs.region }}
           role-session-name: GitHubActions-${{ github.run_id }}
 
-      - name: Install backend dependencies
-        run: |
-          if [ -f "backend/infrastructure/package.json" ]; then
-            cd backend/infrastructure
-            npm ci
-          else
-            echo "Missing backend/infrastructure/package.json"
-          fi
+      - name: Install infrastructure dependencies
+        working-directory: backend/infrastructure
+        run: npm ci
 
       - name: Build CDK secret parameters file
         run: |
@@ -88,8 +92,8 @@ jobs:
       - name: Build CDK non-secret parameters file
         run: |
           python3 - <<'PY'
-          import os
           import json
+          import os
           from pathlib import Path
 
           project_number = os.getenv("FIREBASE_MESSAGING_SENDER_ID", "").strip()
@@ -123,341 +127,72 @@ jobs:
           FIREBASE_ANDROID_APP_ID: ${{ vars.FIREBASE_ANDROID_APP_ID }}
           FIREBASE_IOS_APP_ID: ${{ vars.FIREBASE_IOS_APP_ID }}
 
-      - name: Detect existing database resources
-        run: |
-          set -e
-          resource_prefix="lxsoftware-siutindei"
-          stack_name="${resource_prefix}"
-          vpc_name="${resource_prefix}-vpc"
-          secret_name="${resource_prefix}-database-credentials"
-          cluster_identifier="${resource_prefix}-db-cluster"
-          proxy_name="${resource_prefix}-db-proxy"
-
-          normalize_value() {
-            local value="$1"
-            if [ -z "$value" ] || [ "$value" = "None" ] || \
-              [ "$value" = "null" ] || [ "$value" = "N/A" ]; then
-              echo ""
-              return 0
-            fi
-            echo "$value"
-          }
-
-          stack_vpc_id=""
-          stack_db_cluster_id=""
-          stack_db_proxy_name=""
-          stack_secret_id=""
-          stack_lambda_sg_id=""
-          stack_migration_sg_id=""
-
-          if aws cloudformation describe-stacks --stack-name "$stack_name" \
-            >/dev/null 2>&1; then
-            stack_vpc_id=$(aws cloudformation list-stack-resources \
-              --stack-name "$stack_name" \
-              --query "StackResourceSummaries[?ResourceType=='AWS::EC2::VPC'].PhysicalResourceId | [0]" \
-              --output text 2>/dev/null || true)
-            stack_db_cluster_id=$(aws cloudformation list-stack-resources \
-              --stack-name "$stack_name" \
-              --query "StackResourceSummaries[?ResourceType=='AWS::RDS::DBCluster'].PhysicalResourceId | [0]" \
-              --output text 2>/dev/null || true)
-            stack_db_proxy_name=$(aws cloudformation list-stack-resources \
-              --stack-name "$stack_name" \
-              --query "StackResourceSummaries[?ResourceType=='AWS::RDS::DBProxy'].PhysicalResourceId | [0]" \
-              --output text 2>/dev/null || true)
-            stack_secret_id=$(aws cloudformation list-stack-resources \
-              --stack-name "$stack_name" \
-              --query "StackResourceSummaries[?ResourceType=='AWS::SecretsManager::Secret' && contains(LogicalResourceId, 'DBCredentialsSecret')].PhysicalResourceId | [0]" \
-              --output text 2>/dev/null || true)
-            stack_lambda_sg_id=$(aws cloudformation list-stack-resources \
-              --stack-name "$stack_name" \
-              --query "StackResourceSummaries[?LogicalResourceId=='LambdaSecurityGroup'].PhysicalResourceId | [0]" \
-              --output text 2>/dev/null || true)
-            stack_migration_sg_id=$(aws cloudformation list-stack-resources \
-              --stack-name "$stack_name" \
-              --query "StackResourceSummaries[?LogicalResourceId=='MigrationSecurityGroup'].PhysicalResourceId | [0]" \
-              --output text 2>/dev/null || true)
-          fi
-
-          stack_vpc_id=$(normalize_value "$stack_vpc_id")
-          stack_db_cluster_id=$(normalize_value "$stack_db_cluster_id")
-          stack_db_proxy_name=$(normalize_value "$stack_db_proxy_name")
-          stack_secret_id=$(normalize_value "$stack_secret_id")
-          stack_lambda_sg_id=$(normalize_value "$stack_lambda_sg_id")
-          stack_migration_sg_id=$(normalize_value "$stack_migration_sg_id")
-          if [ -n "$stack_db_cluster_id" ]; then
-            echo "SKIP_DB_CLUSTER_IMMUTABLE_UPDATES=true" >> "$GITHUB_ENV"
-          else
-            echo "SKIP_DB_CLUSTER_IMMUTABLE_UPDATES=false" >> "$GITHUB_ENV"
-          fi
-          existing_secret_name_set="false"
-          existing_secret_arn_set="false"
-
-          if aws secretsmanager describe-secret --secret-id "$secret_name" \
-            >/dev/null 2>&1; then
-            if [ -z "$stack_secret_id" ]; then
-              echo "EXISTING_DB_CREDENTIALS_SECRET_NAME=$secret_name" \
-                >> "$GITHUB_ENV"
-              existing_secret_name_set="true"
-            fi
-          fi
-
-          cluster_vpc_id=""
-          if [ -z "$stack_db_cluster_id" ] && aws rds describe-db-clusters \
-            --db-cluster-identifier "$cluster_identifier" >/dev/null 2>&1; then
-            cluster_endpoint=$(aws rds describe-db-clusters \
-              --db-cluster-identifier "$cluster_identifier" \
-              --query "DBClusters[0].Endpoint" \
-              --output text 2>/dev/null || true)
-            cluster_endpoint=$(normalize_value "$cluster_endpoint")
-            cluster_reader_endpoint=$(aws rds describe-db-clusters \
-              --db-cluster-identifier "$cluster_identifier" \
-              --query "DBClusters[0].ReaderEndpoint" \
-              --output text 2>/dev/null || true)
-            cluster_reader_endpoint=$(normalize_value "$cluster_reader_endpoint")
-            cluster_port=$(aws rds describe-db-clusters \
-              --db-cluster-identifier "$cluster_identifier" \
-              --query "DBClusters[0].Port" \
-              --output text 2>/dev/null || true)
-            cluster_port=$(normalize_value "$cluster_port")
-            cluster_secret_arn=$(aws rds describe-db-clusters \
-              --db-cluster-identifier "$cluster_identifier" \
-              --query "DBClusters[0].MasterUserSecret.SecretArn" \
-              --output text 2>/dev/null || true)
-            cluster_secret_arn=$(normalize_value "$cluster_secret_arn")
-            if [ -z "$stack_secret_id" ] && \
-              [ "$existing_secret_name_set" != "true" ] && \
-              [ -n "$cluster_secret_arn" ]; then
-              echo "EXISTING_DB_CREDENTIALS_SECRET_ARN=$cluster_secret_arn" \
-                >> "$GITHUB_ENV"
-              existing_secret_arn_set="true"
-            fi
-            cluster_sg_id=$(aws rds describe-db-clusters \
-              --db-cluster-identifier "$cluster_identifier" \
-              --query "DBClusters[0].VpcSecurityGroups[0].VpcSecurityGroupId" \
-              --output text 2>/dev/null || true)
-            cluster_sg_id=$(normalize_value "$cluster_sg_id")
-            db_subnet_group=$(aws rds describe-db-clusters \
-              --db-cluster-identifier "$cluster_identifier" \
-              --query "DBClusters[0].DBSubnetGroup" \
-              --output text 2>/dev/null || true)
-            db_subnet_group=$(normalize_value "$db_subnet_group")
-            if [ -n "$cluster_sg_id" ]; then
-              echo "EXISTING_DB_SECURITY_GROUP_ID=$cluster_sg_id" \
-                >> "$GITHUB_ENV"
-            fi
-            if [ -n "$db_subnet_group" ]; then
-              cluster_vpc_id=$(aws rds describe-db-subnet-groups \
-                --db-subnet-group-name "$db_subnet_group" \
-                --query "DBSubnetGroups[0].VpcId" \
-                --output text 2>/dev/null || true)
-              cluster_vpc_id=$(normalize_value "$cluster_vpc_id")
-            fi
-            echo "EXISTING_DB_CLUSTER_IDENTIFIER=$cluster_identifier" \
-              >> "$GITHUB_ENV"
-            if [ -n "$cluster_endpoint" ]; then
-              echo "EXISTING_DB_CLUSTER_ENDPOINT=$cluster_endpoint" \
-                >> "$GITHUB_ENV"
-            fi
-            if [ -n "$cluster_reader_endpoint" ]; then
-              echo "EXISTING_DB_CLUSTER_READER_ENDPOINT=$cluster_reader_endpoint" \
-                >> "$GITHUB_ENV"
-            fi
-            if [ -n "$cluster_port" ]; then
-              echo "EXISTING_DB_CLUSTER_PORT=$cluster_port" \
-                >> "$GITHUB_ENV"
-            fi
-          fi
-
-          if [ -z "$stack_db_proxy_name" ] && aws rds describe-db-proxies \
-            --db-proxy-name "$proxy_name" >/dev/null 2>&1; then
-            proxy_arn=$(aws rds describe-db-proxies \
-              --db-proxy-name "$proxy_name" \
-              --query "DBProxies[0].DBProxyArn" \
-              --output text 2>/dev/null || true)
-            proxy_arn=$(normalize_value "$proxy_arn")
-            proxy_endpoint=$(aws rds describe-db-proxies \
-              --db-proxy-name "$proxy_name" \
-              --query "DBProxies[0].Endpoint" \
-              --output text 2>/dev/null || true)
-            proxy_endpoint=$(normalize_value "$proxy_endpoint")
-            proxy_sg_id=$(aws rds describe-db-proxies \
-              --db-proxy-name "$proxy_name" \
-              --query "DBProxies[0].VpcSecurityGroupIds[0]" \
-              --output text 2>/dev/null || true)
-            proxy_sg_id=$(normalize_value "$proxy_sg_id")
-            proxy_secret_arn=$(aws rds describe-db-proxies \
-              --db-proxy-name "$proxy_name" \
-              --query "DBProxies[0].Auth[0].SecretArn" \
-              --output text 2>/dev/null || true)
-            proxy_secret_arn=$(normalize_value "$proxy_secret_arn")
-            if [ -z "$stack_secret_id" ] && \
-              [ "$existing_secret_name_set" != "true" ] && \
-              [ "$existing_secret_arn_set" != "true" ] && \
-              [ -n "$proxy_secret_arn" ]; then
-              echo "EXISTING_DB_CREDENTIALS_SECRET_ARN=$proxy_secret_arn" \
-                >> "$GITHUB_ENV"
-              existing_secret_arn_set="true"
-            fi
-            if [ -n "$proxy_sg_id" ]; then
-              echo "EXISTING_PROXY_SECURITY_GROUP_ID=$proxy_sg_id" \
-                >> "$GITHUB_ENV"
-            fi
-            echo "EXISTING_DB_PROXY_NAME=$proxy_name" >> "$GITHUB_ENV"
-            if [ -n "$proxy_arn" ]; then
-              echo "EXISTING_DB_PROXY_ARN=$proxy_arn" >> "$GITHUB_ENV"
-            fi
-            if [ -n "$proxy_endpoint" ]; then
-              echo "EXISTING_DB_PROXY_ENDPOINT=$proxy_endpoint" \
-                >> "$GITHUB_ENV"
-            fi
-          fi
-
-          selected_vpc_id=""
-          if [ -z "$stack_vpc_id" ]; then
-            if [ -n "$cluster_vpc_id" ]; then
-              selected_vpc_id="$cluster_vpc_id"
-            else
-              vpc_id=$(aws ec2 describe-vpcs \
-                --filters "Name=tag:Name,Values=$vpc_name" \
-                --query "Vpcs[0].VpcId" \
-                --output text 2>/dev/null || true)
-              vpc_id=$(normalize_value "$vpc_id")
-              if [ -n "$vpc_id" ]; then
-                selected_vpc_id="$vpc_id"
-              fi
-            fi
-            if [ -n "$selected_vpc_id" ]; then
-              echo "EXISTING_VPC_ID=$selected_vpc_id" >> "$GITHUB_ENV"
-            fi
-          fi
-
-          if [ -z "$stack_lambda_sg_id" ] && [ -n "$selected_vpc_id" ]; then
-            lambda_sg_id=$(aws ec2 describe-security-groups \
-              --filters "Name=vpc-id,Values=$selected_vpc_id" \
-                "Name=group-name,Values=${resource_prefix}-lambda-sg" \
-              --query "SecurityGroups[0].GroupId" \
-              --output text 2>/dev/null || true)
-            lambda_sg_id=$(normalize_value "$lambda_sg_id")
-            if [ -n "$lambda_sg_id" ]; then
-              echo "EXISTING_LAMBDA_SECURITY_GROUP_ID=$lambda_sg_id" \
-                >> "$GITHUB_ENV"
-            fi
-          fi
-
-          if [ -z "$stack_migration_sg_id" ] && [ -n "$selected_vpc_id" ]; then
-            migration_sg_id=$(aws ec2 describe-security-groups \
-              --filters "Name=vpc-id,Values=$selected_vpc_id" \
-                "Name=group-name,Values=${resource_prefix}-migration-sg" \
-              --query "SecurityGroups[0].GroupId" \
-              --output text 2>/dev/null || true)
-            migration_sg_id=$(normalize_value "$migration_sg_id")
-            if [ -n "$migration_sg_id" ]; then
-              echo "EXISTING_MIGRATION_SECURITY_GROUP_ID=$migration_sg_id" \
-                >> "$GITHUB_ENV"
-            fi
-          fi
-
-      - name: Detect existing S3 buckets
-        run: |
-          set -e
-          resource_prefix="lxsoftware-siutindei"
-          stack_name="${resource_prefix}"
-
-          normalize_value() {
-            local value="$1"
-            if [ -z "$value" ] || [ "$value" = "None" ] || \
-              [ "$value" = "null" ] || [ "$value" = "N/A" ]; then
-              echo ""
-              return 0
-            fi
-            echo "$value"
-          }
-
-          # Check for existing organization images log bucket from stack resources
-          stack_log_bucket=""
-          stack_images_bucket=""
-          if aws cloudformation describe-stacks --stack-name "$stack_name" \
-            >/dev/null 2>&1; then
-            stack_log_bucket=$(aws cloudformation list-stack-resources \
-              --stack-name "$stack_name" \
-              --query "StackResourceSummaries[?LogicalResourceId=='OrganizationImagesLogBucket'].PhysicalResourceId | [0]" \
-              --output text 2>/dev/null || true)
-            stack_images_bucket=$(aws cloudformation list-stack-resources \
-              --stack-name "$stack_name" \
-              --query "StackResourceSummaries[?LogicalResourceId=='OrganizationImagesBucket'].PhysicalResourceId | [0]" \
-              --output text 2>/dev/null || true)
-          fi
-          stack_log_bucket=$(normalize_value "$stack_log_bucket")
-          stack_images_bucket=$(normalize_value "$stack_images_bucket")
-
-          # If log bucket not in stack, search for existing bucket by prefix
-          if [ -z "$stack_log_bucket" ]; then
-            log_bucket=$(aws s3api list-buckets \
-              --query "Buckets[?starts_with(Name, '${resource_prefix}') && contains(Name, 'org-images-log')].Name | [0]" \
-              --output text 2>/dev/null || true)
-            log_bucket=$(normalize_value "$log_bucket")
-            if [ -n "$log_bucket" ]; then
-              echo "EXISTING_ORG_MEDIA_LOG_BUCKET_NAME=$log_bucket" \
-                >> "$GITHUB_ENV"
-            fi
-          fi
-
-          # If images bucket not in stack, search for existing bucket by prefix
-          if [ -z "$stack_images_bucket" ]; then
-            images_bucket=$(aws s3api list-buckets \
-              --query "Buckets[?starts_with(Name, '${resource_prefix}') && contains(Name, 'org-images') && !contains(Name, 'log')].Name | [0]" \
-              --output text 2>/dev/null || true)
-            images_bucket=$(normalize_value "$images_bucket")
-            if [ -n "$images_bucket" ]; then
-              echo "EXISTING_ORG_MEDIA_BUCKET_NAME=$images_bucket" \
-                >> "$GITHUB_ENV"
-            fi
-          fi
-
       - name: Run CDK diff
+        working-directory: backend/infrastructure
         run: |
-          if [ -f "backend/infrastructure/package.json" ]; then
-            cd backend/infrastructure
-            npx cdk acknowledge 34892 || true
-            npm run build --if-present
-            PARAM_ARGS=()
-            PARAM_FILES=()
-            resolve_param_file() {
-              local path="$1"
-              if [ -z "$path" ]; then
-                return 1
-              fi
-              if [ -f "$path" ]; then
-                echo "$path"
-                return 0
-              fi
-              if [ -n "$GITHUB_WORKSPACE" ] && [ -f "$GITHUB_WORKSPACE/$path" ]; then
-                echo "$GITHUB_WORKSPACE/$path"
-                return 0
-              fi
+          npx cdk acknowledge 34892 || true
+          npm run build --if-present
+
+          CDK_STACKS="${CDK_STACKS:-}"
+          if [ -z "$CDK_STACKS" ]; then
+            CDK_STACKS="all stacks"
+          fi
+          if [ "$CDK_STACKS" = "all stacks" ]; then
+            CDK_STACKS="lxsoftware-siutindei lxsoftware-siutindei-admin-web lxsoftware-siutindei-public-www"
+          elif [ "$CDK_STACKS" = "lambda apis" ]; then
+            CDK_STACKS="lxsoftware-siutindei"
+          elif [ "$CDK_STACKS" = "admin web" ]; then
+            CDK_STACKS="lxsoftware-siutindei-admin-web"
+          elif [ "$CDK_STACKS" = "public website" ] || \
+            [ "$CDK_STACKS" = "public www" ] || \
+            [ "$CDK_STACKS" = "public website staging" ] || \
+            [ "$CDK_STACKS" = "public www staging" ]; then
+            CDK_STACKS="lxsoftware-siutindei-public-www"
+          elif [ "$CDK_STACKS" = "waf (us-east-1)" ]; then
+            CDK_STACKS="lxsoftware-siutindei-waf"
+          fi
+
+          PARAM_ARGS=()
+          PARAM_FILES=()
+
+          resolve_param_file() {
+            local path="$1"
+            if [ -z "$path" ]; then
               return 1
-            }
-            if [ -n "${CDK_PARAM_FILE:-}" ]; then
-              RESOLVED_PARAM_FILE=$(resolve_param_file "$CDK_PARAM_FILE" || true)
-              if [ -n "$RESOLVED_PARAM_FILE" ]; then
-                PARAM_FILES+=("$RESOLVED_PARAM_FILE")
-              else
-                echo "CDK_PARAM_FILE '$CDK_PARAM_FILE' not found"
-                exit 1
-              fi
             fi
-            if [ -n "${CDK_SECRET_PARAM_FILE:-}" ] && [ -f "$CDK_SECRET_PARAM_FILE" ]; then
-              PARAM_FILES+=("$CDK_SECRET_PARAM_FILE")
+            if [ -f "$path" ]; then
+              echo "$path"
+              return 0
             fi
-            if [ -n "${CDK_NON_SECRET_PARAM_FILE:-}" ] && [ -f "$CDK_NON_SECRET_PARAM_FILE" ]; then
-              PARAM_FILES+=("$CDK_NON_SECRET_PARAM_FILE")
+            if [ -n "$GITHUB_WORKSPACE" ] && [ -f "$GITHUB_WORKSPACE/$path" ]; then
+              echo "$GITHUB_WORKSPACE/$path"
+              return 0
             fi
-            if [ ${#PARAM_FILES[@]} -gt 0 ]; then
-              PARAM_FILES_CSV=$(IFS=, ; echo "${PARAM_FILES[*]}")
-              PARAM_ARGS_FILE="$(mktemp)"
-              PARAM_FILES="$PARAM_FILES_CSV" python3 - <<'PY' > "$PARAM_ARGS_FILE"
+            return 1
+          }
+
+          if [ -n "${CDK_PARAM_FILE:-}" ]; then
+            RESOLVED_PARAM_FILE=$(resolve_param_file "$CDK_PARAM_FILE" || true)
+            if [ -z "$RESOLVED_PARAM_FILE" ]; then
+              echo "CDK_PARAM_FILE '$CDK_PARAM_FILE' not found"
+              exit 1
+            fi
+            PARAM_FILES+=("$RESOLVED_PARAM_FILE")
+          fi
+          if [ -n "${CDK_SECRET_PARAM_FILE:-}" ] && [ -f "$CDK_SECRET_PARAM_FILE" ]; then
+            PARAM_FILES+=("$CDK_SECRET_PARAM_FILE")
+          fi
+          if [ -n "${CDK_NON_SECRET_PARAM_FILE:-}" ] && [ -f "$CDK_NON_SECRET_PARAM_FILE" ]; then
+            PARAM_FILES+=("$CDK_NON_SECRET_PARAM_FILE")
+          fi
+
+          if [ ${#PARAM_FILES[@]} -gt 0 ]; then
+            PARAM_FILES_CSV=$(IFS=, ; echo "${PARAM_FILES[*]}")
+            PARAM_ARGS_FILE="$(mktemp)"
+            PARAM_FILES="$PARAM_FILES_CSV" STACKS="$CDK_STACKS" python3 - <<'PY' > "$PARAM_ARGS_FILE"
           import json
           import os
+          import sys
 
           paths = [p for p in os.environ.get("PARAM_FILES", "").split(",") if p]
           params = {}
@@ -465,41 +200,78 @@ jobs:
               with open(path, "r", encoding="utf-8") as handle:
                   params.update(json.load(handle))
 
+          stack_set = set(os.environ.get("STACKS", "").split())
+          api_stack = "lxsoftware-siutindei"
+          admin_web_stack = "lxsoftware-siutindei-admin-web"
+          public_stack = "lxsoftware-siutindei-public-www"
+          admin_web_params = {"AdminWebDomainName", "AdminWebCertificateArn", "WafWebAclArn"}
+          public_params = {
+              "PublicWwwDomainName",
+              "PublicWwwCertificateArn",
+              "PublicWwwStagingDomainName",
+              "PublicWwwStagingCertificateArn",
+              "WafWebAclArn",
+          }
+
+          def resolve_value(raw: str) -> str:
+              """Replace <FROM_GITHUB_SECRET: X> / <FROM_GITHUB_VAR: X> placeholders."""
+              raw = raw.strip()
+              if raw.startswith("<FROM_GITHUB_SECRET:") and raw.endswith(">"):
+                  env_name = raw[len("<FROM_GITHUB_SECRET:") : -1].strip()
+                  return os.environ.get(env_name, "")
+              if raw.startswith("<FROM_GITHUB_VAR:") and raw.endswith(">"):
+                  env_name = raw[len("<FROM_GITHUB_VAR:") : -1].strip()
+                  return os.environ.get(env_name, "")
+              return raw
+
           for key, value in params.items():
-              if value is None:
-                  continue
-              value_str = str(value)
+              value_str = ""
+              if value is not None:
+                  value_str = resolve_value(str(value))
               value_str = value_str.replace("\r\n", "\n").replace("\r", "\n")
               value_str = value_str.replace("\n", "\\n").strip()
-              if not value_str:
+              if key != "WafWebAclArn" and not value_str:
                   continue
-              print("--parameters")
-              print(f"{key}={value_str}")
+
+              targets = []
+              if key in admin_web_params:
+                  if value_str or key != "WafWebAclArn":
+                      targets.append(admin_web_stack)
+              if key in public_params:
+                  targets.append(public_stack)
+              if not targets:
+                  targets.append(api_stack)
+
+              for target in targets:
+                  if target not in stack_set:
+                      continue
+                  sys.stdout.buffer.write(b"--parameters\0")
+                  sys.stdout.buffer.write(
+                      f"{target}:{key}={value_str}".encode("utf-8") + b"\0"
+                  )
           PY
-              readarray -t PARAM_ARGS < "$PARAM_ARGS_FILE"
+            mapfile -d '' -t PARAM_ARGS < "$PARAM_ARGS_FILE"
+          fi
+
+          QUALIFIER_ARGS=()
+          if [ -n "$CDK_BOOTSTRAP_QUALIFIER" ]; then
+            QUALIFIER_ARGS=(--qualifier "$CDK_BOOTSTRAP_QUALIFIER")
+          fi
+
+          IFS=$', \n\t' read -r -a STACK_LIST <<< "$CDK_STACKS"
+          STACK_ARGS=()
+          for stack in "${STACK_LIST[@]}"; do
+            trimmed="${stack#"${stack%%[![:space:]]*}"}"
+            trimmed="${trimmed%"${trimmed##*[![:space:]]}"}"
+            if [ -n "$trimmed" ]; then
+              STACK_ARGS+=("$trimmed")
             fi
-            QUALIFIER_ARGS=()
-            if [ -n "$CDK_BOOTSTRAP_QUALIFIER" ]; then
-              QUALIFIER_ARGS=(--qualifier "$CDK_BOOTSTRAP_QUALIFIER")
-            fi
-            STACK_ARGS=()
-            if [ -n "${CDK_STACKS:-}" ]; then
-              IFS=$', \n\t' read -r -a STACK_LIST <<< "$CDK_STACKS"
-              for stack in "${STACK_LIST[@]}"; do
-                trimmed="${stack#"${stack%%[![:space:]]*}"}"
-                trimmed="${trimmed%"${trimmed##*[![:space:]]}"}"
-                if [ -n "$trimmed" ]; then
-                  STACK_ARGS+=("$trimmed")
-                fi
-              done
-            fi
-            if [ ${#STACK_ARGS[@]} -gt 0 ]; then
-              npx cdk diff --no-color "${QUALIFIER_ARGS[@]}" "${PARAM_ARGS[@]}" "${STACK_ARGS[@]}"
-            else
-              npx cdk diff --no-color "${QUALIFIER_ARGS[@]}" "${PARAM_ARGS[@]}"
-            fi
+          done
+
+          if [ ${#STACK_ARGS[@]} -gt 0 ]; then
+            npx cdk diff --no-color "${QUALIFIER_ARGS[@]}" "${PARAM_ARGS[@]}" "${STACK_ARGS[@]}"
           else
-            echo "Missing backend/infrastructure/package.json"
+            npx cdk diff --no-color "${QUALIFIER_ARGS[@]}" "${PARAM_ARGS[@]}"
           fi
         env:
           CDK_STACKS: ${{ inputs.stacks }}
@@ -507,19 +279,11 @@ jobs:
           CDK_SECRET_PARAM_FILE: ${{ env.CDK_SECRET_PARAM_FILE }}
           CDK_NON_SECRET_PARAM_FILE: ${{ env.CDK_NON_SECRET_PARAM_FILE }}
           CDK_BOOTSTRAP_QUALIFIER: ${{ vars.CDK_BOOTSTRAP_QUALIFIER }}
-          EXISTING_DB_CREDENTIALS_SECRET_NAME: ${{ env.EXISTING_DB_CREDENTIALS_SECRET_NAME }}
-          EXISTING_DB_CREDENTIALS_SECRET_ARN: ${{ env.EXISTING_DB_CREDENTIALS_SECRET_ARN }}
-          EXISTING_DB_SECURITY_GROUP_ID: ${{ env.EXISTING_DB_SECURITY_GROUP_ID }}
-          EXISTING_PROXY_SECURITY_GROUP_ID: ${{ env.EXISTING_PROXY_SECURITY_GROUP_ID }}
-          EXISTING_LAMBDA_SECURITY_GROUP_ID: ${{ env.EXISTING_LAMBDA_SECURITY_GROUP_ID }}
-          EXISTING_MIGRATION_SECURITY_GROUP_ID: ${{ env.EXISTING_MIGRATION_SECURITY_GROUP_ID }}
-          EXISTING_DB_CLUSTER_IDENTIFIER: ${{ env.EXISTING_DB_CLUSTER_IDENTIFIER }}
-          EXISTING_DB_CLUSTER_ENDPOINT: ${{ env.EXISTING_DB_CLUSTER_ENDPOINT }}
-          EXISTING_DB_CLUSTER_READER_ENDPOINT: ${{ env.EXISTING_DB_CLUSTER_READER_ENDPOINT }}
-          EXISTING_DB_CLUSTER_PORT: ${{ env.EXISTING_DB_CLUSTER_PORT }}
-          EXISTING_DB_PROXY_NAME: ${{ env.EXISTING_DB_PROXY_NAME }}
-          EXISTING_DB_PROXY_ARN: ${{ env.EXISTING_DB_PROXY_ARN }}
-          EXISTING_DB_PROXY_ENDPOINT: ${{ env.EXISTING_DB_PROXY_ENDPOINT }}
-          EXISTING_VPC_ID: ${{ env.EXISTING_VPC_ID }}
-          EXISTING_ORG_MEDIA_LOG_BUCKET_NAME: ${{ env.EXISTING_ORG_MEDIA_LOG_BUCKET_NAME }}
-          EXISTING_ORG_MEDIA_BUCKET_NAME: ${{ env.EXISTING_ORG_MEDIA_BUCKET_NAME }}
+          CDK_PARAM_GOOGLE_CLIENT_SECRET: ${{ secrets.CDK_PARAM_GOOGLE_CLIENT_SECRET }}
+          CDK_PARAM_APPLE_PRIVATE_KEY: ${{ secrets.CDK_PARAM_APPLE_PRIVATE_KEY }}
+          CDK_PARAM_PUBLIC_API_KEY_VALUE: ${{ secrets.CDK_PARAM_PUBLIC_API_KEY_VALUE }}
+          CDK_PARAM_ADMIN_BOOTSTRAP_TEMP_PASSWORD: ${{ secrets.CDK_PARAM_ADMIN_BOOTSTRAP_TEMP_PASSWORD }}
+          APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
+          FIREBASE_MESSAGING_SENDER_ID: ${{ vars.FIREBASE_MESSAGING_SENDER_ID }}
+          FIREBASE_ANDROID_APP_ID: ${{ vars.FIREBASE_ANDROID_APP_ID }}
+          FIREBASE_IOS_APP_ID: ${{ vars.FIREBASE_IOS_APP_ID }}
