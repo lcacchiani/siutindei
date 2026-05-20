@@ -23,6 +23,12 @@ Set the repository variable `CDK_PARAM_FILE` to the path you want CI to use
 The public website stack provisions both production and staging environments
 in a single `lxsoftware-siutindei-public-www` CloudFormation stack.
 
+Deploy the CDK stack via GitHub Actions **Deploy Backend** (`public website`
+or `all stacks`). Deploy static site artifacts with
+**Deploy Public Website Staging** / **Promote Public Website Release**
+(`.github/workflows/deploy-public-www.yml`,
+`.github/workflows/promote-public-www.yml`).
+
 | Parameter | Purpose |
 |-----------|---------|
 | `PublicWwwDomainName` | Production CloudFront alias (e.g. `www.siutindei.lx-software.com`). |

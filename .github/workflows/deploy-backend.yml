@@ -27,6 +27,7 @@ on:
           - "all stacks"
           - "lambda apis"
           - "admin web"
+          - "public website"
           - "waf (us-east-1)"
   push:
     branches:
@@ -35,6 +36,7 @@ on:
       - "backend/**"
       - "packages/models_shared/**"
       - "scripts/**"
+      - ".github/workflows/deploy-backend.yml"
 
 permissions:
   contents: read
@@ -443,12 +445,17 @@ jobs:
               return 1
             }
             if [ "${CDK_STACKS:-}" = "all stacks" ]; then
-              # Explicitly set stacks - excludes WAF which requires us-east-1
-              CDK_STACKS="lxsoftware-siutindei lxsoftware-siutindei-admin-web"
+              # Excludes WAF (us-east-1). Public-www stack includes prod + staging.
+              CDK_STACKS="lxsoftware-siutindei lxsoftware-siutindei-admin-web lxsoftware-siutindei-public-www"
             elif [ "${CDK_STACKS:-}" = "lambda apis" ]; then
               CDK_STACKS="lxsoftware-siutindei"
             elif [ "${CDK_STACKS:-}" = "admin web" ]; then
               CDK_STACKS="lxsoftware-siutindei-admin-web"
+            elif [ "${CDK_STACKS:-}" = "public website" ] || \
+              [ "${CDK_STACKS:-}" = "public www" ] || \
+              [ "${CDK_STACKS:-}" = "public website staging" ] || \
+              [ "${CDK_STACKS:-}" = "public www staging" ]; then
+              CDK_STACKS="lxsoftware-siutindei-public-www"
             elif [ "${CDK_STACKS:-}" = "waf (us-east-1)" ]; then
               CDK_STACKS="lxsoftware-siutindei-waf"
             fi
@@ -479,24 +486,23 @@ jobs:
                   if token:
                       stacks.append(token)
           else:
-              # Note: WAF stack is not included in "all stacks" as it requires us-east-1
-              stacks = ["lxsoftware-siutindei", "lxsoftware-siutindei-admin-web"]
+              # WAF stack excluded (us-east-1). Public-www includes prod + staging.
+              stacks = [
+                  "lxsoftware-siutindei",
+                  "lxsoftware-siutindei-admin-web",
+                  "lxsoftware-siutindei-public-www",
+              ]
           stack_set = set(stacks)
           admin_web_stack = "lxsoftware-siutindei-admin-web"
           api_stack = "lxsoftware-siutindei"
-          waf_stack = "lxsoftware-siutindei-waf"
           public_www_stack = "lxsoftware-siutindei-public-www"
           admin_web_params = {"AdminWebDomainName", "AdminWebCertificateArn", "WafWebAclArn"}
-          # WAF stack has no parameters that need to be passed
-          waf_params = set()
-          # Public website stack params. Note: WafWebAclArn is shared with
-          # admin-web; it stays in admin_web_params because deploy-backend.yml
-          # does not deploy the public-www stack (deploy-public-www.yml does).
           public_www_params = {
               "PublicWwwDomainName",
               "PublicWwwCertificateArn",
               "PublicWwwStagingDomainName",
               "PublicWwwStagingCertificateArn",
+              "WafWebAclArn",
           }
           params = {}
           for path in paths:
@@ -515,25 +521,27 @@ jobs:
               return raw
 
           for key, value in params.items():
-              if key in waf_params:
-                  target_stack = waf_stack
-              elif key in admin_web_params:
-                  target_stack = admin_web_stack
-              elif key in public_www_params:
-                  target_stack = public_www_stack
-              else:
-                  target_stack = api_stack
-              if target_stack not in stack_set:
-                  continue
-              if value is None:
-                  continue
-              value_str = resolve_value(str(value))
+              value_str = ""
+              if value is not None:
+                  value_str = resolve_value(str(value))
               value_str = value_str.replace("\r\n", "\n").replace("\r", "\n")
               value_str = value_str.replace("\n", "\\n").strip()
-              if not value_str:
+              if key != "WafWebAclArn" and not value_str:
                   continue
-              print("--parameters")
-              print(f"{target_stack}:{key}={value_str}")
+
+              targets = []
+              if key in admin_web_params:
+                  targets.append(admin_web_stack)
+              if key in public_www_params:
+                  targets.append(public_www_stack)
+              if not targets:
+                  targets.append(api_stack)
+
+              for target_stack in targets:
+                  if target_stack not in stack_set:
+                      continue
+                  print("--parameters")
+                  print(f"{target_stack}:{key}={value_str}")
           PY
               readarray -t PARAM_ARGS < "$PARAM_ARGS_FILE"
             fi
