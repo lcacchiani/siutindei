@@ -53,11 +53,7 @@ jobs:
       - name: Validate package-lock.json
         run: |
           set -e
-          # NOTE: apps/public_www will be added to this loop in a follow-up
-          # PR, once the operator runs `npm install` locally and commits the
-          # generated `apps/public_www/package-lock.json`. Adding it before
-          # the lockfile exists would fail this check.
-          for dir in apps/admin_web packages/react_ui packages/api_client_ts backend/infrastructure; do
+          for dir in apps/admin_web apps/public_www packages/react_ui packages/api_client_ts backend/infrastructure; do
             if [ -f "$dir/package.json" ]; then
               if [ ! -f "$dir/package-lock.json" ]; then
                 echo "Missing package-lock.json in $dir"
