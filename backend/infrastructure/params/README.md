@@ -35,10 +35,11 @@ or `all stacks`). Deploy static site artifacts with
 | `PublicWwwCertificateArn` | ACM cert ARN in **us-east-1** that covers the production alias. |
 | `PublicWwwStagingDomainName` | Staging CloudFront alias (e.g. `siutindei-www-staging.lx-software.com`). |
 | `PublicWwwStagingCertificateArn` | ACM cert ARN in **us-east-1** that covers the staging alias. |
-| `PublicWwwSiteName` | Brand name baked into static export metadata (CI default when `NEXT_PUBLIC_SITE_NAME` GitHub var is unset). |
-| `PublicWwwSiteTagline` | Hero/tagline copy for the static export (CI default when `NEXT_PUBLIC_SITE_TAGLINE` var is unset). |
-| `PublicWwwContactEmail` | Footer/maintenance contact email (falls back to `AuthEmailFromAddress` when omitted). |
 | `WafWebAclArn` | (Optional) us-east-1 WAF WebACL ARN; reuse the admin-web ACL. |
+
+Static-export branding defaults (site name, tagline, contact email) live in
+`apps/public_www/build-env.defaults.json` and are **not** CDK parameters.
+CI reads them via `scripts/deploy/resolve-public-www-build-env.sh`.
 
 Before the first `cdk deploy`, ensure the ACM certificate listed in
 `PublicWwwCertificateArn`/`PublicWwwStagingCertificateArn` includes the public
