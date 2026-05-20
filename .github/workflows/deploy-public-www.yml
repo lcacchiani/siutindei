@@ -93,6 +93,17 @@ jobs:
           PUBLIC_WWW_ENVIRONMENT: staging
           PUBLIC_WWW_RELEASE_ID: ${{ github.sha }}
 
+      - name: Sync public website Cloudflare DNS
+        if: ${{ secrets.CLOUDFLARE_API_TOKEN != '' }}
+        env:
+          AWS_REGION: ${{ vars.AWS_REGION }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_ZONE_NAME: ${{ vars.CLOUDFLARE_ZONE_NAME }}
+          CLOUDFLARE_ZONE_ID: ${{ vars.CLOUDFLARE_ZONE_ID }}
+          CLOUDFLARE_DNS_PROXIED: ${{ vars.CLOUDFLARE_DNS_PROXIED }}
+        run: bash scripts/deploy/sync-public-www-cloudflare-dns.sh
+
       - name: Publish staging release summary
         run: |
           {

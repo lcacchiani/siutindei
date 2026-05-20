@@ -333,3 +333,25 @@ jobs:
           MIGRATIONS_FORCE_RUN_ID: >-
             ${{ github.event.inputs.force_migration_run == 'true' &&
             github.run_id || '' }}
+
+      - name: Sync public website Cloudflare DNS
+        if: ${{ secrets.CLOUDFLARE_API_TOKEN != '' }}
+        env:
+          AWS_REGION: ${{ steps.region.outputs.region }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_ZONE_NAME: ${{ vars.CLOUDFLARE_ZONE_NAME }}
+          CLOUDFLARE_ZONE_ID: ${{ vars.CLOUDFLARE_ZONE_ID }}
+          CLOUDFLARE_DNS_PROXIED: ${{ vars.CLOUDFLARE_DNS_PROXIED }}
+          CDK_STACKS: ${{ github.event.inputs.cdk_stacks || vars.CDK_STACKS || 'all stacks' }}
+        run: |
+          set -euo pipefail
+          case "$CDK_STACKS" in
+            'public website'|'public www'|'public website staging'|'public www staging'|'all stacks')
+              ;;
+            *)
+              echo "Skipping Cloudflare DNS sync (public website stack not in CDK_STACKS)."
+              exit 0
+              ;;
+          esac
+          bash scripts/deploy/sync-public-www-cloudflare-dns.sh

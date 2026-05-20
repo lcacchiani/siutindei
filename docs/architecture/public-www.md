@@ -44,6 +44,20 @@ that certificate.
 | Production | `siutindei-www.lx-software.com` |
 | Staging | `siutindei-www-staging.lx-software.com` |
 
+DNS for both aliases is managed in Cloudflare (`lx-software.com` zone) by
+[`scripts/deploy/sync-public-www-cloudflare-dns.sh`](../../scripts/deploy/sync-public-www-cloudflare-dns.sh).
+The script reads hostnames from `backend/infrastructure/params/production.json`,
+looks up each environment's CloudFront domain from stack outputs
+(`PublicWwwDistributionDomain`, `PublicWwwStagingDistributionDomain`), and
+upserts grey-cloud CNAME records (same pattern as `siutindei.lx-software.com`).
+
+Required GitHub secret: `CLOUDFLARE_API_TOKEN`. Optional variables:
+`CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_ZONE_ID`, `CLOUDFLARE_ZONE_NAME`
+(default `lx-software.com`), `CLOUDFLARE_DNS_PROXIED` (default `false`).
+
+The sync runs after **Deploy Backend** when the public website stack is
+deployed, and after **Deploy Public Website Staging**.
+
 ### Resource naming
 
 Both environments respect the 63-char S3 bucket name limit:

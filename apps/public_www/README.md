@@ -50,6 +50,10 @@ There is **one CloudFormation stack** (`lxsoftware-siutindei-public-www`) with
 | `workflow_dispatch` of `Smoke Public Website Staging` | Crawl staging sitemap and check every page returns 2xx/3xx. |
 | `workflow_dispatch` of `Lighthouse Public Website` | Run Lighthouse CI against the production build. |
 
+After the public website stack exists, DNS is synced to Cloudflare automatically
+when `CLOUDFLARE_API_TOKEN` is configured (see
+`scripts/deploy/sync-public-www-cloudflare-dns.sh`).
+
 A promotion is either a fresh build with production env vars or an S3-only
 artifact copy (`releases/<id>/` → root of production bucket) followed by a
 CloudFront invalidation.
