@@ -77,13 +77,47 @@ jobs:
           INPUT_AWS_REGION: ${{ vars.AWS_REGION }}
         run: |
           CDK_STACKS="$INPUT_CDK_STACKS"
-          if [ "$CDK_STACKS" = "waf (us-east-1)" ]; then
+          if [ "$CDK_STACKS" = "all stacks" ]; then
+            CDK_STACKS="lxsoftware-siutindei lxsoftware-siutindei-admin-web lxsoftware-siutindei-public-www"
+          elif [ "$CDK_STACKS" = "lambda apis" ]; then
+            CDK_STACKS="lxsoftware-siutindei"
+          elif [ "$CDK_STACKS" = "admin web" ]; then
+            CDK_STACKS="lxsoftware-siutindei-admin-web"
+          elif [ "$CDK_STACKS" = "public website" ] || \
+            [ "$CDK_STACKS" = "public www" ] || \
+            [ "$CDK_STACKS" = "public website staging" ] || \
+            [ "$CDK_STACKS" = "public www staging" ]; then
+            CDK_STACKS="lxsoftware-siutindei-public-www"
+          elif [ "$CDK_STACKS" = "waf (us-east-1)" ]; then
+            CDK_STACKS="lxsoftware-siutindei-waf"
+          fi
+
+          includes_api_stack=false
+          stack_count=0
+          only_public_www=true
+          for stack in $CDK_STACKS; do
+            stack_count=$((stack_count + 1))
+            if [ "$stack" = "lxsoftware-siutindei" ]; then
+              includes_api_stack=true
+            fi
+            if [ "$stack" != "lxsoftware-siutindei-public-www" ]; then
+              only_public_www=false
+            fi
+          done
+          is_public_www_only=false
+          if [ "$stack_count" -eq 1 ] && [ "$only_public_www" = true ]; then
+            is_public_www_only=true
+          fi
+
+          if [ "$CDK_STACKS" = "lxsoftware-siutindei-waf" ]; then
             echo "region=us-east-1" >> "$GITHUB_OUTPUT"
             echo "is_waf=true" >> "$GITHUB_OUTPUT"
           else
             echo "region=$INPUT_AWS_REGION" >> "$GITHUB_OUTPUT"
             echo "is_waf=false" >> "$GITHUB_OUTPUT"
           fi
+          echo "is_public_www_only=$is_public_www_only" >> "$GITHUB_OUTPUT"
+          echo "includes_api_stack=$includes_api_stack" >> "$GITHUB_OUTPUT"
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v6
@@ -120,7 +154,9 @@ jobs:
           CDK_BOOTSTRAP_QUALIFIER: ${{ vars.CDK_BOOTSTRAP_QUALIFIER }}
 
       - name: Detect existing database resources
-        if: steps.region.outputs.is_waf != 'true'
+        if: >-
+          steps.region.outputs.is_waf != 'true' &&
+          steps.region.outputs.is_public_www_only != 'true'
         run: |
           set -e
           resource_prefix="lxsoftware-siutindei"
@@ -378,7 +414,9 @@ jobs:
           fi
 
       - name: Detect existing S3 buckets
-        if: steps.region.outputs.is_waf != 'true'
+        if: >-
+          steps.region.outputs.is_waf != 'true' &&
+          steps.region.outputs.is_public_www_only != 'true'
         run: |
           set -e
           resource_prefix="lxsoftware-siutindei"
@@ -531,7 +569,9 @@ jobs:
 
               targets = []
               if key in admin_web_params:
-                  targets.append(admin_web_stack)
+                  # AdminWebStack WafWebAclArn rejects empty; PublicWww allows "".
+                  if value_str or key != "WafWebAclArn":
+                      targets.append(admin_web_stack)
               if key in public_www_params:
                   targets.append(public_www_stack)
               if not targets:
@@ -626,7 +666,10 @@ jobs:
             github.run_id || '' }}
 
       - name: Run database seeding
-        if: github.event.inputs.run_seed_data == 'true' && steps.region.outputs.is_waf != 'true'
+        if: >-
+          github.event.inputs.run_seed_data == 'true' &&
+          steps.region.outputs.is_waf != 'true' &&
+          steps.region.outputs.includes_api_stack == 'true'
         run: |
           echo "Running database seeding after successful deployment..."
 
