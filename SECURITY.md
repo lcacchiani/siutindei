@@ -120,6 +120,8 @@ This repository uses the following automated security tools:
 - **Dependabot**: Automated dependency updates and security alerts
 - **CodeQL**: Static code analysis for security vulnerabilities (see workflows)
 - **pip-audit**: Python dependency vulnerability scanning
+  - Suppressed: `PYSEC-2025-183` (PyJWT weak-encryption advisory; supplier-disputed,
+    no fixed release beyond `pyjwt==2.12.1`; app uses Cognito JWKS / RS256)
 - **Bandit**: Python security linter
 - **Checkov**: Infrastructure as Code security scanning
 

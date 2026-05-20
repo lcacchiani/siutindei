@@ -1,6 +1,8 @@
 name: Deploy Backend
 
 on:
+  repository_dispatch:
+    types: [deploy-backend]
   workflow_dispatch:
     inputs:
       destroy_before_deploy:
@@ -14,7 +16,7 @@ on:
         default: false
         type: boolean
       run_seed_data:
-        description: "Run database seed data"
+        description: "Run seed data after migrations (backend stack only)"
         required: false
         default: false
         type: boolean
@@ -27,6 +29,7 @@ on:
           - "all stacks"
           - "lambda apis"
           - "admin web"
+          - "public website"
           - "waf (us-east-1)"
   push:
     branches:
@@ -35,6 +38,7 @@ on:
       - "backend/**"
       - "packages/models_shared/**"
       - "scripts/**"
+      - ".github/workflows/deploy-backend.yml"
 
 permissions:
   contents: read
@@ -55,32 +59,20 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: "24"
+          node-version: "lts/*"
           cache: "npm"
           cache-dependency-path: backend/infrastructure/package-lock.json
 
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.12"
-
-      - name: Upgrade pip
-        run: python -m pip install --upgrade pip
-
       - name: Determine deployment region
         id: region
-        # SECURITY: Use environment variable to avoid shell injection from inputs
         env:
           INPUT_CDK_STACKS: ${{ github.event.inputs.cdk_stacks || vars.CDK_STACKS || 'all stacks' }}
           INPUT_AWS_REGION: ${{ vars.AWS_REGION }}
         run: |
-          CDK_STACKS="$INPUT_CDK_STACKS"
-          if [ "$CDK_STACKS" = "waf (us-east-1)" ]; then
+          if [ "$INPUT_CDK_STACKS" = "waf (us-east-1)" ]; then
             echo "region=us-east-1" >> "$GITHUB_OUTPUT"
-            echo "is_waf=true" >> "$GITHUB_OUTPUT"
           else
             echo "region=$INPUT_AWS_REGION" >> "$GITHUB_OUTPUT"
-            echo "is_waf=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Configure AWS credentials
@@ -90,418 +82,90 @@ jobs:
           aws-region: ${{ steps.region.outputs.region }}
           role-session-name: GitHubActions-${{ github.run_id }}
 
-      - name: Install backend dependencies
-        run: |
-          if [ -f "backend/infrastructure/package.json" ]; then
-            cd backend/infrastructure
-            npm ci
-          else
-            echo "Missing backend/infrastructure/package.json"
-          fi
+      - name: Install CDK dependencies
+        working-directory: backend/infrastructure
+        run: npm ci
 
       - name: Bootstrap CDK
+        working-directory: backend/infrastructure
         run: |
-          if [ -f "backend/infrastructure/package.json" ]; then
-            cd backend/infrastructure
-            npx cdk acknowledge 34892 || true
-            if [ -n "$CDK_BOOTSTRAP_QUALIFIER" ]; then
-              npx cdk bootstrap --no-notices --qualifier "$CDK_BOOTSTRAP_QUALIFIER" "aws://$AWS_ACCOUNT_ID/$AWS_REGION"
-            else
-              npx cdk bootstrap --no-notices "aws://$AWS_ACCOUNT_ID/$AWS_REGION"
-            fi
+          npx cdk acknowledge 34892 || true
+          if [ -n "$CDK_BOOTSTRAP_QUALIFIER" ]; then
+            npx cdk bootstrap --no-notices --qualifier "$CDK_BOOTSTRAP_QUALIFIER" "aws://$AWS_ACCOUNT_ID/$AWS_REGION"
           else
-            echo "Missing backend/infrastructure/package.json"
+            npx cdk bootstrap --no-notices "aws://$AWS_ACCOUNT_ID/$AWS_REGION"
           fi
         env:
           AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
           AWS_REGION: ${{ steps.region.outputs.region }}
           CDK_BOOTSTRAP_QUALIFIER: ${{ vars.CDK_BOOTSTRAP_QUALIFIER }}
 
-      - name: Detect existing database resources
-        if: steps.region.outputs.is_waf != 'true'
+      - name: Deploy stacks
+        working-directory: backend/infrastructure
         run: |
-          set -e
-          resource_prefix="lxsoftware-siutindei"
-          stack_name="${resource_prefix}"
-          vpc_name="${resource_prefix}-vpc"
-          secret_name="${resource_prefix}-database-credentials"
-          cluster_identifier="${resource_prefix}-db-cluster"
-          proxy_name="${resource_prefix}-db-proxy"
+          npx cdk acknowledge 34892 || true
+          npm run build --if-present
 
-          normalize_value() {
-            local value="$1"
-            if [ -z "$value" ] || [ "$value" = "None" ] || \
-              [ "$value" = "null" ] || [ "$value" = "N/A" ]; then
-              echo ""
-              return 0
-            fi
-            echo "$value"
-          }
-
-          set_secret_kms_key() {
-            local secret_id="$1"
-            if [ -z "$secret_id" ] || \
-              [ "$existing_secret_kms_key_set" = "true" ]; then
-              return
-            fi
-            local kms_key_id
-            kms_key_id=$(aws secretsmanager describe-secret \
-              --secret-id "$secret_id" \
-              --query "KmsKeyId" \
-              --output text 2>/dev/null || true)
-            kms_key_id=$(normalize_value "$kms_key_id")
-            if [ -n "$kms_key_id" ] && [[ "$kms_key_id" == arn:* ]]; then
-              echo "EXISTING_DB_CREDENTIALS_SECRET_KMS_KEY_ARN=$kms_key_id" \
-                >> "$GITHUB_ENV"
-              existing_secret_kms_key_set="true"
-            fi
-          }
-
-          stack_vpc_id=""
-          stack_db_cluster_id=""
-          stack_db_proxy_name=""
-          stack_secret_id=""
-          stack_lambda_sg_id=""
-          stack_migration_sg_id=""
-
-          if aws cloudformation describe-stacks --stack-name "$stack_name" \
-            >/dev/null 2>&1; then
-            stack_vpc_id=$(aws cloudformation list-stack-resources \
-              --stack-name "$stack_name" \
-              --query "StackResourceSummaries[?ResourceType=='AWS::EC2::VPC'].PhysicalResourceId | [0]" \
-              --output text 2>/dev/null || true)
-            stack_db_cluster_id=$(aws cloudformation list-stack-resources \
-              --stack-name "$stack_name" \
-              --query "StackResourceSummaries[?ResourceType=='AWS::RDS::DBCluster'].PhysicalResourceId | [0]" \
-              --output text 2>/dev/null || true)
-            stack_db_proxy_name=$(aws cloudformation list-stack-resources \
-              --stack-name "$stack_name" \
-              --query "StackResourceSummaries[?ResourceType=='AWS::RDS::DBProxy'].PhysicalResourceId | [0]" \
-              --output text 2>/dev/null || true)
-            stack_secret_id=$(aws cloudformation list-stack-resources \
-              --stack-name "$stack_name" \
-              --query "StackResourceSummaries[?ResourceType=='AWS::SecretsManager::Secret' && contains(LogicalResourceId, 'DBCredentialsSecret')].PhysicalResourceId | [0]" \
-              --output text 2>/dev/null || true)
-            stack_lambda_sg_id=$(aws cloudformation list-stack-resources \
-              --stack-name "$stack_name" \
-              --query "StackResourceSummaries[?LogicalResourceId=='LambdaSecurityGroup'].PhysicalResourceId | [0]" \
-              --output text 2>/dev/null || true)
-            stack_migration_sg_id=$(aws cloudformation list-stack-resources \
-              --stack-name "$stack_name" \
-              --query "StackResourceSummaries[?LogicalResourceId=='MigrationSecurityGroup'].PhysicalResourceId | [0]" \
-              --output text 2>/dev/null || true)
+          if [ "${CDK_STACKS:-}" = "all stacks" ]; then
+            CDK_STACKS="lxsoftware-siutindei lxsoftware-siutindei-admin-web lxsoftware-siutindei-public-www"
+          elif [ "${CDK_STACKS:-}" = "lambda apis" ]; then
+            CDK_STACKS="lxsoftware-siutindei"
+          elif [ "${CDK_STACKS:-}" = "admin web" ]; then
+            CDK_STACKS="lxsoftware-siutindei-admin-web"
+          elif [ "${CDK_STACKS:-}" = "public website" ] || \
+            [ "${CDK_STACKS:-}" = "public www" ] || \
+            [ "${CDK_STACKS:-}" = "public website staging" ] || \
+            [ "${CDK_STACKS:-}" = "public www staging" ]; then
+            CDK_STACKS="lxsoftware-siutindei-public-www"
+          elif [ "${CDK_STACKS:-}" = "waf (us-east-1)" ]; then
+            CDK_STACKS="lxsoftware-siutindei-waf"
           fi
 
-          stack_vpc_id=$(normalize_value "$stack_vpc_id")
-          stack_db_cluster_id=$(normalize_value "$stack_db_cluster_id")
-          stack_db_proxy_name=$(normalize_value "$stack_db_proxy_name")
-          stack_secret_id=$(normalize_value "$stack_secret_id")
-          stack_lambda_sg_id=$(normalize_value "$stack_lambda_sg_id")
-          stack_migration_sg_id=$(normalize_value "$stack_migration_sg_id")
-          if [ -n "$stack_db_cluster_id" ]; then
-            echo "SKIP_DB_CLUSTER_IMMUTABLE_UPDATES=true" >> "$GITHUB_ENV"
-          else
-            echo "SKIP_DB_CLUSTER_IMMUTABLE_UPDATES=false" >> "$GITHUB_ENV"
-          fi
-          existing_secret_name_set="false"
-          existing_secret_arn_set="false"
-          existing_secret_kms_key_set="false"
+          PARAM_ARGS=()
 
-          if aws secretsmanager describe-secret --secret-id "$secret_name" \
-            >/dev/null 2>&1; then
-            if [ -z "$stack_secret_id" ]; then
-              echo "EXISTING_DB_CREDENTIALS_SECRET_NAME=$secret_name" \
-                >> "$GITHUB_ENV"
-              existing_secret_name_set="true"
-              set_secret_kms_key "$secret_name"
-            fi
-          fi
-
-          cluster_vpc_id=""
-          if [ -z "$stack_db_cluster_id" ] && aws rds describe-db-clusters \
-            --db-cluster-identifier "$cluster_identifier" >/dev/null 2>&1; then
-            cluster_endpoint=$(aws rds describe-db-clusters \
-              --db-cluster-identifier "$cluster_identifier" \
-              --query "DBClusters[0].Endpoint" \
-              --output text 2>/dev/null || true)
-            cluster_endpoint=$(normalize_value "$cluster_endpoint")
-            cluster_reader_endpoint=$(aws rds describe-db-clusters \
-              --db-cluster-identifier "$cluster_identifier" \
-              --query "DBClusters[0].ReaderEndpoint" \
-              --output text 2>/dev/null || true)
-            cluster_reader_endpoint=$(normalize_value "$cluster_reader_endpoint")
-            cluster_port=$(aws rds describe-db-clusters \
-              --db-cluster-identifier "$cluster_identifier" \
-              --query "DBClusters[0].Port" \
-              --output text 2>/dev/null || true)
-            cluster_port=$(normalize_value "$cluster_port")
-            cluster_secret_arn=$(aws rds describe-db-clusters \
-              --db-cluster-identifier "$cluster_identifier" \
-              --query "DBClusters[0].MasterUserSecret.SecretArn" \
-              --output text 2>/dev/null || true)
-            cluster_secret_arn=$(normalize_value "$cluster_secret_arn")
-            if [ -z "$stack_secret_id" ] && \
-              [ "$existing_secret_name_set" != "true" ] && \
-              [ -n "$cluster_secret_arn" ]; then
-              echo "EXISTING_DB_CREDENTIALS_SECRET_ARN=$cluster_secret_arn" \
-                >> "$GITHUB_ENV"
-              existing_secret_arn_set="true"
-              set_secret_kms_key "$cluster_secret_arn"
-            fi
-            cluster_sg_id=$(aws rds describe-db-clusters \
-              --db-cluster-identifier "$cluster_identifier" \
-              --query "DBClusters[0].VpcSecurityGroups[0].VpcSecurityGroupId" \
-              --output text 2>/dev/null || true)
-            cluster_sg_id=$(normalize_value "$cluster_sg_id")
-            db_subnet_group=$(aws rds describe-db-clusters \
-              --db-cluster-identifier "$cluster_identifier" \
-              --query "DBClusters[0].DBSubnetGroup" \
-              --output text 2>/dev/null || true)
-            db_subnet_group=$(normalize_value "$db_subnet_group")
-            if [ -n "$cluster_sg_id" ]; then
-              echo "EXISTING_DB_SECURITY_GROUP_ID=$cluster_sg_id" \
-                >> "$GITHUB_ENV"
-            fi
-            if [ -n "$db_subnet_group" ]; then
-              cluster_vpc_id=$(aws rds describe-db-subnet-groups \
-                --db-subnet-group-name "$db_subnet_group" \
-                --query "DBSubnetGroups[0].VpcId" \
-                --output text 2>/dev/null || true)
-              cluster_vpc_id=$(normalize_value "$cluster_vpc_id")
-            fi
-            echo "EXISTING_DB_CLUSTER_IDENTIFIER=$cluster_identifier" \
-              >> "$GITHUB_ENV"
-            if [ -n "$cluster_endpoint" ]; then
-              echo "EXISTING_DB_CLUSTER_ENDPOINT=$cluster_endpoint" \
-                >> "$GITHUB_ENV"
-            fi
-            if [ -n "$cluster_reader_endpoint" ]; then
-              echo "EXISTING_DB_CLUSTER_READER_ENDPOINT=$cluster_reader_endpoint" \
-                >> "$GITHUB_ENV"
-            fi
-            if [ -n "$cluster_port" ]; then
-              echo "EXISTING_DB_CLUSTER_PORT=$cluster_port" \
-                >> "$GITHUB_ENV"
-            fi
-          fi
-
-          if [ -z "$stack_db_proxy_name" ] && aws rds describe-db-proxies \
-            --db-proxy-name "$proxy_name" >/dev/null 2>&1; then
-            proxy_arn=$(aws rds describe-db-proxies \
-              --db-proxy-name "$proxy_name" \
-              --query "DBProxies[0].DBProxyArn" \
-              --output text 2>/dev/null || true)
-            proxy_arn=$(normalize_value "$proxy_arn")
-            proxy_endpoint=$(aws rds describe-db-proxies \
-              --db-proxy-name "$proxy_name" \
-              --query "DBProxies[0].Endpoint" \
-              --output text 2>/dev/null || true)
-            proxy_endpoint=$(normalize_value "$proxy_endpoint")
-            proxy_sg_id=$(aws rds describe-db-proxies \
-              --db-proxy-name "$proxy_name" \
-              --query "DBProxies[0].VpcSecurityGroupIds[0]" \
-              --output text 2>/dev/null || true)
-            proxy_sg_id=$(normalize_value "$proxy_sg_id")
-            proxy_secret_arn=$(aws rds describe-db-proxies \
-              --db-proxy-name "$proxy_name" \
-              --query "DBProxies[0].Auth[0].SecretArn" \
-              --output text 2>/dev/null || true)
-            proxy_secret_arn=$(normalize_value "$proxy_secret_arn")
-            if [ -z "$stack_secret_id" ] && \
-              [ "$existing_secret_name_set" != "true" ] && \
-              [ "$existing_secret_arn_set" != "true" ] && \
-              [ -n "$proxy_secret_arn" ]; then
-              echo "EXISTING_DB_CREDENTIALS_SECRET_ARN=$proxy_secret_arn" \
-                >> "$GITHUB_ENV"
-              existing_secret_arn_set="true"
-              set_secret_kms_key "$proxy_secret_arn"
-            fi
-            if [ -n "$proxy_sg_id" ]; then
-              echo "EXISTING_PROXY_SECURITY_GROUP_ID=$proxy_sg_id" \
-                >> "$GITHUB_ENV"
-            fi
-            echo "EXISTING_DB_PROXY_NAME=$proxy_name" >> "$GITHUB_ENV"
-            if [ -n "$proxy_arn" ]; then
-              echo "EXISTING_DB_PROXY_ARN=$proxy_arn" >> "$GITHUB_ENV"
-            fi
-            if [ -n "$proxy_endpoint" ]; then
-              echo "EXISTING_DB_PROXY_ENDPOINT=$proxy_endpoint" \
-                >> "$GITHUB_ENV"
-            fi
-          fi
-
-          selected_vpc_id=""
-          if [ -z "$stack_vpc_id" ]; then
-            if [ -n "$cluster_vpc_id" ]; then
-              selected_vpc_id="$cluster_vpc_id"
-            else
-              vpc_id=$(aws ec2 describe-vpcs \
-                --filters "Name=tag:Name,Values=$vpc_name" \
-                --query "Vpcs[0].VpcId" \
-                --output text 2>/dev/null || true)
-              vpc_id=$(normalize_value "$vpc_id")
-              if [ -n "$vpc_id" ]; then
-                selected_vpc_id="$vpc_id"
-              fi
-            fi
-            if [ -n "$selected_vpc_id" ]; then
-              echo "EXISTING_VPC_ID=$selected_vpc_id" >> "$GITHUB_ENV"
-            fi
-          fi
-
-          if [ -z "$stack_lambda_sg_id" ] && [ -n "$selected_vpc_id" ]; then
-            lambda_sg_id=$(aws ec2 describe-security-groups \
-              --filters "Name=vpc-id,Values=$selected_vpc_id" \
-                "Name=group-name,Values=${resource_prefix}-lambda-sg" \
-              --query "SecurityGroups[0].GroupId" \
-              --output text 2>/dev/null || true)
-            lambda_sg_id=$(normalize_value "$lambda_sg_id")
-            if [ -n "$lambda_sg_id" ]; then
-              echo "EXISTING_LAMBDA_SECURITY_GROUP_ID=$lambda_sg_id" \
-                >> "$GITHUB_ENV"
-            fi
-          fi
-
-          if [ -z "$stack_migration_sg_id" ] && [ -n "$selected_vpc_id" ]; then
-            migration_sg_id=$(aws ec2 describe-security-groups \
-              --filters "Name=vpc-id,Values=$selected_vpc_id" \
-                "Name=group-name,Values=${resource_prefix}-migration-sg" \
-              --query "SecurityGroups[0].GroupId" \
-              --output text 2>/dev/null || true)
-            migration_sg_id=$(normalize_value "$migration_sg_id")
-            if [ -n "$migration_sg_id" ]; then
-              echo "EXISTING_MIGRATION_SECURITY_GROUP_ID=$migration_sg_id" \
-                >> "$GITHUB_ENV"
-            fi
-          fi
-
-      - name: Detect existing S3 buckets
-        if: steps.region.outputs.is_waf != 'true'
-        run: |
-          set -e
-          resource_prefix="lxsoftware-siutindei"
-          stack_name="${resource_prefix}"
-
-          normalize_value() {
-            local value="$1"
-            if [ -z "$value" ] || [ "$value" = "None" ] || \
-              [ "$value" = "null" ] || [ "$value" = "N/A" ]; then
-              echo ""
-              return 0
-            fi
-            echo "$value"
-          }
-
-          # Always search for existing buckets by name pattern.
-          # This handles cases where:
-          # 1. Bucket exists but stack is in rollback state
-          # 2. Bucket was retained from a previous stack deletion
-          # 3. Bucket exists in stack but CloudFormation state is inconsistent
-          # The RETAIN policy means these buckets persist, so we should always
-          # import them rather than trying to create new ones.
-
-          log_bucket=$(aws s3api list-buckets \
-            --query "Buckets[?starts_with(Name, '${resource_prefix}') && contains(Name, 'org-images-log')].Name | [0]" \
-            --output text 2>/dev/null || true)
-          log_bucket=$(normalize_value "$log_bucket")
-          if [ -n "$log_bucket" ]; then
-            echo "Found existing log bucket: $log_bucket"
-            echo "EXISTING_ORG_MEDIA_LOG_BUCKET_NAME=$log_bucket" \
-              >> "$GITHUB_ENV"
-          fi
-
-          images_bucket=$(aws s3api list-buckets \
-            --query "Buckets[?starts_with(Name, '${resource_prefix}') && contains(Name, 'org-images') && !contains(Name, 'log')].Name | [0]" \
-            --output text 2>/dev/null || true)
-          images_bucket=$(normalize_value "$images_bucket")
-          if [ -n "$images_bucket" ]; then
-            echo "Found existing images bucket: $images_bucket"
-            echo "EXISTING_ORG_MEDIA_BUCKET_NAME=$images_bucket" \
-              >> "$GITHUB_ENV"
-          fi
-
-      - name: Deploy backend with CDK
-        run: |
-          if [ -f "backend/infrastructure/package.json" ]; then
-            cd backend/infrastructure
-            npx cdk acknowledge 34892 || true
-            npm run build --if-present
-            PARAM_ARGS=()
-            resolve_param_file() {
-              local path="$1"
-              if [ -z "$path" ]; then
-                return 1
-              fi
-              if [ -f "$path" ]; then
-                echo "$path"
-                return 0
-              fi
-              if [ -n "$GITHUB_WORKSPACE" ] && [ -f "$GITHUB_WORKSPACE/$path" ]; then
-                echo "$GITHUB_WORKSPACE/$path"
-                return 0
-              fi
+          resolve_param_file() {
+            local path="$1"
+            if [ -z "$path" ]; then
               return 1
-            }
-            if [ "${CDK_STACKS:-}" = "all stacks" ]; then
-              # Explicitly set stacks - excludes WAF which requires us-east-1
-              CDK_STACKS="lxsoftware-siutindei lxsoftware-siutindei-admin-web"
-            elif [ "${CDK_STACKS:-}" = "lambda apis" ]; then
-              CDK_STACKS="lxsoftware-siutindei"
-            elif [ "${CDK_STACKS:-}" = "admin web" ]; then
-              CDK_STACKS="lxsoftware-siutindei-admin-web"
-            elif [ "${CDK_STACKS:-}" = "waf (us-east-1)" ]; then
-              CDK_STACKS="lxsoftware-siutindei-waf"
             fi
-            if [ -n "${CDK_PARAM_FILE:-}" ]; then
-              RESOLVED_PARAM_FILE=$(resolve_param_file "$CDK_PARAM_FILE" || true)
-              if [ -n "$RESOLVED_PARAM_FILE" ]; then
-                CDK_PARAM_FILE="$RESOLVED_PARAM_FILE"
-              else
-                echo "CDK_PARAM_FILE '$CDK_PARAM_FILE' not found"
-                exit 1
-              fi
+            if [ -f "$path" ]; then
+              echo "$path"
+              return 0
             fi
-            if [ -n "${CDK_PARAM_FILE:-}" ]; then
-              PARAM_ARGS_FILE="$(mktemp)"
-              python3 - <<'PY' > "$PARAM_ARGS_FILE"
+            if [ -n "$GITHUB_WORKSPACE" ] && [ -f "$GITHUB_WORKSPACE/$path" ]; then
+              echo "$GITHUB_WORKSPACE/$path"
+              return 0
+            fi
+            return 1
+          }
+
+          if [ -n "${CDK_PARAM_FILE:-}" ]; then
+            RESOLVED_PARAM_FILE=$(resolve_param_file "$CDK_PARAM_FILE" || true)
+            if [ -z "$RESOLVED_PARAM_FILE" ]; then
+              echo "CDK_PARAM_FILE '$CDK_PARAM_FILE' not found"
+              exit 1
+            fi
+            PARAM_ARGS_FILE="$(mktemp)"
+            PARAM_FILE="$RESOLVED_PARAM_FILE" STACKS="$CDK_STACKS" python3 - <<'PY' > "$PARAM_ARGS_FILE"
           import json
           import os
+          import sys
 
-          paths = []
-          param_file = os.environ.get("CDK_PARAM_FILE", "").strip()
-          if param_file and os.path.isfile(param_file):
-              paths.append(param_file)
-          stack_selection = os.environ.get("CDK_STACKS", "").strip()
-          if stack_selection:
-              stacks = []
-              for token in stack_selection.replace(",", " ").split():
-                  token = token.strip()
-                  if token:
-                      stacks.append(token)
-          else:
-              # Note: WAF stack is not included in "all stacks" as it requires us-east-1
-              stacks = ["lxsoftware-siutindei", "lxsoftware-siutindei-admin-web"]
-          stack_set = set(stacks)
-          admin_web_stack = "lxsoftware-siutindei-admin-web"
+          with open(os.environ["PARAM_FILE"], "r", encoding="utf-8") as handle:
+              params = json.load(handle)
+
+          stack_set = set(os.environ.get("STACKS", "").split())
           api_stack = "lxsoftware-siutindei"
-          waf_stack = "lxsoftware-siutindei-waf"
-          public_www_stack = "lxsoftware-siutindei-public-www"
+          admin_web_stack = "lxsoftware-siutindei-admin-web"
+          public_stack = "lxsoftware-siutindei-public-www"
           admin_web_params = {"AdminWebDomainName", "AdminWebCertificateArn", "WafWebAclArn"}
-          # WAF stack has no parameters that need to be passed
-          waf_params = set()
-          # Public website stack params. Note: WafWebAclArn is shared with
-          # admin-web; it stays in admin_web_params because deploy-backend.yml
-          # does not deploy the public-www stack (deploy-public-www.yml does).
-          public_www_params = {
+          public_params = {
               "PublicWwwDomainName",
               "PublicWwwCertificateArn",
               "PublicWwwStagingDomainName",
               "PublicWwwStagingCertificateArn",
+              "WafWebAclArn",
           }
-          params = {}
-          for path in paths:
-              with open(path, "r", encoding="utf-8") as handle:
-                  params.update(json.load(handle))
 
           def resolve_value(raw: str) -> str:
               """Replace <FROM_GITHUB_SECRET: X> / <FROM_GITHUB_VAR: X> placeholders."""
@@ -515,196 +179,157 @@ jobs:
               return raw
 
           for key, value in params.items():
-              if key in waf_params:
-                  target_stack = waf_stack
-              elif key in admin_web_params:
-                  target_stack = admin_web_stack
-              elif key in public_www_params:
-                  target_stack = public_www_stack
-              else:
-                  target_stack = api_stack
-              if target_stack not in stack_set:
-                  continue
-              if value is None:
-                  continue
-              value_str = resolve_value(str(value))
+              value_str = ""
+              if value is not None:
+                  value_str = resolve_value(str(value))
               value_str = value_str.replace("\r\n", "\n").replace("\r", "\n")
               value_str = value_str.replace("\n", "\\n").strip()
-              if not value_str:
+              if key != "WafWebAclArn" and not value_str:
                   continue
-              print("--parameters")
-              print(f"{target_stack}:{key}={value_str}")
+
+              targets = []
+              if key in admin_web_params:
+                  if value_str or key != "WafWebAclArn":
+                      targets.append(admin_web_stack)
+              if key in public_params:
+                  targets.append(public_stack)
+              if not targets:
+                  targets.append(api_stack)
+
+              for target in targets:
+                  if target not in stack_set:
+                      continue
+                  sys.stdout.buffer.write(b"--parameters\0")
+                  sys.stdout.buffer.write(
+                      f"{target}:{key}={value_str}".encode("utf-8") + b"\0"
+                  )
           PY
-              readarray -t PARAM_ARGS < "$PARAM_ARGS_FILE"
-            fi
-            QUALIFIER_ARGS=()
-            if [ -n "$CDK_BOOTSTRAP_QUALIFIER" ]; then
-              QUALIFIER_ARGS=(--qualifier "$CDK_BOOTSTRAP_QUALIFIER")
-            fi
-            STACK_ARGS=()
-            if [ -n "${CDK_STACKS:-}" ]; then
-              IFS=$', \n\t' read -r -a STACK_LIST <<< "$CDK_STACKS"
-              for stack in "${STACK_LIST[@]}"; do
-                trimmed="${stack#"${stack%%[![:space:]]*}"}"
-                trimmed="${trimmed%"${trimmed##*[![:space:]]}"}"
-                if [ -n "$trimmed" ]; then
-                  STACK_ARGS+=("$trimmed")
-                fi
-              done
-            fi
-            if [ "${DESTROY_BEFORE_DEPLOY:-false}" = "true" ]; then
-              if [ ${#STACK_ARGS[@]} -gt 0 ]; then
-                npx cdk destroy --no-notices --force "${QUALIFIER_ARGS[@]}" "${STACK_ARGS[@]}"
-              else
-                npx cdk destroy --no-notices --force "${QUALIFIER_ARGS[@]}" lxsoftware-siutindei
-              fi
-              export SKIP_DB_CLUSTER_IMMUTABLE_UPDATES=false
-              unset EXISTING_DB_CREDENTIALS_SECRET_NAME
-              unset EXISTING_DB_CREDENTIALS_SECRET_ARN
-              unset EXISTING_DB_CREDENTIALS_SECRET_KMS_KEY_ARN
-              unset EXISTING_DB_SECURITY_GROUP_ID
-              unset EXISTING_PROXY_SECURITY_GROUP_ID
-              unset EXISTING_LAMBDA_SECURITY_GROUP_ID
-              unset EXISTING_MIGRATION_SECURITY_GROUP_ID
-              unset EXISTING_DB_CLUSTER_IDENTIFIER
-              unset EXISTING_DB_CLUSTER_ENDPOINT
-              unset EXISTING_DB_CLUSTER_READER_ENDPOINT
-              unset EXISTING_DB_CLUSTER_PORT
-              unset EXISTING_DB_PROXY_NAME
-              unset EXISTING_DB_PROXY_ARN
-              unset EXISTING_DB_PROXY_ENDPOINT
-              unset EXISTING_VPC_ID
-              unset EXISTING_ORG_MEDIA_LOG_BUCKET_NAME
-              unset EXISTING_ORG_MEDIA_BUCKET_NAME
-            fi
-            if [ ${#STACK_ARGS[@]} -gt 0 ]; then
-              npx cdk deploy --no-notices --require-approval never "${QUALIFIER_ARGS[@]}" "${PARAM_ARGS[@]}" "${STACK_ARGS[@]}"
-            else
-              npx cdk deploy --no-notices --require-approval never "${QUALIFIER_ARGS[@]}" "${PARAM_ARGS[@]}"
-            fi
-          else
-            echo "Missing backend/infrastructure/package.json"
+            mapfile -d '' -t PARAM_ARGS < "$PARAM_ARGS_FILE"
           fi
+
+          RUN_SEED_DATA_NORMALIZED="$(printf '%s' "${RUN_SEED_DATA:-false}" | tr '[:upper:]' '[:lower:]')"
+          if [ "$RUN_SEED_DATA_NORMALIZED" = "true" ]; then
+            if [[ " $CDK_STACKS " == *" lxsoftware-siutindei "* ]]; then
+              FILTERED_PARAM_ARGS=()
+              for arg in "${PARAM_ARGS[@]}"; do
+                if [[ "$arg" == "lxsoftware-siutindei:RunSeedData="* ]]; then
+                  continue
+                fi
+                FILTERED_PARAM_ARGS+=("$arg")
+              done
+              PARAM_ARGS=("${FILTERED_PARAM_ARGS[@]}")
+              PARAM_ARGS+=("--parameters" "lxsoftware-siutindei:RunSeedData=true")
+              echo "RunSeedData override enabled for lxsoftware-siutindei stack."
+            else
+              echo "run_seed_data=true requested, but API stack is not selected; skipping seed override."
+            fi
+          fi
+
+          QUALIFIER_ARGS=()
+          if [ -n "$CDK_BOOTSTRAP_QUALIFIER" ]; then
+            QUALIFIER_ARGS=(--qualifier "$CDK_BOOTSTRAP_QUALIFIER")
+          fi
+
+          IFS=$', \n\t' read -r -a STACK_LIST <<< "$CDK_STACKS"
+
+          if [ "${DESTROY_BEFORE_DEPLOY:-false}" = "true" ]; then
+            if [ ${#STACK_LIST[@]} -gt 0 ]; then
+              npx cdk destroy --no-notices --force "${QUALIFIER_ARGS[@]}" "${STACK_LIST[@]}"
+            else
+              npx cdk destroy --no-notices --force "${QUALIFIER_ARGS[@]}" lxsoftware-siutindei
+            fi
+          fi
+
+          MANAGED_STACKS=(
+            lxsoftware-siutindei
+            lxsoftware-siutindei-admin-web
+            lxsoftware-siutindei-public-www
+            lxsoftware-siutindei-waf
+          )
+
+          continue_rollback_for_wedged_stacks() {
+            for managed in "${MANAGED_STACKS[@]}"; do
+              if [[ ! " $CDK_STACKS " == *" $managed "* ]]; then
+                continue
+              fi
+              local status
+              status="$(aws cloudformation describe-stacks \
+                --stack-name "$managed" \
+                --region "$AWS_REGION" \
+                --query 'Stacks[0].StackStatus' \
+                --output text 2>/dev/null || echo MISSING)"
+              if [ "$status" != "UPDATE_ROLLBACK_FAILED" ]; then
+                continue
+              fi
+              echo "Stack ${managed} is in UPDATE_ROLLBACK_FAILED; calling continue-update-rollback."
+              if ! aws cloudformation continue-update-rollback \
+                --stack-name "$managed" \
+                --region "$AWS_REGION"; then
+                echo "continue-update-rollback failed for ${managed}; the next deploy attempt will report the wedged state."
+                continue
+              fi
+              echo "Waiting for ${managed} to reach UPDATE_ROLLBACK_COMPLETE (timeout ~15m)."
+              if ! aws cloudformation wait stack-rollback-complete \
+                --stack-name "$managed" \
+                --region "$AWS_REGION"; then
+                echo "Wait for stack-rollback-complete on ${managed} timed out or failed."
+              fi
+            done
+          }
+
+          MAX_CDK_DEPLOY_ATTEMPTS=3
+          attempt=1
+          deploy_exit=1
+          while [ "$attempt" -le "$MAX_CDK_DEPLOY_ATTEMPTS" ]; do
+            echo "CDK deploy attempt ${attempt} of ${MAX_CDK_DEPLOY_ATTEMPTS}"
+            ATTEMPT_LOG="$(mktemp)"
+            npx cdk deploy --no-notices --require-approval never \
+              "${QUALIFIER_ARGS[@]}" "${PARAM_ARGS[@]}" "${STACK_LIST[@]}" 2>&1 | tee "$ATTEMPT_LOG"
+            deploy_exit=${PIPESTATUS[0]}
+            if [ "$deploy_exit" -eq 0 ]; then
+              rm -f "$ATTEMPT_LOG"
+              exit 0
+            fi
+
+            if grep -Eiq 'HandlerErrorCode: (InvalidRequest|AlreadyExists)|must be in ARN format or "\\*"|already exists\.' "$ATTEMPT_LOG"; then
+              echo "Detected non-retryable CloudFormation error; failing fast without additional retries."
+              rm -f "$ATTEMPT_LOG"
+              exit "$deploy_exit"
+            fi
+
+            saw_rollback_failed=0
+            if grep -Eiq 'is in UPDATE_ROLLBACK_FAILED state and can not be updated' "$ATTEMPT_LOG"; then
+              saw_rollback_failed=1
+            fi
+
+            rm -f "$ATTEMPT_LOG"
+            if [ "$attempt" -eq "$MAX_CDK_DEPLOY_ATTEMPTS" ]; then
+              break
+            fi
+
+            if [ "$saw_rollback_failed" -eq 1 ]; then
+              echo "Detected UPDATE_ROLLBACK_FAILED; attempting continue-update-rollback before retry."
+              continue_rollback_for_wedged_stacks
+            fi
+
+            delay=$((45 * attempt))
+            echo "CDK deploy failed (exit ${deploy_exit}); waiting ${delay}s before retry..."
+            sleep "$delay"
+            attempt=$((attempt + 1))
+          done
+          exit "$deploy_exit"
         env:
-          CDK_STACKS: >-
-            ${{ github.event.inputs.cdk_stacks || vars.CDK_STACKS || 'all stacks' }}
+          AWS_REGION: ${{ steps.region.outputs.region }}
+          CDK_STACKS: ${{ github.event.inputs.cdk_stacks || vars.CDK_STACKS || 'all stacks' }}
+          RUN_SEED_DATA: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.run_seed_data || 'false' }}
           CDK_PARAM_FILE: ${{ vars.CDK_PARAM_FILE }}
+          CDK_BOOTSTRAP_QUALIFIER: ${{ vars.CDK_BOOTSTRAP_QUALIFIER }}
+          DESTROY_BEFORE_DEPLOY: ${{ github.event.inputs.destroy_before_deploy || 'false' }}
           CDK_PARAM_GOOGLE_CLIENT_SECRET: ${{ secrets.CDK_PARAM_GOOGLE_CLIENT_SECRET }}
           CDK_PARAM_APPLE_PRIVATE_KEY: ${{ secrets.CDK_PARAM_APPLE_PRIVATE_KEY }}
           CDK_PARAM_PUBLIC_API_KEY_VALUE: ${{ secrets.CDK_PARAM_PUBLIC_API_KEY_VALUE }}
           CDK_PARAM_ADMIN_BOOTSTRAP_TEMP_PASSWORD: ${{ secrets.CDK_PARAM_ADMIN_BOOTSTRAP_TEMP_PASSWORD }}
           APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
-          CDK_BOOTSTRAP_QUALIFIER: ${{ vars.CDK_BOOTSTRAP_QUALIFIER }}
-          DESTROY_BEFORE_DEPLOY: ${{ github.event.inputs.destroy_before_deploy || 'false' }}
-          EXISTING_DB_CREDENTIALS_SECRET_NAME: ${{ env.EXISTING_DB_CREDENTIALS_SECRET_NAME }}
-          EXISTING_DB_CREDENTIALS_SECRET_ARN: ${{ env.EXISTING_DB_CREDENTIALS_SECRET_ARN }}
-          EXISTING_DB_CREDENTIALS_SECRET_KMS_KEY_ARN: ${{ env.EXISTING_DB_CREDENTIALS_SECRET_KMS_KEY_ARN }}
-          EXISTING_DB_SECURITY_GROUP_ID: ${{ env.EXISTING_DB_SECURITY_GROUP_ID }}
-          EXISTING_PROXY_SECURITY_GROUP_ID: ${{ env.EXISTING_PROXY_SECURITY_GROUP_ID }}
-          EXISTING_LAMBDA_SECURITY_GROUP_ID: ${{ env.EXISTING_LAMBDA_SECURITY_GROUP_ID }}
-          EXISTING_MIGRATION_SECURITY_GROUP_ID: ${{ env.EXISTING_MIGRATION_SECURITY_GROUP_ID }}
-          EXISTING_DB_CLUSTER_IDENTIFIER: ${{ env.EXISTING_DB_CLUSTER_IDENTIFIER }}
-          EXISTING_DB_CLUSTER_ENDPOINT: ${{ env.EXISTING_DB_CLUSTER_ENDPOINT }}
-          EXISTING_DB_CLUSTER_READER_ENDPOINT: ${{ env.EXISTING_DB_CLUSTER_READER_ENDPOINT }}
-          EXISTING_DB_CLUSTER_PORT: ${{ env.EXISTING_DB_CLUSTER_PORT }}
-          EXISTING_DB_PROXY_NAME: ${{ env.EXISTING_DB_PROXY_NAME }}
-          EXISTING_DB_PROXY_ARN: ${{ env.EXISTING_DB_PROXY_ARN }}
-          EXISTING_DB_PROXY_ENDPOINT: ${{ env.EXISTING_DB_PROXY_ENDPOINT }}
-          EXISTING_VPC_ID: ${{ env.EXISTING_VPC_ID }}
-          EXISTING_ORG_MEDIA_LOG_BUCKET_NAME: ${{ env.EXISTING_ORG_MEDIA_LOG_BUCKET_NAME }}
-          EXISTING_ORG_MEDIA_BUCKET_NAME: ${{ env.EXISTING_ORG_MEDIA_BUCKET_NAME }}
           MIGRATIONS_FORCE_RUN_ID: >-
             ${{ github.event.inputs.force_migration_run == 'true' &&
             github.run_id || '' }}
-
-      - name: Run database seeding
-        if: github.event.inputs.run_seed_data == 'true' && steps.region.outputs.is_waf != 'true'
-        run: |
-          echo "Running database seeding after successful deployment..."
-
-          # Get User Pool ID from CloudFormation stack
-          USER_POOL_ID=$(aws cloudformation describe-stacks \
-            --stack-name lxsoftware-siutindei \
-            --query "Stacks[0].Outputs[?OutputKey=='UserPoolId'].OutputValue" \
-            --output text)
-
-          if [ -z "$USER_POOL_ID" ] || [ "$USER_POOL_ID" = "None" ]; then
-            echo "Error: Could not get User Pool ID from stack outputs"
-            exit 1
-          fi
-          echo "User Pool ID: $USER_POOL_ID"
-
-          # Create or get the seed manager user
-          # This must be done from GitHub Actions (not Lambda) because Lambda
-          # runs in VPC with isolated subnets and Cognito blocks PrivateLink
-          # access when ManagedLogin is enabled.
-          SEED_EMAIL="test@lx-software.com"
-          SEED_PASSWORD=$(openssl rand -base64 16 | tr -d '/+=' | head -c 16)
-
-          # Check if user already exists
-          USER_SUB=$(aws cognito-idp list-users \
-            --user-pool-id "$USER_POOL_ID" \
-            --filter "email = \"$SEED_EMAIL\"" \
-            --query "Users[0].Attributes[?Name=='sub'].Value" \
-            --output text 2>/dev/null || true)
-
-          if [ -z "$USER_SUB" ] || [ "$USER_SUB" = "None" ]; then
-            echo "Creating seed manager user: $SEED_EMAIL"
-            aws cognito-idp admin-create-user \
-              --user-pool-id "$USER_POOL_ID" \
-              --username "$SEED_EMAIL" \
-              --user-attributes Name=email,Value="$SEED_EMAIL" Name=email_verified,Value=true \
-              --message-action SUPPRESS
-
-            # Set permanent password
-            aws cognito-idp admin-set-user-password \
-              --user-pool-id "$USER_POOL_ID" \
-              --username "$SEED_EMAIL" \
-              --password "${SEED_PASSWORD}Aa1!" \
-              --permanent
-
-            # Add to manager group
-            aws cognito-idp admin-add-user-to-group \
-              --user-pool-id "$USER_POOL_ID" \
-              --username "$SEED_EMAIL" \
-              --group-name "manager"
-
-            # Get the user's sub
-            USER_SUB=$(aws cognito-idp list-users \
-              --user-pool-id "$USER_POOL_ID" \
-              --filter "email = \"$SEED_EMAIL\"" \
-              --query "Users[0].Attributes[?Name=='sub'].Value" \
-              --output text)
-            echo "Created seed manager user with sub: $USER_SUB"
-          else
-            echo "Seed manager user already exists with sub: $USER_SUB"
-          fi
-
-          if [ -z "$USER_SUB" ] || [ "$USER_SUB" = "None" ]; then
-            echo "Error: Could not get or create seed manager user"
-            exit 1
-          fi
-
-          # Invoke the Lambda with seed-only action and the manager sub
-          FUNCTION_NAME="lxsoftware-siutindei-SiutindeiMigrationFunction"
-          PAYLOAD=$(printf '{"action": "seed", "seed_manager_sub": "%s"}' "$USER_SUB")
-
-          RESPONSE=$(aws lambda invoke \
-            --function-name "$FUNCTION_NAME" \
-            --payload "$PAYLOAD" \
-            --cli-binary-format raw-in-base64-out \
-            /tmp/seed-response.json 2>&1)
-
-          echo "Lambda invocation response: $RESPONSE"
-          echo "Lambda output:"
-          cat /tmp/seed-response.json
-
-          # Check if seeding was successful
-          STATUS=$(cat /tmp/seed-response.json | python3 -c "import sys, json; print(json.load(sys.stdin).get('status', 'unknown'))")
-          if [ "$STATUS" != "ok" ]; then
-            echo "Seeding failed with status: $STATUS"
-            cat /tmp/seed-response.json
-            exit 1
-          fi
-
-          echo "Database seeding completed successfully!"
