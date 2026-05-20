@@ -62,6 +62,10 @@ The build refuses to run if any of these are missing
 - `NEXT_PUBLIC_SITE_ORIGIN`
 - `NEXT_PUBLIC_SITE_NAME`
 
+CI workflows resolve defaults from `backend/infrastructure/params/production.json`
+via `scripts/deploy/resolve-public-www-build-env.sh`. GitHub Environment
+variables (`NEXT_PUBLIC_*`) override those defaults when set.
+
 Optional `NEXT_PUBLIC_*` variables documented in `.env.example` are read by
 `src/lib/site-config.ts`.
 
