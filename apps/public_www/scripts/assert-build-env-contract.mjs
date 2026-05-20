@@ -1,6 +1,7 @@
 /**
  * Fails the build when required NEXT_PUBLIC_* variables for the public website
  * are missing or empty. Keep this list in sync with:
+ *   apps/public_www/build-env.defaults.json
  *   scripts/deploy/resolve-public-www-build-env.sh
  *   .github/workflows/deploy-public-www.yml  (assert + build env blocks)
  *   .github/workflows/promote-public-www.yml (build env block)
