@@ -40,8 +40,8 @@ generated HTML and validates it.
 
 There is **one CloudFormation stack** (`lxsoftware-siutindei-public-www`) with
 **two CloudFront distributions** in it: one for production
-(`www.siutindei.lx-software.com`) and one for staging
-(`www-staging.siutindei.lx-software.com`).
+(`siutindei-www.lx-software.com`) and one for staging
+(`siutindei-www-staging.lx-software.com`).
 
 | Trigger | Action |
 |---|---|

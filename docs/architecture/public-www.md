@@ -32,6 +32,18 @@ environment has:
 CDK source: [`backend/infrastructure/lib/public-www-stack.ts`](../../backend/infrastructure/lib/public-www-stack.ts).
 Stack registration: [`backend/infrastructure/bin/app.ts`](../../backend/infrastructure/bin/app.ts).
 
+### Custom domains
+
+Configured via `backend/infrastructure/params/production.json` and passed to
+CloudFront as alternate domain names (CNAMEs). Both environments reuse the
+same us-east-1 ACM certificate as the admin web; hostnames must be listed on
+that certificate.
+
+| Environment | CloudFront alias |
+|---|---|
+| Production | `siutindei-www.lx-software.com` |
+| Staging | `siutindei-www-staging.lx-software.com` |
+
 ### Resource naming
 
 Both environments respect the 63-char S3 bucket name limit:

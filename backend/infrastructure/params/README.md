@@ -31,15 +31,16 @@ or `all stacks`). Deploy static site artifacts with
 
 | Parameter | Purpose |
 |-----------|---------|
-| `PublicWwwDomainName` | Production CloudFront alias (e.g. `www.siutindei.lx-software.com`). |
+| `PublicWwwDomainName` | Production CloudFront alias (e.g. `siutindei-www.lx-software.com`). |
 | `PublicWwwCertificateArn` | ACM cert ARN in **us-east-1** that covers the production alias. |
-| `PublicWwwStagingDomainName` | Staging CloudFront alias (e.g. `www-staging.siutindei.lx-software.com`). |
+| `PublicWwwStagingDomainName` | Staging CloudFront alias (e.g. `siutindei-www-staging.lx-software.com`). |
 | `PublicWwwStagingCertificateArn` | ACM cert ARN in **us-east-1** that covers the staging alias. |
 | `WafWebAclArn` | (Optional) us-east-1 WAF WebACL ARN; reuse the admin-web ACL. |
 
 Before the first `cdk deploy`, ensure the ACM certificate listed in
 `PublicWwwCertificateArn`/`PublicWwwStagingCertificateArn` includes the public
 website hostnames as Subject Alternative Names. The default values reuse the
-existing admin web certificate; if it does not yet cover these hostnames, issue
-a wildcard `*.siutindei.lx-software.com` (or extend the existing cert) before
-deploying.
+same us-east-1 certificate as the admin web (`siutindei.lx-software.com`);
+hostnames must follow the `siutindei-*` pattern on `lx-software.com` (e.g.
+`siutindei-www.lx-software.com`, `siutindei-www-staging.lx-software.com`).
+Extend the certificate SANs if a hostname is not yet covered before deploying.
