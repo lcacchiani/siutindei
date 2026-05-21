@@ -262,7 +262,7 @@ The app follows [Flutter performance best practices](https://docs.flutter.dev/pe
 - Widget extraction for isolation
 - `RepaintBoundary` for expensive widgets
 - Cached layout objects (BorderRadius, etc.)
-- `ListView.builder` with `cacheExtent`
+- `ListView.builder` with `scrollCacheExtent` (Flutter 3.41+)
 - Image caching with `cacheWidth`/`cacheHeight`
 
 ## Contributing
