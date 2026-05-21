@@ -40,8 +40,8 @@ generated HTML and validates it.
 
 There is **one CloudFormation stack** (`lxsoftware-siutindei-public-www`) with
 **two CloudFront distributions** in it: one for production
-(`www.siutindei.lx-software.com`) and one for staging
-(`www-staging.siutindei.lx-software.com`).
+(`siutindei-www.lx-software.com`) and one for staging
+(`siutindei-www-staging.lx-software.com`).
 
 | Trigger | Action |
 |---|---|
@@ -61,6 +61,11 @@ The build refuses to run if any of these are missing
 
 - `NEXT_PUBLIC_SITE_ORIGIN`
 - `NEXT_PUBLIC_SITE_NAME`
+
+CI workflows resolve defaults via `scripts/deploy/resolve-public-www-build-env.sh`
+(domains from `backend/infrastructure/params/production.json`, branding from
+`build-env.defaults.json`). GitHub Environment variables (`NEXT_PUBLIC_*`)
+override those defaults when set.
 
 Optional `NEXT_PUBLIC_*` variables documented in `.env.example` are read by
 `src/lib/site-config.ts`.

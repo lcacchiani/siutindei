@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../config/constants.dart';
@@ -412,8 +413,8 @@ class _ResultsList extends ConsumerWidget {
       child: ListView.builder(
         controller: scrollController,
         padding: EdgeInsets.only(top: spacing.sm),
-        // Use cacheExtent to pre-build items off-screen
-        cacheExtent: 200,
+        // Pre-build items off-screen for smoother scrolling.
+        scrollCacheExtent: const ScrollCacheExtent.pixels(200),
         itemCount: state.items.length + (state.hasMore ? 1 : 0),
         itemBuilder: (context, index) {
           if (index >= state.items.length) {

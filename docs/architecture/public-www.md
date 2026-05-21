@@ -32,6 +32,18 @@ environment has:
 CDK source: [`backend/infrastructure/lib/public-www-stack.ts`](../../backend/infrastructure/lib/public-www-stack.ts).
 Stack registration: [`backend/infrastructure/bin/app.ts`](../../backend/infrastructure/bin/app.ts).
 
+### Custom domains
+
+Configured via `backend/infrastructure/params/production.json` and passed to
+CloudFront as alternate domain names (CNAMEs). Both environments reuse the
+same us-east-1 ACM certificate as the admin web; hostnames must be listed on
+that certificate.
+
+| Environment | CloudFront alias |
+|---|---|
+| Production | `siutindei-www.lx-software.com` |
+| Staging | `siutindei-www-staging.lx-software.com` |
+
 ### Resource naming
 
 Both environments respect the 63-char S3 bucket name limit:
@@ -91,6 +103,7 @@ workflow_dispatch (Promote Public Website Release)
 
 | Workflow | Trigger | Purpose |
 |---|---|---|
+| [`deploy-backend.yml`](../../.github/workflows/deploy-backend.yml) | `workflow_dispatch` (`public website` or `all stacks`), `push: backend/**` | CDK deploy of `lxsoftware-siutindei-public-www` (S3 + CloudFront for production and staging). |
 | [`deploy-public-www.yml`](../../.github/workflows/deploy-public-www.yml) | `push: main`, `workflow_dispatch`, `repository_dispatch: deploy-public-www` | Build + sync to staging bucket, write release marker. |
 | [`promote-public-www.yml`](../../.github/workflows/promote-public-www.yml) | `workflow_dispatch` | Promote a staging release to production or flip production into maintenance mode. |
 | [`smoke-public-www-staging.yml`](../../.github/workflows/smoke-public-www-staging.yml) | `workflow_dispatch` | Crawl staging sitemap and assert every page responds 2xx/3xx. |
