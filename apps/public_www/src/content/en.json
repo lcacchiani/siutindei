@@ -1,0 +1,147 @@
+{
+  "meta": {
+    "locale": "en",
+    "direction": "ltr",
+    "label": "English"
+  },
+  "navbar": {
+    "brand": "Siu Tin Dei",
+    "menuItems": [
+      { "label": "Home", "href": "/" },
+      { "label": "About", "href": "/about" }
+    ],
+    "languageSelector": {
+      "menuAriaLabel": "Select language",
+      "options": [
+        { "locale": "en", "label": "English", "shortLabel": "EN" },
+        { "locale": "zh-HK", "label": "繁體中文", "shortLabel": "TC" }
+      ]
+    },
+    "openNavigationMenuAriaLabel": "Open navigation menu",
+    "closeNavigationMenuAriaLabel": "Close navigation menu"
+  },
+  "footer": {
+    "tagline": "An LX Software product. Hong Kong, SAR.",
+    "copyrightTemplate": "© {year} LX Software Limited. All rights reserved.",
+    "contactHeading": "Contact"
+  },
+  "seo": {
+    "fallbackTitle": "Siu Tin Dei | Children's activities in Hong Kong",
+    "fallbackDescription": "Discover curated children's activities in Hong Kong with Siu Tin Dei.",
+    "defaultSocialImage": "/images/seo/siutindei-og-default.png",
+    "defaultSocialImageAlt": "Siu Tin Dei children's activities in Hong Kong",
+    "home": {
+      "title": "Siu Tin Dei | Children's activities in Hong Kong",
+      "description": "Discover curated children's activities in Hong Kong with Siu Tin Dei."
+    },
+    "about": {
+      "title": "About Siu Tin Dei",
+      "description": "Learn how Siu Tin Dei helps Hong Kong families find trusted children's activities."
+    }
+  },
+  "common": {
+    "shell": {
+      "skipToMainContentLabel": "Skip to main content",
+      "environmentBadgeLabel": "Staging",
+      "noscript": {
+        "title": "JavaScript is disabled",
+        "description": "Core navigation still works. Enable JavaScript for the full experience.",
+        "homeLabel": "Home",
+        "contactLabel": "Contact"
+      }
+    }
+  },
+  "pages": {
+    "home": {
+      "body": {
+        "rows": [
+          {
+            "cells": [
+              {
+                "component": "hero",
+                "colStart": 1,
+                "colSpan": 12,
+                "props": {
+                  "eyebrow": "Coming soon",
+                  "primaryCtaLabel": "Learn more",
+                  "primaryCtaHref": "#features",
+                  "secondaryCtaLabel": "Get in touch",
+                  "secondaryCtaHref": "#contact"
+                }
+              }
+            ]
+          },
+          {
+            "cells": [
+              {
+                "component": "features",
+                "colStart": 1,
+                "colSpan": 12
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "about": {
+      "body": {
+        "rows": [
+          {
+            "cells": [
+              {
+                "component": "hero",
+                "colStart": 1,
+                "colSpan": 12,
+                "props": {
+                  "eyebrow": "About us",
+                  "primaryCtaLabel": "Explore activities",
+                  "primaryCtaHref": "/",
+                  "secondaryCtaLabel": "Contact",
+                  "secondaryCtaHref": "#contact"
+                }
+              }
+            ]
+          },
+          {
+            "cells": [
+              {
+                "component": "richText",
+                "colStart": 2,
+                "colSpan": 10,
+                "props": {
+                  "title": "Built for Hong Kong families",
+                  "paragraphs": [
+                    "Siu Tin Dei helps parents discover vetted children's activities across Hong Kong — with transparent schedules, pricing, and locations.",
+                    "We are starting with a focused catalogue and will expand as partner programmes join the platform."
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "hero": {
+    "title": "Siu Tin Dei",
+    "subtitle": "Curated children's activities in Hong Kong."
+  },
+  "features": {
+    "title": "Why Siu Tin Dei",
+    "description": "A focused starting point for parents searching for the right activities for their kids.",
+    "items": [
+      {
+        "title": "Vetted programs",
+        "description": "Every activity is reviewed for safety, value, and pedagogical quality."
+      },
+      {
+        "title": "Hong Kong focused",
+        "description": "Districts, languages, schedules, and pricing that match the city's reality."
+      },
+      {
+        "title": "Transparent booking",
+        "description": "Clear pricing per session, per class, or per day — no surprises at checkout."
+      }
+    ]
+  }
+}

@@ -20,6 +20,8 @@ lib64/
 !apps/admin_web/src/lib/**
 !apps/public_www/src/lib/
 !apps/public_www/src/lib/**
+!apps/public_www/tests/lib/
+!apps/public_www/tests/lib/**
 parts/
 sdist/
 var/
@@ -196,6 +198,8 @@ cython_debug/
 node_modules/
 apps/admin_web/.next/
 apps/admin_web/out/
+apps/public_www/.next/
+apps/public_www/out/
 
 # Playwright
 apps/admin_web/playwright-report/

@@ -76,9 +76,19 @@ Optional `NEXT_PUBLIC_*` variables documented in `.env.example` are read by
 - TypeScript only.
 - No inline `<svg>` markup in components — use SVGs from `public/images/`.
 - No `dangerouslySetInnerHTML`, no `eval`/`new Function`.
-- All user-visible copy lives in components for now (single locale). When a
-  second locale is added, follow the evolvesprouts pattern of
-  `src/content/<locale>.json` + `src/app/[locale]/...`.
+- **i18n:** `src/content/<locale>.json` (e.g. `en.json`, `zh-HK.json`) is the
+  source of truth for copy, navigation, SEO strings, and per-page body grids.
+  Routes live under `src/app/[locale]/...` with root redirects (e.g. `/` →
+  `/en/`).
+- **Page template:** `PageLayout` = shared header (`Navbar`) + `main` +
+  shared footer (`Footer`). Page-specific content is rendered by `PageBodyGrid`.
+- **12-column body grid:** Each page defines `pages.<key>.body.rows[]` with
+  cells (`component`, `colStart`, `colSpan`, optional `props`). Register new
+  body components in `page-body-grid.tsx`.
+- **SEO / analytics:** `buildLocalizedMetadata` (canonical + hreflang),
+  optional `NEXT_PUBLIC_GTM_ID` and `NEXT_PUBLIC_META_PIXEL_ID` with host
+  allow-lists (same pattern as
+  [evolvesprouts](https://github.com/lcacchiani/evolvesprouts)).
 
 See the `Public Website` section in the repository root `.cursorrules` for the
 authoritative checklist.

@@ -12,6 +12,12 @@ export interface SiteConfig {
   readonly contact: SiteContact;
 }
 
+export interface PublicSiteConfig {
+  readonly whatsappUrl?: string;
+  readonly contactEmail?: string;
+  readonly instagramUrl?: string;
+}
+
 function readPublicEnv(name: string): string {
   return (process.env[name] ?? '').trim();
 }
@@ -32,5 +38,17 @@ export function getSiteConfig(): SiteConfig {
       whatsappUrl: readPublicEnv('NEXT_PUBLIC_WHATSAPP_URL'),
       instagramUrl: readPublicEnv('NEXT_PUBLIC_INSTAGRAM_URL'),
     },
+  };
+}
+
+export function resolvePublicSiteConfig(): PublicSiteConfig {
+  const whatsappUrl = readPublicEnv('NEXT_PUBLIC_WHATSAPP_URL');
+  const contactEmail = readPublicEnv('NEXT_PUBLIC_EMAIL');
+  const instagramUrl = readPublicEnv('NEXT_PUBLIC_INSTAGRAM_URL');
+
+  return {
+    ...(whatsappUrl ? { whatsappUrl } : {}),
+    ...(contactEmail ? { contactEmail } : {}),
+    ...(instagramUrl ? { instagramUrl } : {}),
   };
 }
