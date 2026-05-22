@@ -1,24 +1,28 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import HomePage from '@/app/page';
 
-describe('HomePage', () => {
-  it('renders the brand name in the hero', () => {
-    render(<HomePage />);
-    expect(
-      screen.getByRole('heading', { level: 1, name: /siu tin dei/i }),
-    ).toBeInTheDocument();
-  });
+import { MarketingPage } from '@/components/pages/marketing-page';
+import { getContent } from '@/content';
 
-  it('renders the features section', () => {
-    render(<HomePage />);
-    expect(
-      screen.getByRole('heading', { level: 2, name: /why siu tin dei/i }),
-    ).toBeInTheDocument();
-  });
+describe('MarketingPage', () => {
+  it('renders home grid sections from locale content', () => {
+    const content = getContent('en');
 
-  it('renders a footer with copyright', () => {
-    render(<HomePage />);
-    expect(screen.getByText(/all rights reserved/i)).toBeInTheDocument();
+    render(
+      <MarketingPage
+        locale="en"
+        content={content}
+        body={content.pages.home.body}
+        currentPath="/"
+      />,
+    );
+
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
+      content.hero.title,
+    );
+    expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent(
+      content.features.title,
+    );
+    expect(screen.getByRole('navigation', { name: 'Main' })).toBeInTheDocument();
   });
 });

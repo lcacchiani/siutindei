@@ -68,6 +68,19 @@ Source: [`apps/public_www`](../../apps/public_www).
 - Lighthouse CI configured at `apps/public_www/.lighthouserc.json`.
 - Build script: `next build` → `inject-csp-meta.mjs` → `validate-csp-meta.mjs`.
 
+### Page composition (evolvesprouts-aligned)
+
+- **Locales:** `src/content/en.json`, `zh-HK.json`, … with routes under
+  `src/app/[locale]/…` and root redirects (`/` → `/en/`).
+- **Template:** `PageLayout` = `Navbar` (header) + `<main>` + `Footer`.
+- **Body:** `pages.<pageKey>.body` defines a 12-column CSS grid (`rows` →
+  `cells` with `component`, `colStart`, `colSpan`, optional `props`). The
+  registry lives in `src/components/sections/grid/page-body-grid.tsx`.
+- **SEO:** `buildLocalizedMetadata` (canonical, hreflang). Optional GTM /
+  Meta Pixel via `NEXT_PUBLIC_GTM_ID` / `NEXT_PUBLIC_META_PIXEL_ID` and
+  host allow-lists; CSP `script-src` / `connect-src` extended at build time
+  when those env vars are set (`scripts/inject-csp-meta.mjs`).
+
 The build is deliberately **gated** by:
 
 | Script | Purpose |

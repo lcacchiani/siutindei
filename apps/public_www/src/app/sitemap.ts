@@ -1,17 +1,22 @@
 import type { MetadataRoute } from 'next';
-import { getSiteConfig } from '@/lib/site-config';
+
+import { SUPPORTED_LOCALES } from '@/content';
+import { localizePath } from '@/lib/locale-routing';
+import { INDEXED_ROUTE_PATHS } from '@/lib/routes';
+import { getSiteOrigin } from '@/lib/seo';
 
 export const dynamic = 'force-static';
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const { siteOrigin } = getSiteConfig();
+  const siteOrigin = getSiteOrigin();
   const now = new Date();
-  return [
-    {
-      url: `${siteOrigin}/`,
+
+  return SUPPORTED_LOCALES.flatMap((locale) =>
+    INDEXED_ROUTE_PATHS.map((path) => ({
+      url: `${siteOrigin}${localizePath(path, locale)}`,
       lastModified: now,
-      changeFrequency: 'weekly',
-      priority: 1,
-    },
-  ];
+      changeFrequency: path === '/' ? 'weekly' : 'monthly',
+      priority: path === '/' ? 1 : 0.8,
+    })),
+  );
 }

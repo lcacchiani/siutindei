@@ -1,8 +1,17 @@
+import type { FooterContent } from '@/content';
+import { formatContentTemplate } from '@/content/content-field-utils';
 import { getSiteConfig } from '@/lib/site-config';
 
-export function Footer() {
+interface FooterProps {
+  readonly content: FooterContent;
+}
+
+export function Footer({ content }: FooterProps) {
   const { siteName, contact } = getSiteConfig();
   const year = new Date().getFullYear();
+  const copyright = formatContentTemplate(content.copyrightTemplate, {
+    year: String(year),
+  });
 
   return (
     <footer
@@ -14,13 +23,12 @@ export function Footer() {
         <div className="grid gap-8 sm:grid-cols-2">
           <div>
             <p className="text-lg font-semibold text-white">{siteName}</p>
-            <p className="mt-2 text-sm text-brand-100">
-              An LX Software product. Hong Kong, SAR.
-            </p>
+            <p className="mt-2 text-sm text-brand-100">{content.tagline}</p>
           </div>
           <div className="text-sm sm:text-right">
+            <p className="font-semibold text-white">{content.contactHeading}</p>
             {contact.email ? (
-              <p>
+              <p className="mt-2">
                 <a
                   href={`mailto:${contact.email}`}
                   className="underline-offset-2 hover:underline"
@@ -56,7 +64,7 @@ export function Footer() {
           </div>
         </div>
         <p className="mt-8 border-t border-brand-600 pt-6 text-xs text-brand-100">
-          &copy; {year} LX Software Limited. All rights reserved.
+          {copyright}
         </p>
       </div>
     </footer>

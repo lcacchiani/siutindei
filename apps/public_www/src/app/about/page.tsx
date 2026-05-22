@@ -4,6 +4,6 @@ import { DEFAULT_LOCALE } from '@/content';
 import { localizePath } from '@/lib/locale-routing';
 import { ROUTES } from '@/lib/routes';
 
-export default function RootPage() {
-  redirect(localizePath(ROUTES.home, DEFAULT_LOCALE));
+export default function AboutRedirectPage() {
+  redirect(localizePath(ROUTES.about, DEFAULT_LOCALE));
 }
