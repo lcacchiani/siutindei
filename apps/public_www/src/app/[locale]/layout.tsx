@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react';
 
+import { PageLayout } from '@/components/shared/page-layout';
+import { WhatsappFab } from '@/components/shared/whatsapp-fab';
 import {
   generateLocaleStaticParams,
   type LocaleRouteParams,
@@ -51,16 +53,15 @@ export default async function LocaleLayout({
           </p>
         </section>
       </noscript>
-      {children}
+      <PageLayout
+        locale={locale}
+        navbarContent={content.navbar}
+        footerContent={content.footer}
+      >
+        {children}
+      </PageLayout>
       {publicSiteConfig.whatsappUrl ? (
-        <a
-          href={publicSiteConfig.whatsappUrl}
-          className="fixed bottom-6 right-6 z-40 rounded-full bg-brand-500 px-4 py-3 text-sm font-semibold text-white shadow-lg transition hover:bg-brand-600"
-          target="_blank"
-          rel="noreferrer noopener"
-        >
-          WhatsApp
-        </a>
+        <WhatsappFab label={content.common.shell.whatsappFabLabel} />
       ) : null}
     </div>
   );

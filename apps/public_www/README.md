@@ -80,8 +80,10 @@ Optional `NEXT_PUBLIC_*` variables documented in `.env.example` are read by
   source of truth for copy, navigation, SEO strings, and per-page body grids.
   Routes live under `src/app/[locale]/...` with root redirects (e.g. `/` →
   `/en/`).
-- **Page template:** `PageLayout` = shared header (`Navbar`) + `main` +
-  shared footer (`Footer`). Page-specific content is rendered by `PageBodyGrid`.
+- **Page template:** `[locale]/layout.tsx` wraps every locale route with
+  `PageLayout` (shared `Navbar` header + `main` + `Footer`). Page routes
+  render `PageBodyGrid` via `MarketingPage`. Mobile nav uses a drawer;
+  WhatsApp FAB shows on small screens, footer link on `sm+`.
 - **12-column body grid:** Each page defines `pages.<key>.body.rows[]` with
   cells (`component`, `colStart`, `colSpan`, optional `props`). Register new
   body components in `page-body-grid.tsx`.

@@ -72,7 +72,9 @@ Source: [`apps/public_www`](../../apps/public_www).
 
 - **Locales:** `src/content/en.json`, `zh-HK.json`, … with routes under
   `src/app/[locale]/…` and root redirects (`/` → `/en/`).
-- **Template:** `PageLayout` = `Navbar` (header) + `<main>` + `Footer`.
+- **Template:** `[locale]/layout.tsx` wraps routes with `PageLayout`
+  (`Navbar` header + `<main>` + `Footer`). Mobile drawer nav; WhatsApp FAB
+  on small screens, footer link on larger breakpoints.
 - **Body:** `pages.<pageKey>.body` defines a 12-column CSS grid (`rows` →
   `cells` with `component`, `colStart`, `colSpan`, optional `props`). The
   registry lives in `src/components/sections/grid/page-body-grid.tsx`.

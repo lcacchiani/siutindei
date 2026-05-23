@@ -1,31 +1,11 @@
 'use client';
 
-interface ErrorPageProps {
-  readonly error: Error & { digest?: string };
+import { LocaleChromeStatusPage } from '@/components/shared/locale-chrome-status-page';
+
+interface RootErrorPageProps {
   readonly reset: () => void;
 }
 
-export default function ErrorPage({ reset }: ErrorPageProps) {
-  return (
-    <main className="flex min-h-screen items-center justify-center bg-brand-50 px-6">
-      <div className="max-w-md text-center">
-        <p className="text-sm font-semibold uppercase tracking-widest text-brand-500">
-          500
-        </p>
-        <h1 className="mt-4 text-3xl font-bold tracking-tight text-ink-900">
-          Something went wrong
-        </h1>
-        <p className="mt-3 text-base text-ink-700">
-          Please try again in a moment.
-        </p>
-        <button
-          type="button"
-          onClick={reset}
-          className="mt-8 inline-block rounded-full bg-brand-500 px-5 py-2 font-semibold text-white transition hover:bg-brand-600"
-        >
-          Retry
-        </button>
-      </div>
-    </main>
-  );
+export default function RootErrorPage({ reset }: RootErrorPageProps) {
+  return <LocaleChromeStatusPage variant="serverError" onRetry={reset} />;
 }
