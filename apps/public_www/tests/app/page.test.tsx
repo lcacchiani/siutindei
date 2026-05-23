@@ -37,5 +37,13 @@ describe('MarketingPage', () => {
     expect(
       screen.getByRole('button', { name: content.navbar.openNavigationMenuAriaLabel }),
     ).toBeInTheDocument();
+
+    const gridCells = document.querySelectorAll('.page-body-grid__cell');
+    expect(gridCells.length).toBeGreaterThan(0);
+    for (const cell of gridCells) {
+      expect(cell.className).not.toMatch(/col-\[/);
+      expect(cell).toHaveAttribute('data-grid-col-span');
+      expect(cell).toHaveAttribute('data-grid-col-start');
+    }
   });
 });

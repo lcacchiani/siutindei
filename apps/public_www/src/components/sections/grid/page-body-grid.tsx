@@ -92,12 +92,11 @@ export function PageBodyGrid({ locale, content, body }: PageBodyGridProps) {
           {row.cells.map((cell, cellIndex) => {
             const colStart = cell.colStart ?? 1;
             const colSpan = cell.colSpan;
-            const columnClass = `col-[${colStart}_/span_${colSpan}]`;
 
             return (
               <div
                 key={`page-grid-cell-${rowIndex}-${cellIndex}`}
-                className={`page-body-grid__cell min-w-0 ${columnClass}`}
+                className="page-body-grid__cell min-w-0"
                 data-grid-col-start={colStart}
                 data-grid-col-span={colSpan}
                 data-component={cell.component}
