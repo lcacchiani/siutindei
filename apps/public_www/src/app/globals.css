@@ -33,3 +33,84 @@ button:focus-visible {
   outline-offset: 2px;
   border-radius: 4px;
 }
+
+/* Page grid cells use data attributes so placement works in static export
+   (Tailwind cannot emit dynamically built col-[n_/span_m] utilities). */
+.page-body-grid__cell {
+  grid-column-start: var(--page-grid-col-start, 1);
+  grid-column-end: span var(--page-grid-col-span, 1);
+}
+
+.page-body-grid__cell[data-grid-col-start='1'] {
+  --page-grid-col-start: 1;
+}
+.page-body-grid__cell[data-grid-col-start='2'] {
+  --page-grid-col-start: 2;
+}
+.page-body-grid__cell[data-grid-col-start='3'] {
+  --page-grid-col-start: 3;
+}
+.page-body-grid__cell[data-grid-col-start='4'] {
+  --page-grid-col-start: 4;
+}
+.page-body-grid__cell[data-grid-col-start='5'] {
+  --page-grid-col-start: 5;
+}
+.page-body-grid__cell[data-grid-col-start='6'] {
+  --page-grid-col-start: 6;
+}
+.page-body-grid__cell[data-grid-col-start='7'] {
+  --page-grid-col-start: 7;
+}
+.page-body-grid__cell[data-grid-col-start='8'] {
+  --page-grid-col-start: 8;
+}
+.page-body-grid__cell[data-grid-col-start='9'] {
+  --page-grid-col-start: 9;
+}
+.page-body-grid__cell[data-grid-col-start='10'] {
+  --page-grid-col-start: 10;
+}
+.page-body-grid__cell[data-grid-col-start='11'] {
+  --page-grid-col-start: 11;
+}
+.page-body-grid__cell[data-grid-col-start='12'] {
+  --page-grid-col-start: 12;
+}
+
+.page-body-grid__cell[data-grid-col-span='1'] {
+  --page-grid-col-span: 1;
+}
+.page-body-grid__cell[data-grid-col-span='2'] {
+  --page-grid-col-span: 2;
+}
+.page-body-grid__cell[data-grid-col-span='3'] {
+  --page-grid-col-span: 3;
+}
+.page-body-grid__cell[data-grid-col-span='4'] {
+  --page-grid-col-span: 4;
+}
+.page-body-grid__cell[data-grid-col-span='5'] {
+  --page-grid-col-span: 5;
+}
+.page-body-grid__cell[data-grid-col-span='6'] {
+  --page-grid-col-span: 6;
+}
+.page-body-grid__cell[data-grid-col-span='7'] {
+  --page-grid-col-span: 7;
+}
+.page-body-grid__cell[data-grid-col-span='8'] {
+  --page-grid-col-span: 8;
+}
+.page-body-grid__cell[data-grid-col-span='9'] {
+  --page-grid-col-span: 9;
+}
+.page-body-grid__cell[data-grid-col-span='10'] {
+  --page-grid-col-span: 10;
+}
+.page-body-grid__cell[data-grid-col-span='11'] {
+  --page-grid-col-span: 11;
+}
+.page-body-grid__cell[data-grid-col-span='12'] {
+  --page-grid-col-span: 12;
+}
