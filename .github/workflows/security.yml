@@ -190,11 +190,16 @@ jobs:
         #   URLs before use (HTTPS only, .amazonaws.com hosts only). The validation
         #   prevents the file:// scheme attack vector. See backend/src/app/utils/cfn_response.py
         run: |
-          semgrep ci \
+          semgrep scan \
             --sarif \
-            --output=semgrep-results.sarif \
+            --sarif-output=semgrep-results.sarif \
             --exclude-rule python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected \
             || true
+          if [ ! -f semgrep-results.sarif ]; then
+            printf '%s\n' \
+              '{"version":"2.1.0","$schema":"https://json.schemastore.org/sarif-2.1.0.json","runs":[]}' \
+              > semgrep-results.sarif
+          fi
         env:
           SEMGREP_RULES: >-
             p/python
@@ -207,6 +212,7 @@ jobs:
         if: always()
         with:
           sarif_file: semgrep-results.sarif
+          category: semgrep
 
   # Summary job
   security-summary:
