@@ -38,6 +38,9 @@ describe('MarketingPage', () => {
       screen.getByRole('button', { name: content.navbar.openNavigationMenuAriaLabel }),
     ).toBeInTheDocument();
 
+    const bleedRows = document.querySelectorAll('.page-body-grid__row--bleed');
+    expect(bleedRows.length).toBe(2);
+
     const gridCells = document.querySelectorAll('.page-body-grid__cell');
     expect(gridCells.length).toBeGreaterThan(0);
     for (const cell of gridCells) {
