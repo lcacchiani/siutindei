@@ -26,7 +26,7 @@ export function HeroSection({
       className="bg-brand-500 text-white"
       data-section-id="hero"
     >
-      <div className="mx-auto max-w-5xl px-6 py-24 text-center sm:py-32">
+      <div className="mx-auto max-w-5xl px-4 py-16 text-center sm:px-6 sm:py-24 lg:py-32">
         <p className="text-sm font-semibold uppercase tracking-widest text-brand-100">
           {eyebrow}
         </p>

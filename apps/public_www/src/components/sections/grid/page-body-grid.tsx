@@ -10,6 +10,23 @@ import type {
 import { PAGE_GRID_COMPONENT_IDS } from '@/lib/page-grid/types';
 import { validatePageBodyGrid } from '@/lib/page-grid/validate-grid';
 
+const CONSTRAINED_ROW_CLASSNAME =
+  'page-body-grid__row mx-auto grid max-w-7xl grid-cols-12 ' +
+  'gap-x-4 gap-y-0 px-4 sm:px-6 lg:px-8';
+
+const FULL_BLEED_ROW_CLASSNAME =
+  'page-body-grid__row page-body-grid__row--bleed grid w-full ' +
+  'grid-cols-12 gap-y-0';
+
+function isFullBleedCell(cell: PageGridCellConfig): boolean {
+  const colStart = cell.colStart ?? 1;
+  return colStart === 1 && cell.colSpan === 12;
+}
+
+function isFullBleedRow(cells: readonly PageGridCellConfig[]): boolean {
+  return cells.length > 0 && cells.every(isFullBleedCell);
+}
+
 interface PageBodyGridProps {
   readonly locale: Locale;
   readonly content: SiteContent;
@@ -87,7 +104,11 @@ export function PageBodyGrid({ locale, content, body }: PageBodyGridProps) {
       {body.rows.map((row, rowIndex) => (
         <div
           key={`page-grid-row-${rowIndex}`}
-          className="page-body-grid__row mx-auto grid max-w-7xl grid-cols-12 gap-x-4 gap-y-0 px-4 sm:px-6 lg:px-8"
+          className={
+            isFullBleedRow(row.cells)
+              ? FULL_BLEED_ROW_CLASSNAME
+              : CONSTRAINED_ROW_CLASSNAME
+          }
         >
           {row.cells.map((cell, cellIndex) => {
             const colStart = cell.colStart ?? 1;
