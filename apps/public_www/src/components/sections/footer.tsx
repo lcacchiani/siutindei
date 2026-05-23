@@ -1,6 +1,6 @@
 import type { FooterContent } from '@/content';
 import { formatContentTemplate } from '@/content/content-field-utils';
-import { getSiteConfig } from '@/lib/site-config';
+import { getCopyrightYear, getSiteConfig } from '@/lib/site-config';
 
 interface FooterProps {
   readonly content: FooterContent;
@@ -8,7 +8,7 @@ interface FooterProps {
 
 export function Footer({ content }: FooterProps) {
   const { siteName, contact } = getSiteConfig();
-  const year = new Date().getFullYear();
+  const year = getCopyrightYear();
   const copyright = formatContentTemplate(content.copyrightTemplate, {
     year: String(year),
   });
@@ -19,7 +19,7 @@ export function Footer({ content }: FooterProps) {
       className="bg-brand-700 text-brand-100"
       data-section-id="footer"
     >
-      <div className="mx-auto max-w-5xl px-6 py-12">
+      <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6 sm:py-12">
         <div className="grid gap-8 sm:grid-cols-2">
           <div>
             <p className="text-lg font-semibold text-white">{siteName}</p>
@@ -38,7 +38,7 @@ export function Footer({ content }: FooterProps) {
               </p>
             ) : null}
             {contact.whatsappUrl ? (
-              <p className="mt-1">
+              <p className="mt-1 hidden sm:block">
                 <a
                   href={contact.whatsappUrl}
                   target="_blank"

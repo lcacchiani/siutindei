@@ -43,11 +43,26 @@
     "shell": {
       "skipToMainContentLabel": "Skip to main content",
       "environmentBadgeLabel": "Staging",
+      "whatsappFabLabel": "Chat on WhatsApp",
       "noscript": {
         "title": "JavaScript is disabled",
         "description": "Core navigation still works. Enable JavaScript for the full experience.",
         "homeLabel": "Home",
         "contactLabel": "Contact"
+      }
+    },
+    "errors": {
+      "notFound": {
+        "code": "404",
+        "title": "Page not found",
+        "description": "The page you were looking for doesn't exist or has moved.",
+        "homeLabel": "Back to home"
+      },
+      "serverError": {
+        "code": "500",
+        "title": "Something went wrong",
+        "description": "Please try again in a moment.",
+        "retryLabel": "Try again"
       }
     }
   },

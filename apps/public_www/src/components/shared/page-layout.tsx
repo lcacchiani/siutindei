@@ -8,7 +8,6 @@ interface PageLayoutProps {
   readonly locale: Locale;
   readonly navbarContent: NavbarContent;
   readonly footerContent: FooterContent;
-  readonly currentPath?: string;
   readonly children: ReactNode;
   readonly mainClassName?: string;
   readonly mainId?: string;
@@ -20,18 +19,13 @@ export function PageLayout({
   locale,
   navbarContent,
   footerContent,
-  currentPath,
   children,
   mainClassName,
   mainId = 'main-content',
 }: PageLayoutProps) {
   return (
     <div className="flex min-h-screen flex-col">
-      <Navbar
-        locale={locale}
-        content={navbarContent}
-        currentPath={currentPath}
-      />
+      <Navbar locale={locale} content={navbarContent} />
       <main
         id={mainId}
         tabIndex={-1}

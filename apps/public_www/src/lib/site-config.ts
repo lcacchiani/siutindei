@@ -41,6 +41,16 @@ export function getSiteConfig(): SiteConfig {
   };
 }
 
+export function getCopyrightYear(): number {
+  const raw = readPublicEnv('NEXT_PUBLIC_BUILD_YEAR');
+  const parsed = Number.parseInt(raw, 10);
+  if (Number.isFinite(parsed) && parsed >= 2000 && parsed <= 2100) {
+    return parsed;
+  }
+
+  return new Date().getFullYear();
+}
+
 export function resolvePublicSiteConfig(): PublicSiteConfig {
   const whatsappUrl = readPublicEnv('NEXT_PUBLIC_WHATSAPP_URL');
   const contactEmail = readPublicEnv('NEXT_PUBLIC_EMAIL');

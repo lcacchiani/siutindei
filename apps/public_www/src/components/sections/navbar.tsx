@@ -1,69 +1,50 @@
 import Link from 'next/link';
 
-import {
-  isValidLocale,
-  type Locale,
-  type NavbarContent,
-} from '@/content';
+import type { Locale, NavbarContent } from '@/content';
 import { localizeHref } from '@/lib/locale-routing';
 import { ROUTES } from '@/lib/routes';
+
+import { NavbarLanguageSwitcher } from './navbar-language-switcher';
+import { NavbarMobileMenu } from './navbar-mobile-menu';
 
 interface NavbarProps {
   readonly locale: Locale;
   readonly content: NavbarContent;
-  readonly currentPath?: string;
 }
 
-export function Navbar({ locale, content, currentPath = ROUTES.home }: NavbarProps) {
+export function Navbar({ locale, content }: NavbarProps) {
   return (
-    <header className="border-b border-brand-100 bg-white">
-      <div className="mx-auto flex max-w-7xl items-center justify-between gap-6 px-4 py-4 sm:px-6 lg:px-8">
-        <Link
-          href={localizeHref(ROUTES.home, locale)}
-          className="text-lg font-bold text-brand-700"
-        >
-          {content.brand}
-        </Link>
+    <header className="relative border-b border-brand-100 bg-white">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="flex min-h-14 items-center justify-between gap-3 py-3 sm:min-h-16">
+          <Link
+            href={localizeHref(ROUTES.home, locale)}
+            className="text-base font-bold text-brand-700 sm:text-lg"
+          >
+            {content.brand}
+          </Link>
+          <div className="flex items-center gap-2">
+            <NavbarLanguageSwitcher locale={locale} content={content} />
+            <NavbarMobileMenu locale={locale} content={content} />
+          </div>
+        </div>
         <nav
-          className="hidden items-center gap-6 text-sm font-medium text-ink-700 md:flex"
+          className="hidden border-t border-brand-50 pb-3 pt-2 md:block"
           aria-label="Main"
         >
-          {content.menuItems.map((item) => (
-            <Link
-              key={item.href}
-              href={localizeHref(item.href, locale)}
-              className="transition hover:text-brand-600"
-            >
-              {item.label}
-            </Link>
-          ))}
+          <ul className="flex flex-wrap items-center gap-1">
+            {content.menuItems.map((item) => (
+              <li key={item.href}>
+                <Link
+                  href={localizeHref(item.href, locale)}
+                  className="inline-flex min-h-11 items-center rounded-md px-3 text-sm font-medium text-ink-700 transition hover:bg-brand-50 hover:text-brand-600"
+                >
+                  {item.label}
+                </Link>
+              </li>
+            ))}
+          </ul>
         </nav>
-        <div
-          className="flex items-center gap-2"
-          role="navigation"
-          aria-label={content.languageSelector.menuAriaLabel}
-        >
-          {content.languageSelector.options.map((option) => {
-            if (!isValidLocale(option.locale)) {
-              return null;
-            }
-
-            return (
-            <Link
-              key={option.locale}
-              href={localizeHref(currentPath, option.locale)}
-              className={`rounded-md px-2 py-1 text-xs font-semibold uppercase tracking-wide ${
-                option.locale === locale
-                  ? 'bg-brand-500 text-white'
-                  : 'text-ink-700 hover:bg-brand-50'
-              }`}
-              aria-current={option.locale === locale ? 'page' : undefined}
-            >
-              {option.shortLabel}
-            </Link>
-            );
-          })}
-        </div>
       </div>
     </header>
   );

@@ -37,7 +37,6 @@ export default async function HomeRoutePage({ params }: LocaleRouteProps) {
       locale={locale}
       content={content}
       body={content.pages.home.body}
-      currentPath={ROUTES.home}
     />
   );
 }

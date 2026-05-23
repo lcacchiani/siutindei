@@ -1,20 +1,30 @@
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { MarketingPage } from '@/components/pages/marketing-page';
+import { PageLayout } from '@/components/shared/page-layout';
 import { getContent } from '@/content';
 
+vi.mock('next/navigation', () => ({
+  usePathname: () => '/en/',
+}));
+
 describe('MarketingPage', () => {
-  it('renders home grid sections from locale content', () => {
+  it('renders home grid sections inside locale chrome', () => {
     const content = getContent('en');
 
     render(
-      <MarketingPage
+      <PageLayout
         locale="en"
-        content={content}
-        body={content.pages.home.body}
-        currentPath="/"
-      />,
+        navbarContent={content.navbar}
+        footerContent={content.footer}
+      >
+        <MarketingPage
+          locale="en"
+          content={content}
+          body={content.pages.home.body}
+        />
+      </PageLayout>,
     );
 
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
@@ -24,5 +34,8 @@ describe('MarketingPage', () => {
       content.features.title,
     );
     expect(screen.getByRole('navigation', { name: 'Main' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: content.navbar.openNavigationMenuAriaLabel }),
+    ).toBeInTheDocument();
   });
 });
