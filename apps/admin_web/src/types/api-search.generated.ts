@@ -21,8 +21,16 @@ export interface paths {
                 query?: {
                     /** @description Filter activities suitable for this age (>= 0) */
                     age?: number;
-                    /** @description Filter by geographic area UUID */
+                    /**
+                     * @description Filter by geographic area UUID. Matches activities in the given area
+                     *     or any descendant area (for example a region or district).
+                     */
                     area_id?: string;
+                    /**
+                     * @description Filter by activity category UUID. Multiple values allowed; results
+                     *     match any listed category.
+                     */
+                    category_id?: string[];
                     /**
                      * @description Filter by pricing type:
                      *     - per_class: Individual class pricing
@@ -129,9 +137,15 @@ export interface components {
             id: string;
             /**
              * Format: uuid
-             * @description Geographic area UUID (leaf node)
+             * @description Geographic area UUID (leaf district node)
              */
             area_id: string;
+            /**
+             * Format: uuid
+             * @description Macro-region ancestor UUID (for example Hong Kong Island) when the
+             *     location district belongs to a region node.
+             */
+            region_area_id?: string | null;
             address?: string | null;
             lat?: number | null;
             lng?: number | null;
@@ -145,6 +159,11 @@ export interface components {
             description_translations: components["schemas"]["TranslationMap"];
             age_min?: number | null;
             age_max?: number | null;
+            /**
+             * Format: uuid
+             * @description Activity category UUID
+             */
+            category_id?: string;
         };
         Pricing: {
             /** @enum {string} */
