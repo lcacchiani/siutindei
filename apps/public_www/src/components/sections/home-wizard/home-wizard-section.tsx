@@ -32,13 +32,15 @@ interface HomeWizardSectionProps {
   readonly copy: HomeWizardCopy;
 }
 
-const optionClassName =
+const optionLabelClassName =
   'flex cursor-pointer items-center gap-3 rounded-lg border ' +
-  'border-slate-200 px-4 py-3 has-checked:border-brand-500 ' +
-  'has-checked:bg-brand-50 focus-within:outline focus-within:outline-2 ' +
-  'focus-within:outline-offset-2 focus-within:outline-brand-500';
+  'border-slate-200 px-4 py-3 peer-checked:border-brand-500 ' +
+  'peer-checked:bg-brand-50 peer-focus-visible:outline ' +
+  'peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 ' +
+  'peer-focus-visible:outline-brand-500';
 
 export function HomeWizardSection({ locale, copy }: HomeWizardSectionProps) {
+  const fieldIdPrefix = useId();
   const searchInputId = useId();
   const [step, setStep] = useState<WizardStep>('activityTypes');
   const [selectedActivityTypeIds, setSelectedActivityTypeIds] = useState<
@@ -106,13 +108,16 @@ export function HomeWizardSection({ locale, copy }: HomeWizardSectionProps) {
     [copy.errorLabel],
   );
 
-  const toggleActivityType = (activityTypeId: string) => {
+  const setActivityTypeChecked = (
+    activityTypeId: string,
+    checked: boolean,
+  ) => {
     setSelectedActivityTypeIds((current) => {
       const next = new Set(current);
-      if (next.has(activityTypeId)) {
-        next.delete(activityTypeId);
-      } else {
+      if (checked) {
         next.add(activityTypeId);
+      } else {
+        next.delete(activityTypeId);
       }
       return next;
     });
@@ -224,34 +229,27 @@ export function HomeWizardSection({ locale, copy }: HomeWizardSectionProps) {
               </legend>
               <ul className="mt-4 space-y-2">
                 {homeWizardChoices.activityTypes.map((option) => {
+                  const inputId = `${fieldIdPrefix}-activity-${option.id}`;
                   const isSelected = selectedActivityTypeIds.has(option.id);
                   return (
                     <li key={option.id}>
-                      <div
-                        role="checkbox"
-                        aria-checked={isSelected}
-                        tabIndex={0}
-                        className={optionClassName}
-                        onClick={() => toggleActivityType(option.id)}
-                        onKeyDown={(event) => {
-                          if (event.key === ' ' || event.key === 'Enter') {
-                            event.preventDefault();
-                            toggleActivityType(option.id);
-                          }
+                      <input
+                        id={inputId}
+                        type="checkbox"
+                        name="activityType"
+                        value={option.id}
+                        className="peer sr-only"
+                        checked={isSelected}
+                        onChange={(event) => {
+                          setActivityTypeChecked(
+                            option.id,
+                            event.target.checked,
+                          );
                         }}
-                      >
-                        <input
-                          type="checkbox"
-                          name="activityType"
-                          value={option.id}
-                          tabIndex={-1}
-                          readOnly
-                          checked={isSelected}
-                          className="pointer-events-none"
-                          aria-hidden="true"
-                        />
-                        <span>{labelForLocale(option.labels, locale)}</span>
-                      </div>
+                      />
+                      <label htmlFor={inputId} className={optionLabelClassName}>
+                        {labelForLocale(option.labels, locale)}
+                      </label>
                     </li>
                   );
                 })}
@@ -272,21 +270,22 @@ export function HomeWizardSection({ locale, copy }: HomeWizardSectionProps) {
             <legend className="text-2xl font-semibold">{copy.ageQuestion}</legend>
             <ul className="mt-4 space-y-2">
               {homeWizardChoices.ageGroups.map((option) => {
-                const inputId = `age-group-${option.id}`;
+                const inputId = `${fieldIdPrefix}-age-${option.id}`;
                 return (
                   <li key={option.id}>
-                    <label htmlFor={inputId} className={optionClassName}>
-                      <input
-                        id={inputId}
-                        type="radio"
-                        name="ageGroup"
-                        value={option.id}
-                        checked={selectedAgeGroupId === option.id}
-                        onChange={() => {
-                          void selectAgeGroup(option.id);
-                        }}
-                      />
-                      <span>{labelForLocale(option.labels, locale)}</span>
+                    <input
+                      id={inputId}
+                      type="radio"
+                      name="ageGroup"
+                      value={option.id}
+                      className="peer sr-only"
+                      checked={selectedAgeGroupId === option.id}
+                      onChange={() => {
+                        void selectAgeGroup(option.id);
+                      }}
+                    />
+                    <label htmlFor={inputId} className={optionLabelClassName}>
+                      {labelForLocale(option.labels, locale)}
                     </label>
                   </li>
                 );
@@ -310,19 +309,20 @@ export function HomeWizardSection({ locale, copy }: HomeWizardSectionProps) {
             ) : null}
             <ul className="mt-4 space-y-2">
               {homeWizardChoices.regions.map((option) => {
-                const inputId = `region-${option.id}`;
+                const inputId = `${fieldIdPrefix}-region-${option.id}`;
                 return (
                   <li key={option.id}>
-                    <label htmlFor={inputId} className={optionClassName}>
-                      <input
-                        id={inputId}
-                        type="radio"
-                        name="region"
-                        value={option.id}
-                        checked={selectedRegionId === option.id}
-                        onChange={() => selectRegion(option.id)}
-                      />
-                      <span>{labelForLocale(option.labels, locale)}</span>
+                    <input
+                      id={inputId}
+                      type="radio"
+                      name="region"
+                      value={option.id}
+                      className="peer sr-only"
+                      checked={selectedRegionId === option.id}
+                      onChange={() => selectRegion(option.id)}
+                    />
+                    <label htmlFor={inputId} className={optionLabelClassName}>
+                      {labelForLocale(option.labels, locale)}
                     </label>
                   </li>
                 );
