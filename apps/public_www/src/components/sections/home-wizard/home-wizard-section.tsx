@@ -106,13 +106,13 @@ export function HomeWizardSection({ locale, copy }: HomeWizardSectionProps) {
     [copy.errorLabel],
   );
 
-  const toggleActivityType = (activityTypeId: string, checked: boolean) => {
+  const toggleActivityType = (activityTypeId: string) => {
     setSelectedActivityTypeIds((current) => {
       const next = new Set(current);
-      if (checked) {
-        next.add(activityTypeId);
-      } else {
+      if (next.has(activityTypeId)) {
         next.delete(activityTypeId);
+      } else {
+        next.add(activityTypeId);
       }
       return next;
     });
@@ -224,22 +224,34 @@ export function HomeWizardSection({ locale, copy }: HomeWizardSectionProps) {
               </legend>
               <ul className="mt-4 space-y-2">
                 {homeWizardChoices.activityTypes.map((option) => {
-                  const inputId = `activity-type-${option.id}`;
+                  const isSelected = selectedActivityTypeIds.has(option.id);
                   return (
                     <li key={option.id}>
-                      <label htmlFor={inputId} className={optionClassName}>
+                      <div
+                        role="checkbox"
+                        aria-checked={isSelected}
+                        tabIndex={0}
+                        className={optionClassName}
+                        onClick={() => toggleActivityType(option.id)}
+                        onKeyDown={(event) => {
+                          if (event.key === ' ' || event.key === 'Enter') {
+                            event.preventDefault();
+                            toggleActivityType(option.id);
+                          }
+                        }}
+                      >
                         <input
-                          id={inputId}
                           type="checkbox"
                           name="activityType"
                           value={option.id}
-                          checked={selectedActivityTypeIds.has(option.id)}
-                          onChange={(event) => {
-                            toggleActivityType(option.id, event.target.checked);
-                          }}
+                          tabIndex={-1}
+                          readOnly
+                          checked={isSelected}
+                          className="pointer-events-none"
+                          aria-hidden="true"
                         />
                         <span>{labelForLocale(option.labels, locale)}</span>
-                      </label>
+                      </div>
                     </li>
                   );
                 })}
