@@ -4,12 +4,19 @@ interface SiteContact {
   readonly instagramUrl: string;
 }
 
+export interface SearchConfig {
+  readonly apiBaseUrl: string;
+  readonly apiKey: string;
+  readonly attestationToken: string;
+}
+
 export interface SiteConfig {
   readonly siteOrigin: string;
   readonly siteName: string;
   readonly siteTagline: string;
   readonly stagingBadgeEnabled: boolean;
   readonly contact: SiteContact;
+  readonly search: SearchConfig;
 }
 
 export interface PublicSiteConfig {
@@ -38,6 +45,15 @@ export function getSiteConfig(): SiteConfig {
       whatsappUrl: readPublicEnv('NEXT_PUBLIC_WHATSAPP_URL'),
       instagramUrl: readPublicEnv('NEXT_PUBLIC_INSTAGRAM_URL'),
     },
+    search: getSearchConfig(),
+  };
+}
+
+export function getSearchConfig(): SearchConfig {
+  return {
+    apiBaseUrl: readPublicEnv('NEXT_PUBLIC_SEARCH_API_BASE_URL'),
+    apiKey: readPublicEnv('NEXT_PUBLIC_SEARCH_API_KEY'),
+    attestationToken: readPublicEnv('NEXT_PUBLIC_DEVICE_ATTESTATION_TOKEN'),
   };
 }
 

@@ -63,6 +63,7 @@ class SearchFilters {
     this.searchQuery,
     this.age,
     this.areaId,
+    this.categoryIds = const [],
     this.pricingType,
     this.priceMin,
     this.priceMax,
@@ -81,6 +82,7 @@ class SearchFilters {
   final String? searchQuery;
   final int? age;
   final String? areaId;
+  final List<String> categoryIds;
   final PricingType? pricingType;
   final double? priceMin;
   final double? priceMax;
@@ -99,6 +101,7 @@ class SearchFilters {
   bool get hasActiveFilters =>
       age != null ||
       areaId != null ||
+      categoryIds.isNotEmpty ||
       pricingType != null ||
       priceMin != null ||
       priceMax != null ||
@@ -131,6 +134,7 @@ class SearchFilters {
     String? searchQuery,
     int? age,
     String? areaId,
+    List<String>? categoryIds,
     PricingType? pricingType,
     double? priceMin,
     double? priceMax,
@@ -163,6 +167,7 @@ class SearchFilters {
       searchQuery: clearSearchQuery ? null : (searchQuery ?? this.searchQuery),
       age: clearAge ? null : (age ?? this.age),
       areaId: clearAreaId ? null : (areaId ?? this.areaId),
+      categoryIds: categoryIds ?? this.categoryIds,
       pricingType: clearPricingType ? null : (pricingType ?? this.pricingType),
       priceMin: clearPriceMin ? null : (priceMin ?? this.priceMin),
       priceMax: clearPriceMax ? null : (priceMax ?? this.priceMax),

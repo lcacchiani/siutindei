@@ -10,6 +10,7 @@ from typing import Mapping
 from typing import Optional
 from typing import Sequence
 from typing import TypeVar
+from uuid import UUID
 
 T = TypeVar("T", bound=Enum)
 
@@ -84,6 +85,21 @@ def parse_enum(value: Optional[str], enum_type: type[T]) -> Optional[T]:
     if value is None or value == "":
         return None
     return enum_type(value)
+
+
+def parse_uuid_list(values: Sequence[str]) -> list[UUID]:
+    """Parse UUID filters from repeated or comma-separated values."""
+
+    parsed: list[UUID] = []
+    for value in values:
+        for item in value.split(","):
+            item = item.strip()
+            if not item:
+                continue
+            uuid_value = UUID(item)
+            if uuid_value not in parsed:
+                parsed.append(uuid_value)
+    return parsed
 
 
 def parse_languages(values: Sequence[str]) -> list[str]:

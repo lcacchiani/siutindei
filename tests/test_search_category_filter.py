@@ -1,0 +1,42 @@
+"""Tests for search category and area tree filters."""
+
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+from uuid import uuid4
+
+import pytest
+
+sys.path.append(str(Path(__file__).resolve().parents[1] / "backend" / "src"))
+
+from app.db.queries import ActivitySearchFilters  # noqa: E402
+from app.db.queries import build_search_query  # noqa: E402
+from app.utils.parsers import parse_uuid_list  # noqa: E402
+
+
+def test_parse_uuid_list_deduplicates() -> None:
+    """Repeated category ids are parsed once."""
+
+    category_id = str(uuid4())
+    parsed = parse_uuid_list([category_id, category_id])
+    assert len(parsed) == 1
+
+
+def test_build_search_query_applies_category_filter() -> None:
+    """Category ids appear in the generated SQL."""
+
+    category_id = uuid4()
+    filters = ActivitySearchFilters(category_ids=[category_id])
+    query = build_search_query(filters)
+    where_clause = str(query.whereclause)
+    assert "activities.category_id" in where_clause
+
+
+def test_build_search_query_applies_area_tree_filter() -> None:
+    """Area id uses a recursive geographic area subquery."""
+
+    filters = ActivitySearchFilters(area_id=uuid4())
+    query = build_search_query(filters)
+    where_clause = str(query.whereclause)
+    assert "geographic_areas" in where_clause

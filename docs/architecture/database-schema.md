@@ -52,6 +52,10 @@ Constraints:
 
 Purpose: Hierarchical lookup of valid geographic areas (country > region > city > district).
 
+Hong Kong uses four `level=region` nodes (Hong Kong Island, Kowloon, New Territories,
+Islands) between the `HK` country row and the 18 district rows. Home wizard region
+choices reference these region UUIDs; search matches any descendant district.
+
 Columns:
 - `id` (UUID, PK, default `gen_random_uuid()`)
 - `parent_id` (UUID, FK -> geographic_areas.id, cascade delete, nullable for countries)

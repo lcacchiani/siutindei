@@ -18,6 +18,7 @@ from app.db.models import Activity
 from app.db.models import ActivityPricing
 from app.db.models import ActivitySchedule
 from app.db.models import ActivityScheduleEntry
+from app.db.models import GeographicArea
 from app.db.models import Location
 from app.db.models import Organization
 from app.db.models import PricingType
@@ -39,6 +40,7 @@ class ActivitySearchFilters:
 
     age: int | None = None
     area_id: UUID | None = None
+    category_ids: Sequence[UUID] = ()
     pricing_type: PricingType | None = None
     price_min: Decimal | None = None
     price_max: Decimal | None = None
@@ -101,7 +103,11 @@ def build_search_query(filters: ActivitySearchFilters) -> Select:
         conditions.append(Activity.age_range.contains(filters.age))
 
     if filters.area_id is not None:
-        conditions.append(Location.area_id == filters.area_id)
+        area_ids = _area_descendant_ids_subquery(filters.area_id)
+        conditions.append(Location.area_id.in_(area_ids))
+
+    if filters.category_ids:
+        conditions.append(Activity.category_id.in_(filters.category_ids))
 
     if filters.pricing_type is not None:
         conditions.append(ActivityPricing.pricing_type == filters.pricing_type)
@@ -229,3 +235,19 @@ def _cursor_values(cursor: ActivitySearchCursor) -> list:
         cursor.start_minutes_utc,
         cursor.schedule_id,
     ]
+
+
+def _area_descendant_ids_subquery(area_id: UUID) -> sa.ScalarSelect:
+    """Return a subquery of area IDs including descendants."""
+
+    base = (
+        select(GeographicArea.id)
+        .where(GeographicArea.id == area_id)
+        .cte(recursive=True)
+    )
+    geographic_areas = GeographicArea.__table__
+    recursive = select(geographic_areas.c.id).where(
+        geographic_areas.c.parent_id == base.c.id
+    )
+    area_tree = base.union_all(recursive)
+    return select(area_tree.c.id)

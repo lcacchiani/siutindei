@@ -12,6 +12,7 @@ from dataclasses import replace
 from typing import Any, Mapping
 from uuid import UUID
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.api.schemas import (
@@ -29,6 +30,7 @@ from app.db.models import (
     Activity,
     ActivityPricing,
     ActivitySchedule,
+    GeographicArea,
     Location,
     Organization,
     PricingType,
@@ -42,7 +44,12 @@ from app.db.queries import (
 from app.exceptions import CursorError, ValidationError
 from app.utils import json_response, parse_decimal, parse_enum, parse_int
 from app.utils.logging import configure_logging, get_logger, set_request_context
-from app.utils.parsers import collect_query_params, first_param, parse_languages
+from app.utils.parsers import (
+    collect_query_params,
+    first_param,
+    parse_languages,
+    parse_uuid_list,
+)
 from app.utils.responses import get_cors_headers
 from app.utils.translations import build_translation_map
 
@@ -92,6 +99,7 @@ def parse_filters(event: Mapping[str, Any]) -> ActivitySearchFilters:
     return ActivitySearchFilters(
         age=parse_int(first_param(params, "age")),
         area_id=area_id,
+        category_ids=parse_uuid_list(params.get("category_id", [])),
         pricing_type=parse_enum(first_param(params, "pricing_type"), PricingType),
         price_min=parse_decimal(first_param(params, "price_min")),
         price_max=parse_decimal(first_param(params, "price_max")),
@@ -122,10 +130,11 @@ def fetch_search_response(
 
     with Session(engine) as session:
         rows = session.execute(query).all()
+        region_cache = _load_region_area_cache(session)
 
     has_more = len(rows) > requested_limit
     trimmed_rows = rows[:requested_limit]
-    items = [map_row_to_result(row) for row in trimmed_rows]
+    items = [map_row_to_result(row, region_cache) for row in trimmed_rows]
     next_cursor = None
     if has_more and trimmed_rows:
         last_row = trimmed_rows[-1]
@@ -136,7 +145,10 @@ def fetch_search_response(
     return ActivitySearchResponseSchema(items=items, next_cursor=next_cursor)
 
 
-def map_row_to_result(row: Any) -> ActivitySearchResultSchema:
+def map_row_to_result(
+    row: Any,
+    region_cache: dict[str, str | None],
+) -> ActivitySearchResultSchema:
     """Map a SQLAlchemy row to a search result schema."""
 
     mapping = row._mapping
@@ -161,6 +173,7 @@ def map_row_to_result(row: Any) -> ActivitySearchResultSchema:
             ),
             age_min=age_min,
             age_max=age_max,
+            category_id=str(activity.category_id),
         ),
         organization=OrganizationSchema(
             id=str(organization.id),
@@ -179,6 +192,7 @@ def map_row_to_result(row: Any) -> ActivitySearchResultSchema:
         location=LocationSchema(
             id=str(location.id),
             area_id=str(location.area_id),
+            region_area_id=region_cache.get(str(location.area_id)),
             address=location.address,
             lat=location.lat,
             lng=location.lng,
@@ -218,6 +232,36 @@ def _serialize_weekly_entries(
         )
         for entry in entries
     ]
+
+
+def _load_region_area_cache(session: Session) -> dict[str, str | None]:
+    """Map each geographic area id to its level=region ancestor id."""
+
+    areas = session.execute(select(GeographicArea)).scalars().all()
+    by_id = {str(area.id): area for area in areas}
+    cache: dict[str, str | None] = {}
+
+    def resolve_region(area_id: str) -> str | None:
+        if area_id in cache:
+            return cache[area_id]
+        area = by_id.get(area_id)
+        if area is None:
+            cache[area_id] = None
+            return None
+        if area.level == "region":
+            cache[area_id] = area_id
+            return area_id
+        if area.parent_id is None:
+            cache[area_id] = None
+            return None
+        parent_key = str(area.parent_id)
+        resolved = resolve_region(parent_key)
+        cache[area_id] = resolved
+        return resolved
+
+    for area_key in by_id:
+        resolve_region(area_key)
+    return cache
 
 
 def _extract_age_bounds(age_range: Any) -> tuple[int | None, int | None]:

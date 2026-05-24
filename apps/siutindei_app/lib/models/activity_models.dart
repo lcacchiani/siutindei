@@ -2,6 +2,7 @@ class ActivitySearchFilters {
   ActivitySearchFilters({
     this.age,
     this.areaId,
+    this.categoryIds = const [],
     this.pricingType,
     this.priceMin,
     this.priceMax,
@@ -20,6 +21,7 @@ class ActivitySearchFilters {
 
   final int? age;
   final String? areaId;
+  final List<String> categoryIds;
   final String? pricingType;
   final double? priceMin;
   final double? priceMax;
@@ -39,6 +41,7 @@ class ActivitySearchFilters {
   ActivitySearchFilters copyWith({
     int? age,
     String? areaId,
+    List<String>? categoryIds,
     String? pricingType,
     double? priceMin,
     double? priceMax,
@@ -71,6 +74,7 @@ class ActivitySearchFilters {
     return ActivitySearchFilters(
       age: clearAge ? null : (age ?? this.age),
       areaId: clearAreaId ? null : (areaId ?? this.areaId),
+      categoryIds: categoryIds ?? this.categoryIds,
       pricingType: clearPricingType ? null : (pricingType ?? this.pricingType),
       priceMin: clearPriceMin ? null : (priceMin ?? this.priceMin),
       priceMax: clearPriceMax ? null : (priceMax ?? this.priceMax),
@@ -137,6 +141,9 @@ class ActivitySearchFilters {
 
     setParam('age', age);
     setParam('area_id', areaId);
+    if (categoryIds.isNotEmpty) {
+      params['category_id'] = categoryIds.join(',');
+    }
     setParam('pricing_type', pricingType);
     setParam('price_min', priceMin);
     setParam('price_max', priceMax);
@@ -206,13 +213,21 @@ class ActivitySearchResult {
 }
 
 class Activity {
-  Activity({required this.id, required this.name, this.description, this.ageMin, this.ageMax});
+  Activity({
+    required this.id,
+    required this.name,
+    this.description,
+    this.ageMin,
+    this.ageMax,
+    this.categoryId,
+  });
 
   final String id;
   final String name;
   final String? description;
   final int? ageMin;
   final int? ageMax;
+  final String? categoryId;
 
   factory Activity.fromJson(Map<String, dynamic> json) {
     return Activity(
@@ -221,6 +236,7 @@ class Activity {
       description: json['description'] as String?,
       ageMin: json['age_min'] as int?,
       ageMax: json['age_max'] as int?,
+      categoryId: json['category_id'] as String?,
     );
   }
 }
@@ -261,6 +277,7 @@ class Location {
   Location({
     required this.id,
     required this.areaId,
+    this.regionAreaId,
     this.address,
     this.lat,
     this.lng,
@@ -268,6 +285,7 @@ class Location {
 
   final String id;
   final String areaId;
+  final String? regionAreaId;
   final String? address;
   final double? lat;
   final double? lng;
@@ -276,6 +294,7 @@ class Location {
     return Location(
       id: json['id'] as String,
       areaId: json['area_id'] as String,
+      regionAreaId: json['region_area_id'] as String?,
       address: json['address'] as String?,
       lat: (json['lat'] as num?)?.toDouble(),
       lng: (json['lng'] as num?)?.toDouble(),

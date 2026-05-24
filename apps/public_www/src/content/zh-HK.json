@@ -66,6 +66,17 @@
       }
     }
   },
+  "homeWizard": {
+    "activityQuestion": "你想找甚麼類型的活動？",
+    "ageQuestion": "你的孩子幾歲？",
+    "regionQuestion": "你想找哪區附近的活動？",
+    "continueLabel": "繼續",
+    "searchPlaceholder": "搜尋活動、機構...",
+    "loadingLabel": "正在載入活動...",
+    "emptyLabel": "找不到活動，請嘗試更改選項。",
+    "errorLabel": "無法載入活動。",
+    "retryLabel": "重試"
+  },
   "pages": {
     "home": {
       "body": {
@@ -77,12 +88,21 @@
                 "colStart": 1,
                 "colSpan": 12,
                 "props": {
-                  "eyebrow": "即將推出",
-                  "primaryCtaLabel": "了解更多",
-                  "primaryCtaHref": "#features",
+                  "eyebrow": "尋找活動",
+                  "primaryCtaLabel": "開始搜尋",
+                  "primaryCtaHref": "#home-wizard",
                   "secondaryCtaLabel": "聯絡我們",
                   "secondaryCtaHref": "#contact"
                 }
+              }
+            ]
+          },
+          {
+            "cells": [
+              {
+                "component": "homeWizard",
+                "colStart": 1,
+                "colSpan": 12
               }
             ]
           },

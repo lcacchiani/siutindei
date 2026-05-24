@@ -2,6 +2,7 @@ import type { Locale, SiteContent } from '@/content';
 import { FeaturesSection } from '@/components/sections/grid/features-section';
 import { HeroSection } from '@/components/sections/grid/hero-section';
 import { RichTextSection } from '@/components/sections/grid/rich-text-section';
+import { HomeWizardSection } from '@/components/sections/home-wizard/home-wizard-section';
 import type {
   PageBodyGridConfig,
   PageGridCellConfig,
@@ -81,6 +82,10 @@ function renderGridCell(
           secondaryCtaLabel={readStringProp(props, 'secondaryCtaLabel', '')}
           secondaryCtaHref={readStringProp(props, 'secondaryCtaHref', '#contact')}
         />
+      );
+    case 'homeWizard':
+      return (
+        <HomeWizardSection locale={locale} copy={content.homeWizard} />
       );
     case 'features':
       return <FeaturesSection content={content.features} />;
