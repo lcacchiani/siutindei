@@ -157,18 +157,25 @@ response. The HTML produced by `next build` *also* carries an inline CSP
 even when an HTML file is rendered outside CloudFront (local QA, opened
 from disk, archived snapshot).
 
-Both CSPs are aligned to the same baseline:
+The HTML meta CSP baseline (see `scripts/inject-csp-meta.mjs`) is:
 
 ```
-default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline';
-script-src 'self'; font-src 'self' data:; connect-src 'self';
+default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline';
+script-src 'self' 'sha256-…' …; font-src 'self' data:; connect-src 'self';
 base-uri 'self'; object-src 'none'; frame-ancestors 'none';
 ```
 
-`'unsafe-inline'` is allowed for `style-src` to keep critical-CSS friendly;
-inline scripts and inline event handlers are not allowed and are blocked
-both at CSP layer and via the `.cursorrules` "no `dangerouslySetInnerHTML`,
-no `eval`" rule.
+`'unsafe-inline'` is allowed for `style-src` to keep critical-CSS friendly.
+Next.js static export embeds required inline flight/hydration scripts; the
+build collects a `sha256-` hash for each unique inline script body across
+`out/**/*.html` and adds those hashes to `script-src` so React can hydrate
+without allowing arbitrary inline script. Ad-hoc inline scripts and inline
+event handlers remain disallowed via the `.cursorrules` "no
+`dangerouslySetInnerHTML`, no `eval`" rule.
+
+CloudFront’s response headers policy applies a smaller CSP fragment
+(`base-uri`, `object-src`, `frame-ancestors` only); the meta tag carries
+the full policy above.
 
 ## Future work — `/www/*` API proxy
 

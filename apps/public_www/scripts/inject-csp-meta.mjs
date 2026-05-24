@@ -1,9 +1,12 @@
 // Inserts a <meta http-equiv="Content-Security-Policy"> tag into every
 // generated HTML in the static export. Aligns with evolvesprouts: extend
 // script-src / connect-src when GTM or Meta Pixel init scripts are enabled.
+// Next.js inline flight scripts are allowed via build-time sha256- hashes.
 
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
+
+import { collectInlineScriptHashesFromOutDir } from './csp-inline-script-hashes.mjs';
 
 const OUT_DIR = path.resolve('out');
 const META_MARKER = '<!-- csp-meta -->';
@@ -24,11 +27,14 @@ const GTM_CONNECT_ORIGINS = [
 const META_PIXEL_SCRIPT_ORIGINS = ['https://connect.facebook.net'];
 const META_PIXEL_CONNECT_ORIGINS = ['https://www.facebook.com'];
 
-function buildCspDirectives() {
+/**
+ * @param {string[]} inlineScriptHashes
+ */
+function buildCspDirectives(inlineScriptHashes) {
   const hasGtm = Boolean(process.env.NEXT_PUBLIC_GTM_ID?.trim());
   const hasMetaPixel = Boolean(process.env.NEXT_PUBLIC_META_PIXEL_ID?.trim());
 
-  const scriptSources = ["'self'"];
+  const scriptSources = ["'self'", ...inlineScriptHashes];
   const connectSources = ["'self'"];
 
   if (hasGtm) {
@@ -65,6 +71,10 @@ async function* walk(dir) {
   }
 }
 
+/**
+ * @param {string} filePath
+ * @param {string} metaTag
+ */
 async function injectIntoFile(filePath, metaTag) {
   const original = await fs.readFile(filePath, 'utf8');
   if (original.includes(META_MARKER)) {
@@ -88,7 +98,14 @@ async function main() {
     process.exit(1);
   }
 
-  const metaTag = `<meta http-equiv="Content-Security-Policy" content="${buildCspDirectives()}">`;
+  const inlineScriptHashes = await collectInlineScriptHashesFromOutDir(OUT_DIR);
+  if (inlineScriptHashes.length === 0) {
+    console.warn(
+      'csp:inject — no inline script hashes found; hydration may be blocked.',
+    );
+  }
+
+  const metaTag = `<meta http-equiv="Content-Security-Policy" content="${buildCspDirectives(inlineScriptHashes)}">`;
   let updatedCount = 0;
   let totalCount = 0;
   for await (const filePath of walk(OUT_DIR)) {
@@ -98,7 +115,10 @@ async function main() {
       updatedCount += 1;
     }
   }
-  console.log(`csp:inject — ${updatedCount}/${totalCount} HTML files updated.`);
+  console.log(
+    `csp:inject — ${updatedCount}/${totalCount} HTML files updated ` +
+      `(${inlineScriptHashes.length} inline script hashes).`,
+  );
 }
 
 main().catch((error) => {

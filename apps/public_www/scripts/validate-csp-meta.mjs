@@ -5,6 +5,8 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 
+import { collectInlineScriptHashesFromHtml } from './csp-inline-script-hashes.mjs';
+
 const OUT_DIR = path.resolve('out');
 const META_MARKER = '<!-- csp-meta -->';
 
@@ -20,17 +22,43 @@ async function* walk(dir) {
   }
 }
 
+/**
+ * @param {string} contents
+ */
+function readCspMetaContent(contents) {
+  const match = contents.match(
+    /<meta\s+http-equiv="Content-Security-Policy"\s+content="([^"]*)"/i,
+  );
+  return match?.[1] ?? null;
+}
+
 async function main() {
   const missing = [];
+  const missingHashes = [];
   for await (const filePath of walk(OUT_DIR)) {
     const contents = await fs.readFile(filePath, 'utf8');
     if (!contents.includes(META_MARKER)) {
       missing.push(filePath);
+      continue;
+    }
+    const csp = readCspMetaContent(contents);
+    const inlineHashes = collectInlineScriptHashesFromHtml(contents);
+    if (inlineHashes.length > 0 && csp && !csp.includes('sha256-')) {
+      missingHashes.push(filePath);
     }
   }
   if (missing.length > 0) {
     console.error('csp:validate — HTML files without CSP meta:');
     for (const filePath of missing) {
+      console.error(`- ${filePath}`);
+    }
+    process.exit(1);
+  }
+  if (missingHashes.length > 0) {
+    console.error(
+      'csp:validate — HTML with inline scripts but no sha256- in CSP:',
+    );
+    for (const filePath of missingHashes) {
       console.error(`- ${filePath}`);
     }
     process.exit(1);
