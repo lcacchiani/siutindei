@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from decimal import Decimal
+from typing import Any
 from typing import Iterable
 from typing import Sequence
 from uuid import UUID
@@ -237,7 +238,7 @@ def _cursor_values(cursor: ActivitySearchCursor) -> list:
     ]
 
 
-def _area_descendant_ids_subquery(area_id: UUID) -> sa.ScalarSelect:
+def _area_descendant_ids_subquery(area_id: UUID) -> Select[Any]:
     """Return a subquery of area IDs including descendants."""
 
     base = (
