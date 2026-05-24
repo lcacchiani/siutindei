@@ -61,6 +61,10 @@ NEW_TERRITORIES_DISTRICTS = (
 )
 ISLANDS_DISTRICTS = ("Islands",)
 
+# District "Islands" already exists under HK; region row uses a temporary
+# distinct name until districts are reparented, then renames to "Islands".
+ISLANDS_REGION_STAGING_NAME = "Outlying Islands"
+
 GEO_AREAS = sa.table(
     "geographic_areas",
     sa.column("id", postgresql.UUID(as_uuid=True)),
@@ -215,7 +219,7 @@ def upgrade() -> None:
         connection,
         hk_country_id,
         ISLANDS_ID,
-        "Islands",
+        ISLANDS_REGION_STAGING_NAME,
         "hk_islands",
         "Islands",
         "離島",
@@ -231,6 +235,11 @@ def upgrade() -> None:
         NEW_TERRITORIES_DISTRICTS,
     )
     _reparent_districts(connection, hk_country_id, ISLANDS_ID, ISLANDS_DISTRICTS)
+    connection.execute(
+        sa.update(GEO_AREAS)
+        .where(GEO_AREAS.c.id == ISLANDS_ID)
+        .values(name="Islands")
+    )
 
     _insert_category(
         connection,
@@ -304,5 +313,10 @@ def downgrade() -> None:
             )
         )
         .values(parent_id=hk_country_id)
+    )
+    connection.execute(
+        sa.update(GEO_AREAS)
+        .where(GEO_AREAS.c.id == ISLANDS_ID)
+        .values(name=ISLANDS_REGION_STAGING_NAME)
     )
     connection.execute(sa.delete(GEO_AREAS).where(GEO_AREAS.c.id.in_(region_ids)))
