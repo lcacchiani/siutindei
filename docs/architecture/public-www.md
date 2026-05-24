@@ -66,7 +66,8 @@ Source: [`apps/public_www`](../../apps/public_www).
 - Tailwind CSS v4 via `@tailwindcss/postcss`.
 - Vitest + Testing Library for unit/component tests.
 - Lighthouse CI configured at `apps/public_www/.lighthouserc.json`.
-- Build script: `next build` → `inject-csp-meta.mjs` → `validate-csp-meta.mjs`.
+- Build script: `next build` → `inject-static-redirects.mjs` →
+  `inject-html-lang.mjs` → `inject-csp-meta.mjs` → `validate-csp-meta.mjs`.
 
 ### Page composition (evolvesprouts-aligned)
 
@@ -90,6 +91,8 @@ The build is deliberately **gated** by:
 | `assert-build-env-contract.mjs` | Build refuses to run if `NEXT_PUBLIC_SITE_ORIGIN` or `NEXT_PUBLIC_SITE_NAME` is missing. |
 | `audit-assets.mjs` | Flags oversized or executable assets in `public/`. |
 | `audit:deps:prod` | `npm audit --omit=dev --audit-level=high`. |
+| `inject-static-redirects.mjs` | Injects locale redirect helpers into exported HTML. |
+| `inject-html-lang.mjs` | Sets `<html lang>` per locale folder (`en`, `zh-HK`) for crawlers and no-JS. |
 | `inject-csp-meta.mjs` | Adds a CSP `<meta http-equiv>` defense-in-depth tag to every exported HTML. |
 | `validate-csp-meta.mjs` | Fails the build if any HTML in `out/` is missing the marker. |
 

@@ -33,8 +33,8 @@ npm run build
 ```
 
 This runs `next build` (which produces `out/` because `next.config.ts` sets
-`output: 'export'`), then injects a CSP `<meta http-equiv>` into every
-generated HTML and validates it.
+`output: 'export'`), patches locale redirects and `<html lang>`, then injects
+a CSP `<meta http-equiv>` into every generated HTML and validates it.
 
 ## Deployment model
 

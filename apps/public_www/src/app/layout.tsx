@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import Script from 'next/script';
 import type { ReactNode } from 'react';
 
+import { AnalyticsResourceHints } from '@/components/shared/analytics-resource-hints';
 import { GoogleTagManager } from '@/components/shared/google-tag-manager';
 import { MetaPixel } from '@/components/shared/meta-pixel';
 import enContent from '@/content/en.json';
@@ -87,6 +88,9 @@ export default function RootLayout({ children }: RootLayoutProps) {
           }
         : {})}
     >
+      <head>
+        <AnalyticsResourceHints />
+      </head>
       <body className="min-h-screen antialiased" suppressHydrationWarning>
         <Script src="/scripts/set-html-lang.js" strategy="beforeInteractive" />
         <a
