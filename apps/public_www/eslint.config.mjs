@@ -1,6 +1,6 @@
 import nextConfig from 'eslint-config-next';
 
-export default [
+const eslintConfig = [
   ...nextConfig,
   {
     ignores: [
@@ -17,3 +17,5 @@ export default [
     },
   },
 ];
+
+export default eslintConfig;

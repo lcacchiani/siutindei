@@ -12,7 +12,6 @@ from typing import Union
 
 from alembic import op
 import sqlalchemy as sa
-from sqlalchemy.dialects import postgresql
 
 revision: str = "0028_hk_regions_wizard"
 down_revision: Union[str, None] = "0027_add_feedback_tables"

@@ -1,4 +1,4 @@
-import choicesJson from '../../../../shared/home_wizard/home_wizard_choices.json';
+import choicesJson from '@/data/home_wizard_choices.json';
 
 export interface WizardLabels {
   readonly en: string;
