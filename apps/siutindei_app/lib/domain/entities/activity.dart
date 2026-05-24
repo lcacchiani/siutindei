@@ -9,6 +9,7 @@ class ActivityEntity {
     this.description,
     this.ageMin,
     this.ageMax,
+    this.categoryId,
   });
 
   final String id;
@@ -16,6 +17,7 @@ class ActivityEntity {
   final String? description;
   final int? ageMin;
   final int? ageMax;
+  final String? categoryId;
 
   /// Returns a display string for the age range.
   String? get ageRangeDisplay {
@@ -82,6 +84,7 @@ class LocationEntity {
   const LocationEntity({
     required this.id,
     required this.areaId,
+    this.regionAreaId,
     this.address,
     this.latitude,
     this.longitude,
@@ -89,6 +92,7 @@ class LocationEntity {
 
   final String id;
   final String areaId;
+  final String? regionAreaId;
   final String? address;
   final double? latitude;
   final double? longitude;

@@ -16,6 +16,7 @@ class ActivityMapper {
       description: model.description,
       ageMin: model.ageMin,
       ageMax: model.ageMax,
+      categoryId: model.categoryId,
     );
   }
 
@@ -35,6 +36,7 @@ class ActivityMapper {
     return LocationEntity(
       id: model.id,
       areaId: model.areaId,
+      regionAreaId: model.regionAreaId,
       address: model.address,
       latitude: model.lat,
       longitude: model.lng,
@@ -104,6 +106,7 @@ class SearchFiltersMapper {
       searchQuery: filters.searchQuery,
       age: filters.age,
       areaId: filters.areaId,
+      categoryIds: filters.categoryIds,
       pricingType: filters.pricingType?.toApiString(),
       priceMin: filters.priceMin,
       priceMax: filters.priceMax,

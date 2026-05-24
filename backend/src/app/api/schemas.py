@@ -32,6 +32,7 @@ class LocationSchema(BaseModel):
 
     id: str
     area_id: str
+    region_area_id: Optional[str]
     address: Optional[str]
     lat: Optional[Decimal]
     lng: Optional[Decimal]
@@ -49,6 +50,7 @@ class ActivitySchema(BaseModel):
     description_translations: dict[str, str]
     age_min: Optional[int]
     age_max: Optional[int]
+    category_id: Optional[str]
 
 
 class PricingSchema(BaseModel):

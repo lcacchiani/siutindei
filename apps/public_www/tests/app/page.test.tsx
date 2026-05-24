@@ -30,16 +30,17 @@ describe('MarketingPage', () => {
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
       content.hero.title,
     );
-    expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent(
-      content.features.title,
-    );
+    expect(
+      screen.getByText(content.homeWizard.activityQuestion),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: content.features.title })).toBeInTheDocument();
     expect(screen.getByRole('navigation', { name: 'Main' })).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: content.navbar.openNavigationMenuAriaLabel }),
     ).toBeInTheDocument();
 
     const bleedRows = document.querySelectorAll('.page-body-grid__row--bleed');
-    expect(bleedRows.length).toBe(2);
+    expect(bleedRows.length).toBe(3);
 
     const gridCells = document.querySelectorAll('.page-body-grid__cell');
     expect(gridCells.length).toBeGreaterThan(0);

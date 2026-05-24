@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'config/tokens/tokens.dart';
-import 'features/search/search.dart';
+import 'features/home_wizard/screens/home_wizard_screen.dart';
 import 'viewmodels/auth_viewmodel.dart';
 
 /// Main application widget.
@@ -54,7 +54,7 @@ class App extends ConsumerWidget {
       debugShowCheckedModeBanner: false,
       home: authState.isLoading
           ? const Scaffold(body: Center(child: CircularProgressIndicator()))
-          : const SearchScreen(),
+          : const HomeWizardScreen(),
     );
   }
 }
