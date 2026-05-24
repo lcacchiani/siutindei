@@ -236,9 +236,7 @@ def upgrade() -> None:
     )
     _reparent_districts(connection, hk_country_id, ISLANDS_ID, ISLANDS_DISTRICTS)
     connection.execute(
-        sa.update(GEO_AREAS)
-        .where(GEO_AREAS.c.id == ISLANDS_ID)
-        .values(name="Islands")
+        sa.update(GEO_AREAS).where(GEO_AREAS.c.id == ISLANDS_ID).values(name="Islands")
     )
 
     _insert_category(
