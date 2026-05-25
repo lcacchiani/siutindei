@@ -45,8 +45,9 @@ export function NavbarMobileMenu({ locale, content }: NavbarMobileMenuProps) {
       return;
     }
 
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
+    const scrollLockClass = 'navbar-mobile-menu-scroll-lock';
+    const hadScrollLock = document.body.classList.contains(scrollLockClass);
+    document.body.classList.add(scrollLockClass);
 
     const main = document.getElementById('main-content');
     const footer = document.getElementById('contact');
@@ -95,7 +96,9 @@ export function NavbarMobileMenu({ locale, content }: NavbarMobileMenuProps) {
     document.addEventListener('keydown', onKeyDown);
 
     return () => {
-      document.body.style.overflow = previousOverflow;
+      if (!hadScrollLock) {
+        document.body.classList.remove(scrollLockClass);
+      }
       inertTargets.forEach((element, index) => {
         if (hadInert[index]) {
           element.setAttribute('inert', '');

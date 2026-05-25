@@ -38,11 +38,15 @@ describe('NavbarMobileMenu', () => {
     expect(document.getElementById('contact')?.hasAttribute('inert')).toBe(
       true,
     );
+    expect(document.body.classList.contains('navbar-mobile-menu-scroll-lock'))
+      .toBe(true);
 
     fireEvent.keyDown(document, { key: 'Escape' });
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(main?.hasAttribute('inert')).toBe(false);
+    expect(document.body.classList.contains('navbar-mobile-menu-scroll-lock'))
+      .toBe(false);
   });
 
   it('closes when the backdrop is clicked', () => {
