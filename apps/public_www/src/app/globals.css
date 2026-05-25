@@ -34,6 +34,26 @@ button:focus-visible {
   border-radius: 4px;
 }
 
+body.navbar-mobile-menu-scroll-lock {
+  overflow: hidden;
+}
+
+#staging-badge {
+  position: fixed;
+  bottom: 12px;
+  right: 12px;
+  z-index: 9999;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #dc2626;
+  color: #fff;
+  font-family: system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+}
+
 /* Page grid cells use data attributes so placement works in static export
    (Tailwind cannot emit dynamically built col-[n_/span_m] utilities). */
 .page-body-grid__cell {

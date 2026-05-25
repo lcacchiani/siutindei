@@ -160,12 +160,15 @@ from disk, archived snapshot).
 The HTML meta CSP baseline (see `scripts/inject-csp-meta.mjs`) is:
 
 ```
-default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline';
+default-src 'self'; img-src 'self' data: https:; style-src 'self';
 script-src 'self' 'sha256-…' …; font-src 'self' data:; connect-src 'self';
 base-uri 'self'; object-src 'none'; frame-ancestors 'none';
 ```
 
-`'unsafe-inline'` is allowed for `style-src` to keep critical-CSS friendly.
+Styles load from external stylesheets (`/_next/static/chunks/*.css` and
+`globals.css`); the app forbids JSX `style={...}` attributes. Scroll lock
+and the optional staging badge use CSS classes instead of JS-assigned
+inline styles so `style-src` does not need `'unsafe-inline'`.
 Next.js static export embeds required inline flight/hydration scripts; the
 build collects a `sha256-` hash for each unique inline script body across
 `out/**/*.html` and adds those hashes to `script-src` so React can hydrate

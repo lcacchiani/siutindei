@@ -49,7 +49,7 @@ function buildCspDirectives(inlineScriptHashes) {
   return [
     "default-src 'self'",
     `img-src 'self' data: https:`,
-    "style-src 'self' 'unsafe-inline'",
+    "style-src 'self'",
     `script-src ${[...new Set(scriptSources)].join(' ')}`,
     "font-src 'self' data:",
     `connect-src ${[...new Set(connectSources)].join(' ')}`,
