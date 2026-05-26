@@ -8,6 +8,7 @@ import {
   labelForLocale,
 } from '@/lib/home-wizard/choices';
 import { filterWizardResults } from '@/lib/home-wizard/filter-results';
+import { logActivityLoadError } from '@/lib/activities/load-error';
 import {
   fetchActivitiesForWizard,
   type ActivitySearchResult,
@@ -99,7 +100,8 @@ export function HomeWizardSection({ locale, copy }: HomeWizardSectionProps) {
           categoryIds,
         });
         setPrefetchedItems(response.items);
-      } catch {
+      } catch (error: unknown) {
+        logActivityLoadError('home wizard', error);
         setErrorMessage(copy.errorLabel);
       } finally {
         setIsLoading(false);

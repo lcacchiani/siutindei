@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 
 import type { Locale, SiteContent } from '@/content';
 import { Button } from '@/components/shared/ui/button';
+import { logActivityLoadError } from '@/lib/activities/load-error';
 import { fetchActivityListingById } from '@/lib/activities/search-client';
 import {
   formatListingPrice,
@@ -70,7 +71,8 @@ export function ActivityDetailPage({
         setListing(item);
         rememberViewedActivity(item.activity.id);
       })
-      .catch(() => {
+      .catch((error: unknown) => {
+        logActivityLoadError('activity detail', error);
         if (!cancelled) {
           setErrorMessage(copy.errorLabel);
           setListing(null);
