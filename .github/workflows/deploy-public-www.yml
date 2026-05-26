@@ -30,9 +30,6 @@ jobs:
         with:
           lfs: true
 
-      - name: Sync staging search fixture for static hosting
-        run: bash scripts/codegen/sync-activity-search-staging-fixture.sh public-www
-
       - name: Resolve public site build config from infrastructure params
         id: resolve_public_site_config
         run: bash scripts/deploy/resolve-public-www-build-env.sh
@@ -55,6 +52,9 @@ jobs:
       - name: Audit public website assets
         run: npm run audit:assets
         working-directory: apps/public_www
+
+      - name: Sync staging search fixture for static hosting
+        run: bash scripts/codegen/sync-activity-search-staging-fixture.sh public-www
 
       - name: Verify public website build env contract
         run: npm run assert:build-env-contract
