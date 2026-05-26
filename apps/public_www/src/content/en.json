@@ -37,9 +37,7 @@
         { "locale": "en", "label": "English", "shortLabel": "EN" },
         { "locale": "zh-HK", "label": "繁體中文", "shortLabel": "TC" }
       ]
-    },
-    "openNavigationMenuAriaLabel": "Open navigation menu",
-    "closeNavigationMenuAriaLabel": "Close navigation menu"
+    }
   },
   "footer": {
     "tagline": "An LX Software product. Hong Kong, SAR.",

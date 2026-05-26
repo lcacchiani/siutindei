@@ -10,7 +10,6 @@ import { localizeHref, localizePath } from '@/lib/locale-routing';
 import { ROUTES } from '@/lib/routes';
 
 import { NavbarLanguageSwitcher } from './navbar-language-switcher';
-import { NavbarMobileMenu } from './navbar-mobile-menu';
 
 interface NavbarProps {
   readonly locale: Locale;
@@ -46,29 +45,11 @@ export function Navbar({ locale, content }: NavbarProps) {
                 {content.hostLink.label}
               </Link>
               <NavbarLanguageSwitcher locale={locale} content={content} />
-              <NavbarMobileMenu locale={locale} content={content} />
             </div>
           </div>
           <div className="pb-3 md:hidden">
             <SearchBarCompact locale={locale} labels={content.searchBar} />
           </div>
-          <nav
-            className="hidden border-t border-brand-50 pb-3 pt-2 lg:block"
-            aria-label="Main"
-          >
-            <ul role="list" className="flex flex-wrap items-center gap-1">
-              {content.menuItems.map((item) => (
-                <li key={item.href}>
-                  <Link
-                    href={localizeHref(item.href, locale)}
-                    className="inline-flex min-h-11 items-center rounded-md px-3 text-sm font-medium text-ink-700 transition hover:bg-brand-50 hover:text-brand-600"
-                  >
-                    {item.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </nav>
         </div>
       </header>
       <SearchPanel locale={locale} copy={content.searchPanel} />

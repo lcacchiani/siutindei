@@ -37,9 +37,7 @@
         { "locale": "en", "label": "English", "shortLabel": "EN" },
         { "locale": "zh-HK", "label": "繁體中文", "shortLabel": "TC" }
       ]
-    },
-    "openNavigationMenuAriaLabel": "開啟導覽選單",
-    "closeNavigationMenuAriaLabel": "關閉導覽選單"
+    }
   },
   "footer": {
     "tagline": "LX Software 產品。香港特別行政區。",
