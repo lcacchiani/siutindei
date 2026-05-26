@@ -235,6 +235,15 @@ jobs:
             QUALIFIER_ARGS=(--qualifier "$CDK_BOOTSTRAP_QUALIFIER")
           fi
 
+          CONTEXT_ARGS=()
+          STAGING_SEARCH_FLAG="$(
+            printf '%s' "${STAGING_SEARCH_DATA_ENABLED:-false}" | tr '[:upper:]' '[:lower:]'
+          )"
+          if [ "$STAGING_SEARCH_FLAG" = "true" ] || [ "$STAGING_SEARCH_FLAG" = "1" ]; then
+            CONTEXT_ARGS=(-c stagingSearchDataEnabled=true)
+            echo "Staging search fixture enabled for search Lambda (CDK context)."
+          fi
+
           IFS=$', \n\t' read -r -a STACK_LIST <<< "$CDK_STACKS"
 
           if [ "${DESTROY_BEFORE_DEPLOY:-false}" = "true" ]; then
@@ -289,7 +298,8 @@ jobs:
             echo "CDK deploy attempt ${attempt} of ${MAX_CDK_DEPLOY_ATTEMPTS}"
             ATTEMPT_LOG="$(mktemp)"
             npx cdk deploy --no-notices --require-approval never \
-              "${QUALIFIER_ARGS[@]}" "${PARAM_ARGS[@]}" "${STACK_LIST[@]}" 2>&1 | tee "$ATTEMPT_LOG"
+              "${QUALIFIER_ARGS[@]}" "${CONTEXT_ARGS[@]}" "${PARAM_ARGS[@]}" \
+              "${STACK_LIST[@]}" 2>&1 | tee "$ATTEMPT_LOG"
             deploy_exit=${PIPESTATUS[0]}
             if [ "$deploy_exit" -eq 0 ]; then
               rm -f "$ATTEMPT_LOG"
@@ -335,6 +345,7 @@ jobs:
           CDK_PARAM_PUBLIC_API_KEY_VALUE: ${{ secrets.CDK_PARAM_PUBLIC_API_KEY_VALUE }}
           CDK_PARAM_ADMIN_BOOTSTRAP_TEMP_PASSWORD: ${{ secrets.CDK_PARAM_ADMIN_BOOTSTRAP_TEMP_PASSWORD }}
           APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
+          STAGING_SEARCH_DATA_ENABLED: ${{ vars.STAGING_SEARCH_DATA_ENABLED || 'false' }}
           MIGRATIONS_FORCE_RUN_ID: >-
             ${{ github.event.inputs.force_migration_run == 'true' &&
             github.run_id || '' }}

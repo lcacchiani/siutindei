@@ -1150,10 +1150,12 @@ export class ApiStack extends cdk.Stack {
         DATABASE_PROXY_ENDPOINT: database.proxy.endpoint,
         DATABASE_IAM_AUTH: "true",
         CORS_ALLOWED_ORIGINS: corsAllowedOrigins.join(","),
-        STAGING_SEARCH_DATA_ENABLED:
-          this.node.tryGetContext("stagingSearchDataEnabled") === true
-            ? "true"
-            : "false",
+        STAGING_SEARCH_DATA_ENABLED: isTruthyContext(
+          this,
+          "stagingSearchDataEnabled"
+        )
+          ? "true"
+          : "false",
         STAGING_SEARCH_DATA_PATH:
           "/var/task/fixtures/activity_search_staging.json",
       },
@@ -2495,6 +2497,19 @@ export class ApiStack extends cdk.Stack {
     // Apply Checkov suppressions to CDK-internal Lambda functions
     cdk.Aspects.of(this).add(new CdkInternalLambdaCheckovSuppression());
   }
+}
+
+/** True when CDK context or env flag is enabled (boolean or string). */
+function isTruthyContext(scope: Construct, key: string): boolean {
+  const value = scope.node.tryGetContext(key);
+  if (value === true) {
+    return true;
+  }
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    return normalized === "true" || normalized === "1" || normalized === "yes";
+  }
+  return false;
 }
 
 // CORS origins must be concrete at synth time for preflight generation.

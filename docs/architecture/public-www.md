@@ -89,7 +89,11 @@ Source: [`apps/public_www`](../../apps/public_www).
   loaded at runtime from
   `{NEXT_PUBLIC_SITE_ORIGIN}/fixtures/activity_search_staging.json` (static
   file copied from `shared/fixtures/` during the staging deploy build; canonical
-  source is Git LFS). Override with `NEXT_PUBLIC_STAGING_SEARCH_FIXTURE_URL`.
+  source is Git LFS). Controlled by GitHub Environment variable
+  `STAGING_SEARCH_DATA_ENABLED` (mapped to `NEXT_PUBLIC_STAGING_SEARCH_DATA_ENABLED`
+  at build time in `deploy-public-www.yml`; defaults to `true` on staging,
+  `false` on production promote). Optional override:
+  `NEXT_PUBLIC_STAGING_SEARCH_FIXTURE_URL` (GitHub var of the same name).
   CSP `connect-src` includes the API origin only when that URL is set at build
   time (`scripts/inject-csp-meta.mjs`).
 - **SEO:** `buildLocalizedMetadata` (canonical, hreflang). Optional GTM /
