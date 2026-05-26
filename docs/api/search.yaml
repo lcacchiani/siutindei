@@ -55,6 +55,13 @@ paths:
           schema:
             type: string
             format: uuid
+        - name: activity_id
+          in: query
+          required: false
+          description: Return results for a single activity UUID (at most one row).
+          schema:
+            type: string
+            format: uuid
         - name: category_id
           in: query
           required: false

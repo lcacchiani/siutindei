@@ -1,35 +1,85 @@
 import { describe, expect, it } from 'vitest';
 
+import type { ActivityListing } from '@/lib/activities/types';
 import { filterWizardResults } from '@/lib/home-wizard/filter-results';
-import type { ActivitySearchResult } from '@/lib/home-wizard/search-client';
 
-const sampleItems: readonly ActivitySearchResult[] = [
-  {
+function buildListing(
+  partial: Pick<ActivityListing, 'activity' | 'organization' | 'location'>,
+): ActivityListing {
+  return {
+    ...partial,
+    pricing: {
+      pricingType: 'per_class',
+      amount: 100,
+      currency: 'hkd',
+      sessionsCount: null,
+      freeTrialClassOffered: false,
+    },
+    schedule: {
+      scheduleType: 'weekly',
+      weeklyEntries: [],
+      languages: ['en'],
+    },
+  };
+}
+
+const sampleItems: readonly ActivityListing[] = [
+  buildListing({
     activity: {
       id: '1',
       name: 'Painting',
       description: 'Art class',
+      nameTranslations: {},
+      descriptionTranslations: {},
+      ageMin: null,
+      ageMax: null,
       categoryId: 'c1',
     },
-    organization: { name: 'Studio' },
+    organization: {
+      id: 'o1',
+      name: 'Studio',
+      description: null,
+      nameTranslations: {},
+      mediaUrls: [],
+      logoMediaUrl: null,
+    },
     location: {
+      id: 'l1',
       areaId: 'district-1',
       regionAreaId: 'region-hk-island',
+      address: null,
+      lat: null,
+      lng: null,
     },
-  },
-  {
+  }),
+  buildListing({
     activity: {
       id: '2',
       name: 'Dance',
       description: 'Movement',
+      nameTranslations: {},
+      descriptionTranslations: {},
+      ageMin: null,
+      ageMax: null,
       categoryId: 'c2',
     },
-    organization: { name: 'Dance Co' },
+    organization: {
+      id: 'o2',
+      name: 'Dance Co',
+      description: null,
+      nameTranslations: {},
+      mediaUrls: [],
+      logoMediaUrl: null,
+    },
     location: {
+      id: 'l2',
       areaId: 'district-2',
       regionAreaId: 'region-kowloon',
+      address: null,
+      lat: null,
+      lng: null,
     },
-  },
+  }),
 ];
 
 describe('filterWizardResults', () => {

@@ -1,16 +1,24 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
-import { MarketingPage } from '@/components/pages/marketing-page';
+import { DiscoveryHomePage } from '@/components/pages/discovery-home-page';
 import { PageLayout } from '@/components/shared/page-layout';
 import { getContent } from '@/content';
 
 vi.mock('next/navigation', () => ({
   usePathname: () => '/en/',
+  useRouter: () => ({
+    push: vi.fn(),
+  }),
+  useSearchParams: () => new URLSearchParams(),
 }));
 
-describe('MarketingPage', () => {
-  it('renders home grid sections inside locale chrome', () => {
+vi.mock('@/lib/activities/search-client', () => ({
+  fetchActivitySearch: vi.fn().mockResolvedValue({ items: [], nextCursor: null }),
+}));
+
+describe('DiscoveryHomePage', () => {
+  it('renders discovery chrome with search and carousel headings', () => {
     const content = getContent('en');
 
     render(
@@ -19,35 +27,16 @@ describe('MarketingPage', () => {
         navbarContent={content.navbar}
         footerContent={content.footer}
       >
-        <MarketingPage
-          locale="en"
-          content={content}
-          body={content.pages.home.body}
-        />
+        <DiscoveryHomePage locale="en" content={content} />
       </PageLayout>,
     );
 
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
-      content.hero.title,
-    );
     expect(
-      screen.getByText(content.homeWizard.activityQuestion),
-    ).toBeInTheDocument();
+      screen.getAllByRole('button', { name: content.navbar.searchBar.search })
+        .length,
+    ).toBeGreaterThan(0);
+    expect(screen.getByText(content.discovery.popularTitle)).toBeInTheDocument();
+    expect(screen.getByText(content.hostCta.title)).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 2, name: content.features.title })).toBeInTheDocument();
-    expect(screen.getByRole('navigation', { name: 'Main' })).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: content.navbar.openNavigationMenuAriaLabel }),
-    ).toBeInTheDocument();
-
-    const bleedRows = document.querySelectorAll('.page-body-grid__row--bleed');
-    expect(bleedRows.length).toBe(3);
-
-    const gridCells = document.querySelectorAll('.page-body-grid__cell');
-    expect(gridCells.length).toBeGreaterThan(0);
-    for (const cell of gridCells) {
-      expect(cell.className).not.toMatch(/col-\[/);
-      expect(cell).toHaveAttribute('data-grid-col-span');
-      expect(cell).toHaveAttribute('data-grid-col-start');
-    }
   });
 });

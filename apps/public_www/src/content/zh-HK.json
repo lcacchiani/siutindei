@@ -10,6 +10,27 @@
       { "label": "主頁", "href": "/" },
       { "label": "關於我們", "href": "/about" }
     ],
+    "hostLink": {
+      "label": "刊登活動",
+      "href": "#contact"
+    },
+    "searchBar": {
+      "where": "地區",
+      "childAge": "子女年齡",
+      "activityTypes": "活動類型",
+      "search": "搜尋活動",
+      "anywhere": "全港",
+      "anyAge": "任何年齡",
+      "anyType": "所有類型"
+    },
+    "searchPanel": {
+      "title": "搜尋活動",
+      "whereLabel": "地區",
+      "childAgeLabel": "子女年齡",
+      "activityTypesLabel": "活動類型",
+      "searchLabel": "搜尋",
+      "clearTypesLabel": "清除活動類型"
+    },
     "languageSelector": {
       "menuAriaLabel": "選擇語言",
       "options": [
@@ -23,7 +44,25 @@
   "footer": {
     "tagline": "LX Software 產品。香港特別行政區。",
     "copyrightTemplate": "© {year} LX Software Limited. 版權所有。",
-    "contactHeading": "聯絡我們"
+    "contactHeading": "聯絡我們",
+    "columns": [
+      {
+        "title": "探索",
+        "links": [
+          { "label": "主頁", "href": "/" },
+          { "label": "搜尋活動", "href": "/search" },
+          { "label": "關於我們", "href": "/about" }
+        ]
+      },
+      {
+        "title": "支援",
+        "links": [
+          { "label": "聯絡我們", "href": "#contact" },
+          { "label": "私隱政策", "href": "/privacy" },
+          { "label": "使用條款", "href": "/terms" }
+        ]
+      }
+    ]
   },
   "seo": {
     "fallbackTitle": "Siu Tin Dei | 香港兒童活動",
@@ -37,6 +76,22 @@
     "about": {
       "title": "關於 Siu Tin Dei",
       "description": "了解 Siu Tin Dei 如何協助香港家庭找到可信賴的兒童活動。"
+    },
+    "search": {
+      "title": "搜尋兒童活動 | Siu Tin Dei",
+      "description": "按地區、年齡及活動類型瀏覽香港兒童活動。"
+    },
+    "activityDetail": {
+      "title": "活動詳情 | Siu Tin Dei",
+      "description": "查看時間表、收費及透過 Siu Tin Dei 聯絡機構。"
+    },
+    "privacy": {
+      "title": "私隱政策 | Siu Tin Dei",
+      "description": "Siu Tin Dei 網站私隱資訊。"
+    },
+    "terms": {
+      "title": "使用條款 | Siu Tin Dei",
+      "description": "Siu Tin Dei 網站使用條款。"
     }
   },
   "common": {
@@ -46,16 +101,16 @@
       "whatsappFabLabel": "WhatsApp 聯絡",
       "noscript": {
         "title": "已停用 JavaScript",
-        "description": "基本導覽仍可使用。啟用 JavaScript 以獲得完整體驗。",
+        "description": "基本導覽仍可使用。請啟用 JavaScript 以獲得完整體驗。",
         "homeLabel": "主頁",
-        "contactLabel": "聯絡"
+        "contactLabel": "聯絡我們"
       }
     },
     "errors": {
       "notFound": {
         "code": "404",
         "title": "找不到頁面",
-        "description": "您要查看的頁面不存在或已移動。",
+        "description": "您瀏覽的頁面不存在或已移動。",
         "homeLabel": "返回主頁"
       },
       "serverError": {
@@ -66,56 +121,76 @@
       }
     }
   },
+  "discovery": {
+    "continueSearchingTitle": "繼續搜尋",
+    "recentlyViewedTitle": "最近瀏覽",
+    "popularTitle": "香港熱門活動",
+    "nearRegionTitle": "活動 —",
+    "freeTrialLabel": "免費試堂",
+    "imageFallbackLabel": "相片稍後提供",
+    "errorLabel": "無法載入活動。",
+    "carousel": {
+      "previousLabel": "上一組活動",
+      "nextLabel": "下一組活動"
+    }
+  },
+  "searchPage": {
+    "listViewLabel": "列表",
+    "mapViewLabel": "地圖",
+    "textFilterLabel": "篩選結果",
+    "textFilterPlaceholder": "按名稱或機構搜尋",
+    "resultsCountLabel": "{count} 個活動",
+    "emptyLabel": "沒有符合的活動，請嘗試其他篩選。",
+    "errorLabel": "無法載入活動。",
+    "mapEmptyLabel": "這些結果沒有地圖位置。",
+    "freeTrialLabel": "免費試堂",
+    "imageFallbackLabel": "相片稍後提供"
+  },
+  "activityDetail": {
+    "loadingLabel": "載入活動中...",
+    "notFoundLabel": "找不到活動。",
+    "errorLabel": "無法載入此活動。",
+    "freeTrialLabel": "提供免費試堂",
+    "imageFallbackLabel": "相片稍後提供",
+    "whatsappCtaLabel": "WhatsApp 查詢"
+  },
+  "hostCta": {
+    "title": "與 Siu Tin Dei 合作",
+    "description": "刊登您的兒童活動計劃，接觸香港家庭。",
+    "buttonLabel": "聯絡我們",
+    "href": "#contact"
+  },
+  "legal": {
+    "privacy": {
+      "title": "私隱政策",
+      "paragraphs": [
+        "Siu Tin Dei 重視您的私隱。此網站可能按環境設定啟用分析工具。",
+        "如有資料相關問題，請使用頁尾聯絡方式與我們聯絡。"
+      ]
+    },
+    "terms": {
+      "title": "使用條款",
+      "paragraphs": [
+        "Siu Tin Dei 為香港家庭提供活動資訊。",
+        "報名及付款通常由活動機構直接處理，除非另有說明。"
+      ]
+    }
+  },
   "homeWizard": {
-    "activityQuestion": "你想找甚麼類型的活動？",
-    "ageQuestion": "你的孩子幾歲？",
-    "regionQuestion": "你想找哪區附近的活動？",
+    "activityQuestion": "您想找甚麼活動？",
+    "ageQuestion": "您的孩子幾歲？",
+    "regionQuestion": "您住在哪個區域？",
     "continueLabel": "繼續",
     "searchPlaceholder": "搜尋活動、機構...",
-    "loadingLabel": "正在載入活動...",
-    "emptyLabel": "找不到活動，請嘗試更改選項。",
+    "loadingLabel": "載入活動中...",
+    "emptyLabel": "找不到活動，請嘗試其他選項。",
     "errorLabel": "無法載入活動。",
     "retryLabel": "重試"
   },
   "pages": {
     "home": {
       "body": {
-        "rows": [
-          {
-            "cells": [
-              {
-                "component": "hero",
-                "colStart": 1,
-                "colSpan": 12,
-                "props": {
-                  "eyebrow": "尋找活動",
-                  "primaryCtaLabel": "開始搜尋",
-                  "primaryCtaHref": "#home-wizard",
-                  "secondaryCtaLabel": "聯絡我們",
-                  "secondaryCtaHref": "#contact"
-                }
-              }
-            ]
-          },
-          {
-            "cells": [
-              {
-                "component": "homeWizard",
-                "colStart": 1,
-                "colSpan": 12
-              }
-            ]
-          },
-          {
-            "cells": [
-              {
-                "component": "features",
-                "colStart": 1,
-                "colSpan": 12
-              }
-            ]
-          }
-        ]
+        "rows": []
       }
     },
     "about": {
@@ -129,9 +204,9 @@
                 "colSpan": 12,
                 "props": {
                   "eyebrow": "關於我們",
-                  "primaryCtaLabel": "瀏覽活動",
+                  "primaryCtaLabel": "探索活動",
                   "primaryCtaHref": "/",
-                  "secondaryCtaLabel": "聯絡",
+                  "secondaryCtaLabel": "聯絡我們",
                   "secondaryCtaHref": "#contact"
                 }
               }
@@ -146,8 +221,8 @@
                 "props": {
                   "title": "為香港家庭而設",
                   "paragraphs": [
-                    "Siu Tin Dei 協助家長發掘香港各地經審核的兒童活動，日程、收費及地點一目了然。",
-                    "我們先推出精選目錄，並會隨合作機構加入而逐步擴充。"
+                    "Siu Tin Dei 協助家長發掘香港優質兒童活動 — 時間表、收費及地點一目了然。",
+                    "我們現正建立精選目錄，並會隨合作機構加入而擴展。"
                   ]
                 }
               }
@@ -163,19 +238,19 @@
   },
   "features": {
     "title": "為何選擇 Siu Tin Dei",
-    "description": "為尋找合適兒童活動的家長而設的起點。",
+    "description": "為香港家長搜尋合適活動的起點。",
     "items": [
       {
-        "title": "嚴選課程",
-        "description": "每項活動均經團隊審核，確保安全、價值及教學質素。"
+        "title": "嚴選計劃",
+        "description": "每項活動均經安全、價值及教學質素審核。"
       },
       {
-        "title": "聚焦香港",
+        "title": "立足香港",
         "description": "地區、語言、時間表及收費切合本地需要。"
       },
       {
         "title": "收費透明",
-        "description": "按節、按班或按日清晰標價，結帳無隱藏費用。"
+        "description": "每堂、每期或每日收費清晰列明。"
       }
     ]
   }

@@ -1,4 +1,4 @@
-import type { ActivitySearchResult } from '@/lib/home-wizard/search-client';
+import type { ActivityListing as ActivitySearchResult } from '@/lib/activities/types';
 
 export function filterWizardResults(
   items: readonly ActivitySearchResult[],

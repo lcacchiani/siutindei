@@ -1,4 +1,3 @@
-import { DiscoveryHomePage } from '@/components/pages/discovery-home-page';
 import {
   generateLocaleStaticParams,
   type LocaleRouteProps,
@@ -18,9 +17,9 @@ export async function generateMetadata({ params }: LocaleRouteProps) {
 
   return buildLocalizedMetadata({
     locale,
-    path: ROUTES.home,
-    title: content.seo.home.title,
-    description: content.seo.home.description,
+    path: ROUTES.privacy,
+    title: content.seo.privacy.title,
+    description: content.seo.privacy.description,
     siteName,
     socialImage: {
       url: content.seo.defaultSocialImage,
@@ -29,8 +28,19 @@ export async function generateMetadata({ params }: LocaleRouteProps) {
   });
 }
 
-export default async function HomeRoutePage({ params }: LocaleRouteProps) {
-  const { locale, content } = await resolveLocalePageContext(params);
+export default async function PrivacyRoutePage({ params }: LocaleRouteProps) {
+  const { content } = await resolveLocalePageContext(params);
 
-  return <DiscoveryHomePage locale={locale} content={content} />;
+  return (
+    <article className="mx-auto max-w-3xl px-4 py-16 sm:px-6">
+      <h1 className="text-3xl font-bold text-ink-900">
+        {content.legal.privacy.title}
+      </h1>
+      {content.legal.privacy.paragraphs.map((paragraph) => (
+        <p key={paragraph} className="mt-4 leading-7 text-ink-700">
+          {paragraph}
+        </p>
+      ))}
+    </article>
+  );
 }

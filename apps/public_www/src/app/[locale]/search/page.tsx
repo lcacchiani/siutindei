@@ -1,4 +1,6 @@
-import { DiscoveryHomePage } from '@/components/pages/discovery-home-page';
+import { Suspense } from 'react';
+
+import { SearchResultsPage } from '@/components/pages/search-results-page';
 import {
   generateLocaleStaticParams,
   type LocaleRouteProps,
@@ -18,9 +20,9 @@ export async function generateMetadata({ params }: LocaleRouteProps) {
 
   return buildLocalizedMetadata({
     locale,
-    path: ROUTES.home,
-    title: content.seo.home.title,
-    description: content.seo.home.description,
+    path: ROUTES.search,
+    title: content.seo.search.title,
+    description: content.seo.search.description,
     siteName,
     socialImage: {
       url: content.seo.defaultSocialImage,
@@ -29,8 +31,12 @@ export async function generateMetadata({ params }: LocaleRouteProps) {
   });
 }
 
-export default async function HomeRoutePage({ params }: LocaleRouteProps) {
+export default async function SearchRoutePage({ params }: LocaleRouteProps) {
   const { locale, content } = await resolveLocalePageContext(params);
 
-  return <DiscoveryHomePage locale={locale} content={content} />;
+  return (
+    <Suspense fallback={null}>
+      <SearchResultsPage locale={locale} copy={content.searchPage} />
+    </Suspense>
+  );
 }

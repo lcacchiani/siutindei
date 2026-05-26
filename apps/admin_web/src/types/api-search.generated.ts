@@ -26,6 +26,8 @@ export interface paths {
                      *     or any descendant area (for example a region or district).
                      */
                     area_id?: string;
+                    /** @description Return results for a single activity UUID (at most one row). */
+                    activity_id?: string;
                     /**
                      * @description Filter by activity category UUID. Multiple values allowed; results
                      *     match any listed category.

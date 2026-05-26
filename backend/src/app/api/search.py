@@ -96,9 +96,13 @@ def parse_filters(event: Mapping[str, Any]) -> ActivitySearchFilters:
     area_id_str = first_param(params, "area_id")
     area_id = UUID(area_id_str) if area_id_str else None
 
+    activity_id_str = first_param(params, "activity_id")
+    activity_id = UUID(activity_id_str) if activity_id_str else None
+
     return ActivitySearchFilters(
         age=parse_int(first_param(params, "age")),
         area_id=area_id,
+        activity_id=activity_id,
         category_ids=parse_uuid_list(params.get("category_id", [])),
         pricing_type=parse_enum(first_param(params, "pricing_type"), PricingType),
         price_min=parse_decimal(first_param(params, "price_min")),
