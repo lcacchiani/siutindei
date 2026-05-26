@@ -76,9 +76,16 @@ Source: [`apps/public_www`](../../apps/public_www).
 - **Template:** `[locale]/layout.tsx` wraps routes with `PageLayout`
   (`Navbar` header + `<main>` + `Footer`). Mobile drawer nav; WhatsApp FAB
   on small screens, footer link on larger breakpoints.
-- **Body:** `pages.<pageKey>.body` defines a 12-column CSS grid (`rows` →
-  `cells` with `component`, `colStart`, `colSpan`, optional `props`). The
-  registry lives in `src/components/sections/grid/page-body-grid.tsx`.
+- **Body:** Marketing pages (for example About) still use `pages.<pageKey>.body`
+  with the 12-column CSS grid (`rows` → `cells` with `component`, `colStart`,
+  `colSpan`, optional `props`) in `src/components/sections/grid/page-body-grid.tsx`.
+  The home route renders `DiscoveryHomePage` (Airbnb-style discovery: sticky
+  search header, category chips, horizontal listing carousels fed by
+  `/v1/activities/search`).
+- **Search & detail:** `/[locale]/search/` (results grid + map panel) and
+  `/[locale]/activity/?id=<uuid>` (detail + WhatsApp CTA). Search uses browser-side
+  `fetch` to `NEXT_PUBLIC_SEARCH_API_BASE_URL`; CSP `connect-src` includes that
+  origin when set at build time (`scripts/inject-csp-meta.mjs`).
 - **SEO:** `buildLocalizedMetadata` (canonical, hreflang). Optional GTM /
   Meta Pixel via `NEXT_PUBLIC_GTM_ID` / `NEXT_PUBLIC_META_PIXEL_ID` and
   host allow-lists; CSP `script-src` / `connect-src` extended at build time

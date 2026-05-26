@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import type { FooterContent, Locale, NavbarContent } from '@/content';
 import { Footer } from '@/components/sections/footer';
 import { Navbar } from '@/components/sections/navbar';
+import { SearchProvider } from '@/components/shared/search/search-context';
 
 interface PageLayoutProps {
   readonly locale: Locale;
@@ -13,7 +14,7 @@ interface PageLayoutProps {
   readonly mainId?: string;
 }
 
-const DEFAULT_MAIN_CLASSNAME = 'min-h-screen flex-1';
+const DEFAULT_MAIN_CLASSNAME = 'min-h-screen flex-1 bg-white';
 
 export function PageLayout({
   locale,
@@ -24,16 +25,18 @@ export function PageLayout({
   mainId = 'main-content',
 }: PageLayoutProps) {
   return (
-    <div className="flex min-h-screen flex-col">
-      <Navbar locale={locale} content={navbarContent} />
-      <main
-        id={mainId}
-        tabIndex={-1}
-        className={mainClassName ?? DEFAULT_MAIN_CLASSNAME}
-      >
-        {children}
-      </main>
-      <Footer content={footerContent} />
-    </div>
+    <SearchProvider>
+      <div className="flex min-h-screen flex-col">
+        <Navbar locale={locale} content={navbarContent} />
+        <main
+          id={mainId}
+          tabIndex={-1}
+          className={mainClassName ?? DEFAULT_MAIN_CLASSNAME}
+        >
+          {children}
+        </main>
+        <Footer locale={locale} content={footerContent} />
+      </div>
+    </SearchProvider>
   );
 }

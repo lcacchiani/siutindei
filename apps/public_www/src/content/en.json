@@ -10,6 +10,27 @@
       { "label": "Home", "href": "/" },
       { "label": "About", "href": "/about" }
     ],
+    "hostLink": {
+      "label": "List your activity",
+      "href": "#contact"
+    },
+    "searchBar": {
+      "where": "Area",
+      "childAge": "Child age",
+      "activityTypes": "Activities",
+      "search": "Search activities",
+      "anywhere": "All Hong Kong",
+      "anyAge": "Any age",
+      "anyType": "All types"
+    },
+    "searchPanel": {
+      "title": "Search activities",
+      "whereLabel": "Area",
+      "childAgeLabel": "Child age",
+      "activityTypesLabel": "Activity types",
+      "searchLabel": "Search",
+      "clearTypesLabel": "Clear activity types"
+    },
     "languageSelector": {
       "menuAriaLabel": "Select language",
       "options": [
@@ -23,7 +44,25 @@
   "footer": {
     "tagline": "An LX Software product. Hong Kong, SAR.",
     "copyrightTemplate": "© {year} LX Software Limited. All rights reserved.",
-    "contactHeading": "Contact"
+    "contactHeading": "Contact",
+    "columns": [
+      {
+        "title": "Explore",
+        "links": [
+          { "label": "Home", "href": "/" },
+          { "label": "Search activities", "href": "/search" },
+          { "label": "About", "href": "/about" }
+        ]
+      },
+      {
+        "title": "Support",
+        "links": [
+          { "label": "Contact", "href": "#contact" },
+          { "label": "Privacy", "href": "/privacy" },
+          { "label": "Terms", "href": "/terms" }
+        ]
+      }
+    ]
   },
   "seo": {
     "fallbackTitle": "Siu Tin Dei | Children's activities in Hong Kong",
@@ -37,6 +76,22 @@
     "about": {
       "title": "About Siu Tin Dei",
       "description": "Learn how Siu Tin Dei helps Hong Kong families find trusted children's activities."
+    },
+    "search": {
+      "title": "Search children's activities | Siu Tin Dei",
+      "description": "Browse children's activities in Hong Kong by area, age, and activity type."
+    },
+    "activityDetail": {
+      "title": "Activity details | Siu Tin Dei",
+      "description": "View schedules, pricing, and contact the provider on Siu Tin Dei."
+    },
+    "privacy": {
+      "title": "Privacy | Siu Tin Dei",
+      "description": "Privacy information for the Siu Tin Dei public website."
+    },
+    "terms": {
+      "title": "Terms | Siu Tin Dei",
+      "description": "Terms of use for the Siu Tin Dei public website."
     }
   },
   "common": {
@@ -66,6 +121,61 @@
       }
     }
   },
+  "discovery": {
+    "continueSearchingTitle": "Continue searching",
+    "recentlyViewedTitle": "Recently viewed",
+    "popularTitle": "Popular activities in Hong Kong",
+    "nearRegionTitle": "Activities in",
+    "freeTrialLabel": "Free trial",
+    "imageFallbackLabel": "Photo coming soon",
+    "errorLabel": "Unable to load activities.",
+    "carousel": {
+      "previousLabel": "Previous activities",
+      "nextLabel": "Next activities"
+    }
+  },
+  "searchPage": {
+    "listViewLabel": "List",
+    "mapViewLabel": "Map",
+    "textFilterLabel": "Filter results",
+    "textFilterPlaceholder": "Search by name or organization",
+    "resultsCountLabel": "{count} activities",
+    "emptyLabel": "No activities match your search. Try different filters.",
+    "errorLabel": "Unable to load activities.",
+    "mapEmptyLabel": "No map locations for these results.",
+    "freeTrialLabel": "Free trial",
+    "imageFallbackLabel": "Photo coming soon"
+  },
+  "activityDetail": {
+    "loadingLabel": "Loading activity...",
+    "notFoundLabel": "Activity not found.",
+    "errorLabel": "Unable to load this activity.",
+    "freeTrialLabel": "Free trial available",
+    "imageFallbackLabel": "Photo coming soon",
+    "whatsappCtaLabel": "Ask on WhatsApp"
+  },
+  "hostCta": {
+    "title": "Partner with Siu Tin Dei",
+    "description": "List your children's activity programme and reach Hong Kong families.",
+    "buttonLabel": "Get in touch",
+    "href": "#contact"
+  },
+  "legal": {
+    "privacy": {
+      "title": "Privacy",
+      "paragraphs": [
+        "Siu Tin Dei respects your privacy. This public website uses optional analytics tools when enabled by your environment.",
+        "Contact us using the details in the footer if you have questions about your data."
+      ]
+    },
+    "terms": {
+      "title": "Terms of use",
+      "paragraphs": [
+        "Siu Tin Dei provides activity discovery information for families in Hong Kong.",
+        "Programme bookings and payments are handled directly with each activity provider unless stated otherwise."
+      ]
+    }
+  },
   "homeWizard": {
     "activityQuestion": "What activities are you looking for?",
     "ageQuestion": "How old is your child?",
@@ -80,42 +190,7 @@
   "pages": {
     "home": {
       "body": {
-        "rows": [
-          {
-            "cells": [
-              {
-                "component": "hero",
-                "colStart": 1,
-                "colSpan": 12,
-                "props": {
-                  "eyebrow": "Find activities",
-                  "primaryCtaLabel": "Start searching",
-                  "primaryCtaHref": "#home-wizard",
-                  "secondaryCtaLabel": "Get in touch",
-                  "secondaryCtaHref": "#contact"
-                }
-              }
-            ]
-          },
-          {
-            "cells": [
-              {
-                "component": "homeWizard",
-                "colStart": 1,
-                "colSpan": 12
-              }
-            ]
-          },
-          {
-            "cells": [
-              {
-                "component": "features",
-                "colStart": 1,
-                "colSpan": 12
-              }
-            ]
-          }
-        ]
+        "rows": []
       }
     },
     "about": {

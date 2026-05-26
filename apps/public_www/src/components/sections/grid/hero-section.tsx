@@ -23,29 +23,29 @@ export function HeroSection({
   return (
     <section
       id="hero"
-      className="bg-brand-500 text-white"
+      className="border-b border-brand-100 bg-white"
       data-section-id="hero"
     >
-      <div className="mx-auto max-w-5xl px-4 py-16 text-center sm:px-6 sm:py-24 lg:py-32">
-        <p className="text-sm font-semibold uppercase tracking-widest text-brand-100">
+      <div className="mx-auto max-w-5xl px-4 py-12 text-center sm:px-6 sm:py-16">
+        <p className="text-sm font-semibold uppercase tracking-widest text-ink-500">
           {eyebrow}
         </p>
-        <h1 className="mt-4 text-4xl font-bold tracking-tight sm:text-6xl">
+        <h1 className="mt-4 text-3xl font-bold tracking-tight text-ink-900 sm:text-5xl">
           {content.title}
         </h1>
-        <p className="mx-auto mt-6 max-w-2xl text-lg text-brand-100">
+        <p className="mx-auto mt-4 max-w-2xl text-lg text-ink-700">
           {content.subtitle}
         </p>
-        <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
+        <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
           <a
             href={localizeHref(primaryCtaHref, locale)}
-            className="rounded-full bg-white px-6 py-3 font-semibold text-brand-700 shadow-sm transition hover:bg-brand-50"
+            className="rounded-lg bg-ink-900 px-6 py-3 text-sm font-semibold text-white transition hover:bg-ink-700"
           >
             {primaryCtaLabel}
           </a>
           <a
             href={localizeHref(secondaryCtaHref, locale)}
-            className="rounded-full border border-white px-6 py-3 font-semibold text-white transition hover:bg-white/10"
+            className="rounded-lg border border-ink-900/15 px-6 py-3 text-sm font-semibold text-ink-900 transition hover:bg-brand-50"
           >
             {secondaryCtaLabel}
           </a>
