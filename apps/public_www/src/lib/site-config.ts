@@ -5,6 +5,7 @@ interface SiteContact {
 }
 
 export interface SearchConfig {
+  readonly stagingSearchDataEnabled: boolean;
   readonly apiBaseUrl: string;
   readonly apiKey: string;
   readonly attestationToken: string;
@@ -50,7 +51,11 @@ export function getSiteConfig(): SiteConfig {
 }
 
 export function getSearchConfig(): SearchConfig {
+  const stagingSearchDataEnabled = readBooleanEnv(
+    'NEXT_PUBLIC_STAGING_SEARCH_DATA_ENABLED',
+  );
   return {
+    stagingSearchDataEnabled,
     apiBaseUrl: readPublicEnv('NEXT_PUBLIC_SEARCH_API_BASE_URL'),
     apiKey: readPublicEnv('NEXT_PUBLIC_SEARCH_API_KEY'),
     attestationToken: readPublicEnv('NEXT_PUBLIC_DEVICE_ATTESTATION_TOKEN'),

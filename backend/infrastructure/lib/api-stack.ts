@@ -1142,6 +1142,7 @@ export class ApiStack extends cdk.Stack {
     // Search function
     const searchFunction = createPythonFunction("SiutindeiSearchFunction", {
       handler: "lambda/search/handler.lambda_handler",
+      extraCopyPaths: ["fixtures"],
       environment: {
         DATABASE_SECRET_ARN: database.appUserSecret.secretArn,
         DATABASE_NAME: "siutindei",
@@ -1149,6 +1150,12 @@ export class ApiStack extends cdk.Stack {
         DATABASE_PROXY_ENDPOINT: database.proxy.endpoint,
         DATABASE_IAM_AUTH: "true",
         CORS_ALLOWED_ORIGINS: corsAllowedOrigins.join(","),
+        STAGING_SEARCH_DATA_ENABLED:
+          this.node.tryGetContext("stagingSearchDataEnabled") === true
+            ? "true"
+            : "false",
+        STAGING_SEARCH_DATA_PATH:
+          "/var/task/fixtures/activity_search_staging.json",
       },
     });
     database.grantAppUserSecretRead(searchFunction);

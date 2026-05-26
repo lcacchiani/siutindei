@@ -25,3 +25,4 @@ flutter:
   uses-material-design: true
   assets:
     - assets/home_wizard/home_wizard_choices.json
+    - assets/fixtures/activity_search_staging.json

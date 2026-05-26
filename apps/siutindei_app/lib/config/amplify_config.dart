@@ -8,6 +8,10 @@ class AppAmplifyConfig {
 
   static const apiKey = String.fromEnvironment('AMPLIFY_API_KEY');
 
+  static const stagingSearchDataEnabled = bool.fromEnvironment(
+    'STAGING_SEARCH_DATA_ENABLED',
+  );
+
   static String requireJson() {
     if (json.isEmpty) {
       throw StateError('AMPLIFY_CONFIG is not set');
