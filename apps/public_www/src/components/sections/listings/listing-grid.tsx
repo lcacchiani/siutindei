@@ -15,6 +15,7 @@ interface ListingGridProps {
     readonly freeTrial: string;
     readonly imageFallback: string;
     readonly empty: string;
+    readonly mapAlt: string;
   };
 }
 
@@ -52,6 +53,7 @@ export function ListingGrid({
           layout="grid"
           freeTrialLabel={labels.freeTrial}
           imageAltFallback={labels.imageFallback}
+          mapAltLabel={labels.mapAlt}
           deferRendering={shouldDeferListingCardRender(cardIndex)}
         />
       ))}
