@@ -85,6 +85,7 @@ jobs:
           # Staging Environment var only (ignored on production promote).
           NEXT_PUBLIC_STAGING_SEARCH_DATA_ENABLED: ${{ vars.STAGING_SEARCH_DATA_ENABLED || 'true' }}
           NEXT_PUBLIC_STAGING_SEARCH_FIXTURE_URL: ${{ vars.NEXT_PUBLIC_STAGING_SEARCH_FIXTURE_URL }}
+          NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: ${{ vars.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY }}
 
       - name: Configure AWS credentials
         if: ${{ vars.AWS_ACCOUNT_ID != '' && vars.AWS_REGION != '' }}
