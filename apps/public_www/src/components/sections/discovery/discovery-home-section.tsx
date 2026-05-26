@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { Locale, SiteContent } from '@/content';
 import { useSearchContext } from '@/components/shared/search/search-context';
 import { ListingCarouselSection } from '@/components/sections/listings/listing-carousel-section';
+import { logActivityLoadError } from '@/lib/activities/load-error';
 import { fetchActivitySearch } from '@/lib/activities/search-client';
 import {
   filtersToApiParams,
@@ -57,7 +58,8 @@ export function DiscoveryHomeSection({ locale, copy }: DiscoveryHomeSectionProps
           setListings(items);
         }
       })
-      .catch(() => {
+      .catch((error: unknown) => {
+        logActivityLoadError('discovery home', error);
         if (!cancelled) {
           setErrorMessage(copy.errorLabel);
           setListings([]);

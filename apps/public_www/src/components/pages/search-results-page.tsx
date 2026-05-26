@@ -9,6 +9,7 @@ import { SearchMapPanel } from '@/components/sections/search/search-map-panel';
 import { ListingGrid } from '@/components/sections/listings/listing-grid';
 import { useSearchContext } from '@/components/shared/search/search-context';
 import { Chip } from '@/components/shared/ui/chip';
+import { logActivityLoadError } from '@/lib/activities/load-error';
 import { fetchActivitySearch } from '@/lib/activities/search-client';
 import {
   filtersToApiParams,
@@ -55,7 +56,8 @@ export function SearchResultsPage({ locale, copy }: SearchResultsPageProps) {
         matchesTextQuery(listing, locale, urlFilters.textQuery),
       );
       setListings(filtered);
-    } catch {
+    } catch (error: unknown) {
+      logActivityLoadError('search results', error);
       setErrorMessage(copy.errorLabel);
       setListings([]);
     } finally {

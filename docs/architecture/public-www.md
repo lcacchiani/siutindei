@@ -96,7 +96,10 @@ Source: [`apps/public_www`](../../apps/public_www).
   / Aurora. Optional override on staging:
   `NEXT_PUBLIC_STAGING_SEARCH_FIXTURE_URL`.
   CSP `connect-src` includes the API origin only when that URL is set at build
-  time (`scripts/inject-csp-meta.mjs`).
+  time (`scripts/inject-csp-meta.mjs`). `src/lib/site-config.ts` reads each
+  `NEXT_PUBLIC_*` via static `process.env.NEXT_PUBLIC_FOO` access so Next.js
+  inlines values in the client bundle (dynamic `process.env[name]` is empty in
+  the browser and breaks search).
 - **SEO:** `buildLocalizedMetadata` (canonical, hreflang). Optional GTM /
   Meta Pixel via `NEXT_PUBLIC_GTM_ID` / `NEXT_PUBLIC_META_PIXEL_ID` and
   host allow-lists; CSP `script-src` / `connect-src` extended at build time
