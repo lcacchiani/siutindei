@@ -12,6 +12,10 @@ import {
   listingTitle,
   regionLabelForListing,
 } from '@/lib/activities/listing-utils';
+import {
+  LISTING_IMAGE_HEIGHT,
+  LISTING_IMAGE_WIDTH,
+} from '@/lib/listing-image';
 import { localizePath } from '@/lib/locale-routing';
 
 interface ListingCardProps {
@@ -20,6 +24,9 @@ interface ListingCardProps {
   readonly freeTrialLabel: string;
   readonly imageAltFallback: string;
   readonly layout?: 'carousel' | 'grid';
+  readonly imageLoading?: 'lazy' | 'eager';
+  readonly imageFetchPriority?: 'high' | 'low';
+  readonly deferRendering?: boolean;
 }
 
 export function ListingCard({
@@ -28,9 +35,13 @@ export function ListingCard({
   freeTrialLabel,
   imageAltFallback,
   layout = 'carousel',
+  imageLoading = 'lazy',
+  imageFetchPriority,
+  deferRendering = false,
 }: ListingCardProps) {
   const widthClassName =
     layout === 'grid' ? 'w-full' : 'w-[280px] shrink-0 sm:w-[300px]';
+  const deferClassName = deferRendering ? 'listing-card-deferred' : '';
   const href = `${localizePath('/activity', locale)}?id=${listing.activity.id}`;
   const imageUrl = listingImageUrl(listing);
   const title = listingTitle(locale, listing);
@@ -40,14 +51,22 @@ export function ListingCard({
   const price = formatListingPrice(locale, listing);
 
   return (
-    <article className={`listing-card ${widthClassName}`}>
+    <article
+      className={`listing-card ${widthClassName} ${deferClassName}`.trim()}
+    >
       <Link href={href} className="group block">
         <div className="relative aspect-[4/3] overflow-hidden rounded-xl bg-brand-100">
           {imageUrl ? (
             <img
               src={imageUrl}
               alt={title}
-              loading="lazy"
+              width={LISTING_IMAGE_WIDTH}
+              height={LISTING_IMAGE_HEIGHT}
+              loading={imageLoading}
+              decoding="async"
+              {...(imageFetchPriority
+                ? { fetchPriority: imageFetchPriority }
+                : {})}
               className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
             />
           ) : (

@@ -104,8 +104,13 @@ function mapListing(item: {
   };
 }
 
+interface FetchActivitySearchOptions {
+  readonly highPriority?: boolean;
+}
+
 export async function fetchActivitySearch(
   params: ActivitySearchParams,
+  options?: FetchActivitySearchOptions,
 ): Promise<ActivitySearchResponse> {
   const config = getSearchConfig();
   if (config.stagingSearchDataEnabled) {
@@ -143,7 +148,10 @@ export async function fetchActivitySearch(
     headers['x-device-attestation'] = config.attestationToken;
   }
 
-  const response = await fetch(url.toString(), { headers });
+  const response = await fetch(url.toString(), {
+    headers,
+    ...(options?.highPriority ? { priority: 'high' as RequestPriority } : {}),
+  });
   if (!response.ok) {
     throw new Error(`Search failed with status ${response.status}`);
   }
@@ -166,9 +174,12 @@ export async function fetchActivitySearch(
 export async function fetchActivityListingById(
   activityId: string,
 ): Promise<ActivityListing | null> {
-  const response = await fetchActivitySearch({
-    activityId,
-    limit: 1,
-  });
+  const response = await fetchActivitySearch(
+    {
+      activityId,
+      limit: 1,
+    },
+    { highPriority: true },
+  );
   return response.items[0] ?? null;
 }

@@ -2,6 +2,7 @@
 
 import type { Locale } from '@/content';
 import type { ActivityListing } from '@/lib/activities/types';
+import { shouldDeferListingCardRender } from '@/lib/listing-image';
 
 import { ListingCard } from './listing-card';
 import { ListingCardSkeleton } from './listing-card-skeleton';
@@ -43,7 +44,7 @@ export function ListingGrid({
 
   return (
     <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-      {listings.map((listing) => (
+      {listings.map((listing, cardIndex) => (
         <ListingCard
           key={listing.activity.id}
           locale={locale}
@@ -51,6 +52,7 @@ export function ListingGrid({
           layout="grid"
           freeTrialLabel={labels.freeTrial}
           imageAltFallback={labels.imageFallback}
+          deferRendering={shouldDeferListingCardRender(cardIndex)}
         />
       ))}
     </div>

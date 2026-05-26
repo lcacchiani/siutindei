@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 
 import type { Locale, SiteContent } from '@/content';
 import { Button } from '@/components/shared/ui/button';
+import { preloadActivityImage } from '@/lib/activity-image-preload';
 import { logActivityLoadError } from '@/lib/activities/load-error';
 import { fetchActivityListingById } from '@/lib/activities/search-client';
 import {
@@ -17,6 +18,10 @@ import {
 } from '@/lib/activities/listing-utils';
 import { rememberViewedActivity } from '@/lib/activities/recent-storage';
 import type { ActivityListing } from '@/lib/activities/types';
+import {
+  LISTING_IMAGE_HEIGHT,
+  LISTING_IMAGE_WIDTH,
+} from '@/lib/listing-image';
 import { getSiteConfig } from '@/lib/site-config';
 
 interface ActivityDetailPageProps {
@@ -89,6 +94,15 @@ export function ActivityDetailPage({
     };
   }, [activityId, copy.errorLabel, copy.notFoundLabel]);
 
+  const imageUrl = listing ? listingImageUrl(listing) : null;
+
+  useEffect(() => {
+    if (!imageUrl) {
+      return undefined;
+    }
+    return preloadActivityImage(imageUrl);
+  }, [imageUrl]);
+
   const whatsappHref = useMemo(
     () => (listing ? buildWhatsappHref(contact.whatsappUrl, listing, locale) : null),
     [contact.whatsappUrl, listing, locale],
@@ -120,7 +134,6 @@ export function ActivityDetailPage({
   const region = regionLabelForListing(locale, listing);
   const schedule = formatScheduleSnippet(locale, listing.schedule.weeklyEntries);
   const price = formatListingPrice(locale, listing);
-  const imageUrl = listingImageUrl(listing);
 
   return (
     <article className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
@@ -130,6 +143,10 @@ export function ActivityDetailPage({
             <img
               src={imageUrl}
               alt={title}
+              width={LISTING_IMAGE_WIDTH}
+              height={LISTING_IMAGE_HEIGHT}
+              decoding="async"
+              fetchPriority="high"
               className="h-full w-full object-cover"
             />
           ) : (

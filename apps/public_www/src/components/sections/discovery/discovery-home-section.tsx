@@ -114,6 +114,68 @@ export function DiscoveryHomeSection({ locale, copy }: DiscoveryHomeSectionProps
     imageFallback: copy.imageFallbackLabel,
   };
 
+  const carouselSections = useMemo(() => {
+    const sections: Array<{
+      readonly key: string;
+      readonly title: string;
+      readonly listings: readonly ActivityListing[];
+      readonly isLoading: boolean;
+    }> = [];
+
+    if (recentListings.length > 0) {
+      sections.push({
+        key: 'recent-search',
+        title: copy.continueSearchingTitle,
+        listings: recentListings,
+        isLoading: false,
+      });
+    }
+
+    if (viewedListings.length > 0) {
+      sections.push({
+        key: 'recently-viewed',
+        title: copy.recentlyViewedTitle,
+        listings: viewedListings,
+        isLoading: false,
+      });
+    }
+
+    sections.push({
+      key: 'popular',
+      title: copy.popularTitle,
+      listings: popularListings,
+      isLoading,
+    });
+
+    for (const [regionKey, regionListings] of regionGroups.entries()) {
+      const region = homeWizardChoices.regions.find(
+        (entry) => entry.areaId === regionKey,
+      );
+      const title = region
+        ? `${copy.nearRegionTitle} ${labelForLocale(region.labels, locale)}`
+        : copy.nearRegionTitle;
+      sections.push({
+        key: `region-${regionKey}`,
+        title,
+        listings: regionListings.slice(0, 12),
+        isLoading,
+      });
+    }
+
+    return sections;
+  }, [
+    copy.continueSearchingTitle,
+    copy.nearRegionTitle,
+    copy.popularTitle,
+    copy.recentlyViewedTitle,
+    isLoading,
+    locale,
+    popularListings,
+    recentListings,
+    regionGroups,
+    viewedListings,
+  ]);
+
   if (errorMessage) {
     return (
       <p className="mx-auto max-w-3xl px-4 py-12 text-center text-red-700">
@@ -124,49 +186,18 @@ export function DiscoveryHomeSection({ locale, copy }: DiscoveryHomeSectionProps
 
   return (
     <div className="bg-white">
-      {recentListings.length > 0 ? (
+      {carouselSections.map((section, sectionIndex) => (
         <ListingCarouselSection
+          key={section.key}
           locale={locale}
-          title={copy.continueSearchingTitle}
-          listings={recentListings}
-          isLoading={false}
+          title={section.title}
+          listings={section.listings}
+          isLoading={section.isLoading}
+          sectionIndex={sectionIndex}
+          isPrimaryCarousel={sectionIndex === 0}
           labels={cardLabels}
         />
-      ) : null}
-      {viewedListings.length > 0 ? (
-        <ListingCarouselSection
-          locale={locale}
-          title={copy.recentlyViewedTitle}
-          listings={viewedListings}
-          isLoading={false}
-          labels={cardLabels}
-        />
-      ) : null}
-      <ListingCarouselSection
-        locale={locale}
-        title={copy.popularTitle}
-        listings={popularListings}
-        isLoading={isLoading}
-        labels={cardLabels}
-      />
-      {[...regionGroups.entries()].map(([regionKey, regionListings]) => {
-        const region = homeWizardChoices.regions.find(
-          (entry) => entry.areaId === regionKey,
-        );
-        const title = region
-          ? `${copy.nearRegionTitle} ${labelForLocale(region.labels, locale)}`
-          : copy.nearRegionTitle;
-        return (
-          <ListingCarouselSection
-            key={regionKey}
-            locale={locale}
-            title={title}
-            listings={regionListings.slice(0, 12)}
-            isLoading={isLoading}
-            labels={cardLabels}
-          />
-        );
-      })}
+      ))}
     </div>
   );
 }
