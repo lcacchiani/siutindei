@@ -6,6 +6,7 @@ interface SiteContact {
 
 export interface SearchConfig {
   readonly stagingSearchDataEnabled: boolean;
+  readonly stagingSearchFixtureUrl: string;
   readonly apiBaseUrl: string;
   readonly apiKey: string;
   readonly attestationToken: string;
@@ -54,8 +55,22 @@ export function getSearchConfig(): SearchConfig {
   const stagingSearchDataEnabled = readBooleanEnv(
     'NEXT_PUBLIC_STAGING_SEARCH_DATA_ENABLED',
   );
+  const siteOrigin = readPublicEnv('NEXT_PUBLIC_SITE_ORIGIN').replace(
+    /\/$/,
+    '',
+  );
+  const explicitFixtureUrl = readPublicEnv(
+    'NEXT_PUBLIC_STAGING_SEARCH_FIXTURE_URL',
+  );
+  const stagingSearchFixtureUrl =
+    explicitFixtureUrl
+    || (stagingSearchDataEnabled && siteOrigin
+      ? `${siteOrigin}/fixtures/activity_search_staging.json`
+      : '');
+
   return {
     stagingSearchDataEnabled,
+    stagingSearchFixtureUrl,
     apiBaseUrl: readPublicEnv('NEXT_PUBLIC_SEARCH_API_BASE_URL'),
     apiKey: readPublicEnv('NEXT_PUBLIC_SEARCH_API_KEY'),
     attestationToken: readPublicEnv('NEXT_PUBLIC_DEVICE_ATTESTATION_TOKEN'),

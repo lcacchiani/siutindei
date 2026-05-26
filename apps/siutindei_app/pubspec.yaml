@@ -15,6 +15,7 @@ dependencies:
   amplify_api: ^2.11.0
   firebase_core: ^4.5.0
   firebase_app_check: ^0.4.4+1
+  http: ^1.6.0
 
 dev_dependencies:
   flutter_test:
@@ -25,4 +26,3 @@ flutter:
   uses-material-design: true
   assets:
     - assets/home_wizard/home_wizard_choices.json
-    - assets/fixtures/activity_search_staging.json

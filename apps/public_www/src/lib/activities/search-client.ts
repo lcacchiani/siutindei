@@ -109,7 +109,7 @@ export async function fetchActivitySearch(
 ): Promise<ActivitySearchResponse> {
   const config = getSearchConfig();
   if (config.stagingSearchDataEnabled) {
-    return fetchStagingActivitySearch(params);
+    return await fetchStagingActivitySearch(params);
   }
   if (!config.apiBaseUrl) {
     throw new Error('Search API is not configured.');

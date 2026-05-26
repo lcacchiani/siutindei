@@ -263,3 +263,9 @@ apps/siutindei_app/ios/ExportOptions.plist
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Staging search fixture copies (canonical: shared/fixtures/, synced at build)
+backend/fixtures/activity_search_staging.json
+apps/public_www/public/fixtures/activity_search_staging.json
+apps/public_www/src/data/activity_search_staging.json
+apps/siutindei_app/assets/fixtures/activity_search_staging.json

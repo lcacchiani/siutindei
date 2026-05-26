@@ -12,6 +12,13 @@ class AppAmplifyConfig {
     'STAGING_SEARCH_DATA_ENABLED',
   );
 
+  /// HTTPS URL of the staging search JSON (e.g. staging www
+  /// `/fixtures/activity_search_staging.json`). Required when
+  /// [stagingSearchDataEnabled] is true.
+  static const stagingSearchFixtureUrl = String.fromEnvironment(
+    'STAGING_SEARCH_FIXTURE_URL',
+  );
+
   static String requireJson() {
     if (json.isEmpty) {
       throw StateError('AMPLIFY_CONFIG is not set');

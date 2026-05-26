@@ -1,4 +1,4 @@
-import stagingFixture from '@/data/activity_search_staging.json';
+import { getSearchConfig, getSiteConfig } from '@/lib/site-config';
 
 import type {
   ActivityListing,
@@ -63,6 +63,50 @@ interface StagingFixture {
     readonly area_descendants: Record<string, string[]>;
   };
   readonly items: StagingFixtureItem[];
+}
+
+let cachedFixture: StagingFixture | null = null;
+let cachedFixtureUrl: string | null = null;
+
+/** Clears the in-memory fixture cache (for tests). */
+export function clearStagingFixtureCacheForTests(): void {
+  cachedFixture = null;
+  cachedFixtureUrl = null;
+}
+
+export function resolveStagingSearchFixtureUrl(): string {
+  const search = getSearchConfig();
+  if (search.stagingSearchFixtureUrl) {
+    return search.stagingSearchFixtureUrl;
+  }
+  const siteOrigin = getSiteConfig().siteOrigin.replace(/\/$/, '');
+  if (siteOrigin) {
+    return `${siteOrigin}/fixtures/activity_search_staging.json`;
+  }
+  return '';
+}
+
+async function loadStagingFixture(): Promise<StagingFixture> {
+  const url = resolveStagingSearchFixtureUrl();
+  if (!url) {
+    throw new Error('Staging search fixture URL is not configured.');
+  }
+  if (cachedFixture && cachedFixtureUrl === url) {
+    return cachedFixture;
+  }
+
+  const response = await fetch(url, {
+    headers: { Accept: 'application/json' },
+  });
+  if (!response.ok) {
+    throw new Error(
+      `Failed to load staging search fixture (${response.status}) from ${url}`,
+    );
+  }
+
+  cachedFixture = (await response.json()) as StagingFixture;
+  cachedFixtureUrl = url;
+  return cachedFixture;
 }
 
 function sortKey(item: StagingFixtureItem): [number, number, string] {
@@ -192,10 +236,10 @@ function encodeCursor(sort: StagingSortMeta): string {
   return btoa(payload).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
-export function fetchStagingActivitySearch(
+export async function fetchStagingActivitySearch(
   params: ActivitySearchParams,
-): ActivitySearchResponse {
-  const fixture = stagingFixture as StagingFixture;
+): Promise<ActivitySearchResponse> {
+  const fixture = await loadStagingFixture();
   const limit = params.limit ?? 50;
   const areaDescendants = fixture.meta.area_descendants ?? {};
 

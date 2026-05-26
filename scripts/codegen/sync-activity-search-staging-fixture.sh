@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
-# Sync canonical staging search fixture to consumer packages.
+# Copy canonical staging search fixture to build-time consumer paths.
+# Usage: sync-activity-search-staging-fixture.sh [all|backend|public-www]
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 SRC="${ROOT}/shared/fixtures/activity_search_staging.json"
+TARGET="${1:-all}"
 
 if [[ ! -f "${SRC}" ]]; then
   echo "Missing fixture: ${SRC}" >&2
@@ -11,14 +13,33 @@ if [[ ! -f "${SRC}" ]]; then
   exit 1
 fi
 
-DESTS=(
-  "${ROOT}/backend/fixtures/activity_search_staging.json"
-  "${ROOT}/apps/public_www/src/data/activity_search_staging.json"
-  "${ROOT}/apps/siutindei_app/assets/fixtures/activity_search_staging.json"
-)
-
-for dest in "${DESTS[@]}"; do
+sync_backend() {
+  local dest="${ROOT}/backend/fixtures/activity_search_staging.json"
   mkdir -p "$(dirname "${dest}")"
   cp "${SRC}" "${dest}"
   echo "Synced -> ${dest}"
-done
+}
+
+sync_public_www() {
+  local dest="${ROOT}/apps/public_www/public/fixtures/activity_search_staging.json"
+  mkdir -p "$(dirname "${dest}")"
+  cp "${SRC}" "${dest}"
+  echo "Synced -> ${dest}"
+}
+
+case "${TARGET}" in
+  all)
+    sync_backend
+    sync_public_www
+    ;;
+  backend)
+    sync_backend
+    ;;
+  public-www)
+    sync_public_www
+    ;;
+  *)
+    echo "Unknown target: ${TARGET} (use all, backend, or public-www)" >&2
+    exit 1
+    ;;
+esac

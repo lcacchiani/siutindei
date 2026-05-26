@@ -1,14 +1,13 @@
 import 'dart:convert';
 
-import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
 
+import '../config/amplify_config.dart';
 import '../models/activity_models.dart';
 
-/// Loads and queries the staging activity search JSON fixture.
+/// Loads and queries the staging activity search JSON fixture over HTTP.
 class StagingSearchService {
   StagingSearchService._();
-
-  static const _assetPath = 'assets/fixtures/activity_search_staging.json';
 
   static Map<String, dynamic>? _fixture;
 
@@ -16,8 +15,27 @@ class StagingSearchService {
     if (_fixture != null) {
       return _fixture!;
     }
-    final raw = await rootBundle.loadString(_assetPath);
-    _fixture = jsonDecode(raw) as Map<String, dynamic>;
+
+    final url = AppAmplifyConfig.stagingSearchFixtureUrl.trim();
+    if (url.isEmpty) {
+      throw StateError(
+        'STAGING_SEARCH_FIXTURE_URL is required when '
+        'STAGING_SEARCH_DATA_ENABLED=true',
+      );
+    }
+
+    final response = await http.get(
+      Uri.parse(url),
+      headers: const {'Accept': 'application/json'},
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw StateError(
+        'Failed to load staging search fixture (${response.statusCode}) '
+        'from $url',
+      );
+    }
+
+    _fixture = jsonDecode(response.body) as Map<String, dynamic>;
     return _fixture!;
   }
 

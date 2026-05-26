@@ -55,6 +55,11 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+        with:
+          lfs: true
+
+      - name: Sync staging search fixture for Lambda bundle
+        run: bash scripts/codegen/sync-activity-search-staging-fixture.sh backend
 
       - name: Set up Node.js
         uses: actions/setup-node@v6
