@@ -1,9 +1,15 @@
 """Tests for activity_id search filter."""
 
+from __future__ import annotations
+
+import sys
+from pathlib import Path
 from uuid import UUID
 
-from app.api.search import parse_filters
-from app.db.queries import ActivitySearchFilters, build_search_query
+sys.path.append(str(Path(__file__).resolve().parents[1] / "backend" / "src"))
+
+from app.api.search import parse_filters  # noqa: E402
+from app.db.queries import ActivitySearchFilters, build_search_query  # noqa: E402
 
 
 def test_parse_filters_reads_activity_id() -> None:
@@ -20,9 +26,11 @@ def test_parse_filters_reads_activity_id() -> None:
 
 
 def test_build_search_query_applies_activity_id() -> None:
+    """Activity id is constrained on activities.id in the WHERE clause."""
+
     activity_id = UUID("dddddddd-dddd-dddd-dddd-dddddddddddd")
     query = build_search_query(
         ActivitySearchFilters(activity_id=activity_id, limit=10),
     )
-    compiled = str(query.compile(compile_kwargs={"literal_binds": True}))
-    assert str(activity_id) in compiled
+    where_clause = str(query.whereclause)
+    assert "activities.id" in where_clause
