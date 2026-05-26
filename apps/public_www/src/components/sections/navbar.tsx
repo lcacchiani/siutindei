@@ -56,7 +56,7 @@ export function Navbar({ locale, content }: NavbarProps) {
             className="hidden border-t border-brand-50 pb-3 pt-2 lg:block"
             aria-label="Main"
           >
-            <ul className="flex flex-wrap items-center gap-1">
+            <ul role="list" className="flex flex-wrap items-center gap-1">
               {content.menuItems.map((item) => (
                 <li key={item.href}>
                   <Link

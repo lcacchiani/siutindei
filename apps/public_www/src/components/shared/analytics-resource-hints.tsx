@@ -13,17 +13,9 @@ export function AnalyticsResourceHints() {
 
   return (
     <>
-      {hasGtm ? (
-        <>
-          <link rel="preconnect" href={GTM_ORIGIN} />
-          <link rel="dns-prefetch" href={GTM_ORIGIN} />
-        </>
-      ) : null}
+      {hasGtm ? <link rel="preconnect" href={GTM_ORIGIN} /> : null}
       {hasMetaPixel ? (
-        <>
-          <link rel="preconnect" href={META_PIXEL_ORIGIN} />
-          <link rel="dns-prefetch" href={META_PIXEL_ORIGIN} />
-        </>
+        <link rel="preconnect" href={META_PIXEL_ORIGIN} />
       ) : null}
     </>
   );

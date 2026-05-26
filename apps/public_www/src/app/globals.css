@@ -37,6 +37,16 @@ body {
   scroll-snap-align: start;
 }
 
+.listing-card-deferred {
+  content-visibility: auto;
+  contain-intrinsic-size: auto none auto 360px;
+}
+
+.listing-section-deferred {
+  content-visibility: auto;
+  contain-intrinsic-size: auto none auto 420px;
+}
+
 .search-map-panel__canvas {
   position: relative;
   min-height: 320px;

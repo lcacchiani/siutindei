@@ -11,6 +11,11 @@ import {
 } from 'react';
 
 import type { Locale, NavbarContent } from '@/content';
+import {
+  getFocusableElements,
+  handleFocusTrapKeyDown,
+  setInertOnElements,
+} from '@/lib/focus-management';
 import { localizeHref } from '@/lib/locale-routing';
 
 interface NavbarMobileMenuProps {
@@ -18,13 +23,8 @@ interface NavbarMobileMenuProps {
   readonly content: NavbarContent;
 }
 
-function getFocusableElements(container: HTMLElement): HTMLElement[] {
-  return Array.from(
-    container.querySelectorAll<HTMLElement>(
-      'a[href], button:not([disabled])',
-    ),
-  );
-}
+const SCROLL_LOCK_CLASS = 'navbar-mobile-menu-scroll-lock';
+const INERT_TARGET_IDS = ['main-content', 'contact'] as const;
 
 export function NavbarMobileMenu({ locale, content }: NavbarMobileMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -45,21 +45,9 @@ export function NavbarMobileMenu({ locale, content }: NavbarMobileMenuProps) {
       return;
     }
 
-    const scrollLockClass = 'navbar-mobile-menu-scroll-lock';
-    const hadScrollLock = document.body.classList.contains(scrollLockClass);
-    document.body.classList.add(scrollLockClass);
-
-    const main = document.getElementById('main-content');
-    const footer = document.getElementById('contact');
-    const inertTargets = [main, footer].filter(
-      (element): element is HTMLElement => element instanceof HTMLElement,
-    );
-    const hadInert = inertTargets.map((element) =>
-      element.hasAttribute('inert'),
-    );
-    inertTargets.forEach((element) => {
-      element.setAttribute('inert', '');
-    });
+    const hadScrollLock = document.body.classList.contains(SCROLL_LOCK_CLASS);
+    document.body.classList.add(SCROLL_LOCK_CLASS);
+    const releaseInert = setInertOnElements(INERT_TARGET_IDS, true);
 
     const firstLink = panelRef.current?.querySelector<HTMLElement>('a[href]');
     firstLink?.focus();
@@ -71,25 +59,8 @@ export function NavbarMobileMenu({ locale, content }: NavbarMobileMenuProps) {
         return;
       }
 
-      if (event.key !== 'Tab' || !panelRef.current) {
-        return;
-      }
-
-      const focusables = getFocusableElements(panelRef.current);
-      if (focusables.length === 0) {
-        return;
-      }
-
-      const first = focusables[0];
-      const last = focusables[focusables.length - 1];
-      const active = document.activeElement;
-
-      if (event.shiftKey && active === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && active === last) {
-        event.preventDefault();
-        first.focus();
+      if (panelRef.current) {
+        handleFocusTrapKeyDown(event, panelRef.current);
       }
     };
 
@@ -97,15 +68,9 @@ export function NavbarMobileMenu({ locale, content }: NavbarMobileMenuProps) {
 
     return () => {
       if (!hadScrollLock) {
-        document.body.classList.remove(scrollLockClass);
+        document.body.classList.remove(SCROLL_LOCK_CLASS);
       }
-      inertTargets.forEach((element, index) => {
-        if (hadInert[index]) {
-          element.setAttribute('inert', '');
-        } else {
-          element.removeAttribute('inert');
-        }
-      });
+      releaseInert();
       document.removeEventListener('keydown', onKeyDown);
     };
   }, [isOpen, closeMenu]);

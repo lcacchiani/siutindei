@@ -3,6 +3,12 @@
 import type { ReactNode } from 'react';
 import { useEffect, useId, useRef } from 'react';
 
+import {
+  getFocusableElements,
+  handleFocusTrapKeyDown,
+  setInertOnElements,
+} from '@/lib/focus-management';
+
 interface ModalProps {
   readonly isOpen: boolean;
   readonly title: string;
@@ -10,28 +16,56 @@ interface ModalProps {
   readonly children: ReactNode;
 }
 
+const SCROLL_LOCK_CLASS = 'navbar-mobile-menu-scroll-lock';
+const INERT_TARGET_IDS = ['main-content', 'contact'] as const;
+
 export function Modal({ isOpen, title, onClose, children }: ModalProps) {
   const titleId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<Element | null>(null);
 
   useEffect(() => {
     if (!isOpen) {
       return;
     }
 
-    const scrollLockClass = 'navbar-mobile-menu-scroll-lock';
-    document.body.classList.add(scrollLockClass);
+    triggerRef.current = document.activeElement;
+
+    const hadScrollLock = document.body.classList.contains(SCROLL_LOCK_CLASS);
+    document.body.classList.add(SCROLL_LOCK_CLASS);
+    const releaseInert = setInertOnElements(INERT_TARGET_IDS, true);
+
+    const contentRoot = panelRef.current?.querySelector<HTMLElement>(
+      '[data-modal-body]',
+    );
+    const focusTarget = contentRoot
+      ? getFocusableElements(contentRoot)[0]
+      : panelRef.current
+        ? getFocusableElements(panelRef.current)[0]
+        : undefined;
+    focusTarget?.focus();
 
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === 'Escape') {
         onClose();
+        return;
+      }
+
+      if (panelRef.current) {
+        handleFocusTrapKeyDown(event, panelRef.current);
       }
     }
 
     document.addEventListener('keydown', handleKeyDown);
     return () => {
-      document.body.classList.remove(scrollLockClass);
+      if (!hadScrollLock) {
+        document.body.classList.remove(SCROLL_LOCK_CLASS);
+      }
+      releaseInert();
       document.removeEventListener('keydown', handleKeyDown);
+      if (triggerRef.current instanceof HTMLElement) {
+        triggerRef.current.focus();
+      }
     };
   }, [isOpen, onClose]);
 
@@ -67,7 +101,9 @@ export function Modal({ isOpen, title, onClose, children }: ModalProps) {
             ×
           </button>
         </div>
-        <div className="overflow-y-auto px-4 py-4">{children}</div>
+        <div data-modal-body className="overflow-y-auto px-4 py-4">
+          {children}
+        </div>
       </div>
     </div>
   );
