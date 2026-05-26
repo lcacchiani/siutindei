@@ -20,7 +20,7 @@ from app.api.schemas import (
     ScheduleEntrySchema,
     ScheduleSchema,
 )
-from app.db.queries import ActivitySearchCursor, ActivitySearchFilters, validate_filters
+from app.db.queries import ActivitySearchFilters, validate_filters
 
 _FIXTURE_CACHE: dict[str, Any] | None = None
 
