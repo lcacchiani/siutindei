@@ -6,6 +6,7 @@ import '../config/amplify_config.dart';
 import '../models/activity_models.dart';
 import 'auth_service.dart';
 import 'device_attestation_service.dart';
+import 'staging_search_service.dart';
 
 class ApiService {
   ApiService(this._authService, this._deviceAttestationService);
@@ -14,6 +15,10 @@ class ApiService {
   final DeviceAttestationService _deviceAttestationService;
 
   Future<ActivitySearchResponse> searchActivities(ActivitySearchFilters filters) async {
+    if (AppAmplifyConfig.stagingSearchDataEnabled) {
+      return StagingSearchService.searchActivities(filters);
+    }
+
     final tokens = await _authService.tryGetTokens();
     final headers = <String, String>{};
     if (tokens != null) {

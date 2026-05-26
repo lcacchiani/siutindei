@@ -84,8 +84,19 @@ Source: [`apps/public_www`](../../apps/public_www).
   `/v1/activities/search`).
 - **Search & detail:** `/[locale]/search/` (results grid + map panel) and
   `/[locale]/activity/?id=<uuid>` (detail + WhatsApp CTA). Search uses browser-side
-  `fetch` to `NEXT_PUBLIC_SEARCH_API_BASE_URL`; CSP `connect-src` includes that
-  origin when set at build time (`scripts/inject-csp-meta.mjs`).
+  `fetch` to `NEXT_PUBLIC_SEARCH_API_BASE_URL` unless
+  `NEXT_PUBLIC_STAGING_SEARCH_DATA_ENABLED=true`, in which case listings are
+  loaded at runtime from
+  `{NEXT_PUBLIC_SITE_ORIGIN}/fixtures/activity_search_staging.json` (static
+  file copied from `shared/fixtures/` during the staging deploy build; canonical
+  source is Git LFS). Controlled only on the **staging** public website build
+  via GitHub Environment variable `STAGING_SEARCH_DATA_ENABLED` (defaults to
+  `true` when unset). Production promote always sets
+  `NEXT_PUBLIC_STAGING_SEARCH_DATA_ENABLED=false` and uses the live search API
+  / Aurora. Optional override on staging:
+  `NEXT_PUBLIC_STAGING_SEARCH_FIXTURE_URL`.
+  CSP `connect-src` includes the API origin only when that URL is set at build
+  time (`scripts/inject-csp-meta.mjs`).
 - **SEO:** `buildLocalizedMetadata` (canonical, hreflang). Optional GTM /
   Meta Pixel via `NEXT_PUBLIC_GTM_ID` / `NEXT_PUBLIC_META_PIXEL_ID` and
   host allow-lists; CSP `script-src` / `connect-src` extended at build time

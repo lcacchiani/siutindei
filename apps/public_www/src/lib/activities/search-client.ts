@@ -1,3 +1,4 @@
+import { fetchStagingActivitySearch } from '@/lib/activities/staging-search';
 import { getSearchConfig } from '@/lib/site-config';
 
 import type {
@@ -107,6 +108,9 @@ export async function fetchActivitySearch(
   params: ActivitySearchParams,
 ): Promise<ActivitySearchResponse> {
   const config = getSearchConfig();
+  if (config.stagingSearchDataEnabled) {
+    return await fetchStagingActivitySearch(params);
+  }
   if (!config.apiBaseUrl) {
     throw new Error('Search API is not configured.');
   }

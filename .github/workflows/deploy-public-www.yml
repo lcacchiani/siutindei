@@ -27,6 +27,11 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+        with:
+          lfs: true
+
+      - name: Sync staging search fixture for static hosting
+        run: bash scripts/codegen/sync-activity-search-staging-fixture.sh public-www
 
       - name: Resolve public site build config from infrastructure params
         id: resolve_public_site_config
@@ -77,6 +82,9 @@ jobs:
           NEXT_PUBLIC_WHATSAPP_URL: ${{ vars.NEXT_PUBLIC_WHATSAPP_URL }}
           NEXT_PUBLIC_INSTAGRAM_URL: ${{ vars.NEXT_PUBLIC_INSTAGRAM_URL }}
           NEXT_PUBLIC_STAGING_BADGE_ENABLED: 'true'
+          # Staging Environment var only (ignored on production promote).
+          NEXT_PUBLIC_STAGING_SEARCH_DATA_ENABLED: ${{ vars.STAGING_SEARCH_DATA_ENABLED || 'true' }}
+          NEXT_PUBLIC_STAGING_SEARCH_FIXTURE_URL: ${{ vars.NEXT_PUBLIC_STAGING_SEARCH_FIXTURE_URL }}
 
       - name: Configure AWS credentials
         if: ${{ vars.AWS_ACCOUNT_ID != '' && vars.AWS_REGION != '' }}

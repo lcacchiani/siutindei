@@ -123,7 +123,15 @@ def parse_filters(event: Mapping[str, Any]) -> ActivitySearchFilters:
 def fetch_search_response(
     filters: ActivitySearchFilters,
 ) -> ActivitySearchResponseSchema:
-    """Fetch search response from the database."""
+    """Fetch search response from the database or staging fixture."""
+
+    from app.services.staging_search_store import (
+        fetch_staging_search_response,
+        staging_search_data_enabled,
+    )
+
+    if staging_search_data_enabled():
+        return fetch_staging_search_response(filters)
 
     engine = get_engine()
     requested_limit = filters.limit

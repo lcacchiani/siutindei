@@ -352,12 +352,22 @@ class Schedule {
 
   factory Schedule.fromJson(Map<String, dynamic> json) {
     final languagesJson = json['languages'] as List<dynamic>? ?? [];
+    var dayOfWeekUtc = json['day_of_week_utc'] as int?;
+    var startMinutesUtc = json['start_minutes_utc'] as int?;
+    var endMinutesUtc = json['end_minutes_utc'] as int?;
+    final weeklyEntries = json['weekly_entries'] as List<dynamic>? ?? [];
+    if (weeklyEntries.isNotEmpty) {
+      final first = weeklyEntries.first as Map<String, dynamic>;
+      dayOfWeekUtc = first['day_of_week_utc'] as int?;
+      startMinutesUtc = first['start_minutes_utc'] as int?;
+      endMinutesUtc = first['end_minutes_utc'] as int?;
+    }
     return Schedule(
       scheduleType: json['schedule_type'] as String,
-      dayOfWeekUtc: json['day_of_week_utc'] as int?,
+      dayOfWeekUtc: dayOfWeekUtc,
       dayOfMonth: json['day_of_month'] as int?,
-      startMinutesUtc: json['start_minutes_utc'] as int?,
-      endMinutesUtc: json['end_minutes_utc'] as int?,
+      startMinutesUtc: startMinutesUtc,
+      endMinutesUtc: endMinutesUtc,
       startAtUtc: json['start_at_utc'] as String?,
       endAtUtc: json['end_at_utc'] as String?,
       languages: languagesJson.map((e) => e as String).toList(),

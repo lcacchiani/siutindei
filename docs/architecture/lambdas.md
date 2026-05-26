@@ -24,7 +24,11 @@ their primary responsibilities.
 - Trigger: API Gateway `GET /v1/activities/search`
 - Auth: API key + device attestation authorizer
 - Purpose: public activity search with cursor pagination
-- DB access: RDS Proxy with IAM auth (`activities_app`)
+- DB access: RDS Proxy with IAM auth (`activities_app`). Production always
+  queries Aurora (`STAGING_SEARCH_DATA_ENABLED=false` on the Lambda).
+- Environment:
+  - `STAGING_SEARCH_DATA_ENABLED` (always `false` in deployed stacks)
+  - `STAGING_SEARCH_DATA_PATH` (bundled fixture path; unused when disabled)
 
 ### Admin API
 - Function: SiutindeiAdminFunction
