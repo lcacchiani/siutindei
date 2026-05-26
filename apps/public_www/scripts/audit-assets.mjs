@@ -7,6 +7,8 @@ import path from 'node:path';
 const PUBLIC_DIR = path.resolve('public');
 const MAX_BYTES_PER_FILE = 5 * 1024 * 1024;
 const FORBIDDEN_EXTENSIONS = new Set(['.exe', '.bat', '.sh', '.dmg']);
+/** Generated at build time; not a committed static asset (see sync script). */
+const SIZE_CHECK_IGNORE = new Set(['fixtures/activity_search_staging.json']);
 
 async function* walk(dir) {
   const entries = await fs.readdir(dir, { withFileTypes: true });
@@ -33,6 +35,7 @@ async function main() {
   let count = 0;
 
   for await (const filePath of walk(PUBLIC_DIR)) {
+    const relativePath = path.relative(PUBLIC_DIR, filePath);
     const stats = await fs.stat(filePath);
     totalBytes += stats.size;
     count += 1;
@@ -41,7 +44,10 @@ async function main() {
     if (FORBIDDEN_EXTENSIONS.has(ext)) {
       failures.push(`${filePath}: forbidden extension ${ext}`);
     }
-    if (stats.size > MAX_BYTES_PER_FILE) {
+    if (
+      !SIZE_CHECK_IGNORE.has(relativePath)
+      && stats.size > MAX_BYTES_PER_FILE
+    ) {
       failures.push(
         `${filePath}: ${(stats.size / 1024 / 1024).toFixed(1)}MB exceeds ` +
           `${MAX_BYTES_PER_FILE / 1024 / 1024}MB cap`,
