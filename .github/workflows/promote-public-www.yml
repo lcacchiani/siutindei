@@ -130,8 +130,7 @@ jobs:
           NEXT_PUBLIC_WHATSAPP_URL: ${{ vars.NEXT_PUBLIC_WHATSAPP_URL }}
           NEXT_PUBLIC_INSTAGRAM_URL: ${{ vars.NEXT_PUBLIC_INSTAGRAM_URL }}
           NEXT_PUBLIC_STAGING_BADGE_ENABLED: 'false'
-          NEXT_PUBLIC_STAGING_SEARCH_DATA_ENABLED: ${{ vars.STAGING_SEARCH_DATA_ENABLED || 'false' }}
-          NEXT_PUBLIC_STAGING_SEARCH_FIXTURE_URL: ${{ vars.NEXT_PUBLIC_STAGING_SEARCH_FIXTURE_URL }}
+          NEXT_PUBLIC_STAGING_SEARCH_DATA_ENABLED: 'false'
 
       - name: Promote release or enable maintenance mode
         run: bash 'scripts/deploy/deploy-public-www.sh'
