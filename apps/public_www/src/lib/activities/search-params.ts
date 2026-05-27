@@ -1,5 +1,7 @@
 import { homeWizardChoices } from '@/lib/home-wizard/choices';
 
+export type SearchViewMode = 'list' | 'map';
+
 export interface SearchFiltersState {
   readonly ageGroupId: string | null;
   readonly regionId: string | null;
@@ -68,7 +70,16 @@ export function parseSearchFiltersFromQuery(
   };
 }
 
-export function buildSearchQueryString(filters: SearchFiltersState): string {
+export function parseSearchViewMode(
+  searchParams: URLSearchParams,
+): SearchViewMode {
+  return searchParams.get('view') === 'map' ? 'map' : 'list';
+}
+
+export function buildSearchQueryString(
+  filters: SearchFiltersState,
+  options?: { readonly view?: SearchViewMode },
+): string {
   const params = new URLSearchParams();
   if (filters.ageGroupId) {
     params.set('age', filters.ageGroupId);
@@ -81,6 +92,9 @@ export function buildSearchQueryString(filters: SearchFiltersState): string {
   }
   if (filters.textQuery.trim()) {
     params.set('q', filters.textQuery.trim());
+  }
+  if (options?.view === 'map') {
+    params.set('view', 'map');
   }
   return params.toString();
 }

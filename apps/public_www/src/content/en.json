@@ -21,7 +21,8 @@
       "search": "Search activities",
       "anywhere": "All Hong Kong",
       "anyAge": "Any age",
-      "anyType": "All types"
+      "anyType": "All types",
+      "openMapForAreaLabel": "Show activities on map for"
     },
     "searchPanel": {
       "title": "Search activities",
@@ -126,6 +127,7 @@
     "nearRegionTitle": "Activities in",
     "freeTrialLabel": "Free trial",
     "imageFallbackLabel": "Photo coming soon",
+    "mapAltLabel": "Map location",
     "errorLabel": "Unable to load activities.",
     "carousel": {
       "previousLabel": "Previous activities",
@@ -141,6 +143,10 @@
     "emptyLabel": "No activities match your search. Try different filters.",
     "errorLabel": "Unable to load activities.",
     "mapEmptyLabel": "No map locations for these results.",
+    "mapUnavailableLabel": "Google Maps is not configured for this environment.",
+    "mapAriaLabel": "Activity locations on Google Maps",
+    "loadingMapLabel": "Loading map...",
+    "mapAltLabel": "Map location",
     "freeTrialLabel": "Free trial",
     "imageFallbackLabel": "Photo coming soon"
   },

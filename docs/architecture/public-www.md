@@ -82,9 +82,13 @@ Source: [`apps/public_www`](../../apps/public_www).
   The home route renders `DiscoveryHomePage` (Airbnb-style discovery: sticky
   search header, category chips, horizontal listing carousels fed by
   `/v1/activities/search`).
-- **Search & detail:** `/[locale]/search/` (results grid + map panel) and
-  `/[locale]/activity/?id=<uuid>` (detail + WhatsApp CTA). Search uses browser-side
-  `fetch` to `NEXT_PUBLIC_SEARCH_API_BASE_URL` unless
+- **Search & detail:** `/[locale]/search/` (results grid, or `?view=map` for a
+  50/50 list + Google Maps split) and `/[locale]/activity/?id=<uuid>` (detail +
+  WhatsApp CTA). Optional `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` enables Static Maps
+  on listing cards, map markers on the split view, and CSP entries for
+  `maps.googleapis.com` / `maps.gstatic.com`. The search bar **area** label links
+  to the map split for the selected region. Search uses browser-side `fetch` to
+  `NEXT_PUBLIC_SEARCH_API_BASE_URL` unless
   `NEXT_PUBLIC_STAGING_SEARCH_DATA_ENABLED=true`, in which case listings are
   loaded at runtime from
   `{NEXT_PUBLIC_SITE_ORIGIN}/fixtures/activity_search_staging.json` (static

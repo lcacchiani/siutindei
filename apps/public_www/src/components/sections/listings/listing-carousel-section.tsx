@@ -23,6 +23,7 @@ interface ListingCarouselSectionProps {
     readonly next: string;
     readonly freeTrial: string;
     readonly imageFallback: string;
+    readonly mapAlt: string;
   };
 }
 
@@ -67,6 +68,7 @@ export function ListingCarouselSection({
                       listing={listing}
                       freeTrialLabel={labels.freeTrial}
                       imageAltFallback={labels.imageFallback}
+                      mapAltLabel={labels.mapAlt}
                       imageLoading={imageProps.imageLoading}
                       imageFetchPriority={imageProps.imageFetchPriority}
                     />

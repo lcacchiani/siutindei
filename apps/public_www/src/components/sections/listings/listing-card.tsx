@@ -4,6 +4,7 @@ import Link from 'next/link';
 
 import type { Locale } from '@/content';
 import type { ActivityListing } from '@/lib/activities/types';
+import { regionIdForListing } from '@/lib/activities/map-search-url';
 import {
   formatListingPrice,
   formatScheduleSnippet,
@@ -12,6 +13,9 @@ import {
   listingTitle,
   regionLabelForListing,
 } from '@/lib/activities/listing-utils';
+import { useSearchContext } from '@/components/shared/search/search-context';
+import { RegionMapLink } from '@/components/shared/search/region-map-link';
+import { ListingCardMiniMap } from '@/components/sections/listings/listing-card-mini-map';
 import {
   LISTING_IMAGE_HEIGHT,
   LISTING_IMAGE_WIDTH,
@@ -23,6 +27,7 @@ interface ListingCardProps {
   readonly listing: ActivityListing;
   readonly freeTrialLabel: string;
   readonly imageAltFallback: string;
+  readonly mapAltLabel: string;
   readonly layout?: 'carousel' | 'grid';
   readonly imageLoading?: 'lazy' | 'eager';
   readonly imageFetchPriority?: 'high' | 'low';
@@ -34,11 +39,13 @@ export function ListingCard({
   listing,
   freeTrialLabel,
   imageAltFallback,
+  mapAltLabel,
   layout = 'carousel',
   imageLoading = 'lazy',
   imageFetchPriority,
   deferRendering = false,
 }: ListingCardProps) {
+  const { filters } = useSearchContext();
   const widthClassName =
     layout === 'grid' ? 'w-full' : 'w-[280px] shrink-0 sm:w-[300px]';
   const deferClassName = deferRendering ? 'listing-card-deferred' : '';
@@ -47,6 +54,7 @@ export function ListingCard({
   const title = listingTitle(locale, listing);
   const orgName = listingOrgName(locale, listing);
   const region = regionLabelForListing(locale, listing);
+  const regionId = regionIdForListing(listing);
   const schedule = formatScheduleSnippet(locale, listing.schedule.weeklyEntries);
   const price = formatListingPrice(locale, listing);
 
@@ -79,13 +87,30 @@ export function ListingCard({
               {freeTrialLabel}
             </span>
           ) : null}
+          <ListingCardMiniMap
+            locale={locale}
+            listing={listing}
+            mapAltLabel={mapAltLabel}
+          />
         </div>
         <div className="mt-3 space-y-1">
           <h3 className="line-clamp-2 text-[15px] font-semibold text-ink-900">
             {title}
           </h3>
           <p className="text-sm text-ink-500">
-            {[orgName, region, schedule].filter(Boolean).join(' · ')}
+            {orgName}
+            {orgName && (region || schedule) ? ' · ' : ''}
+            {region && regionId ? (
+              <RegionMapLink
+                locale={locale}
+                label={region}
+                filters={filters}
+                regionId={regionId}
+              />
+            ) : (
+              region
+            )}
+            {schedule ? ` · ${schedule}` : ''}
           </p>
           <p className="text-sm font-semibold text-ink-900">
             <span>{price}</span>

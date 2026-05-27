@@ -4,6 +4,7 @@ import {
   buildSearchQueryString,
   categoryIdsForTypes,
   parseSearchFiltersFromQuery,
+  parseSearchViewMode,
 } from '@/lib/activities/search-params';
 
 describe('search-params', () => {
@@ -22,6 +23,11 @@ describe('search-params', () => {
     expect(parsed.regionId).toBe('kowloon');
     expect(parsed.activityTypeIds).toEqual(['workshop', 'class']);
     expect(parsed.textQuery).toBe('music');
+  });
+
+  it('parses map view mode from the query string', () => {
+    const params = new URLSearchParams('view=map');
+    expect(parseSearchViewMode(params)).toBe('map');
   });
 
   it('maps activity types to category ids', () => {

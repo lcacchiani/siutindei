@@ -21,7 +21,8 @@
       "search": "搜尋活動",
       "anywhere": "全港",
       "anyAge": "任何年齡",
-      "anyType": "所有類型"
+      "anyType": "所有類型",
+      "openMapForAreaLabel": "在地圖上顯示"
     },
     "searchPanel": {
       "title": "搜尋活動",
@@ -126,6 +127,7 @@
     "nearRegionTitle": "活動 —",
     "freeTrialLabel": "免費試堂",
     "imageFallbackLabel": "相片稍後提供",
+    "mapAltLabel": "地圖位置",
     "errorLabel": "無法載入活動。",
     "carousel": {
       "previousLabel": "上一組活動",
@@ -141,6 +143,10 @@
     "emptyLabel": "沒有符合的活動，請嘗試其他篩選。",
     "errorLabel": "無法載入活動。",
     "mapEmptyLabel": "這些結果沒有地圖位置。",
+    "mapUnavailableLabel": "此環境未設定 Google Maps。",
+    "mapAriaLabel": "Google 地圖上的活動位置",
+    "loadingMapLabel": "載入地圖中...",
+    "mapAltLabel": "地圖位置",
     "freeTrialLabel": "免費試堂",
     "imageFallbackLabel": "相片稍後提供"
   },

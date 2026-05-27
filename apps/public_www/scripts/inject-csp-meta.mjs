@@ -26,6 +26,11 @@ const GTM_CONNECT_ORIGINS = [
 ];
 const META_PIXEL_SCRIPT_ORIGINS = ['https://connect.facebook.net'];
 const META_PIXEL_CONNECT_ORIGINS = ['https://www.facebook.com'];
+const GOOGLE_MAPS_SCRIPT_ORIGINS = ['https://maps.googleapis.com'];
+const GOOGLE_MAPS_CONNECT_ORIGINS = [
+  'https://maps.googleapis.com',
+  'https://maps.gstatic.com',
+];
 
 /**
  * @param {string[]} inlineScriptHashes
@@ -55,6 +60,14 @@ function buildCspDirectives(inlineScriptHashes) {
   if (hasMetaPixel) {
     scriptSources.push(...META_PIXEL_SCRIPT_ORIGINS);
     connectSources.push(...META_PIXEL_CONNECT_ORIGINS);
+  }
+
+  const hasGoogleMaps = Boolean(
+    process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY?.trim(),
+  );
+  if (hasGoogleMaps) {
+    scriptSources.push(...GOOGLE_MAPS_SCRIPT_ORIGINS);
+    connectSources.push(...GOOGLE_MAPS_CONNECT_ORIGINS);
   }
 
   return [

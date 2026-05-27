@@ -112,6 +112,7 @@ export function DiscoveryHomeSection({ locale, copy }: DiscoveryHomeSectionProps
     next: copy.carousel.nextLabel,
     freeTrial: copy.freeTrialLabel,
     imageFallback: copy.imageFallbackLabel,
+    mapAlt: copy.mapAltLabel,
   };
 
   const carouselSections = useMemo(() => {
