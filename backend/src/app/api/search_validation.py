@@ -59,11 +59,7 @@ def validate_search_query_params(
     if price_max is not None and price_max < 0:
         raise ValidationError("price_max must be >= 0", field="price_max")
 
-    if (
-        price_min is not None
-        and price_max is not None
-        and price_min > price_max
-    ):
+    if price_min is not None and price_max is not None and price_min > price_max:
         raise ValidationError(
             "price_min must be less than or equal to price_max",
             field="price_min",
