@@ -1830,15 +1830,14 @@ export class ApiStack extends cdk.Stack {
         loggingLevel: apigateway.MethodLoggingLevel.INFO,
         dataTraceEnabled: false,
         tracingEnabled: true,
-        cacheClusterEnabled: true,
-        cacheClusterSize: "0.5",
-        cacheDataEncrypted: true,
-        methodOptions: {
-          "/v1/activities/search/GET": {
-            cachingEnabled: true,
-            cacheTtl: cdk.Duration.minutes(5),
-          },
-        },
+        // Response caching for the public search endpoint has been moved to the
+        // CloudFront edge (see PublicWwwStack `/v1/activities/search` behavior).
+        // The API Gateway stage cache cluster is a fixed hourly charge
+        // (0.5 GB ≈ $0.028/hr ≈ $20/mo) regardless of traffic, which dominated
+        // the API Gateway bill while serving only this one low-traffic method.
+        // CloudFront caching is usage-based and falls within the always-free
+        // tier at current volumes, so the cluster is disabled here.
+        cacheClusterEnabled: false,
       },
     });
     api.deploymentStage.node.addDependency(apiAccessLogGroupRetention);
