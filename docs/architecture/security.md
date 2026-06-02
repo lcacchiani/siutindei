@@ -138,6 +138,28 @@ const deviceAttestationFailClosed = new cdk.CfnParameter(
 );
 ```
 
+### Edge caching of the public search endpoint
+
+`GET /v1/activities/search` is cached at the CloudFront edge via the
+public-website distribution (see
+[`public-www.md`](./public-www.md#search-api-edge-caching)). On a cache **hit**,
+CloudFront serves the response without re-invoking the origin, so the
+per-request `x-api-key` and `x-device-attestation` checks are **not** enforced
+for cached entries. This is acceptable because:
+
+- These controls are **anti-abuse / rate-limiting**, not data protection — the
+  search results are public.
+- Only the exact `/v1/activities/search` path is proxied; admin endpoints
+  (`/v1/admin/*`) are never reachable through the website domain.
+- Edge abuse protection is provided by the CloudFront WAF WebACL.
+- On a cache **miss**, the request is forwarded to the API Gateway origin with
+  the auth headers intact, where the device-attestation authorizer and API key
+  are enforced as normal.
+
+The cache key includes all query strings but **no** request headers, so a
+single cached response is shared across callers (no per-token cache
+fragmentation, no leakage of caller-specific data).
+
 ---
 
 ## API Security

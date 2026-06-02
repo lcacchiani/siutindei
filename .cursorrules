@@ -108,7 +108,9 @@ repo root
 - Never call boto3 cognito-idp directly from in-VPC Lambdas; always use the proxy.
 - Search responses use cursor pagination.
 - Flutter uses Amplify config passed via dart-define.
-- API Gateway caching enabled for search.
+- Public search caching is at the CloudFront edge (public-www distribution
+ `/v1/activities/search` behavior); the API Gateway stage cache cluster is
+ disabled.
 - Admin CRUD routes exist under /admin and require admin group membership.
 - Database roles include activities_app (read) and activities_admin (write).
 - Admin group is created by CDK.

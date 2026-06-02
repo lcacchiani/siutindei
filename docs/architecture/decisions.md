@@ -146,7 +146,11 @@ parallel environments (production + staging) inside a single CDK stack
 - Hosted UI uses OAuth code flow with callback/logout URLs supplied via CDK
   parameters.
 - API keys are rotated every 90 days by a scheduled Lambda.
-- API Gateway method caching enabled for search responses (5-minute TTL).
+- Public search responses are cached at the CloudFront edge (5-minute TTL) via
+  the public-website distribution's `/v1/activities/search` behavior; the API
+  Gateway stage cache cluster is disabled. CloudFront caching is usage-based
+  (within the free tier at current volumes), whereas the API Gateway cache
+  cluster was a fixed hourly charge that dominated the API Gateway bill.
 - See the OpenAPI specs for per-endpoint authentication requirements:
   [`docs/api/admin.yaml`](../api/admin.yaml).
 
