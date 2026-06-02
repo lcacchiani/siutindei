@@ -4,9 +4,8 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
-from botocore.exceptions import ClientError
-
-from app.services.aws_clients import get_cognito_idp_client
+from app.services.aws_proxy import AwsProxyError
+from app.services.aws_proxy import invoke as aws_proxy
 from app.utils.cfn_response import send_cfn_response
 from app.utils.logging import configure_logging, get_logger
 from app.utils.logging import hash_for_correlation, mask_email
@@ -52,9 +51,7 @@ def lambda_handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
         if request_type not in {"Create", "Update"}:
             raise ValueError("Unsupported request type")
 
-        client = get_cognito_idp_client()
         _create_or_update_user(
-            client,
             user_pool_id,
             email,
             temp_password,
@@ -62,7 +59,6 @@ def lambda_handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
             user_ref,
         )
         _set_user_password(
-            client,
             user_pool_id,
             email,
             temp_password,
@@ -70,7 +66,6 @@ def lambda_handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
             user_ref,
         )
         _add_user_to_group(
-            client,
             user_pool_id,
             email,
             group_name,
@@ -99,8 +94,12 @@ def lambda_handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
         return {"PhysicalResourceId": physical_id, "Data": data}
 
 
+def _cognito(action: str, **params: Any) -> dict[str, Any]:
+    """Call Cognito IDP via the out-of-VPC AWS proxy Lambda."""
+    return aws_proxy("cognito-idp", action, params)
+
+
 def _create_or_update_user(
-    client: Any,
     user_pool_id: str,
     email: str,
     temp_password: str,
@@ -108,7 +107,8 @@ def _create_or_update_user(
     user_ref: str,
 ) -> None:
     try:
-        client.admin_create_user(
+        _cognito(
+            "admin_create_user",
             UserPoolId=user_pool_id,
             Username=email,
             TemporaryPassword=temp_password,
@@ -122,16 +122,16 @@ def _create_or_update_user(
             "Admin user created",
             extra={"user": masked_email, "user_ref": user_ref},
         )
-    except ClientError as exc:
-        error_code = exc.response.get("Error", {}).get("Code")
-        if error_code != "UsernameExistsException":
+    except AwsProxyError as exc:
+        if exc.code != "UsernameExistsException":
             logger.error(
                 "Failed to create admin user",
                 extra={"user": masked_email, "user_ref": user_ref},
                 exc_info=True,
             )
             raise
-        client.admin_update_user_attributes(
+        _cognito(
+            "admin_update_user_attributes",
             UserPoolId=user_pool_id,
             Username=email,
             UserAttributes=[
@@ -146,14 +146,14 @@ def _create_or_update_user(
 
 
 def _set_user_password(
-    client: Any,
     user_pool_id: str,
     email: str,
     temp_password: str,
     masked_email: str,
     user_ref: str,
 ) -> None:
-    client.admin_set_user_password(
+    _cognito(
+        "admin_set_user_password",
         UserPoolId=user_pool_id,
         Username=email,
         Password=temp_password,
@@ -166,14 +166,14 @@ def _set_user_password(
 
 
 def _add_user_to_group(
-    client: Any,
     user_pool_id: str,
     email: str,
     group_name: str,
     masked_email: str,
     user_ref: str,
 ) -> None:
-    client.admin_add_user_to_group(
+    _cognito(
+        "admin_add_user_to_group",
         UserPoolId=user_pool_id,
         Username=email,
         GroupName=group_name,

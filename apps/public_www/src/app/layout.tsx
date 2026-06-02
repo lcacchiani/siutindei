@@ -6,17 +6,23 @@ import { AnalyticsResourceHints } from '@/components/shared/analytics-resource-h
 import { GoogleTagManager } from '@/components/shared/google-tag-manager';
 import { MetaPixel } from '@/components/shared/meta-pixel';
 import enContent from '@/content/en.json';
-import { getSiteConfig } from '@/lib/site-config';
+import {
+  getGtmAllowedHosts,
+  getGtmId,
+  getMetaPixelAllowedHosts,
+  getMetaPixelId,
+  getSiteConfig,
+} from '@/lib/site-config';
 import { getSiteHost, getSiteOrigin } from '@/lib/seo';
 import './globals.css';
 
-const GTM_ID = process.env.NEXT_PUBLIC_GTM_ID || '';
-const META_PIXEL_ID = process.env.NEXT_PUBLIC_META_PIXEL_ID || '';
+const GTM_ID = getGtmId();
+const META_PIXEL_ID = getMetaPixelId();
 const rootShellContent = enContent.common.shell;
 
 function resolveGtmAllowedHosts(): string {
-  const configuredHosts = process.env.NEXT_PUBLIC_GTM_ALLOWED_HOSTS;
-  if (!configuredHosts || configuredHosts.trim() === '') {
+  const configuredHosts = getGtmAllowedHosts();
+  if (configuredHosts === '') {
     return getSiteHost();
   }
 
@@ -24,8 +30,8 @@ function resolveGtmAllowedHosts(): string {
 }
 
 function resolveMetaPixelAllowedHosts(): string {
-  const configuredHosts = process.env.NEXT_PUBLIC_META_PIXEL_ALLOWED_HOSTS;
-  if (!configuredHosts || configuredHosts.trim() === '') {
+  const configuredHosts = getMetaPixelAllowedHosts();
+  if (configuredHosts === '') {
     return getSiteHost();
   }
 

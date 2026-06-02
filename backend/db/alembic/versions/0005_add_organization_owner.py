@@ -27,7 +27,7 @@ def _get_fallback_owner_sub() -> str:
     Raises:
         RuntimeError: If the user cannot be found or required env vars are not set.
     """
-    import boto3
+    from app.services.aws_proxy import invoke as aws_proxy
 
     user_pool_id = os.environ.get("COGNITO_USER_POOL_ID")
     if not user_pool_id:
@@ -42,13 +42,14 @@ def _get_fallback_owner_sub() -> str:
             "Set it in the FallbackOwnerEmail parameter in production.json."
         )
 
-    client = boto3.client("cognito-idp")
-
-    # Find user by email
-    response = client.list_users(
-        UserPoolId=user_pool_id,
-        Filter=f'email = "{fallback_owner_email}"',
-        Limit=1,
+    response = aws_proxy(
+        "cognito-idp",
+        "list_users",
+        {
+            "UserPoolId": user_pool_id,
+            "Filter": f'email = "{fallback_owner_email}"',
+            "Limit": 1,
+        },
     )
 
     users = response.get("Users", [])

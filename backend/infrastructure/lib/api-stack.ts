@@ -1201,6 +1201,8 @@ export class ApiStack extends cdk.Stack {
       "cognito-idp:list_users",
       "cognito-idp:admin_get_user",
       "cognito-idp:admin_delete_user",
+      "cognito-idp:admin_create_user",
+      "cognito-idp:admin_set_user_password",
       "cognito-idp:admin_add_user_to_group",
       "cognito-idp:admin_remove_user_from_group",
       "cognito-idp:admin_list_groups_for_user",
@@ -1229,6 +1231,8 @@ export class ApiStack extends cdk.Stack {
           "cognito-idp:ListUsers",
           "cognito-idp:AdminGetUser",
           "cognito-idp:AdminDeleteUser",
+          "cognito-idp:AdminCreateUser",
+          "cognito-idp:AdminSetUserPassword",
           "cognito-idp:AdminAddUserToGroup",
           "cognito-idp:AdminRemoveUserFromGroup",
           "cognito-idp:AdminListGroupsForUser",
@@ -1400,16 +1404,10 @@ export class ApiStack extends cdk.Stack {
     database.grantConnect(migrationFunction, "postgres");
     migrationFunction.node.addDependency(database.cluster);
     // Grant permission to manage Cognito users (needed for manager migration and seed data)
-    migrationFunction.addToRolePolicy(
-      new iam.PolicyStatement({
-        actions: [
-          "cognito-idp:ListUsers",
-          "cognito-idp:AdminCreateUser",
-          "cognito-idp:AdminSetUserPassword",
-          "cognito-idp:AdminAddUserToGroup",
-        ],
-        resources: [userPool.userPoolArn],
-      })
+    awsProxyFunction.grantInvoke(migrationFunction);
+    migrationFunction.addEnvironment(
+      "AWS_PROXY_FUNCTION_ARN",
+      awsProxyFunction.functionArn,
     );
     migrationFunction.addPermission("MigrationInvokePermission", {
       principal: new iam.ServicePrincipal("cloudformation.amazonaws.com"),
@@ -1965,16 +1963,15 @@ export class ApiStack extends cdk.Stack {
     const cacheKeyParameters = [
       "method.request.querystring.age",
       "method.request.querystring.area_id",
+      "method.request.querystring.activity_id",
+      "method.request.querystring.category_id",
       "method.request.querystring.pricing_type",
       "method.request.querystring.price_min",
       "method.request.querystring.price_max",
       "method.request.querystring.schedule_type",
       "method.request.querystring.day_of_week_utc",
-      "method.request.querystring.day_of_month",
       "method.request.querystring.start_minutes_utc",
       "method.request.querystring.end_minutes_utc",
-      "method.request.querystring.start_at_utc",
-      "method.request.querystring.end_at_utc",
       "method.request.querystring.language",
       "method.request.querystring.limit",
       "method.request.querystring.cursor",
@@ -2308,16 +2305,10 @@ export class ApiStack extends cdk.Stack {
       }
     );
 
-    adminBootstrapFunction.addToRolePolicy(
-      new iam.PolicyStatement({
-        actions: [
-          "cognito-idp:AdminCreateUser",
-          "cognito-idp:AdminUpdateUserAttributes",
-          "cognito-idp:AdminSetUserPassword",
-          "cognito-idp:AdminAddUserToGroup",
-        ],
-        resources: [userPool.userPoolArn],
-      })
+    awsProxyFunction.grantInvoke(adminBootstrapFunction);
+    adminBootstrapFunction.addEnvironment(
+      "AWS_PROXY_FUNCTION_ARN",
+      awsProxyFunction.functionArn,
     );
 
     const adminBootstrapResource = new cdk.CustomResource(

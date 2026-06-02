@@ -51,6 +51,8 @@ export function normalizeSiteOrigin(rawOrigin: string): string {
 }
 
 function resolveSiteOrigin(): string {
+  // Intentionally reads NEXT_PUBLIC_SITE_ORIGIN here (not site-config.ts) so
+  // unit tests can fall back to globalThis.location.origin when unset.
   const configuredSiteOrigin = process.env.NEXT_PUBLIC_SITE_ORIGIN?.trim() ?? '';
   if (configuredSiteOrigin !== '') {
     return normalizeSiteOrigin(configuredSiteOrigin);

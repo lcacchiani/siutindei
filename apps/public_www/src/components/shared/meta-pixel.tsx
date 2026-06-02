@@ -1,7 +1,9 @@
+import { getMetaPixelId } from '@/lib/site-config';
+
 const META_PIXEL_SCRIPT_PATH = '/scripts/init-meta-pixel.js';
 
 export function MetaPixel() {
-  const pixelId = process.env.NEXT_PUBLIC_META_PIXEL_ID;
+  const pixelId = getMetaPixelId();
   if (!pixelId) {
     return null;
   }

@@ -89,6 +89,26 @@ export function getCopyrightYear(): number {
   return new Date().getFullYear();
 }
 
+export function getGoogleMapsApiKey(): string {
+  return trimEnv(process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY);
+}
+
+export function getGtmId(): string {
+  return trimEnv(process.env.NEXT_PUBLIC_GTM_ID);
+}
+
+export function getGtmAllowedHosts(): string {
+  return trimEnv(process.env.NEXT_PUBLIC_GTM_ALLOWED_HOSTS);
+}
+
+export function getMetaPixelId(): string {
+  return trimEnv(process.env.NEXT_PUBLIC_META_PIXEL_ID);
+}
+
+export function getMetaPixelAllowedHosts(): string {
+  return trimEnv(process.env.NEXT_PUBLIC_META_PIXEL_ALLOWED_HOSTS);
+}
+
 export function resolvePublicSiteConfig(): PublicSiteConfig {
   const whatsappUrl = trimEnv(process.env.NEXT_PUBLIC_WHATSAPP_URL);
   const contactEmail = trimEnv(process.env.NEXT_PUBLIC_EMAIL);

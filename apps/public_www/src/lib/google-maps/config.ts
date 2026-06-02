@@ -1,6 +1,4 @@
-function trimEnv(value: string | undefined): string {
-  return (value ?? '').trim();
-}
+import { getGoogleMapsApiKey } from '@/lib/site-config';
 
 export interface GoogleMapsConfig {
   readonly apiKey: string;
@@ -8,7 +6,7 @@ export interface GoogleMapsConfig {
 
 export function getGoogleMapsConfig(): GoogleMapsConfig {
   return {
-    apiKey: trimEnv(process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY),
+    apiKey: getGoogleMapsApiKey(),
   };
 }
 

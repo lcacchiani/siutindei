@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import type { Locale, SiteContent } from '@/content';
-import { Button } from '@/components/shared/ui/button';
 import { preloadActivityImage } from '@/lib/activity-image-preload';
 import { logActivityLoadError } from '@/lib/activities/load-error';
 import { fetchActivityListingById } from '@/lib/activities/search-client';
@@ -108,9 +107,47 @@ export function ActivityDetailPage({
     [contact.whatsappUrl, listing, locale],
   );
 
+  useEffect(() => {
+    if (!listing) {
+      return undefined;
+    }
+    const activityTitle = listingTitle(locale, listing);
+    const activityDescription = pickTranslation(
+      locale,
+      listing.activity.description ?? '',
+      listing.activity.descriptionTranslations,
+    );
+    const organizationName = listingOrgName(locale, listing);
+    const structuredData = {
+      '@context': 'https://schema.org',
+      '@type': 'Course',
+      name: activityTitle,
+      description: activityDescription || undefined,
+      provider: {
+        '@type': 'Organization',
+        name: organizationName,
+      },
+      offers: {
+        '@type': 'Offer',
+        price: listing.pricing.amount,
+        priceCurrency: listing.pricing.currency,
+      },
+    };
+    const script = document.createElement('script');
+    script.type = 'application/ld+json';
+    script.textContent = JSON.stringify(structuredData);
+    document.head.appendChild(script);
+    return () => {
+      document.head.removeChild(script);
+    };
+  }, [listing, locale]);
+
   if (isLoading) {
     return (
-      <p className="mx-auto max-w-4xl px-4 py-16 text-center text-ink-500">
+      <p
+        aria-live="polite"
+        className="mx-auto max-w-4xl px-4 py-16 text-center text-ink-500"
+      >
         {copy.loadingLabel}
       </p>
     );
@@ -176,10 +213,16 @@ export function ActivityDetailPage({
           ) : null}
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             {whatsappHref ? (
-              <a href={whatsappHref} className="inline-flex">
-                <Button type="button" className="w-full sm:w-auto">
-                  {copy.whatsappCtaLabel}
-                </Button>
+              <a
+                href={whatsappHref}
+                className={
+                  'inline-flex min-h-11 w-full items-center justify-center ' +
+                  'rounded-lg border border-accent-500 bg-accent-500 px-4 ' +
+                  'text-sm font-semibold text-white transition ' +
+                  'hover:bg-accent-600 sm:w-auto'
+                }
+              >
+                {copy.whatsappCtaLabel}
               </a>
             ) : null}
           </div>

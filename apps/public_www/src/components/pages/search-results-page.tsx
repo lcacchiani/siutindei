@@ -116,6 +116,7 @@ export function SearchResultsPage({ locale, copy }: SearchResultsPageProps) {
 
   return (
     <div className="bg-white">
+      <h1 className="sr-only">{copy.pageTitle}</h1>
       <FilterChipRow locale={locale} />
       <div className="border-b border-brand-100 bg-white">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-3 px-4 py-4 sm:px-6 lg:px-8">

@@ -1,11 +1,11 @@
+import { getGtmId, getMetaPixelId } from '@/lib/site-config';
+
 const GTM_ORIGIN = 'https://www.googletagmanager.com';
 const META_PIXEL_ORIGIN = 'https://connect.facebook.net';
 
 export function AnalyticsResourceHints() {
-  const hasGtm = Boolean(process.env.NEXT_PUBLIC_GTM_ID?.trim());
-  const hasMetaPixel = Boolean(
-    process.env.NEXT_PUBLIC_META_PIXEL_ID?.trim(),
-  );
+  const hasGtm = getGtmId().length > 0;
+  const hasMetaPixel = getMetaPixelId().length > 0;
 
   if (!hasGtm && !hasMetaPixel) {
     return null;

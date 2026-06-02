@@ -103,7 +103,6 @@ class SearchFiltersMapper {
   /// Converts domain SearchFilters to ActivitySearchFilters model.
   static ActivitySearchFilters toModel(SearchFilters filters) {
     return ActivitySearchFilters(
-      searchQuery: filters.searchQuery,
       age: filters.age,
       areaId: filters.areaId,
       categoryIds: filters.categoryIds,
@@ -112,11 +111,8 @@ class SearchFiltersMapper {
       priceMax: filters.priceMax,
       scheduleType: filters.scheduleType?.toApiString(),
       dayOfWeekUtc: filters.dayOfWeekUtc,
-      dayOfMonth: filters.dayOfMonth,
       startMinutesUtc: filters.startMinutesUtc,
       endMinutesUtc: filters.endMinutesUtc,
-      startAtUtc: filters.startAtUtc?.toIso8601String(),
-      endAtUtc: filters.endAtUtc?.toIso8601String(),
       languages: filters.languages,
       cursor: filters.cursor,
       limit: filters.limit,

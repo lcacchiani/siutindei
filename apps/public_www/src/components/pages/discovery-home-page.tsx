@@ -13,6 +13,7 @@ interface DiscoveryHomePageProps {
 export function DiscoveryHomePage({ locale, content }: DiscoveryHomePageProps) {
   return (
     <>
+      <h1 className="sr-only">{content.discovery.pageTitle}</h1>
       <FilterChipRow locale={locale} />
       <DiscoveryHomeSection locale={locale} copy={content.discovery} />
       <section className="border-t border-brand-100 bg-brand-50 py-10">

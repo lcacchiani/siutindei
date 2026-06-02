@@ -13,14 +13,37 @@ const OUT_DIR = path.resolve('out');
 const REDIRECT_HTML_FILES = {
   'index.html': '/en/',
   'about/index.html': '/en/about/',
+  'search/index.html': '/en/search/',
+  'privacy/index.html': '/en/privacy/',
+  'terms/index.html': '/en/terms/',
+  'activity/index.html': '/en/activity/',
 };
 
 const META_REFRESH_TEMPLATE = (target) =>
   `<meta http-equiv="refresh" content="0;url=${target}">`;
 const CANONICAL_TEMPLATE = (target) =>
   `<link rel="canonical" href="${target}">`;
+const ACTIVITY_QUERY_SCRIPT = `
+    <script>
+      (function () {
+        var params = new URLSearchParams(window.location.search);
+        var id = params.get('id');
+        if (!id) {
+          return;
+        }
+        var target = '/en/activity/?id=' + encodeURIComponent(id);
+        var meta = document.querySelector('meta[http-equiv="refresh"]');
+        if (meta) {
+          meta.setAttribute('content', '0;url=' + target);
+        }
+        var canonical = document.querySelector('link[rel="canonical"]');
+        if (canonical) {
+          canonical.setAttribute('href', target);
+        }
+      })();
+    </script>`;
 
-async function injectRedirectIntoFile(filePath, target) {
+async function injectRedirectIntoFile(filePath, target, extraHeadInjection = '') {
   const original = await fs.readFile(filePath, 'utf8');
   if (original.includes('http-equiv="refresh"')) {
     return false;
@@ -32,7 +55,9 @@ async function injectRedirectIntoFile(filePath, target) {
     return false;
   }
 
-  const injection = `${META_REFRESH_TEMPLATE(target)}\n    ${CANONICAL_TEMPLATE(target)}`;
+  const injection =
+    `${META_REFRESH_TEMPLATE(target)}\n    ` +
+    `${CANONICAL_TEMPLATE(target)}${extraHeadInjection}`;
   const updated = original.replace(
     headOpenRegex,
     `<head$1>\n    ${injection}`,
@@ -53,7 +78,13 @@ async function main() {
       continue;
     }
 
-    const updated = await injectRedirectIntoFile(filePath, target);
+    const extraInjection =
+      relativePath === 'activity/index.html' ? ACTIVITY_QUERY_SCRIPT : '';
+    const updated = await injectRedirectIntoFile(
+      filePath,
+      target,
+      extraInjection,
+    );
     if (updated) {
       updatedCount += 1;
     }

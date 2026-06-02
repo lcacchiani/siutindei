@@ -41,6 +41,7 @@ from app.db.queries import (
     ActivitySearchFilters,
     build_search_query,
 )
+from app.api.search_validation import validate_search_query_params
 from app.exceptions import CursorError, ValidationError
 from app.utils import json_response, parse_decimal, parse_enum, parse_int
 from app.utils.logging import configure_logging, get_logger, set_request_context
@@ -50,7 +51,7 @@ from app.utils.parsers import (
     parse_languages,
     parse_uuid_list,
 )
-from app.utils.responses import get_cors_headers
+from app.utils.responses import get_cors_headers, get_security_headers
 from app.utils.translations import build_translation_map
 
 # Configure logging on module load
@@ -99,24 +100,44 @@ def parse_filters(event: Mapping[str, Any]) -> ActivitySearchFilters:
     activity_id_str = first_param(params, "activity_id")
     activity_id = UUID(activity_id_str) if activity_id_str else None
 
+    age = parse_int(first_param(params, "age"))
+    day_of_week_utc = parse_int(first_param(params, "day_of_week_utc"))
+    start_minutes_utc = parse_int(first_param(params, "start_minutes_utc"))
+    end_minutes_utc = parse_int(first_param(params, "end_minutes_utc"))
+    price_min = parse_decimal(first_param(params, "price_min"))
+    price_max = parse_decimal(first_param(params, "price_max"))
+    languages = parse_languages(params.get("language", []))
+    limit = parse_int(first_param(params, "limit")) or 50
+
+    validated_languages = validate_search_query_params(
+        age=age,
+        day_of_week_utc=day_of_week_utc,
+        start_minutes_utc=start_minutes_utc,
+        end_minutes_utc=end_minutes_utc,
+        price_min=price_min,
+        price_max=price_max,
+        languages=languages,
+        limit=limit,
+    )
+
     return ActivitySearchFilters(
-        age=parse_int(first_param(params, "age")),
+        age=age,
         area_id=area_id,
         activity_id=activity_id,
         category_ids=parse_uuid_list(params.get("category_id", [])),
         pricing_type=parse_enum(first_param(params, "pricing_type"), PricingType),
-        price_min=parse_decimal(first_param(params, "price_min")),
-        price_max=parse_decimal(first_param(params, "price_max")),
+        price_min=price_min,
+        price_max=price_max,
         schedule_type=parse_enum(
             first_param(params, "schedule_type"),
             ScheduleType,
         ),
-        day_of_week_utc=parse_int(first_param(params, "day_of_week_utc")),
-        start_minutes_utc=parse_int(first_param(params, "start_minutes_utc")),
-        end_minutes_utc=parse_int(first_param(params, "end_minutes_utc")),
-        languages=parse_languages(params.get("language", [])),
+        day_of_week_utc=day_of_week_utc,
+        start_minutes_utc=start_minutes_utc,
+        end_minutes_utc=end_minutes_utc,
+        languages=validated_languages,
         cursor=_parse_cursor(first_param(params, "cursor")),
-        limit=parse_int(first_param(params, "limit")) or 50,
+        limit=limit,
     )
 
 
@@ -306,7 +327,7 @@ def _create_response(
 
     headers = {
         "Content-Type": "application/json",
-        "X-Content-Type-Options": "nosniff",
+        **get_security_headers(),
     }
     headers.update(get_cors_headers(event))
 

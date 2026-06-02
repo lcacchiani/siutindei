@@ -180,6 +180,18 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ActivitySearchResponse"
+        "400":
+          description: Invalid query parameters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 components:
   securitySchemes:
     ApiKeyAuth:
@@ -191,6 +203,13 @@ components:
       in: header
       name: x-device-attestation
   schemas:
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+          description: Human-readable error message
     ActivitySearchResponse:
       type: object
       required: [items]
