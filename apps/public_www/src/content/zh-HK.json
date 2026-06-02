@@ -121,6 +121,7 @@
     }
   },
   "discovery": {
+    "pageTitle": "探索香港兒童活動",
     "continueSearchingTitle": "繼續搜尋",
     "recentlyViewedTitle": "最近瀏覽",
     "popularTitle": "香港熱門活動",
@@ -135,6 +136,7 @@
     }
   },
   "searchPage": {
+    "pageTitle": "搜尋兒童活動",
     "listViewLabel": "列表",
     "mapViewLabel": "地圖",
     "textFilterLabel": "篩選結果",
@@ -179,17 +181,6 @@
         "報名及付款通常由活動機構直接處理，除非另有說明。"
       ]
     }
-  },
-  "homeWizard": {
-    "activityQuestion": "您想找甚麼活動？",
-    "ageQuestion": "您的孩子幾歲？",
-    "regionQuestion": "您住在哪個區域？",
-    "continueLabel": "繼續",
-    "searchPlaceholder": "搜尋活動、機構...",
-    "loadingLabel": "載入活動中...",
-    "emptyLabel": "找不到活動，請嘗試其他選項。",
-    "errorLabel": "無法載入活動。",
-    "retryLabel": "重試"
   },
   "pages": {
     "home": {

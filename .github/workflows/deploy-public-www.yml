@@ -56,6 +56,9 @@ jobs:
       - name: Sync staging search fixture for static hosting
         run: bash scripts/codegen/sync-activity-search-staging-fixture.sh public-www
 
+      - name: Verify home wizard choices are in sync
+        run: bash scripts/codegen/sync-home-wizard-choices.sh --check
+
       - name: Verify public website build env contract
         run: npm run assert:build-env-contract
         working-directory: apps/public_www

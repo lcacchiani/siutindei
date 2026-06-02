@@ -121,6 +121,7 @@
     }
   },
   "discovery": {
+    "pageTitle": "Discover children's activities in Hong Kong",
     "continueSearchingTitle": "Continue searching",
     "recentlyViewedTitle": "Recently viewed",
     "popularTitle": "Popular activities in Hong Kong",
@@ -135,6 +136,7 @@
     }
   },
   "searchPage": {
+    "pageTitle": "Search children's activities",
     "listViewLabel": "List",
     "mapViewLabel": "Map",
     "textFilterLabel": "Filter results",
@@ -179,17 +181,6 @@
         "Programme bookings and payments are handled directly with each activity provider unless stated otherwise."
       ]
     }
-  },
-  "homeWizard": {
-    "activityQuestion": "What activities are you looking for?",
-    "ageQuestion": "How old is your child?",
-    "regionQuestion": "Which area is near you?",
-    "continueLabel": "Continue",
-    "searchPlaceholder": "Search activities, organizations...",
-    "loadingLabel": "Loading activities...",
-    "emptyLabel": "No activities found. Try changing your choices.",
-    "errorLabel": "Unable to load activities.",
-    "retryLabel": "Try again"
   },
   "pages": {
     "home": {

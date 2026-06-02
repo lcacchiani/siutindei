@@ -3,14 +3,22 @@
 from __future__ import annotations
 
 import os
+import secrets
+import string
 from pathlib import Path
 
-from app.services.aws_clients import get_cognito_idp_client
-from app.utils.logging import get_logger
+from app.services.aws_proxy import AwsProxyError
+from app.services.aws_proxy import invoke as aws_proxy
+from app.utils.logging import get_logger, mask_email
 
 from .utils import _psycopg_connect
 
 logger = get_logger(__name__)
+
+
+def _cognito(action: str, **params: object) -> dict[str, object]:
+    """Call Cognito IDP via the out-of-VPC AWS proxy Lambda."""
+    return aws_proxy("cognito-idp", action, params)
 
 
 def _run_seed(
@@ -40,17 +48,15 @@ def _get_or_create_seed_manager() -> str:
     if not user_pool_id:
         raise RuntimeError("COGNITO_USER_POOL_ID environment variable is required")
 
-    client = get_cognito_idp_client()
     seed_email = "test@lx-software.com"
-
-    import secrets
-    import string
+    masked_seed_email = mask_email(seed_email)
 
     alphabet = string.ascii_letters + string.digits + "!@#$%"
     seed_password = "".join(secrets.choice(alphabet) for _ in range(16))
 
     try:
-        response = client.list_users(
+        response = _cognito(
+            "list_users",
             UserPoolId=user_pool_id,
             Filter=f'email = "{seed_email}"',
             Limit=1,
@@ -64,13 +70,14 @@ def _get_or_create_seed_manager() -> str:
             }
             sub = attributes.get("sub")
             if sub:
-                logger.info(f"Found existing seed manager user: {seed_email}")
-                return sub
-    except Exception as exc:
+                logger.info(f"Found existing seed manager user: {masked_seed_email}")
+                return str(sub)
+    except AwsProxyError as exc:
         logger.warning(f"Error checking for existing user: {exc}")
 
     try:
-        response = client.admin_create_user(
+        response = _cognito(
+            "admin_create_user",
             UserPoolId=user_pool_id,
             Username=seed_email,
             TemporaryPassword=seed_password,
@@ -81,7 +88,8 @@ def _get_or_create_seed_manager() -> str:
             ],
         )
 
-        client.admin_set_user_password(
+        _cognito(
+            "admin_set_user_password",
             UserPoolId=user_pool_id,
             Username=seed_email,
             Password=seed_password,
@@ -89,12 +97,15 @@ def _get_or_create_seed_manager() -> str:
         )
 
         try:
-            client.admin_add_user_to_group(
+            _cognito(
+                "admin_add_user_to_group",
                 UserPoolId=user_pool_id,
                 Username=seed_email,
                 GroupName="manager",
             )
-        except client.exceptions.ResourceNotFoundException:
+        except AwsProxyError as exc:
+            if exc.code != "ResourceNotFoundException":
+                raise
             logger.warning("Manager group not found, skipping group assignment")
 
         user = response.get("User", {})
@@ -106,11 +117,14 @@ def _get_or_create_seed_manager() -> str:
         if not sub:
             raise RuntimeError("Created user does not have a sub attribute")
 
-        logger.info(f"Created seed manager user: {seed_email} with sub: {sub}")
-        return sub
+        logger.info(f"Created seed manager user: {masked_seed_email} with sub: {sub}")
+        return str(sub)
 
-    except client.exceptions.UsernameExistsException:
-        response = client.list_users(
+    except AwsProxyError as exc:
+        if exc.code != "UsernameExistsException":
+            raise
+        response = _cognito(
+            "list_users",
             UserPoolId=user_pool_id,
             Filter=f'email = "{seed_email}"',
             Limit=1,
@@ -122,5 +136,7 @@ def _get_or_create_seed_manager() -> str:
             }
             sub = attributes.get("sub")
             if sub:
-                return sub
-        raise RuntimeError(f"Could not get sub for seed manager user: {seed_email}")
+                return str(sub)
+        raise RuntimeError(
+            f"Could not get sub for seed manager user: {masked_seed_email}"
+        ) from exc

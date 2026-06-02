@@ -93,6 +93,24 @@ export interface paths {
                         "application/json": components["schemas"]["ActivitySearchResponse"];
                     };
                 };
+                /** @description Invalid query parameters */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Internal server error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
             };
         };
         put?: never;
@@ -107,6 +125,10 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        ErrorResponse: {
+            /** @description Human-readable error message */
+            error: string;
+        };
         ActivitySearchResponse: {
             items: components["schemas"]["ActivitySearchResult"][];
             next_cursor?: string | null;

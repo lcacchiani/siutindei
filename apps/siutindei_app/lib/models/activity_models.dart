@@ -8,15 +8,11 @@ class ActivitySearchFilters {
     this.priceMax,
     this.scheduleType,
     this.dayOfWeekUtc,
-    this.dayOfMonth,
     this.startMinutesUtc,
     this.endMinutesUtc,
-    this.startAtUtc,
-    this.endAtUtc,
     this.languages = const [],
     this.cursor,
     this.limit = 50,
-    this.searchQuery,
   });
 
   final int? age;
@@ -27,15 +23,11 @@ class ActivitySearchFilters {
   final double? priceMax;
   final String? scheduleType;
   final int? dayOfWeekUtc;
-  final int? dayOfMonth;
   final int? startMinutesUtc;
   final int? endMinutesUtc;
-  final String? startAtUtc;
-  final String? endAtUtc;
   final List<String> languages;
   final String? cursor;
   final int limit;
-  final String? searchQuery;
 
   /// Creates a copy of this filters with the given fields replaced.
   ActivitySearchFilters copyWith({
@@ -47,15 +39,11 @@ class ActivitySearchFilters {
     double? priceMax,
     String? scheduleType,
     int? dayOfWeekUtc,
-    int? dayOfMonth,
     int? startMinutesUtc,
     int? endMinutesUtc,
-    String? startAtUtc,
-    String? endAtUtc,
     List<String>? languages,
     String? cursor,
     int? limit,
-    String? searchQuery,
     bool clearAge = false,
     bool clearAreaId = false,
     bool clearPricingType = false,
@@ -63,13 +51,9 @@ class ActivitySearchFilters {
     bool clearPriceMax = false,
     bool clearScheduleType = false,
     bool clearDayOfWeekUtc = false,
-    bool clearDayOfMonth = false,
     bool clearStartMinutesUtc = false,
     bool clearEndMinutesUtc = false,
-    bool clearStartAtUtc = false,
-    bool clearEndAtUtc = false,
     bool clearCursor = false,
-    bool clearSearchQuery = false,
   }) {
     return ActivitySearchFilters(
       age: clearAge ? null : (age ?? this.age),
@@ -82,17 +66,13 @@ class ActivitySearchFilters {
           clearScheduleType ? null : (scheduleType ?? this.scheduleType),
       dayOfWeekUtc:
           clearDayOfWeekUtc ? null : (dayOfWeekUtc ?? this.dayOfWeekUtc),
-      dayOfMonth: clearDayOfMonth ? null : (dayOfMonth ?? this.dayOfMonth),
       startMinutesUtc:
           clearStartMinutesUtc ? null : (startMinutesUtc ?? this.startMinutesUtc),
       endMinutesUtc:
           clearEndMinutesUtc ? null : (endMinutesUtc ?? this.endMinutesUtc),
-      startAtUtc: clearStartAtUtc ? null : (startAtUtc ?? this.startAtUtc),
-      endAtUtc: clearEndAtUtc ? null : (endAtUtc ?? this.endAtUtc),
       languages: languages ?? this.languages,
       cursor: clearCursor ? null : (cursor ?? this.cursor),
       limit: limit ?? this.limit,
-      searchQuery: clearSearchQuery ? null : (searchQuery ?? this.searchQuery),
     );
   }
 
@@ -105,11 +85,8 @@ class ActivitySearchFilters {
       priceMax != null ||
       scheduleType != null ||
       dayOfWeekUtc != null ||
-      dayOfMonth != null ||
       startMinutesUtc != null ||
       endMinutesUtc != null ||
-      startAtUtc != null ||
-      endAtUtc != null ||
       languages.isNotEmpty;
 
   /// Returns the number of active filters.
@@ -121,7 +98,6 @@ class ActivitySearchFilters {
     if (priceMin != null || priceMax != null) count++;
     if (scheduleType != null) count++;
     if (dayOfWeekUtc != null) count++;
-    if (dayOfMonth != null) count++;
     if (startMinutesUtc != null || endMinutesUtc != null) count++;
     if (languages.isNotEmpty) count++;
     return count;
@@ -149,11 +125,8 @@ class ActivitySearchFilters {
     setParam('price_max', priceMax);
     setParam('schedule_type', scheduleType);
     setParam('day_of_week_utc', dayOfWeekUtc);
-    setParam('day_of_month', dayOfMonth);
     setParam('start_minutes_utc', startMinutesUtc);
     setParam('end_minutes_utc', endMinutesUtc);
-    setParam('start_at_utc', startAtUtc);
-    setParam('end_at_utc', endAtUtc);
     if (languages.isNotEmpty) {
       params['language'] = languages.join(',');
     }

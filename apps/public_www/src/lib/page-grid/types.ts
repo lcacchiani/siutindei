@@ -2,7 +2,6 @@ export const PAGE_GRID_MAX_COLUMNS = 12;
 
 export const PAGE_GRID_COMPONENT_IDS = [
   'hero',
-  'homeWizard',
   'features',
   'richText',
 ] as const;
