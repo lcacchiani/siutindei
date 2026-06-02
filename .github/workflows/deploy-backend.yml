@@ -170,6 +170,7 @@ jobs:
               "PublicWwwStagingDomainName",
               "PublicWwwStagingCertificateArn",
               "WafWebAclArn",
+              "SearchApiProxyOriginDomain",
           }
 
           def resolve_value(raw: str) -> str:
