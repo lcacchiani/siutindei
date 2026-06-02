@@ -25,13 +25,27 @@ import { Construct } from "constructs";
 //   * Optional WAF (us-east-1) attached via CfnCondition; reuses the same WAF
 //     WebACL ARN as the admin web distribution.
 //
-// Future extension (NOT included in scaffolding):
-//   * /www/* CloudFront behavior with allow-list CloudFront Function pointing
-//     at the API Gateway origin (see evolvesprouts public-www-stack for the
-//     full pattern). When adding that, serialize CloudFront Function updates
-//     within an environment to avoid hitting the regional CloudFront Functions
-//     API rate limit (`addDependency` chain).
+// Search API edge caching:
+//   * A `/v1/activities/search` CloudFront behavior fronts the public search
+//     endpoint, pointing at the API Gateway custom domain origin. This replaces
+//     the (fixed-cost) API Gateway stage cache cluster with usage-based
+//     CloudFront edge caching. An allow-list CloudFront Function rejects any
+//     method other than GET/HEAD/OPTIONS on that path. CloudFront Function
+//     creation is serialized via an `addDependency` chain so a single deploy
+//     does not breach the regional CloudFront Functions API rate limit.
 // -----------------------------------------------------------------------------
+
+// Query-string + auth headers forwarded to the API Gateway origin on a cache
+// miss. Caching does NOT vary on these headers (public search results are the
+// same for every caller), so a single cache entry is shared across viewers.
+const SEARCH_API_PROXY_PATH = "/v1/activities/search";
+const SEARCH_API_FORWARDED_HEADERS = [
+  "x-api-key",
+  "x-device-attestation",
+  "Accept",
+];
+// Edge cache TTL mirrors the previous API Gateway method cache (5 minutes).
+const SEARCH_API_CACHE_TTL = cdk.Duration.minutes(5);
 
 interface WebsiteEnvironmentConfig {
   readonly idPrefix: "PublicWww" | "PublicWwwStaging";
@@ -43,12 +57,17 @@ interface WebsiteEnvironmentConfig {
   readonly addNoIndexHeader: boolean;
   readonly hasWafWebAclArn: cdk.CfnCondition;
   readonly wafWebAclArn: cdk.CfnParameter;
+  readonly searchApiOriginDomain: string;
+  readonly searchApiCachePolicy: cloudfront.ICachePolicy;
+  readonly searchApiOriginRequestPolicy: cloudfront.IOriginRequestPolicy;
 }
 
 interface WebsiteEnvironmentResources {
   readonly bucket: s3.Bucket;
   readonly distribution: cloudfront.Distribution;
   readonly loggingBucket: s3.Bucket;
+  readonly pathRewriteFunction: cloudfront.Function;
+  readonly searchProxyFunction: cloudfront.Function;
 }
 
 const PUBLIC_WWW_HEADER_CONTENT_SECURITY_POLICY = [
@@ -141,6 +160,59 @@ export class PublicWwwStack extends cdk.Stack {
       ),
     });
 
+    // Origin domain for the public search API (API Gateway custom domain, e.g.
+    // siutindei-api.lx-software.com). CloudFront proxies + caches the public
+    // search endpoint here instead of paying for the API Gateway stage cache.
+    const searchApiOriginDomain = new cdk.CfnParameter(
+      this,
+      "SearchApiProxyOriginDomain",
+      {
+        type: "String",
+        description:
+          "API Gateway custom domain that serves the public search endpoint " +
+          "(e.g. siutindei-api.lx-software.com). CloudFront caches " +
+          "GET /v1/activities/search responses at the edge.",
+        allowedPattern: "^[a-z0-9.-]+$",
+        constraintDescription: "Must be a bare DNS hostname (no scheme/path).",
+      },
+    );
+
+    // Shared cache + origin-request policies (CloudFront policies are global to
+    // the account; create once and reuse across both website environments).
+    const searchApiCachePolicy = new cloudfront.CachePolicy(
+      this,
+      "SearchApiCachePolicy",
+      {
+        comment: "Edge cache for the public activity-search endpoint.",
+        defaultTtl: SEARCH_API_CACHE_TTL,
+        // minTtl 0 lets the origin shorten caching via Cache-Control if needed;
+        // maxTtl caps it at the intended 5-minute window.
+        minTtl: cdk.Duration.seconds(0),
+        maxTtl: SEARCH_API_CACHE_TTL,
+        // Vary the cache on every query string (search filters + cursor) so
+        // distinct queries get distinct entries, but NOT on auth headers so a
+        // single cached response is shared across all callers.
+        queryStringBehavior: cloudfront.CacheQueryStringBehavior.all(),
+        headerBehavior: cloudfront.CacheHeaderBehavior.none(),
+        cookieBehavior: cloudfront.CacheCookieBehavior.none(),
+        enableAcceptEncodingGzip: true,
+        enableAcceptEncodingBrotli: true,
+      },
+    );
+    const searchApiOriginRequestPolicy = new cloudfront.OriginRequestPolicy(
+      this,
+      "SearchApiOriginRequestPolicy",
+      {
+        comment: "Forward search query + auth headers to the API origin.",
+        queryStringBehavior:
+          cloudfront.OriginRequestQueryStringBehavior.all(),
+        headerBehavior: cloudfront.OriginRequestHeaderBehavior.allowList(
+          ...SEARCH_API_FORWARDED_HEADERS,
+        ),
+        cookieBehavior: cloudfront.OriginRequestCookieBehavior.none(),
+      },
+    );
+
     const productionResources = this.createWebsiteEnvironment({
       idPrefix: "PublicWww",
       environmentLabel: "production",
@@ -155,6 +227,9 @@ export class PublicWwwStack extends cdk.Stack {
       addNoIndexHeader: false,
       hasWafWebAclArn,
       wafWebAclArn,
+      searchApiOriginDomain: searchApiOriginDomain.valueAsString,
+      searchApiCachePolicy,
+      searchApiOriginRequestPolicy,
     });
     this.bucket = productionResources.bucket;
     this.distribution = productionResources.distribution;
@@ -172,10 +247,29 @@ export class PublicWwwStack extends cdk.Stack {
       addNoIndexHeader: true,
       hasWafWebAclArn,
       wafWebAclArn,
+      searchApiOriginDomain: searchApiOriginDomain.valueAsString,
+      searchApiCachePolicy,
+      searchApiOriginRequestPolicy,
     });
     this.stagingBucket = stagingResources.bucket;
     this.stagingDistribution = stagingResources.distribution;
     this.stagingLoggingBucket = stagingResources.loggingBucket;
+
+    // Serialize CloudFront Function creation/updates across both environments
+    // into a single linear chain. Deploying all four functions in parallel can
+    // breach the regional CloudFront Functions API rate limit, so each function
+    // depends on the previous one:
+    //   prod path-rewrite → prod search-proxy → staging path-rewrite → staging
+    //   search-proxy.
+    productionResources.searchProxyFunction.node.addDependency(
+      productionResources.pathRewriteFunction,
+    );
+    stagingResources.pathRewriteFunction.node.addDependency(
+      productionResources.searchProxyFunction,
+    );
+    stagingResources.searchProxyFunction.node.addDependency(
+      stagingResources.pathRewriteFunction,
+    );
 
     new cdk.CfnOutput(this, "PublicWwwBucketName", {
       value: this.bucket.bucketName,
@@ -368,6 +462,40 @@ function handler(event) {
       },
     );
 
+    // Allow-list CloudFront Function for the search-proxy behavior: only safe
+    // read methods reach the API origin; anything else is rejected at the edge.
+    const searchProxyFunction = new cloudfront.Function(
+      this,
+      `${config.idPrefix}SearchProxyAllowlistFunction`,
+      {
+        comment:
+          "Allow only GET/HEAD/OPTIONS on the public search proxy behavior.",
+        runtime: cloudfront.FunctionRuntime.JS_2_0,
+        code: cloudfront.FunctionCode.fromInline(`
+function handler(event) {
+  var request = event.request;
+  var method = request.method;
+  if (method === 'GET' || method === 'HEAD' || method === 'OPTIONS') {
+    return request;
+  }
+  return {
+    statusCode: 405,
+    statusDescription: 'Method Not Allowed',
+    headers: { 'allow': { value: 'GET, HEAD, OPTIONS' } },
+  };
+}
+`),
+      },
+    );
+
+    const searchApiOrigin = new origins.HttpOrigin(
+      config.searchApiOriginDomain,
+      {
+        protocolPolicy: cloudfront.OriginProtocolPolicy.HTTPS_ONLY,
+        originSslProtocols: [cloudfront.OriginSslPolicy.TLS_V1_2],
+      },
+    );
+
     const distribution = new cloudfront.Distribution(
       this,
       `${config.idPrefix}Distribution`,
@@ -410,6 +538,25 @@ function handler(event) {
             },
           ],
         },
+        additionalBehaviors: {
+          // Public activity-search endpoint: proxied + cached at the edge.
+          // Uses the search cache/origin-request policies (no static-site
+          // path rewrite, no static response-headers/CSP policy).
+          [SEARCH_API_PROXY_PATH]: {
+            origin: searchApiOrigin,
+            viewerProtocolPolicy:
+              cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+            allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD_OPTIONS,
+            cachePolicy: config.searchApiCachePolicy,
+            originRequestPolicy: config.searchApiOriginRequestPolicy,
+            functionAssociations: [
+              {
+                function: searchProxyFunction,
+                eventType: cloudfront.FunctionEventType.VIEWER_REQUEST,
+              },
+            ],
+          },
+        },
       },
     );
 
@@ -428,6 +575,8 @@ function handler(event) {
       bucket,
       distribution,
       loggingBucket,
+      pathRewriteFunction,
+      searchProxyFunction,
     };
   }
 }
