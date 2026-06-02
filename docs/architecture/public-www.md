@@ -205,22 +205,43 @@ CloudFront’s response headers policy applies a smaller CSP fragment
 (`base-uri`, `object-src`, `frame-ancestors` only); the meta tag carries
 the full policy above.
 
-## Future work — `/www/*` API proxy
+## Search API edge caching
 
-When the public website needs to call the backend API, port the
-`/www/*` CloudFront behavior pattern from
-`lcacchiani/evolvesprouts/backend/infrastructure/lib/public-www-stack.ts`:
+The public website's activity-search calls are proxied and cached at the
+CloudFront edge instead of paying for an API Gateway stage cache cluster
+(a fixed hourly charge that dominated the API Gateway bill). Both website
+distributions (production + staging) carry an extra cache behavior:
 
-- A `wwwProxyAllowlistFunction` CloudFront Function runs at
-  `viewer-request` and rejects any path/method pair that isn't in the
-  allow-list.
-- The behavior forwards to an `HttpOrigin` pointing at the API Gateway
-  custom domain (already provisioned at
-  `siutindei-api.lx-software.com`).
-- Add the dependency chain across all CloudFront Functions in an
-  environment (see comment in `evolvesprouts/public-www-stack.ts`) to
-  serialize updates within the regional rate limit.
-- Mirror the maintenance-mode swap in `deploy-public-www.sh`
-  (`apply_www_proxy_mode`).
-- Update the smoke-test workflow to include the `--api-only` and `--all`
-  scopes (the current scaffolding only covers pages).
+| Item | Value |
+|---|---|
+| Path pattern | `/v1/activities/search` (exact path; admin/other API paths are **not** exposed) |
+| Origin | `HttpOrigin` → API Gateway custom domain from the `SearchApiProxyOriginDomain` parameter (`siutindei-api.lx-software.com`), HTTPS-only, TLS 1.2+ |
+| Allowed methods | `GET`, `HEAD`, `OPTIONS` |
+| Allow-list function | `${env}SearchProxyAllowlistFunction` CloudFront Function (viewer-request) returns `405` for any other method |
+| Cache policy (`SearchApiCachePolicy`) | TTL min `0` / default `300s` / max `300s`; cache key = **all query strings**, **no** headers, **no** cookies (a single cached entry is shared across all callers) |
+| Origin-request policy (`SearchApiOriginRequestPolicy`) | Forwards all query strings + `x-api-key`, `x-device-attestation`, `Accept` headers to the origin on a cache **miss** |
+
+CloudFront Function creation is serialized across both environments via an
+`addDependency` chain (prod path-rewrite → prod search-proxy → staging
+path-rewrite → staging search-proxy) so a single deploy does not breach the
+regional CloudFront Functions API rate limit.
+
+To route traffic through the edge cache, the website build must point
+`NEXT_PUBLIC_SEARCH_API_BASE_URL` at the website's own origin (e.g.
+`https://siutindei-www.lx-software.com`) rather than directly at
+`siutindei-api.lx-software.com`; `src/lib/activities/search-client.ts`
+resolves `new URL('/v1/activities/search', base)`, which then hits this
+behavior same-origin. With same-origin requests the CSP `connect-src 'self'`
+already covers the call (no API host needs to be added to CSP).
+
+**Security/behavioral note:** on a cache **hit** CloudFront serves the cached
+response without re-invoking the origin, so the per-request `x-api-key` /
+`x-device-attestation` checks (anti-abuse controls, not data protection) are
+not enforced for cached entries. This matches the intent of a *public* search
+endpoint and the prior API Gateway method-cache behavior of returning cached
+results; abuse protection at the edge is provided by the CloudFront WAF
+WebACL. Only the exact `/v1/activities/search` path is proxied, so admin
+endpoints (`/v1/admin/*`) are never reachable through the website domain.
+Distribution-level custom error responses (403/404 → `/404.html`) still apply
+to this behavior; validate API error handling on staging before pointing
+production traffic at the edge.

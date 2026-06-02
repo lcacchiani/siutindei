@@ -294,8 +294,10 @@ For each function above, the following resources are created:
 - Logging Level: INFO
 - Data Trace: Disabled
 - X-Ray Tracing: Enabled
-- Caching: Enabled (0.5 GB cache cluster, encrypted)
-- Cache TTL: 5 minutes for `/v1/activities/search/GET`
+- Caching: Disabled (no stage cache cluster). Public search responses are
+  cached at the CloudFront edge instead — see the public-website distribution
+  `/v1/activities/search` behavior in
+  [`public-www.md`](./public-www.md#search-api-edge-caching).
 
 **CORS Configuration:**
 - Allowed Origins: From `CORS_ALLOWED_ORIGINS` env var or context, defaults to `capacitor://localhost`, `ionic://localhost`, `http://localhost`
@@ -310,7 +312,7 @@ and [`docs/api/admin.yaml`](../api/admin.yaml).
 | Resource Path | Method | Authorization | Integration | Notes |
 |--------------|--------|---------------|-------------|-------|
 | `/health` | GET | IAM | `HealthCheckFunction` | Health check |
-| `/v1/activities/search` | GET | Device Attestation + API Key | `SiutindeiSearchFunction` | Cached |
+| `/v1/activities/search` | GET | Device Attestation + API Key | `SiutindeiSearchFunction` | Cached at CloudFront edge (5-min TTL) |
 | `/v1/admin/{resource}` | GET, POST | Admin Group | `SiutindeiAdminFunction` | CRUD (orgs, locations, activities, pricing, schedules) |
 | `/v1/admin/{resource}/{id}` | GET, PUT, DELETE | Admin Group | `SiutindeiAdminFunction` | CRUD by ID |
 | `/v1/admin/organizations/{id}/media` | POST, DELETE | Admin Group | `SiutindeiAdminFunction` | Media upload/delete |
