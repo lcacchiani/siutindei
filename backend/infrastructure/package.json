@@ -16,13 +16,13 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "aws-cdk-lib": "^2.257.0",
+    "aws-cdk-lib": "^2.259.0",
     "constructs": "^10.6.0",
     "minimatch": "10.2.5"
   },
   "devDependencies": {
     "@types/node": "^25.9.2",
-    "aws-cdk": "^2.1125.0",
+    "aws-cdk": "^2.1126.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3"
   }
