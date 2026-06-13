@@ -1841,6 +1841,43 @@ export class ApiStack extends cdk.Stack {
     api.deploymentStage.node.addDependency(apiAccessLogGroupRetention);
     api.deploymentStage.node.addDependency(apiAccessLogGroupKey);
 
+    // Suppress Checkov CKV_AWS_120 ("Ensure API Gateway caching is enabled")
+    // on the deployment stage. Stage caching is intentionally disabled (see the
+    // `cacheClusterEnabled: false` rationale above): response caching for the
+    // public search endpoint is handled at the CloudFront edge via the
+    // public-website distribution's `/v1/activities/search` behavior, which is
+    // usage-based and within the free tier at current volumes. The API Gateway
+    // stage cache cluster is a fixed hourly charge that dominated the API
+    // Gateway bill while serving only one low-traffic method. This is the
+    // documented architectural decision (docs/architecture/decisions.md and
+    // docs/architecture/overview.md, "Caching"). Re-enabling the stage cache
+    // requires removing this suppression and setting cachingEnabled: true on
+    // each cacheable method.
+    const cfnApiStage = api.deploymentStage.node
+      .defaultChild as apigateway.CfnStage | undefined;
+    if (!cfnApiStage) {
+      throw new Error(
+        "ApiStack: expected api.deploymentStage.node.defaultChild to be " +
+          "apigateway.CfnStage so Checkov CKV_AWS_120 suppression can be attached"
+      );
+    }
+    cfnApiStage.addMetadata("checkov", {
+      skip: [
+        {
+          id: "CKV_AWS_120",
+          comment:
+            "Stage caching is intentionally disabled (cacheClusterEnabled: " +
+            "false); no method sets cachingEnabled: true. Public search " +
+            "responses are edge-cached on the public-website CloudFront " +
+            "distribution (/v1/activities/search behavior, see " +
+            "backend/infrastructure/lib/public-www-stack.ts). The API Gateway " +
+            "stage cache cluster is a fixed hourly charge and is not " +
+            "cost-effective for a single low-traffic method. See " +
+            "docs/architecture/decisions.md (Caching).",
+        },
+      ],
+    });
+
     // -------------------------------------------------------------------------
     // Gateway Responses – add CORS headers to API Gateway error responses
     //

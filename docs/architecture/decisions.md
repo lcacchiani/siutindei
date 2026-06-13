@@ -151,6 +151,12 @@ parallel environments (production + staging) inside a single CDK stack
   Gateway stage cache cluster is disabled. CloudFront caching is usage-based
   (within the free tier at current volumes), whereas the API Gateway cache
   cluster was a fixed hourly charge that dominated the API Gateway bill.
+  Because the stage cache is intentionally off, Checkov rule CKV_AWS_120
+  ("Ensure API Gateway caching is enabled") is suppressed inline on the stage
+  resource (`Metadata.checkov.skip`) in
+  [`api-stack.ts`](../../backend/infrastructure/lib/api-stack.ts). Re-enabling
+  the stage cache requires removing that suppression and setting
+  `cachingEnabled: true` on each cacheable method.
 - See the OpenAPI specs for per-endpoint authentication requirements:
   [`docs/api/admin.yaml`](../api/admin.yaml).
 

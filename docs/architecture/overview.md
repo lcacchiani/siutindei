@@ -157,7 +157,11 @@ pull requests for dependency updates:
 
 ## Caching
 
-- API Gateway method caching enabled for search queries (5-minute TTL).
+- Public search responses are cached at the CloudFront edge (5-minute TTL) via
+  the public-website distribution's `/v1/activities/search` behavior. The API
+  Gateway stage cache cluster is intentionally disabled (Checkov CKV_AWS_120 is
+  suppressed on the stage); see [`decisions.md`](decisions.md) for the cost
+  rationale.
 - Cache keys include all search query parameters.
 - Client-side caching with stale-while-revalidate in Flutter (planned).
 - See [`docs/architecture/cloudflare-optimization.md`](cloudflare-optimization.md) for edge caching strategy.
