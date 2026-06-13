@@ -152,11 +152,13 @@ parallel environments (production + staging) inside a single CDK stack
   (within the free tier at current volumes), whereas the API Gateway cache
   cluster was a fixed hourly charge that dominated the API Gateway bill.
   Because the stage cache is intentionally off, Checkov rule CKV_AWS_120
-  ("Ensure API Gateway caching is enabled") is suppressed inline on the stage
-  resource (`Metadata.checkov.skip`) in
-  [`api-stack.ts`](../../backend/infrastructure/lib/api-stack.ts). Re-enabling
-  the stage cache requires removing that suppression and setting
-  `cachingEnabled: true` on each cacheable method.
+  ("Ensure API Gateway caching is enabled") is suppressed via `skip-check` in
+  [`.checkov.yaml`](../../backend/infrastructure/.checkov.yaml). The skip lives
+  in the config file (not inline CDK metadata) so the finding is excluded from
+  SARIF output entirely rather than merely marked skipped — inline suppressions
+  still surface as GitHub Code Scanning alerts. Re-enabling the stage cache
+  requires removing that skip and setting `cachingEnabled: true` on each
+  cacheable method.
 - See the OpenAPI specs for per-endpoint authentication requirements:
   [`docs/api/admin.yaml`](../api/admin.yaml).
 
