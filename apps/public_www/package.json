@@ -45,5 +45,8 @@
     "typescript": "^5.9.3",
     "vite": "^8.0.10",
     "vitest": "^4.0.18"
+  },
+  "overrides": {
+    "tmp": "^0.2.4"
   }
 }
