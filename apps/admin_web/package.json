@@ -3,8 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
+    "dev": "next dev --webpack",
+    "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint --max-warnings=0 .",
     "lint:fix": "eslint --fix .",
@@ -37,5 +37,8 @@
     "postcss": "^8.5.13",
     "tailwindcss": "^4.1.18",
     "typescript": "^5.9.3"
+  },
+  "overrides": {
+    "js-cookie": "^3.0.7"
   }
 }
