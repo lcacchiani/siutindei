@@ -33,7 +33,7 @@ jobs:
     environment: production
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Resolve public site build config from infrastructure params
         id: resolve_public_site_config

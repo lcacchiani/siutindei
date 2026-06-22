@@ -22,7 +22,7 @@ jobs:
     environment: staging
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Resolve staging site origin from infrastructure params
         id: resolve_staging_site_origin
