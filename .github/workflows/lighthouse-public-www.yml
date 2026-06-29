@@ -32,7 +32,7 @@ jobs:
           cache-dependency-path: apps/public_www/package-lock.json
 
       - name: Restore Next.js build cache (public_www)
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: apps/public_www/.next/cache
           key: ${{ runner.os }}-nextjs-public-www-lh-${{ hashFiles('apps/public_www/package-lock.json') }}-${{ hashFiles('apps/public_www/src/**/*.{ts,tsx,css}', 'apps/public_www/scripts/**/*.mjs', 'apps/public_www/next.config.*') }}
