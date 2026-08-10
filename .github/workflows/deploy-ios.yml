@@ -18,10 +18,10 @@ jobs:
       MATCH_DEPLOY_KEY: ${{ secrets.MATCH_DEPLOY_KEY }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up Flutter
-        uses: subosito/flutter-action@v2
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
           channel: "stable"
           cache: true
@@ -37,7 +37,7 @@ jobs:
         working-directory: apps/siutindei_app
 
       - name: Setup SSH for certificates repo
-        uses: webfactory/ssh-agent@v0.10.0
+        uses: webfactory/ssh-agent@e83874834305fe9a4a2997156cb26c5de65a8555 # v0.10.0
         if: ${{ env.MATCH_DEPLOY_KEY != '' }}
         with:
           ssh-private-key: ${{ env.MATCH_DEPLOY_KEY }}
@@ -151,7 +151,7 @@ jobs:
 
       - name: Upload to TestFlight
         if: env.APPSTORE_ISSUER_ID != '' && env.APPSTORE_API_KEY_ID != '' && env.APPSTORE_API_PRIVATE_KEY != ''
-        uses: apple-actions/upload-testflight-build@v5
+        uses: apple-actions/upload-testflight-build@1ad58030672057aa084b4e96beb6f7a8c627f9e6 # v5.2.1
         with:
           app-path: apps/siutindei_app/build/ios/ipa/*.ipa
           issuer-id: ${{ env.APPSTORE_ISSUER_ID }}
