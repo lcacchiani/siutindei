@@ -17,12 +17,12 @@
   "license": "ISC",
   "dependencies": {
     "aws-cdk-lib": "^2.263.0",
-    "constructs": "^10.7.2",
+    "constructs": "^10.8.1",
     "minimatch": "10.2.6"
   },
   "devDependencies": {
     "@types/node": "^25.9.5",
-    "aws-cdk": "^2.1135.0",
+    "aws-cdk": "^2.1135.1",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3"
   }
