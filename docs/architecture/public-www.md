@@ -108,6 +108,16 @@ Source: [`apps/public_www`](../../apps/public_www).
   Meta Pixel via `NEXT_PUBLIC_GTM_ID` / `NEXT_PUBLIC_META_PIXEL_ID` and
   host allow-lists; CSP `script-src` / `connect-src` extended at build time
   when those env vars are set (`scripts/inject-csp-meta.mjs`).
+- **Analytics consent:** GTM and the Meta Pixel are consent-gated. The init
+  scripts (`public/scripts/init-gtm.js`, `init-meta-pixel.js`) only load the
+  vendor scripts when `localStorage` key `siutindei-analytics-consent` is
+  `granted`, or after the `siutindei-analytics-consent-granted` window event
+  fires. `AnalyticsConsentBanner` (rendered from the root layout) collects
+  the decision and links to `/privacy#cookies`. Legal pages (`/privacy`,
+  `/terms`) render structured bilingual content from
+  `src/content/{en,zh-HK}.json#legal` via
+  `src/components/sections/legal-page.tsx`; `docs/legal/README.md` documents
+  the update procedure.
 
 The build is deliberately **gated** by:
 
