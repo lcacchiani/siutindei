@@ -20,3 +20,8 @@ export {
   PythonLambdaFactory,
   STANDARD_LOG_RETENTION,
 } from "./python-lambda";
+export {
+  MonitoredFunction,
+  OpsAlarmsConstruct,
+  OpsAlarmsConstructProps,
+} from "./ops-alarms";

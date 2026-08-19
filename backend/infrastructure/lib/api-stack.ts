@@ -18,7 +18,12 @@ import { Construct, IConstruct } from "constructs";
 import * as crypto from "crypto";
 import * as fs from "fs";
 import * as path from "path";
-import { DatabaseConstruct, PythonLambdaFactory, STANDARD_LOG_RETENTION } from "./constructs";
+import {
+  DatabaseConstruct,
+  OpsAlarmsConstruct,
+  PythonLambdaFactory,
+  STANDARD_LOG_RETENTION,
+} from "./constructs";
 
 /**
  * CDK Aspect that adds Checkov suppressions to CDK-internal Lambda functions.
@@ -515,6 +520,18 @@ export class ApiStack extends cdk.Stack {
       description:
         "SES-verified sender email address for access request notifications. " +
         "Can be the same as SupportEmail.",
+    });
+
+    // ---------------------------------------------------------------------
+    // Observability Parameters
+    // ---------------------------------------------------------------------
+    const opsAlertsEmail = new cdk.CfnParameter(this, "OpsAlertsEmail", {
+      type: "String",
+      default: "",
+      description:
+        "Email address subscribed to operational CloudWatch alarms " +
+        "(API 5XX/latency, Lambda errors/throttles, Aurora capacity). " +
+        "Leave empty to create the alarms without an email subscription.",
     });
 
     // ---------------------------------------------------------------------
@@ -2490,6 +2507,21 @@ export class ApiStack extends cdk.Stack {
       }
     );
     apiCustomDomainUrlOutput.condition = useApiCustomDomain;
+
+    // ---------------------------------------------------------------------
+    // Operational alarms (SNS ops-alerts topic + CloudWatch alarms)
+    // ---------------------------------------------------------------------
+    new OpsAlarmsConstruct(this, "OpsAlarms", {
+      resourcePrefix,
+      alertsEmail: opsAlertsEmail.valueAsString,
+      api,
+      monitoredFunctions: [
+        { label: "Search", fn: searchFunction },
+        { label: "Admin", fn: adminFunction },
+      ],
+      dbClusterIdentifier: database.cluster.clusterIdentifier,
+      additionalAlarms: [dlqAlarm],
+    });
 
     // Apply Checkov suppressions to CDK-internal Lambda functions
     cdk.Aspects.of(this).add(new CdkInternalLambdaCheckovSuppression());
