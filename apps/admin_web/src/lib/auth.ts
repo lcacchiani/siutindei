@@ -145,6 +145,16 @@ function getLogoutRedirectUri() {
   return `${window.location.origin}/`;
 }
 
+// Cognito Hosted UI is cross-origin. Next.js client routing cannot
+// complete OAuth; a full document navigation is required.
+function assignExternalHttpUrl(url: string) {
+  const parsed = new URL(url);
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    throw new Error('Refusing non-http(s) navigation.');
+  }
+  window.location.assign(parsed.href);
+}
+
 function parseJwt(token: string) {
   const parts = token.split('.');
   if (parts.length < 2) {
@@ -207,7 +217,7 @@ export async function startLogin(options?: LoginOptions) {
     params.set('identity_provider', options.provider);
   }
   const url = `${getCognitoDomain()}/oauth2/authorize?${params}`;
-  window.location.assign(url);
+  assignExternalHttpUrl(url);
 }
 
 export async function completeLogin() {
@@ -311,5 +321,5 @@ export function startLogout() {
     logout_uri: getLogoutRedirectUri(),
   });
   const url = `${getCognitoDomain()}/logout?${params}`;
-  window.location.assign(url);
+  assignExternalHttpUrl(url);
 }
