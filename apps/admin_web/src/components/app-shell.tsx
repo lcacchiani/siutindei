@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, type ReactNode } from 'react';
 
+import { LegalLinks } from './legal-links';
 import { Button } from './ui/button';
 
 export interface NavSection {
@@ -280,6 +281,13 @@ export function AppShell({
         )}
         <main className='min-w-0 flex-1 space-y-4 sm:space-y-6'>{children}</main>
       </div>
+
+      {/* Footer */}
+      <footer className='border-t border-slate-200 bg-white'>
+        <div className='mx-auto max-w-6xl px-4 py-4 sm:px-6'>
+          <LegalLinks className='text-center text-xs text-slate-500' />
+        </div>
+      </footer>
     </div>
   );
 }

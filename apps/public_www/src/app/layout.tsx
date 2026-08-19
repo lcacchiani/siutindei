@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import Script from 'next/script';
 import type { ReactNode } from 'react';
 
+import { AnalyticsConsentBanner } from '@/components/shared/analytics-consent-banner';
 import { AnalyticsResourceHints } from '@/components/shared/analytics-resource-hints';
 import { GoogleTagManager } from '@/components/shared/google-tag-manager';
 import { MetaPixel } from '@/components/shared/meta-pixel';
@@ -119,6 +120,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
         ) : null}
         <GoogleTagManager />
         <MetaPixel />
+        <AnalyticsConsentBanner />
         {children}
       </body>
     </html>

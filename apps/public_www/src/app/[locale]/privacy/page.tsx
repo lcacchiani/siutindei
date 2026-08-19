@@ -1,3 +1,4 @@
+import { LegalPage } from '@/components/sections/legal-page';
 import {
   generateLocaleStaticParams,
   type LocaleRouteProps,
@@ -32,15 +33,11 @@ export default async function PrivacyRoutePage({ params }: LocaleRouteProps) {
   const { content } = await resolveLocalePageContext(params);
 
   return (
-    <article className="mx-auto max-w-3xl px-4 py-16 sm:px-6">
-      <h1 className="text-3xl font-bold text-ink-900">
-        {content.legal.privacy.title}
-      </h1>
-      {content.legal.privacy.paragraphs.map((paragraph) => (
-        <p key={paragraph} className="mt-4 leading-7 text-ink-700">
-          {paragraph}
-        </p>
-      ))}
-    </article>
+    <LegalPage
+      document={content.legal.privacy}
+      lastUpdatedLabel={content.legal.lastUpdatedLabel}
+      lastUpdated={content.legal.lastUpdated}
+      onThisPageLabel={content.legal.onThisPageLabel}
+    />
   );
 }

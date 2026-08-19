@@ -1,5 +1,8 @@
 # Android Play Store Deployment Guide
 
+> Store listing requirement: the Play Console privacy policy URL and Data
+> Safety form answers are maintained in `docs/legal/store-disclosures.md`.
+
 This guide explains how to set up and deploy the Android app to Google Play Store.
 
 ## Prerequisites

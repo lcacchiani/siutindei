@@ -28,6 +28,18 @@ test.describe('Login Screen', () => {
         'You must be in the admin or manager group to access tools.'
       )
     ).toBeVisible();
+
+    // Check for legal links to the public website
+    const privacyLink = unauthenticatedPage.getByRole('link', {
+      name: 'Privacy Policy',
+    });
+    await expect(privacyLink).toBeVisible();
+    await expect(privacyLink).toHaveAttribute('href', /\/privacy$/);
+    const termsLink = unauthenticatedPage.getByRole('link', {
+      name: 'Terms of Use',
+    });
+    await expect(termsLink).toBeVisible();
+    await expect(termsLink).toHaveAttribute('href', /\/terms$/);
   });
 
   test('should show loading state initially', async ({ page }) => {
@@ -137,5 +149,17 @@ test.describe('Authentication Flow', () => {
     // Should have a logout button
     const logoutButton = adminPage.getByRole('button', { name: 'Log out' });
     await expect(logoutButton).toBeVisible();
+  });
+
+  test('legal links should be visible in the dashboard footer', async ({ adminPage }) => {
+    await adminPage.goto('/admin/dashboard');
+
+    const footer = adminPage.locator('footer');
+    await expect(
+      footer.getByRole('link', { name: 'Privacy Policy' })
+    ).toBeVisible();
+    await expect(
+      footer.getByRole('link', { name: 'Terms of Use' })
+    ).toBeVisible();
   });
 });
