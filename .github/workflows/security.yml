@@ -182,51 +182,13 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  # SAST with Semgrep
-  semgrep:
-    name: Semgrep SAST
-    runs-on: ubuntu-latest
-    container:
-      image: semgrep/semgrep
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Run Semgrep
-        # Rule exclusions (centralized suppressions):
-        # - dynamic-urllib-use-detected: Suppressed for cfn_response.py which validates
-        #   URLs before use (HTTPS only, .amazonaws.com hosts only). The validation
-        #   prevents the file:// scheme attack vector. See backend/src/app/utils/cfn_response.py
-        run: |
-          semgrep scan \
-            --sarif \
-            --sarif-output=semgrep-results.sarif \
-            --exclude-rule python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected \
-            || true
-          if [ ! -f semgrep-results.sarif ]; then
-            printf '%s\n' \
-              '{"version":"2.1.0","$schema":"https://json.schemastore.org/sarif-2.1.0.json","runs":[]}' \
-              > semgrep-results.sarif
-          fi
-        env:
-          SEMGREP_RULES: >-
-            p/python
-            p/security-audit
-            p/secrets
-            p/owasp-top-ten
-
-      - name: Upload SARIF results
-        uses: github/codeql-action/upload-sarif@5595ccaf912efad79be6eef63a5619ff05969be3 # v4.37.6
-        if: always()
-        with:
-          sarif_file: semgrep-results.sarif
-          category: semgrep
-
   # Summary job
+  # Semgrep OSS lives in .github/workflows/semgrep.yml so GitHub Code
+  # Scanning can discover the canonical Semgrep OSS configuration.
   security-summary:
     name: Security Summary
     runs-on: ubuntu-latest
-    needs: [dependency-audit, bandit, checkov, codeql, secrets-scan, semgrep]
+    needs: [dependency-audit, bandit, checkov, codeql, secrets-scan]
     if: always()
     steps:
       - name: Check job results
@@ -240,4 +202,4 @@ jobs:
           echo "| Checkov | ${{ needs.checkov.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| CodeQL | ${{ needs.codeql.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Secret Scanning | ${{ needs.secrets-scan.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Semgrep | ${{ needs.semgrep.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Semgrep | see Semgrep workflow |" >> $GITHUB_STEP_SUMMARY

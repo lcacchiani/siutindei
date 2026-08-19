@@ -243,6 +243,30 @@ return {"error": "Internal server error"}  # Generic response to client
   with a customer-managed KMS key, ensure Lambda roles can decrypt it
   (set `EXISTING_DB_CREDENTIALS_SECRET_KMS_KEY_ARN` or use auto-detect).
 
+### Dependency vulnerability handling
+
+- Dependabot version updates cover GitHub Actions, pip (`/backend`),
+  pub (`/apps/siutindei_app`), and npm
+  (`/backend/infrastructure`, `/apps/public_www`, `/apps/admin_web`).
+- Public-www production Highs are gated by `npm run audit:deps:prod`
+  (`npm audit --omit=dev --audit-level=high`).
+- `extract-zip` (GHSA-jmr9-qjv8-65gv) is a dev-only transitive of
+  `@lhci/cli` / Lighthouse 12. There is no patched release; Dependabot
+  ignores it in `/apps/public_www` until LHCI ships Lighthouse 13+.
+  Do not run `npm audit fix --force` (it downgrades `@lhci/cli` to 0.6.1).
+- Bundled `aws-cdk-lib` copies of `minimatch` are replaced at
+  `postinstall`. Keep `aws-cdk-lib` at 2.265.0+ so the bundled
+  `brace-expansion` is 5.0.9 (GHSA-rgw5-rvv9-x895). `npm overrides`
+  cannot replace `inBundle` packages.
+
+### Semgrep OSS
+
+SAST runs in `.github/workflows/semgrep.yml` (not `security.yml`). GitHub
+Code Scanning's Semgrep OSS setup looks for that path; embedding the job
+only in `security.yml` left the tool-status page at "1 configuration not
+found". Packs: `p/python`, `p/security-audit`, `p/secrets`,
+`p/owasp-top-ten`. SARIF category stays `semgrep`.
+
 ### GitHub Workflow Permissions
 
 Always use minimal permissions:
