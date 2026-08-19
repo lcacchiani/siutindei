@@ -48,6 +48,15 @@ DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5432/backend_test 
 
 ### P0-1. Production build ships with no Search API configuration → live search is broken
 
+**Status: RESOLVED.** `promote-public-www.yml` passes
+`NEXT_PUBLIC_SEARCH_API_BASE_URL` (production Environment var) and
+`NEXT_PUBLIC_SEARCH_API_KEY` / `NEXT_PUBLIC_DEVICE_ATTESTATION_TOKEN`
+(production Environment secrets) to both the env-contract check and the
+build, and `assert-build-env-contract.mjs` hard-fails when they are missing
+with `NEXT_PUBLIC_STAGING_SEARCH_DATA_ENABLED=false`. Operator reminder to
+populate the GitHub Environment values lives in
+`docs/deployment/launch-checklist.md`.
+
 **Problem.** The production promote workflow builds the site with
 `NEXT_PUBLIC_STAGING_SEARCH_DATA_ENABLED: 'false'` but never passes
 `NEXT_PUBLIC_SEARCH_API_BASE_URL`, `NEXT_PUBLIC_SEARCH_API_KEY`, or
@@ -93,6 +102,13 @@ so even a correctly configured base URL would be blocked.
 ---
 
 ### P0-2. API Gateway response cache can return the wrong activity/category results
+
+**Status: RESOLVED.** `cacheKeyParameters` now includes `activity_id` and
+`category_id` and the stale keys (`day_of_month`, `start_at_utc`,
+`end_at_utc`) are gone. The API Gateway stage cache cluster is disabled
+entirely; response caching moved to the CloudFront edge, whose
+`SearchApiCachePolicy` uses `CacheQueryStringBehavior.all()`, so every query
+parameter is part of the cache key.
 
 **Problem.** Search has API Gateway caching enabled (`cacheClusterEnabled: true`,
 `cachingEnabled: true`, 5-minute TTL). The cache-key parameter list does **not**
@@ -250,6 +266,11 @@ constraints).** Options, easiest first:
 
 ### P2-1. Stale/undocumented search query parameters across CDK, OpenAPI, and Flutter
 
+**Status: RESOLVED.** The stale CDK cache keys were removed with P0-2, and
+`ActivitySearchFilters` in the Flutter app now carries only parameters the
+search API implements (`day_of_month`/`start_at_utc`/`end_at_utc` remain
+only as response-schedule fields, which is correct).
+
 **Problem.** Several params are referenced in places but **not** implemented in
 the search handler or OpenAPI: `day_of_month`, `start_at_utc`, `end_at_utc`
 (in CDK cache keys), and `searchQuery`/`day_of_month`/`start_at_utc`/`end_at_utc`
@@ -306,6 +327,12 @@ not security-critical.
 
 ### P2-3. Build env contract enforces only 2 variables (rule violation)
 
+**Status: RESOLVED.** `assert-build-env-contract.mjs` now enumerates the
+full `NEXT_PUBLIC_*` surface: hard-required core vars, search vars required
+whenever the staging fixture is disabled, warn-level recommended vars, and
+an optional list whose set/unset status is logged per run. `.env.example`
+documents every variable.
+
 **Problem.** `.cursorrules` requires `assert-build-env-contract.mjs` to list
 **every** `NEXT_PUBLIC_*` the static export depends on. It currently enforces
 only `NEXT_PUBLIC_SITE_ORIGIN` and `NEXT_PUBLIC_SITE_NAME`.
@@ -335,6 +362,10 @@ missing var and confirm it fails; with all set, confirm it passes.
 ---
 
 ### P2-4. `home_wizard_choices.json` is manually copied with no sync check
+
+**Status: RESOLVED.** `scripts/codegen/sync-home-wizard-choices.sh` exists
+and `deploy-public-www.yml` runs it with `--check` before every staging
+build.
 
 **Problem.** `shared/home_wizard/home_wizard_choices.json` is the canonical file
 (also a Flutter asset) and is manually copied to
@@ -508,12 +539,12 @@ reality and add a CI check that generated admin types are committed.
 
 ## Suggested execution order
 
-1. **P0-1** (production search config) — highest user impact.
-2. **P0-2 + P2-1** (cache keys + stale params) — single coherent CDK change.
-3. **P1-1** (aws_proxy for in-VPC Cognito) — architectural correctness/runtime.
-4. **P1-2** (inline SVG / dead code) — quick rule-compliance win.
-5. **P2-3** (env contract) — prevents future P0-1-style regressions.
-6. Remaining P1/P2 items, then P3 cleanup.
+Resolved so far: P0-1, P0-2, P1-2, P1-3 (option 1), P2-1, P2-3, P2-4, P2-5,
+P2-6, P2-7. Remaining, in order:
+
+1. **P1-1** (aws_proxy for in-VPC Cognito) — architectural correctness/runtime.
+2. **P2-2** (search input validation), **P2-8** (`site-config.ts` env reads).
+3. P3 cleanup.
 
 ## Notes / things that are actually fine (do not "fix")
 
