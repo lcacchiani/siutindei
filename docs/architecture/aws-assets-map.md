@@ -152,6 +152,11 @@ Cognito operations are proxied through `AwsApiProxyFunction` instead.
 - Storage Encryption: Enabled (if `applyImmutableSettings=true`)
 - CloudWatch Logs: `postgresql` export enabled
 - Monitoring: Enhanced monitoring (60s interval)
+- Backups: 14-day automated backup retention, copy tags to snapshots
+- Deletion Protection: Enabled
+- Note: for clusters imported via `EXISTING_DB_*`, backup retention and
+  deletion protection must be applied out-of-band (see
+  `docs/deployment/launch-checklist.md`)
 
 ### RDS Proxy
 
@@ -372,6 +377,28 @@ read error status codes instead of silently blocking them.
 
 ---
 
+## Operational Alarms (OpsAlarms construct)
+
+Created by `OpsAlarmsConstruct` (`lib/constructs/ops-alarms.ts`).
+
+| Resource Type | Physical Name | Notes |
+|--------------|---------------|-------|
+| SNS Topic | `lxsoftware-siutindei-ops-alerts` | KMS-encrypted; receives all operational alarms |
+| KMS Key + Alias | `lxsoftware-siutindei-kms-ops-alerts` | Topic encryption key (rotation enabled; CloudWatch service principal granted) |
+| SNS Subscription | — | Email subscription to `OpsAlertsEmail` (conditional: only when the parameter is non-empty) |
+| CloudWatch Alarm | `lxsoftware-siutindei-api-5xx-alarm` | API Gateway 5XX ≥ 5 in 5 min |
+| CloudWatch Alarm | `lxsoftware-siutindei-api-latency-p99-alarm` | API Gateway p99 latency > 3 s for 15 min |
+| CloudWatch Alarm | `lxsoftware-siutindei-search-lambda-errors-alarm` | Search Lambda errors ≥ 3 in 5 min |
+| CloudWatch Alarm | `lxsoftware-siutindei-search-lambda-throttles-alarm` | Search Lambda throttles ≥ 1 |
+| CloudWatch Alarm | `lxsoftware-siutindei-admin-lambda-errors-alarm` | Admin Lambda errors ≥ 3 in 5 min |
+| CloudWatch Alarm | `lxsoftware-siutindei-admin-lambda-throttles-alarm` | Admin Lambda throttles ≥ 1 |
+| CloudWatch Alarm | `lxsoftware-siutindei-aurora-acu-utilization-alarm` | Aurora ACU utilization ≥ 90% for 15 min |
+| CloudWatch Alarm | `lxsoftware-siutindei-aurora-connections-alarm` | Aurora connections ≥ 300 for 15 min |
+
+The pre-existing manager-request DLQ alarm (`lxsoftware-siutindei-manager-request-dlq-alarm`) is also routed to the ops-alerts topic. Thresholds are launch-sizing early warnings; tune as real traffic patterns emerge.
+
+---
+
 ## Custom Resources
 
 ### Database Migrations
@@ -426,6 +453,7 @@ read error status codes instead of silently blocking them.
 | `FallbackManagerEmail` | String | No | No | Fallback manager email for migration |
 | `SupportEmail` | String | No | No | Email to receive manager request notifications |
 | `SesSenderEmail` | String | No | No | SES-verified sender email for notifications |
+| `OpsAlertsEmail` | String | No | No | Email subscribed to operational CloudWatch alarms (default: empty) |
 | `ApiCustomDomainName` | String | No | No | Custom domain for the API (default: empty) |
 | `ApiCustomDomainCertificateArn` | String | No | No | ACM certificate ARN for API custom domain |
 | `AdminBootstrapEmail` | String | No | No | Admin email for bootstrap (default: empty) |
