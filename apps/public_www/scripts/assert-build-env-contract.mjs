@@ -17,6 +17,24 @@ const SEARCH_API_REQUIRED = [
 const RECOMMENDED = [
   'NEXT_PUBLIC_SITE_TAGLINE',
   'NEXT_PUBLIC_BUILD_YEAR',
+  'NEXT_PUBLIC_EMAIL',
+];
+
+// Optional build-time inputs. Not required for a valid build, but listed
+// here so the contract enumerates every NEXT_PUBLIC_* variable the static
+// export depends on (per .cursorrules). Their set/unset status is logged
+// for deploy-run auditability.
+const OPTIONAL = [
+  'NEXT_PUBLIC_WHATSAPP_URL',
+  'NEXT_PUBLIC_INSTAGRAM_URL',
+  'NEXT_PUBLIC_STAGING_BADGE_ENABLED',
+  'NEXT_PUBLIC_STAGING_SEARCH_DATA_ENABLED',
+  'NEXT_PUBLIC_STAGING_SEARCH_FIXTURE_URL',
+  'NEXT_PUBLIC_GOOGLE_MAPS_API_KEY',
+  'NEXT_PUBLIC_GTM_ID',
+  'NEXT_PUBLIC_GTM_ALLOWED_HOSTS',
+  'NEXT_PUBLIC_META_PIXEL_ID',
+  'NEXT_PUBLIC_META_PIXEL_ALLOWED_HOSTS',
 ];
 
 function readBooleanEnv(name) {
@@ -56,6 +74,10 @@ for (const name of RECOMMENDED) {
   if (isMissing(name)) {
     console.warn(`Recommended env is empty: ${name}`);
   }
+}
+
+for (const name of OPTIONAL) {
+  console.log(`Optional env ${name}: ${isMissing(name) ? 'unset' : 'set'}`);
 }
 
 if (failed) {
