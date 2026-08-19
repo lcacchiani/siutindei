@@ -2,7 +2,9 @@ import 'package:amplify_auth_cognito/amplify_auth_cognito.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../config/site_links.dart';
 import '../../../config/tokens/tokens.dart';
+import '../../../utils/external_links.dart';
 import '../../../viewmodels/auth_viewmodel.dart';
 
 /// Login screen using design tokens.
@@ -211,9 +213,72 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 label: 'Continue with Apple',
                 semantic: semantic,
               ),
+
+              SizedBox(height: semantic.spacing.lg),
+
+              // Legal notice with links to the public website
+              _LegalNotice(semantic: semantic),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _LegalNotice extends StatelessWidget {
+  const _LegalNotice({required this.semantic});
+
+  final SemanticTokens semantic;
+
+  @override
+  Widget build(BuildContext context) {
+    final captionStyle = semantic.text.caption;
+    final linkStyle = captionStyle.copyWith(
+      color: semantic.color.primary,
+      decoration: TextDecoration.underline,
+    );
+
+    return Wrap(
+      alignment: WrapAlignment.center,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        Text('By continuing, you agree to our ', style: captionStyle),
+        _LegalLink(
+          label: 'Terms of Use',
+          url: SiteLinks.termsOfUseUrl,
+          style: linkStyle,
+        ),
+        Text(' and acknowledge our ', style: captionStyle),
+        _LegalLink(
+          label: 'Privacy Policy',
+          url: SiteLinks.privacyPolicyUrl,
+          style: linkStyle,
+        ),
+        Text('.', style: captionStyle),
+      ],
+    );
+  }
+}
+
+class _LegalLink extends StatelessWidget {
+  const _LegalLink({
+    required this.label,
+    required this.url,
+    required this.style,
+  });
+
+  final String label;
+  final String url;
+  final TextStyle style;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => openExternalUrl(url),
+      child: Semantics(
+        link: true,
+        child: Text(label, style: style),
       ),
     );
   }

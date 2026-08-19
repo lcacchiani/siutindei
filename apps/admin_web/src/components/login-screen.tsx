@@ -4,6 +4,7 @@ import { useState, type FormEvent } from 'react';
 
 import { useAuth } from './auth-provider';
 import { AppleIcon, GoogleIcon } from './icons/action-icons';
+import { LegalLinks } from './legal-links';
 import { StatusBanner } from './status-banner';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
@@ -310,6 +311,8 @@ export function LoginScreen() {
                 You must be in the admin or manager group to access tools.
               </p>
             </Card>
+
+            <LegalLinks className='mt-6 text-center text-xs text-slate-500' />
           </div>
         </section>
       </div>

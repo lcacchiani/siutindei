@@ -3,13 +3,18 @@ export interface AppConfig {
   cognitoDomain: string;
   cognitoClientId: string;
   cognitoUserPoolId: string;
+  publicWwwBaseUrl: string;
 }
+
+const DEFAULT_PUBLIC_WWW_BASE_URL = 'https://siutindei-www.lx-software.com';
 
 export const appConfig: AppConfig = {
   apiBaseUrl: process.env.NEXT_PUBLIC_API_BASE_URL ?? '',
   cognitoDomain: process.env.NEXT_PUBLIC_COGNITO_DOMAIN ?? '',
   cognitoClientId: process.env.NEXT_PUBLIC_COGNITO_CLIENT_ID ?? '',
   cognitoUserPoolId: process.env.NEXT_PUBLIC_COGNITO_USER_POOL_ID ?? '',
+  publicWwwBaseUrl:
+    process.env.NEXT_PUBLIC_PUBLIC_WWW_URL ?? DEFAULT_PUBLIC_WWW_BASE_URL,
 };
 
 function trimTrailingSlashes(value: string) {
@@ -50,4 +55,16 @@ export function getApiBaseUrl() {
     throw new Error('API base URL is not configured.');
   }
   return trimTrailingSlashes(trimmed);
+}
+
+function getPublicWwwBaseUrl() {
+  return trimTrailingSlashes(appConfig.publicWwwBaseUrl.trim());
+}
+
+export function getPrivacyPolicyUrl() {
+  return `${getPublicWwwBaseUrl()}/privacy`;
+}
+
+export function getTermsOfUseUrl() {
+  return `${getPublicWwwBaseUrl()}/terms`;
 }
