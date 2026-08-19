@@ -1,5 +1,9 @@
 # iOS TestFlight Deployment Guide
 
+> Store listing requirement: the App Store Connect privacy policy URL and
+> App Privacy questionnaire answers are maintained in
+> `docs/legal/store-disclosures.md`.
+
 This guide explains how to set up and deploy the iOS app to TestFlight.
 
 ## Prerequisites
