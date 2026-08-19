@@ -391,6 +391,12 @@ export class DatabaseConstruct extends Construct {
         // after cluster creation, and setting to undefined on subsequent
         // deployments would cause CloudFormation to attempt replacement.
         storageEncrypted: true,
+        // Launch-readiness data safety settings. For clusters imported via
+        // EXISTING_DB_* (not managed by CDK), apply the equivalent settings
+        // out-of-band — see docs/deployment/launch-checklist.md.
+        backup: { retention: cdk.Duration.days(14) },
+        deletionProtection: true,
+        copyTagsToSnapshot: true,
         serverlessV2MinCapacity: props.minCapacity ?? 0.5,
         serverlessV2MaxCapacity: props.maxCapacity ?? 2,
         writer: writerInstance,

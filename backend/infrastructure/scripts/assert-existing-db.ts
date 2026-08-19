@@ -1,7 +1,9 @@
 import * as cdk from "aws-cdk-lib";
-import { Template } from "aws-cdk-lib/assertions";
+import { Match, Template } from "aws-cdk-lib/assertions";
+import * as apigateway from "aws-cdk-lib/aws-apigateway";
 import * as ec2 from "aws-cdk-lib/aws-ec2";
-import { DatabaseConstruct } from "../lib/constructs";
+import * as lambda from "aws-cdk-lib/aws-lambda";
+import { DatabaseConstruct, OpsAlarmsConstruct } from "../lib/constructs";
 
 function assertExistingResources(): void {
   const app = new cdk.App();
@@ -98,11 +100,63 @@ function assertNewResources(): void {
   template.resourceCountIs("AWS::RDS::DBCluster", 1);
   template.resourceCountIs("AWS::RDS::DBProxy", 1);
   template.resourceCountIs("AWS::SecretsManager::Secret", 3);
+  template.hasResourceProperties("AWS::RDS::DBCluster", {
+    BackupRetentionPeriod: 14,
+    DeletionProtection: true,
+    CopyTagsToSnapshot: true,
+  });
+}
+
+function assertOpsAlarms(): void {
+  const app = new cdk.App();
+  const stack = new cdk.Stack(app, "OpsAlarmsStack", {
+    env: { account: "111111111111", region: "us-east-1" },
+  });
+
+  const fn = new lambda.Function(stack, "Fn", {
+    runtime: lambda.Runtime.PYTHON_3_12,
+    handler: "index.handler",
+    code: lambda.Code.fromInline("def handler(event, context): return {}"),
+  });
+  const api = new apigateway.RestApi(stack, "Api");
+  api.root.addMethod("GET", new apigateway.LambdaIntegration(fn));
+
+  const alertsEmail = new cdk.CfnParameter(stack, "AlertsEmail", {
+    type: "String",
+    default: "",
+  });
+
+  new OpsAlarmsConstruct(stack, "OpsAlarms", {
+    resourcePrefix: "test",
+    alertsEmail: alertsEmail.valueAsString,
+    api,
+    monitoredFunctions: [{ label: "Search", fn }],
+    dbClusterIdentifier: "test-db-cluster",
+  });
+
+  const template = Template.fromStack(stack);
+  template.resourceCountIs("AWS::SNS::Topic", 1);
+  // 2 API alarms + 2 Lambda alarms + 2 Aurora alarms
+  template.resourceCountIs("AWS::CloudWatch::Alarm", 6);
+  // Every alarm notifies the ops topic
+  const alarms = template.findResources("AWS::CloudWatch::Alarm");
+  for (const alarm of Object.values(alarms)) {
+    const actions = alarm.Properties?.AlarmActions ?? [];
+    if (actions.length !== 1) {
+      throw new Error("Expected every ops alarm to have one alarm action");
+    }
+  }
+  // Email subscription is conditional on the email parameter being set
+  template.hasResource("AWS::SNS::Subscription", {
+    Condition: Match.stringLikeRegexp("HasOpsAlertsEmail"),
+    Properties: { Protocol: "email" },
+  });
 }
 
 function main(): void {
   assertExistingResources();
   assertNewResources();
+  assertOpsAlarms();
   // eslint-disable-next-line no-console
   console.log("OK");
 }
