@@ -55,7 +55,7 @@ export function ActivityDetailPage({
   const [listing, setListing] = useState<ActivityListing | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const { contact } = getSiteConfig();
+  const { contact, siteName } = getSiteConfig();
 
   useEffect(() => {
     let cancelled = false;
@@ -137,10 +137,17 @@ export function ActivityDetailPage({
     script.type = 'application/ld+json';
     script.textContent = JSON.stringify(structuredData);
     document.head.appendChild(script);
+
+    // The static export ships one generic /activity/ page; give each
+    // activity a real tab/browser title once its data loads.
+    const previousTitle = document.title;
+    document.title = `${activityTitle} · ${siteName}`;
+
     return () => {
       document.head.removeChild(script);
+      document.title = previousTitle;
     };
-  }, [listing, locale]);
+  }, [listing, locale, siteName]);
 
   if (isLoading) {
     return (
