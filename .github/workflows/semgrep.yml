@@ -1,0 +1,60 @@
+# Canonical Semgrep OSS workflow path. GitHub Code Scanning's Semgrep OSS
+# setup looks for this file; keeping the job only inside security.yml left
+# the tool-status page at "1 configuration not found".
+# https://semgrep.dev/docs/semgrep-ci/sample-ci-configs
+name: Semgrep
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Align with Security Scanning (Mondays at 8:00 UTC)
+    - cron: '0 8 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
+jobs:
+  semgrep:
+    name: semgrep/ci
+    runs-on: ubuntu-latest
+    container:
+      image: semgrep/semgrep
+    # Dependabot PRs do not have security-events write on the default token
+    if: github.actor != 'dependabot[bot]'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Run Semgrep
+        # Rule exclusions (centralized suppressions):
+        # - dynamic-urllib-use-detected: Suppressed for cfn_response.py which
+        #   validates URLs before use (HTTPS only, .amazonaws.com hosts only).
+        #   See backend/src/app/utils/cfn_response.py
+        run: |
+          semgrep scan \
+            --config p/python \
+            --config p/security-audit \
+            --config p/secrets \
+            --config p/owasp-top-ten \
+            --sarif \
+            --sarif-output=semgrep-results.sarif \
+            --exclude-rule python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected \
+            || true
+          if [ ! -f semgrep-results.sarif ]; then
+            printf '%s\n' \
+              '{"version":"2.1.0","$schema":"https://json.schemastore.org/sarif-2.1.0.json","runs":[]}' \
+              > semgrep-results.sarif
+          fi
+
+      - name: Upload SARIF results
+        uses: github/codeql-action/upload-sarif@5595ccaf912efad79be6eef63a5619ff05969be3 # v4.37.6
+        if: always()
+        with:
+          sarif_file: semgrep-results.sarif
+          category: semgrep

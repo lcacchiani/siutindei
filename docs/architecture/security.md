@@ -259,6 +259,14 @@ return {"error": "Internal server error"}  # Generic response to client
   `brace-expansion` is 5.0.9 (GHSA-rgw5-rvv9-x895). `npm overrides`
   cannot replace `inBundle` packages.
 
+### Semgrep OSS
+
+SAST runs in `.github/workflows/semgrep.yml` (not `security.yml`). GitHub
+Code Scanning's Semgrep OSS setup looks for that path; embedding the job
+only in `security.yml` left the tool-status page at "1 configuration not
+found". Packs: `p/python`, `p/security-audit`, `p/secrets`,
+`p/owasp-top-ten`. SARIF category stays `semgrep`.
+
 ### GitHub Workflow Permissions
 
 Always use minimal permissions:
