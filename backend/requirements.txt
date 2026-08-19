@@ -3,6 +3,6 @@ boto3==1.43.69
 pyjwt[crypto]==2.13.0
 pydantic==2.13.4
 psycopg[binary]==3.2.13
-sqlalchemy==2.0.51
+sqlalchemy==2.0.52
 phonenumbers==9.0.36
 pycountry==26.2.16
