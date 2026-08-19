@@ -178,6 +178,9 @@ this correctly in `admin_cognito.py`).
 
 ### P1-2. Inline `<svg>` markup in a TSX component (rule violation) + dead code
 
+**Status: RESOLVED.** `search-map-panel.tsx` has been deleted; no
+`SearchMapPanel` references remain.
+
 **Problem.** `SearchMapPanel` renders inline `<svg>`/`<circle>` markup in TSX,
 which `.cursorrules` forbids for `apps/public_www/**` ("inline `<svg>...</svg>`
 markup in TSX components"). The component is also **dead code** — it is exported
@@ -204,6 +207,14 @@ maintenance cost and confusion.
 ---
 
 ### P1-3. Activity-detail pages have generic, client-rendered metadata (SEO)
+
+**Status: RESOLVED (option 1).** The detail page injects per-activity
+`Course` JSON-LD and updates `document.title` client-side once the activity
+loads; sitewide WebSite + Organization JSON-LD is injected into the locale
+home pages at build time (`scripts/inject-structured-data.mjs`). Option 2
+(pre-generating static activity pages via `generateStaticParams`) remains a
+future enhancement once the activity set is stable and enumerable at build
+time.
 
 **Problem.** `/[locale]/activity/?id=...` uses a static generic title; the real
 activity name/description is fetched client-side after load.
@@ -351,6 +362,10 @@ silently breaks www/Flutter parity.
 
 ### P2-5. Missing root-locale redirects for several routes
 
+**Status: RESOLVED.** `inject-static-redirects.mjs` now covers `/`,
+`/about/`, `/search/`, `/privacy/`, `/terms/`, and `/activity/` (with a
+query-preserving script for `/activity/?id=`).
+
 **Problem.** Only `/` and `/about/` get static root redirects to `/en/...`.
 `/search/`, `/privacy/`, `/terms/`, `/activity/` have no non-locale entry.
 
@@ -366,6 +381,9 @@ redirect to `/en/search/` is present.
 
 ### P2-6. Missing `favicon.ico`
 
+**Status: RESOLVED.** `apps/public_www/public/favicon.ico` exists and is
+referenced from the root layout metadata.
+
 **Problem.** Root metadata references `/favicon.ico`
 (`apps/public_www/src/app/layout.tsx:42-44`) but no `favicon.ico` exists in
 `public/` or `src/app/`. The browser request 404s.
@@ -379,6 +397,10 @@ redirect to `/en/search/` is present.
 ---
 
 ### P2-7. Accessibility / HTML validity issues
+
+**Status: RESOLVED.** Home and search pages render an `sr-only` `<h1>`; the
+activity-detail CTA is a link styled as a button (no nested interactive
+elements); the loading state has `aria-live="polite"`.
 
 **Problem & where.**
 1. No page `<h1>` on home and search pages (only `<h2>`):

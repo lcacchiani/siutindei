@@ -104,10 +104,16 @@ Source: [`apps/public_www`](../../apps/public_www).
   `NEXT_PUBLIC_*` via static `process.env.NEXT_PUBLIC_FOO` access so Next.js
   inlines values in the client bundle (dynamic `process.env[name]` is empty in
   the browser and breaks search).
-- **SEO:** `buildLocalizedMetadata` (canonical, hreflang). Optional GTM /
-  Meta Pixel via `NEXT_PUBLIC_GTM_ID` / `NEXT_PUBLIC_META_PIXEL_ID` and
-  host allow-lists; CSP `script-src` / `connect-src` extended at build time
-  when those env vars are set (`scripts/inject-csp-meta.mjs`).
+- **SEO:** `buildLocalizedMetadata` (canonical, hreflang). Sitewide
+  WebSite + Organization JSON-LD is injected into the exported locale home
+  pages at build time (`scripts/inject-structured-data.mjs`, the
+  `jsonld:inject` build step); per-activity `Course` JSON-LD and the
+  document title are set client-side by `activity-detail-page.tsx` once the
+  activity loads (static export cannot pre-render per-activity metadata).
+  Optional GTM / Meta Pixel via `NEXT_PUBLIC_GTM_ID` /
+  `NEXT_PUBLIC_META_PIXEL_ID` and host allow-lists; CSP `script-src` /
+  `connect-src` extended at build time when those env vars are set
+  (`scripts/inject-csp-meta.mjs`).
 - **Analytics consent:** GTM and the Meta Pixel are consent-gated. The init
   scripts (`public/scripts/init-gtm.js`, `init-meta-pixel.js`) only load the
   vendor scripts when `localStorage` key `siutindei-analytics-consent` is
