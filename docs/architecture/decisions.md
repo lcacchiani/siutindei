@@ -262,11 +262,18 @@ Lambdas or NAT Gateway.
 
 **Configuration (`.github/dependabot.yml`):**
 - GitHub Actions, npm, pip, and pub ecosystems covered.
+- npm directories: `/backend/infrastructure`, `/apps/public_www`,
+  `/apps/admin_web`.
 - Weekly schedule (Mondays) to reduce PR noise.
 - Dependencies grouped by category (AWS CDK, Firebase, database, etc.).
 - Major version updates ignored to require manual review.
-- `brace-expansion` is ignored in `/backend/infrastructure` because
-  `aws-cdk-lib` bundles it; `postinstall` patches the bundled copy.
+- `aws-cdk-lib` 2.265.0+ bundles patched `brace-expansion` 5.0.9
+  (GHSA-rgw5-rvv9-x895). The infrastructure `postinstall` script still
+  replaces the older bundled `minimatch` copy; it does not patch
+  `brace-expansion`.
+- `extract-zip` is ignored in `/apps/public_www` (dev-only LHCI /
+  Lighthouse 12 transitive; no patched release for GHSA-jmr9-qjv8-65gv).
+  Revisit when `@lhci/cli` ships Lighthouse 13+.
 - PRs labeled by ecosystem (`dependencies`, `ci`, `backend`, `mobile`, `infrastructure`).
 
 **Dependabot commands:**

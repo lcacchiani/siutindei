@@ -123,6 +123,8 @@ pull requests for dependency updates:
 |-----------|-----------|-------|
 | GitHub Actions | `/` | CI workflow action versions |
 | npm | `/backend/infrastructure` | CDK and TypeScript dependencies |
+| npm | `/apps/public_www` | Public marketing site |
+| npm | `/apps/admin_web` | Admin console |
 | pip | `/backend` | Python Lambda dependencies |
 | pub | `/apps/siutindei_app` | Flutter/Dart dependencies |
 
