@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" fill="none">
+  <!-- Wide countryside tile -->
+  <g stroke="#2E1D12" stroke-width="3.5" stroke-linejoin="round">
+    <polygon points="8,66 48,88 48,93 8,71" fill="#8BC152" />
+    <polygon points="48,88 88,64 88,69 48,93" fill="#5E9636" />
+    <polygon points="48,42 88,64 48,88 8,66" fill="#A5D273" />
+  </g>
+  <!-- Rolling hills -->
+  <path
+    d="M16 58 C24 40 36 34 46 46 C52 38 62 36 70 48 L76 58 L16 64 Z"
+    fill="#5E9636"
+    stroke="#2E1D12"
+    stroke-width="3.5"
+    stroke-linejoin="round"
+  />
+  <path d="M28 54 C34 44 42 42 48 52 Z" fill="#8BC152" />
+  <!-- Village house -->
+  <g stroke="#2E1D12" stroke-width="3" stroke-linejoin="round">
+    <polygon points="54,58 70,66 70,78 54,70" fill="#FFF7E6" />
+    <polygon points="70,66 78,60 78,72 70,78" fill="#F5C51B" />
+    <polygon points="62,48 78,60 70,66 54,58" fill="#DFAE10" />
+  </g>
+  <rect
+    x="58"
+    y="64"
+    width="6"
+    height="7"
+    fill="#A6DCD3"
+    stroke="#2E1D12"
+    stroke-width="2"
+  />
+  <!-- Tree -->
+  <path
+    d="M26 68 L26 76"
+    stroke="#2E1D12"
+    stroke-width="3.5"
+    stroke-linecap="round"
+  />
+  <circle
+    cx="26"
+    cy="60"
+    r="9"
+    fill="#8BC152"
+    stroke="#2E1D12"
+    stroke-width="3.2"
+  />
+  <circle cx="23" cy="56" r="3" fill="#A5D273" />
+</svg>

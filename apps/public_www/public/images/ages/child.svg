@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" fill="none">
+  <ellipse cx="48" cy="88" rx="30" ry="6" fill="#2E1D12" opacity="0.12" />
+  <!-- Legs -->
+  <rect
+    x="38"
+    y="70"
+    width="7.5"
+    height="15"
+    rx="3"
+    fill="#7E3F1E"
+    stroke="#2E1D12"
+    stroke-width="3"
+  />
+  <rect
+    x="51.5"
+    y="70"
+    width="7.5"
+    height="15"
+    rx="3"
+    fill="#5F2E14"
+    stroke="#2E1D12"
+    stroke-width="3"
+  />
+  <!-- Body -->
+  <path
+    d="M32 50 C32 46 38 43 48 43 C58 43 64 46 64 50 L62 74 C62 79 56 82 48 82 C40 82 34 79 34 74 Z"
+    fill="#8BC152"
+    stroke="#2E1D12"
+    stroke-width="3.5"
+    stroke-linejoin="round"
+  />
+  <path d="M38 51 C41 48 44 47 48 47 C52 47 55 48 58 51 L57 60 L39 60 Z" fill="#A5D273" />
+  <!-- Backpack -->
+  <path
+    d="M30 54 C28 54 26 56 26 60 L28 74 C28 77 32 79 36 79 L38 56 Z"
+    fill="#F2A0BF"
+    stroke="#2E1D12"
+    stroke-width="3"
+    stroke-linejoin="round"
+  />
+  <circle cx="31" cy="64" r="2.2" fill="#FFF7E6" />
+  <!-- Head -->
+  <circle
+    cx="50"
+    cy="30"
+    r="14.5"
+    fill="#FFF7E6"
+    stroke="#2E1D12"
+    stroke-width="3.5"
+  />
+  <path
+    d="M40 22 C46 16 58 16 62 24"
+    stroke="#2E1D12"
+    stroke-width="3.5"
+    stroke-linecap="round"
+  />
+  <ellipse cx="42" cy="33" rx="3" ry="1.7" fill="#F2A0BF" />
+  <ellipse cx="58" cy="33" rx="3" ry="1.7" fill="#F2A0BF" />
+  <circle cx="45" cy="28" r="2.1" fill="#2E1D12" />
+  <circle cx="56" cy="28" r="2.1" fill="#2E1D12" />
+  <path
+    d="M47 35 C49 37 53 37 55 35"
+    stroke="#2E1D12"
+    stroke-width="2.2"
+    stroke-linecap="round"
+  />
+  <!-- Book -->
+  <g stroke="#2E1D12" stroke-width="2.8" stroke-linejoin="round">
+    <polygon points="66,58 80,64 80,72 66,66" fill="#A6DCD3" />
+    <polygon points="80,64 88,58 88,66 80,72" fill="#7CC4B9" />
+    <polygon points="72,52 88,58 80,64 66,58" fill="#C5EAE3" />
+  </g>
+  <polygon points="70,56 84,62 78,65 66,59" fill="#FFF7E6" />
+</svg>

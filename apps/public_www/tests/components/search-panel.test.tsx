@@ -1,0 +1,129 @@
+import { useEffect } from 'react';
+import { fireEvent, render, screen } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
+
+import { SearchPanel } from '@/components/sections/search/search-panel';
+import {
+  SearchProvider,
+  useSearchContext,
+} from '@/components/shared/search/search-context';
+import { getContent } from '@/content';
+import {
+  AGE_ICON_SRC,
+  ALL_HONG_KONG_ICON_SRC,
+  REGION_ICON_SRC,
+} from '@/lib/home-wizard/choice-icons';
+import { homeWizardChoices } from '@/lib/home-wizard/choices';
+
+const push = vi.hoisted(() => vi.fn());
+
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({
+    push,
+  }),
+}));
+
+function OpenOnMount() {
+  const { openSearch } = useSearchContext();
+  useEffect(() => {
+    openSearch();
+  }, [openSearch]);
+  return null;
+}
+
+function renderPanel() {
+  const content = getContent('en');
+  render(
+    <SearchProvider>
+      <OpenOnMount />
+      <SearchPanel locale="en" copy={content.navbar.searchPanel} />
+    </SearchProvider>,
+  );
+  return content;
+}
+
+function choiceImage(name: string): HTMLImageElement {
+  const button = screen.getByRole('button', { name });
+  const image = button.querySelector('img');
+  expect(image).not.toBeNull();
+  return image as HTMLImageElement;
+}
+
+describe('SearchPanel', () => {
+  it('shows activity, age, and Hong Kong region icons with labels', () => {
+    renderPanel();
+
+    expect(choiceImage('All Hong Kong')).toHaveAttribute(
+      'src',
+      ALL_HONG_KONG_ICON_SRC,
+    );
+
+    expect(choiceImage('Hong Kong Island')).toHaveAttribute(
+      'src',
+      REGION_ICON_SRC.hong_kong_island,
+    );
+    expect(choiceImage('Kowloon')).toHaveAttribute(
+      'src',
+      REGION_ICON_SRC.kowloon,
+    );
+    expect(choiceImage('New Territories')).toHaveAttribute(
+      'src',
+      REGION_ICON_SRC.new_territories,
+    );
+    expect(choiceImage('Islands')).toHaveAttribute(
+      'src',
+      REGION_ICON_SRC.islands,
+    );
+
+    for (const group of homeWizardChoices.ageGroups) {
+      expect(choiceImage(group.labels.en)).toHaveAttribute(
+        'src',
+        AGE_ICON_SRC[group.id],
+      );
+    }
+
+    for (const type of homeWizardChoices.activityTypes) {
+      expect(choiceImage(type.labels.en)).toHaveAttribute(
+        'src',
+        `/images/categories/${type.id}.svg`,
+      );
+    }
+  });
+
+  it('places region choices on a Hong Kong map grid', () => {
+    renderPanel();
+
+    expect(screen.getByRole('button', { name: 'All Hong Kong' })).toHaveClass(
+      'md:col-span-3',
+    );
+    expect(screen.getByRole('button', { name: 'Islands' })).toHaveClass(
+      'md:col-start-1',
+      'md:row-start-2',
+    );
+    expect(screen.getByRole('button', { name: 'New Territories' })).toHaveClass(
+      'md:col-start-2',
+      'md:row-start-2',
+    );
+    expect(screen.getByRole('button', { name: 'Kowloon' })).toHaveClass(
+      'md:col-start-3',
+      'md:row-start-2',
+    );
+    expect(screen.getByRole('button', { name: 'Hong Kong Island' })).toHaveClass(
+      'md:col-start-2',
+      'md:row-start-3',
+    );
+  });
+
+  it('toggles an activity type when its choice is pressed', () => {
+    renderPanel();
+
+    const workshop = screen.getByRole('button', { name: 'Workshop' });
+    expect(workshop).toHaveAttribute('aria-pressed', 'false');
+
+    fireEvent.click(workshop);
+    expect(workshop).toHaveAttribute('aria-pressed', 'true');
+
+    fireEvent.click(workshop);
+    expect(workshop).toHaveAttribute('aria-pressed', 'false');
+  });
+});
