@@ -79,9 +79,23 @@ Source: [`apps/public_www`](../../apps/public_www).
 - **Body:** Marketing pages (for example About) still use `pages.<pageKey>.body`
   with the 12-column CSS grid (`rows` → `cells` with `component`, `colStart`,
   `colSpan`, optional `props`) in `src/components/sections/grid/page-body-grid.tsx`.
-  The home route renders `DiscoveryHomePage` (Airbnb-style discovery: sticky
-  search header, category chips, horizontal listing carousels fed by
-  `/v1/activities/search`).
+  The home route renders `DiscoveryHomePage` (Airbnb-style discovery: the
+  immersive "Small World" hero, tactile category tiles, and horizontal
+  listing carousels fed by `/v1/activities/search`).
+- **Brand & immersive homepage:** the "Small World" brand system lives in
+  the `@theme` tokens in `src/app/globals.css` (grounded pine-teal / clay /
+  sand palette), the planet-mark logo and badge SVGs in
+  `public/images/brand/`, and the isometric category icons in
+  `public/images/categories/`. The hero
+  (`src/components/sections/hero/small-world-hero.tsx`) shows illustrated
+  glass-bubble landmarks (`public/images/small-world/`) and progressively
+  upgrades to a three.js scene (`src/lib/small-world/scene.ts`) that is
+  loaded as a lazy async chunk only when the hero is visible, and only for
+  users without `prefers-reduced-motion` on WebGL-capable devices. A
+  canvas-based sparkle cursor trail
+  (`src/components/shared/sparkle-cursor.tsx`) is mounted from the locale
+  layout for fine-pointer devices. No CSP changes are required: everything
+  is same-origin static JS and `<canvas>` rendering.
 - **Search & detail:** `/[locale]/search/` (results grid, or `?view=map` for a
   50/50 list + Google Maps split) and `/[locale]/activity/?id=<uuid>` (detail +
   WhatsApp CTA). Optional `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` enables Static Maps

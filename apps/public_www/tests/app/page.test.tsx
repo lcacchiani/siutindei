@@ -35,6 +35,15 @@ describe('DiscoveryHomePage', () => {
       screen.getAllByRole('button', { name: content.navbar.searchBar.search })
         .length,
     ).toBeGreaterThan(0);
+    expect(
+      screen.getByRole('heading', { level: 1, name: content.smallWorld.title }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', {
+        level: 2,
+        name: content.smallWorld.categories.title,
+      }),
+    ).toBeInTheDocument();
     expect(screen.getByText(content.discovery.popularTitle)).toBeInTheDocument();
     expect(screen.getByText(content.hostCta.title)).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 2, name: content.features.title })).toBeInTheDocument();
