@@ -47,7 +47,10 @@ export const metadata: Metadata = {
   description: enContent.seo.fallbackDescription,
   applicationName: siteConfig.siteName,
   icons: {
-    icon: '/favicon.ico',
+    icon: [
+      { url: '/favicon.ico', type: 'image/x-icon' },
+      { url: '/favicon.svg', type: 'image/svg+xml' },
+    ],
     shortcut: '/favicon.ico',
   },
   openGraph: {

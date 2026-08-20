@@ -412,7 +412,8 @@ redirect to `/en/search/` is present.
 
 ### P2-6. Missing `favicon.ico`
 
-**Status: RESOLVED.** `apps/public_www/public/favicon.ico` exists and is
+**Status: RESOLVED.** `apps/public_www/public/favicon.ico` is a multi-size
+ICO of the logo mark (with `public/favicon.svg` as the vector copy) and is
 referenced from the root layout metadata.
 
 **Problem.** Root metadata references `/favicon.ico`
