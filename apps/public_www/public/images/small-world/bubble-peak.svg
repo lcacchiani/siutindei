@@ -1,96 +1,51 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" fill="none">
   <defs>
-    <radialGradient id="peak-glass" cx="35%" cy="30%" r="80%">
-      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.5" />
-      <stop offset="55%" stop-color="#ffffff" stop-opacity="0.18" />
-      <stop offset="100%" stop-color="#ffffff" stop-opacity="0.06" />
-    </radialGradient>
     <clipPath id="peak-clip">
       <circle cx="80" cy="80" r="70" />
     </clipPath>
   </defs>
-  <circle cx="80" cy="80" r="70" fill="#FFE9A0" />
-  <circle cx="80" cy="80" r="70" fill="url(#peak-glass)" />
   <g clip-path="url(#peak-clip)">
-    <!-- Harbour and skyline at the foot of the Peak -->
-    <path d="M10 128 L150 128 L150 150 L10 150 Z" fill="#7CC4B9" />
-    <g stroke="#2E1D12" stroke-width="3" stroke-linejoin="round">
-      <rect x="18" y="112" width="10" height="18" fill="#57402E" />
-      <rect x="30" y="104" width="12" height="26" fill="#2E1D12" />
-      <rect x="44" y="116" width="9" height="14" fill="#57402E" />
-      <rect x="118" y="110" width="11" height="20" fill="#2E1D12" />
-      <rect x="131" y="116" width="9" height="14" fill="#57402E" />
-    </g>
-    <circle cx="23" cy="118" r="1.5" fill="#F5C51B" />
-    <circle cx="36" cy="110" r="1.5" fill="#FFDE64" />
-    <circle cx="123.5" cy="116" r="1.5" fill="#F5C51B" />
-    <!-- Victoria Peak mountain -->
+    <!-- Sky and harbour, same flat badge language as the reference. -->
+    <circle cx="80" cy="80" r="70" fill="#4EA4E8" />
+    <path d="M10 112 L150 112 L150 150 L10 150 Z" fill="#2F7EC4" />
     <path
-      d="M16 128 C28 96 40 78 54 66 C64 58 72 54 80 52 C90 54 102 62 116 78 C128 92 138 110 146 128 Z"
-      fill="#5E9636"
-      stroke="#2E1D12"
-      stroke-width="4"
+      d="M10 112 C28 108 46 116 64 112 C82 108 100 116 118 112 C134 108 146 114 150 112 L150 122 L10 122 Z"
+      fill="#3B8FD0"
+    />
+    <!-- Clouds -->
+    <ellipse cx="36" cy="34" rx="12" ry="7" fill="#FFFFFF" />
+    <ellipse cx="48" cy="34" rx="9" ry="6" fill="#FFFFFF" />
+    <ellipse cx="118" cy="40" rx="11" ry="6" fill="#FFFFFF" />
+    <ellipse cx="128" cy="42" rx="7" ry="5" fill="#FFFFFF" />
+    <!-- Tsim Sha Tsui / harbour skyline -->
+    <g stroke="#111111" stroke-width="3" stroke-linejoin="round">
+      <rect x="16" y="86" width="12" height="28" fill="#B9BDC4" />
+      <rect x="30" y="74" width="14" height="40" fill="#9AA0A8" />
+      <path d="M46 92 L58 78 L70 92 Z" fill="#C8CCD2" />
+      <rect x="50" y="92" width="16" height="22" fill="#B9BDC4" />
+      <rect x="108" y="80" width="13" height="34" fill="#9AA0A8" />
+      <rect x="123" y="90" width="11" height="24" fill="#B9BDC4" />
+      <path d="M132 80 L138 68 L144 80 Z" fill="#C8CCD2" />
+    </g>
+    <rect x="34" y="80" width="3" height="4" fill="#FFE27A" />
+    <rect x="112" y="86" width="3" height="4" fill="#FFE27A" />
+    <!-- Victoria Peak -->
+    <path
+      d="M58 112 C64 86 70 70 80 58 C90 70 98 88 106 112 Z"
+      fill="#3F8A3A"
+      stroke="#111111"
+      stroke-width="3.5"
       stroke-linejoin="round"
     />
-    <path
-      d="M54 66 C64 58 72 54 80 52 C86 54 94 58 102 66 L80 78 Z"
-      fill="#8BC152"
-    />
-    <!-- Peak Tram climbing the slope -->
-    <path
-      d="M34 114 L70 78"
-      stroke="#2E1D12"
-      stroke-width="3.5"
-      stroke-linecap="round"
-    />
-    <g transform="rotate(-42 50 98)">
-      <rect
-        x="38"
-        y="90"
-        width="24"
-        height="14"
-        rx="4"
-        fill="#F2A0BF"
-        stroke="#2E1D12"
-        stroke-width="3"
-      />
-      <rect x="41" y="93" width="6" height="6" rx="2" fill="#FFF7E6" />
-      <rect x="49" y="93" width="6" height="6" rx="2" fill="#FFF7E6" />
+    <path d="M74 78 C78 68 80 58 80 58 C84 68 88 78 90 88 Z" fill="#5EAE4C" />
+    <!-- Peak Tower -->
+    <g stroke="#111111" stroke-width="3" stroke-linejoin="round">
+      <rect x="74" y="62" width="5" height="12" fill="#F4F1EA" />
+      <rect x="81" y="62" width="5" height="12" fill="#F4F1EA" />
+      <path d="M64 58 C64 48 96 48 96 58 L92 64 L68 64 Z" fill="#F4F1EA" />
+      <ellipse cx="80" cy="50" rx="16" ry="6" fill="#F4F1EA" />
     </g>
-    <!-- Peak Tower (the bowl / wok) -->
-    <g stroke="#2E1D12" stroke-width="3.5" stroke-linejoin="round">
-      <rect x="70" y="58" width="8" height="16" rx="2" fill="#FFF7E6" />
-      <rect x="82" y="58" width="8" height="16" rx="2" fill="#FFF7E6" />
-      <path
-        d="M56 52 C56 40 104 40 104 52 L100 60 L60 60 Z"
-        fill="#FFF7E6"
-      />
-      <ellipse cx="80" cy="42" rx="20" ry="8" fill="#FFF7E6" />
-    </g>
-    <ellipse cx="80" cy="40" rx="10" ry="3.2" fill="#A6DCD3" />
-    <!-- Sun -->
-    <circle
-      cx="118"
-      cy="36"
-      r="9"
-      fill="#F5C51B"
-      stroke="#2E1D12"
-      stroke-width="3"
-    />
+    <ellipse cx="80" cy="48" rx="8" ry="2.4" fill="#4EA4E8" />
   </g>
-  <circle
-    cx="80"
-    cy="80"
-    r="70"
-    stroke="#ffffff"
-    stroke-opacity="0.75"
-    stroke-width="2.5"
-  />
-  <path
-    d="M32 46 C42 30 60 20 78 19"
-    stroke="#ffffff"
-    stroke-opacity="0.95"
-    stroke-width="5"
-    stroke-linecap="round"
-  />
+  <circle cx="80" cy="80" r="70" stroke="#111111" stroke-width="5" />
 </svg>

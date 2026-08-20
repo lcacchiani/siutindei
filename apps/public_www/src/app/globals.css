@@ -137,11 +137,10 @@ body {
     radial-gradient(1.5px 1.5px at 92% 72%, rgba(255, 255, 255, 0.6), transparent);
 }
 
-/* Illustrated hero bubbles (flat SVG pictures, CSS drift only). */
+/* Illustrated hero bubbles (flat circular pictures, CSS drift only). */
 .small-world-bubble {
   position: absolute;
   pointer-events: none;
-  filter: drop-shadow(0 18px 30px rgba(46, 29, 18, 0.3));
 }
 
 @media (prefers-reduced-motion: no-preference) {

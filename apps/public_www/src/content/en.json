@@ -130,11 +130,11 @@
     "eyebrow": "A small world for little explorers",
     "title": "Every child deserves their own small world",
     "subtitle": "Siu Tin Dei curates trusted classes, workshops, and outdoor adventures across Hong Kong — each one checked by local parents before it appears here.",
-    "sceneAriaLabel": "Miniature Hong Kong landmarks floating inside glass bubbles",
+    "sceneAriaLabel": "Circular pictures of Hong Kong landmarks around the hero",
     "bubbles": {
-      "peakAlt": "A miniature Victoria Peak Tower and Peak Tram inside a glass bubble",
-      "ferryAlt": "A miniature Star Ferry crossing the harbour inside a glass bubble",
-      "tramAlt": "A miniature Hong Kong ding ding tram inside a glass bubble"
+      "peakAlt": "Victoria Peak over Victoria Harbour, in a circular picture",
+      "ferryAlt": "A Hong Kong junk in the harbour, in a circular picture",
+      "tramAlt": "A red Hong Kong ding ding tram, in a circular picture"
     },
     "trustBadges": [
       { "label": "Parent-Verified programmes" },
