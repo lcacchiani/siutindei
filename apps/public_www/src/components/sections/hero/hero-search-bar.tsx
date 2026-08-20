@@ -74,7 +74,7 @@ export function HeroSearchBar({ locale, labels }: HeroSearchBarProps) {
 
   return (
     <div
-      className="mx-auto flex w-full max-w-2xl items-center rounded-full border border-white/20 bg-white py-1.5 pl-2 pr-1.5 shadow-[0_18px_50px_rgba(6,18,15,0.45)]"
+      className="mx-auto flex w-full max-w-2xl items-center rounded-full border-2 border-ink-900/15 bg-white py-1.5 pl-2 pr-1.5 shadow-[0_18px_50px_rgba(46,29,18,0.28)]"
       role="search"
     >
       <span className="hidden min-w-0 flex-1 grid-cols-3 divide-x divide-ink-900/10 sm:grid">
@@ -104,7 +104,7 @@ export function HeroSearchBar({ locale, labels }: HeroSearchBarProps) {
       </button>
       <button
         type="button"
-        className="inline-flex h-12 shrink-0 items-center justify-center gap-2 rounded-full bg-accent-500 px-4 text-white transition hover:bg-accent-600 sm:px-5"
+        className="inline-flex h-12 shrink-0 items-center justify-center gap-2 rounded-full bg-accent-500 px-4 text-ink-900 ring-2 ring-inset ring-ink-900/20 transition hover:bg-accent-600 sm:px-5"
         aria-label={labels.search}
         onClick={handleSearchNavigate}
       >

@@ -13,7 +13,9 @@ interface Sparkle {
   color: string;
 }
 
-const SPARKLE_COLORS = ['#e8b04b', '#f6f3ec', '#4f8f86'];
+/* Logo support colors: gold, leaf green, and blush pink. Rendered with
+   normal compositing so they stay visible on the light backgrounds. */
+const SPARKLE_COLORS = ['#dfae10', '#5e9636', '#f2a0bf'];
 const MAX_SPARKLES = 90;
 const SPAWN_PER_MOVE = 2;
 
@@ -98,7 +100,7 @@ export function SparkleCursor() {
       lastTimestamp = timestamp;
 
       context.clearRect(0, 0, window.innerWidth, window.innerHeight);
-      context.globalCompositeOperation = 'lighter';
+      context.globalCompositeOperation = 'source-over';
 
       sparkles = sparkles.filter((sparkle) => {
         sparkle.life += delta;

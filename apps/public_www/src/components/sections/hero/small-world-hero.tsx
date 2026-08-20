@@ -79,14 +79,22 @@ export function SmallWorldHero({
         ))}
       </div>
       <SmallWorldScene onReady={() => setIsSceneReady(true)} />
-      <div className="relative z-10 mx-auto max-w-3xl px-4 py-20 text-center sm:px-6 md:py-28">
-        <p className="text-sm font-semibold uppercase tracking-[0.2em] text-glow-300">
+      <div className="relative z-10 mx-auto max-w-3xl px-4 py-16 text-center sm:px-6 md:py-24">
+        <img
+          src="/images/brand/siutindei-logo-mark.svg"
+          alt=""
+          width={76}
+          height={76}
+          aria-hidden="true"
+          className="mx-auto h-16 w-16 md:h-[76px] md:w-[76px]"
+        />
+        <p className="mt-4 text-sm font-bold uppercase tracking-[0.2em] text-glow-300">
           {copy.eyebrow}
         </p>
-        <h1 className="mt-4 text-balance text-3xl font-bold text-brand-50 sm:text-4xl md:text-5xl md:leading-tight">
+        <h1 className="brand-title mt-4 text-balance text-3xl font-bold leading-tight text-ink-900 sm:text-4xl md:text-[52px]">
           {copy.title}
         </h1>
-        <p className="mx-auto mt-4 max-w-xl text-balance text-base text-brand-100/90 md:text-lg">
+        <p className="mx-auto mt-4 max-w-xl text-balance text-base text-ink-700 md:text-lg">
           {copy.subtitle}
         </p>
         <div className="mt-8">
@@ -96,7 +104,7 @@ export function SmallWorldHero({
           {copy.trustBadges.map((badge, index) => (
             <li
               key={badge.label}
-              className="flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-semibold text-brand-50 backdrop-blur"
+              className="flex items-center gap-1.5 rounded-full border border-ink-900/10 bg-white/70 px-3 py-1.5 text-xs font-bold text-ink-900 backdrop-blur"
             >
               {index === 0 ? (
                 <img
