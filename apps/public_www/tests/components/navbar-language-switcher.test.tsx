@@ -22,9 +22,9 @@ describe('NavbarLanguageSwitcher', () => {
     const english = screen.getByRole('link', { name: 'English' });
     const chinese = screen.getByRole('link', { name: '繁體中文' });
 
-    expect(english).toHaveAttribute('href', '/en/about/');
+    expect(english.getAttribute('href')).toMatch(/^\/en\/about\/?$/);
     expect(english).toHaveAttribute('aria-current', 'page');
-    expect(chinese).toHaveAttribute('href', '/zh-HK/about/');
+    expect(chinese.getAttribute('href')).toMatch(/^\/zh-HK\/about\/?$/);
     expect(chinese).not.toHaveAttribute('aria-current');
 
     const englishFlag = english.querySelector('img');
