@@ -30,7 +30,7 @@ export function DiscoveryHomePage({ locale, content }: DiscoveryHomePageProps) {
           <p className="mt-3 text-ink-700">{content.hostCta.description}</p>
           <a
             href={content.hostCta.href}
-            className="mt-6 inline-flex min-h-11 items-center rounded-full bg-ink-900 px-6 py-3 text-sm font-semibold text-white hover:bg-ink-700"
+            className="mt-6 inline-flex min-h-11 items-center rounded-full bg-brand-500 px-6 py-3 text-sm font-semibold text-ink-900 hover:bg-brand-600"
           >
             {content.hostCta.buttonLabel}
           </a>

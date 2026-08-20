@@ -46,6 +46,9 @@ describe('DiscoveryHomePage', () => {
     ).toBeInTheDocument();
     expect(screen.getByText(content.discovery.popularTitle)).toBeInTheDocument();
     expect(screen.getByText(content.hostCta.title)).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: content.hostCta.buttonLabel }),
+    ).toHaveClass('bg-brand-500', 'text-ink-900');
     expect(screen.getByRole('heading', { level: 2, name: content.features.title })).toBeInTheDocument();
   });
 });
