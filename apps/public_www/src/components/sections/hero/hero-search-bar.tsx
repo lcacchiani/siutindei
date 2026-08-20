@@ -6,6 +6,7 @@ import type { Locale, NavbarContent } from '@/content';
 import { useSearchContext } from '@/components/shared/search/search-context';
 import { homeWizardChoices, labelForLocale } from '@/lib/home-wizard/choices';
 import { buildSearchQueryString } from '@/lib/activities/search-params';
+import { HERO_SEARCH_SENTINEL_ATTR } from '@/lib/home-header-reveal';
 import { localizePath } from '@/lib/locale-routing';
 
 type SearchBarLabels = NavbarContent['searchBar'];
@@ -75,6 +76,7 @@ export function HeroSearchBar({ locale, labels }: HeroSearchBarProps) {
   return (
     <div
       className="mx-auto flex w-full max-w-2xl items-center rounded-full border-2 border-ink-900/15 bg-white py-1.5 pl-2 pr-1.5 shadow-[0_18px_50px_rgba(46,29,18,0.28)]"
+      {...{ [HERO_SEARCH_SENTINEL_ATTR]: '' }}
       role="search"
     >
       <span className="hidden min-w-0 flex-1 grid-cols-3 divide-x divide-ink-900/10 sm:grid">

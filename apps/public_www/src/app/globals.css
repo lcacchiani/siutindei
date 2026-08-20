@@ -246,6 +246,28 @@ body.navbar-mobile-menu-scroll-lock {
   overflow: hidden;
 }
 
+/* Home header: hidden until the hero search box leaves the viewport. */
+.site-header--home-reveal {
+  position: fixed;
+  top: 0;
+  right: 0;
+  left: 0;
+  width: 100%;
+  transform: translateY(-100%);
+  pointer-events: none;
+}
+
+.site-header--home-reveal.is-revealed {
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .site-header--home-reveal {
+    transition: transform 450ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+}
+
 #staging-badge {
   position: fixed;
   bottom: 12px;

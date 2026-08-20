@@ -31,7 +31,15 @@ describe('DiscoveryHomePage', () => {
       </PageLayout>,
     );
 
-    const homeLink = screen.getByRole('link', { name: content.navbar.brand });
+    const header = document.querySelector('header');
+    expect(header).toHaveClass('site-header--home-reveal');
+    expect(header).not.toHaveClass('is-revealed');
+    expect(header).toHaveAttribute('aria-hidden', 'true');
+
+    const homeLink = screen.getByRole('link', {
+      name: content.navbar.brand,
+      hidden: true,
+    });
     expect(
       homeLink.querySelector('img[src="/images/brand/siutindei-logo-mark.svg"]'),
     ).toBeInTheDocument();

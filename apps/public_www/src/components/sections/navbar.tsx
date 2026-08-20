@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import type { Locale, NavbarContent } from '@/content';
 import { SearchBarCompact } from '@/components/sections/search/search-bar-compact';
 import { SearchPanel } from '@/components/sections/search/search-panel';
+import { useHomeHeaderReveal } from '@/lib/home-header-reveal';
 import { localizeHref, localizePath } from '@/lib/locale-routing';
 import { ROUTES } from '@/lib/routes';
 
@@ -16,16 +17,34 @@ interface NavbarProps {
   readonly content: NavbarContent;
 }
 
+const SHARED_HEADER_CHROME =
+  'z-40 border-b border-brand-100 bg-white/95 backdrop-blur';
+
 export function Navbar({ locale, content }: NavbarProps) {
   const pathname = usePathname();
   const isHome =
     pathname === localizePath(ROUTES.home, locale) ||
     pathname === `/${locale}` ||
     pathname === `/${locale}/`;
+  const isRevealed = useHomeHeaderReveal(isHome);
+  const isHomeHidden = isHome && !isRevealed;
+  const headerClassName = isHome
+    ? [
+        'site-header--home-reveal',
+        SHARED_HEADER_CHROME,
+        isRevealed ? 'is-revealed' : '',
+      ]
+        .filter(Boolean)
+        .join(' ')
+    : `sticky top-0 ${SHARED_HEADER_CHROME}`;
 
   return (
     <>
-      <header className="sticky top-0 z-40 border-b border-brand-100 bg-white/95 backdrop-blur">
+      <header
+        className={headerClassName}
+        aria-hidden={isHomeHidden ? true : undefined}
+        inert={isHomeHidden}
+      >
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="flex min-h-16 items-center gap-3 py-3">
             <Link
