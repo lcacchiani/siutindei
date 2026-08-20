@@ -83,10 +83,10 @@ export function SmallWorldHero({
         <p className="text-sm font-semibold uppercase tracking-[0.2em] text-glow-300">
           {copy.eyebrow}
         </p>
-        <h1 className="mt-4 text-3xl font-bold text-brand-50 sm:text-4xl md:text-5xl md:leading-tight">
+        <h1 className="mt-4 text-balance text-3xl font-bold text-brand-50 sm:text-4xl md:text-5xl md:leading-tight">
           {copy.title}
         </h1>
-        <p className="mx-auto mt-4 max-w-xl text-base text-brand-100/90 md:text-lg">
+        <p className="mx-auto mt-4 max-w-xl text-balance text-base text-brand-100/90 md:text-lg">
           {copy.subtitle}
         </p>
         <div className="mt-8">

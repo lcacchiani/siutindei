@@ -25,7 +25,7 @@ function drawSparkle(
   const radius = sparkle.radius * (1 - progress * 0.6);
   const { x, y } = sparkle;
 
-  context.globalAlpha = 0.75 * (1 - progress);
+  context.globalAlpha = 0.9 * (1 - progress);
   context.fillStyle = sparkle.color;
   context.beginPath();
   context.moveTo(x, y - radius);
@@ -139,9 +139,9 @@ export function SparkleCursor() {
           y: event.clientY + (Math.random() - 0.5) * 14,
           velocityX: (Math.random() - 0.5) * 36,
           velocityY: (Math.random() - 0.5) * 30 - 8,
-          radius: 2.5 + Math.random() * 3.5,
+          radius: 3 + Math.random() * 4.5,
           life: 0,
-          maxLife: 0.5 + Math.random() * 0.45,
+          maxLife: 0.65 + Math.random() * 0.55,
           color:
             SPARKLE_COLORS[
               Math.floor(Math.random() * SPARKLE_COLORS.length)
