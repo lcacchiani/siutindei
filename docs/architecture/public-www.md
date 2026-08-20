@@ -85,7 +85,7 @@ Source: [`apps/public_www`](../../apps/public_www).
 - **Brand & immersive homepage:** the "Small World" brand system lives in
   the `@theme` tokens in `src/app/globals.css` (golden-yellow base with
   earth-teal / leaf-green support colors and chocolate ink, sampled from
-  the logo artwork),   the cropped source logo assets (mark, wordmark,
+  the logo artwork), the cropped source logo assets (mark, wordmark,
   stacked lockup) and badge SVGs in `public/images/brand/`, a favicon
   copied from the logo mark (`public/favicon.svg` plus a multi-size
   `public/favicon.ico`). The sticky navbar pairs the mark with the
