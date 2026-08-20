@@ -85,8 +85,8 @@ Source: [`apps/public_www`](../../apps/public_www).
 - **Brand & immersive homepage:** the "Small World" brand system lives in
   the `@theme` tokens in `src/app/globals.css` (golden-yellow base with
   earth-teal / leaf-green support colors and chocolate ink, sampled from
-  the logo artwork), the vectorized logo assets (mark, wordmark, stacked
-  lockup) and badge SVGs in `public/images/brand/`, and the kawaii
+  the logo artwork), the cropped source logo assets (mark, wordmark,
+  stacked lockup) and badge SVGs in `public/images/brand/`, and the kawaii
   outline-style isometric category icons in `public/images/categories/`.
   Display titles use the brand face Aero BC (`--font-display`,
   `.brand-title`: letter-spacing 0.09em, 52px at desktop) with rounded

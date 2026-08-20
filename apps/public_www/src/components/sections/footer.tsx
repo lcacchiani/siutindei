@@ -30,7 +30,7 @@ export function Footer({ locale, content }: FooterProps) {
               src="/images/brand/siutindei-logo-stacked.svg"
               alt={siteName}
               width={175}
-              height={104}
+              height={150}
               className="h-auto w-40"
             />
             <p className="mt-2 text-sm">{content.tagline}</p>
