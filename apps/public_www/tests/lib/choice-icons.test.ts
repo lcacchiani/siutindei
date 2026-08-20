@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -44,5 +47,15 @@ describe('choice icons', () => {
       expect(REGION_MAP_CLASS[region.id]).toMatch(/md:col-start-/);
     }
     expect(ALL_HONG_KONG_ICON_SRC).toBe('/images/flags/hong-kong.svg');
+  });
+
+  it('stores region icons as outline-only SVGs', () => {
+    for (const src of Object.values(REGION_ICON_SRC)) {
+      const file = resolve(__dirname, '../../public', src.slice(1));
+      const svg = readFileSync(file, 'utf8');
+      expect(svg).toContain('<path');
+      expect(svg).toContain('fill="none"');
+      expect(svg).not.toMatch(/fill="#[0-9A-Fa-f]/);
+    }
   });
 });
