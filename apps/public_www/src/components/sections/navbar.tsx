@@ -30,8 +30,16 @@ export function Navbar({ locale, content }: NavbarProps) {
           <div className="flex min-h-16 items-center gap-3 py-3">
             <Link
               href={localizeHref(ROUTES.home, locale)}
-              className="shrink-0 text-base font-bold text-brand-700 sm:text-lg"
+              className="flex shrink-0 items-center gap-2 text-base font-bold text-brand-700 sm:text-lg"
             >
+              <img
+                src="/images/brand/siutindei-mark.svg"
+                alt=""
+                width={34}
+                height={34}
+                aria-hidden="true"
+                className="h-8 w-8 sm:h-9 sm:w-9"
+              />
               {content.brand}
             </Link>
             <div className="hidden flex-1 justify-center md:flex">
