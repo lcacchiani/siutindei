@@ -24,7 +24,7 @@ export function SearchChoiceButton({
   const iconClassName =
     iconShape === 'flag'
       ? 'h-7 w-7 rounded-full object-cover ring-1 ring-ink-900/15'
-      : 'h-12 w-12';
+      : 'h-12 w-12 object-contain';
 
   return (
     <button

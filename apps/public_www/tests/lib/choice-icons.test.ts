@@ -21,12 +21,17 @@ describe('choice icons', () => {
     }
   });
 
-  it('maps every age group to a kawaii age illustration', () => {
+  it('maps every age group to the original age PNGs', () => {
     expect(Object.keys(AGE_ICON_SRC)).toEqual(
       homeWizardChoices.ageGroups.map((group) => group.id),
     );
+    expect(AGE_ICON_SRC).toEqual({
+      '1-3': '/images/ages/baby.png',
+      '3-6': '/images/ages/toddler.png',
+      '6-12': '/images/ages/child.png',
+    });
     for (const group of homeWizardChoices.ageGroups) {
-      expect(iconSrcForAge(group.id)).toMatch(/^\/images\/ages\/.+\.svg$/);
+      expect(iconSrcForAge(group.id)).toMatch(/^\/images\/ages\/.+\.png$/);
     }
   });
 

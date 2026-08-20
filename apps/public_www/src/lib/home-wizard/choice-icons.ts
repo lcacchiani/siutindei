@@ -8,9 +8,9 @@ export const ACTIVITY_ICON_SRC: Record<string, string> = {
 export const DEFAULT_ACTIVITY_ICON_SRC = ACTIVITY_ICON_SRC.workshop;
 
 export const AGE_ICON_SRC: Record<string, string> = {
-  '1-3': '/images/ages/baby.svg',
-  '3-6': '/images/ages/toddler.svg',
-  '6-12': '/images/ages/child.svg',
+  '1-3': '/images/ages/baby.png',
+  '3-6': '/images/ages/toddler.png',
+  '6-12': '/images/ages/child.png',
 };
 
 export const REGION_ICON_SRC: Record<string, string> = {
