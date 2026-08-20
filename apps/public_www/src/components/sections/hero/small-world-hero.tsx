@@ -1,5 +1,6 @@
 import type { Locale, SiteContent } from '@/content';
 import { HeroSearchBar } from '@/components/sections/hero/hero-search-bar';
+import { FloatingKawaiiBubbles } from '@/components/sections/hero/floating-kawaii-bubbles';
 
 interface SmallWorldHeroProps {
   readonly locale: Locale;
@@ -7,63 +8,19 @@ interface SmallWorldHeroProps {
   readonly searchBarLabels: SiteContent['navbar']['searchBar'];
 }
 
-interface HeroBubble {
-  readonly src: string;
-  readonly alt: string;
-  readonly className: string;
-  readonly size: number;
-}
-
 /**
- * The immersive "Small World" hero: miniature Hong Kong landmarks in
- * flat illustrated bubbles, with the discovery search front and center.
+ * The immersive "Small World" hero: random kawaii Hong Kong pictures
+ * in flat circular bubbles, with discovery search front and center.
  */
 export function SmallWorldHero({
   locale,
   copy,
   searchBarLabels,
 }: SmallWorldHeroProps) {
-  const bubbles: readonly HeroBubble[] = [
-    {
-      src: '/images/small-world/bubble-peak.svg',
-      alt: copy.bubbles.peakAlt,
-      className:
-        'small-world-bubble small-world-bubble--drift-a right-[4%] top-1/2 w-40 -translate-y-1/2 md:right-[7%] md:w-60 lg:w-72',
-      size: 288,
-    },
-    {
-      src: '/images/small-world/bubble-ferry.svg',
-      alt: copy.bubbles.ferryAlt,
-      className:
-        'small-world-bubble small-world-bubble--drift-b left-[3%] top-[10%] w-24 md:left-[6%] md:w-36',
-      size: 144,
-    },
-    {
-      src: '/images/small-world/bubble-tram.svg',
-      alt: copy.bubbles.tramAlt,
-      className:
-        'small-world-bubble small-world-bubble--drift-c bottom-[8%] left-[10%] w-20 md:left-[14%] md:w-28',
-      size: 112,
-    },
-  ];
-
   return (
     <section className="small-world-hero" aria-label={copy.sceneAriaLabel}>
       <div className="small-world-hero__stars" aria-hidden="true" />
-      <div className="absolute inset-0">
-        {bubbles.map((bubble) => (
-          <img
-            key={bubble.src}
-            src={bubble.src}
-            alt={bubble.alt}
-            width={bubble.size}
-            height={bubble.size}
-            loading="eager"
-            decoding="async"
-            className={bubble.className}
-          />
-        ))}
-      </div>
+      <FloatingKawaiiBubbles copy={copy} />
       <div className="relative z-10 mx-auto max-w-3xl px-4 pb-16 pt-8 text-center sm:px-6 md:pb-24 md:pt-12">
         <img
           src="/images/brand/siutindei-logo-stacked.svg"

@@ -97,10 +97,10 @@ Source: [`apps/public_www`](../../apps/public_www).
   Display titles use the brand face Aero BC (`--font-display`,
   `.brand-title`: letter-spacing 0.09em, 52px at desktop) with rounded
   system fallbacks; the licensed webfont file is not committed. The hero
-  (`src/components/sections/hero/small-world-hero.tsx`) shows flat circular
-  landmark pictures (`public/images/small-world/`): Victoria Peak over the
-  harbour, a red ding ding tram, and a Hong Kong junk. They use a CSS
-  drift only; there is no WebGL / three.js upgrade. A
+  (`src/components/sections/hero/small-world-hero.tsx`) shows a random
+  subset of 20 kawaii circular pictures (`public/images/small-world/`):
+  5 on large screens and 3 otherwise, with a CSS drift only. There is no
+  WebGL / three.js upgrade. A
   canvas-based sparkle cursor trail
   (`src/components/shared/sparkle-cursor.tsx`) is mounted from the locale
   layout for fine-pointer devices. No CSP changes are required: everything
