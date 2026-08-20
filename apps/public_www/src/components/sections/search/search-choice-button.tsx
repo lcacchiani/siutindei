@@ -23,7 +23,7 @@ export function SearchChoiceButton({
 
   const iconClassName =
     iconShape === 'flag'
-      ? 'h-7 w-7 rounded-full object-cover ring-1 ring-ink-900/15'
+      ? 'h-12 w-12 rounded-full object-cover ring-1 ring-ink-900/15'
       : 'h-12 w-12 object-contain';
 
   return (
@@ -34,7 +34,8 @@ export function SearchChoiceButton({
       className={
         'search-choice inline-flex shrink-0 items-center gap-2 ' +
         'rounded-full border px-4 py-2 text-sm font-medium transition ' +
-        'md:min-w-0 md:w-full md:flex-1 md:flex-col md:justify-start ' +
+        'md:grid md:min-w-0 md:w-full md:flex-1 ' +
+        'md:grid-rows-[3rem_2.5rem] md:justify-items-center md:gap-2 ' +
         'md:self-stretch md:rounded-2xl md:px-2 md:py-3 ' +
         `${selectedClassName} ${className}`
       }
@@ -48,14 +49,21 @@ export function SearchChoiceButton({
         <img
           src={iconSrc}
           alt=""
-          width={iconShape === 'flag' ? 28 : 48}
-          height={iconShape === 'flag' ? 28 : 48}
+          width={48}
+          height={48}
           decoding="async"
           aria-hidden="true"
           className={iconClassName}
         />
       </span>
-      <span className="md:min-h-[2.5rem] md:text-center">{label}</span>
+      <span
+        className={
+          'md:flex md:h-full md:w-full md:items-start md:justify-center ' +
+          'md:text-center'
+        }
+      >
+        {label}
+      </span>
     </button>
   );
 }
