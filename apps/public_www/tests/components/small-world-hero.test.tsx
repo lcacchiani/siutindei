@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { SmallWorldHero } from '@/components/sections/hero/small-world-hero';
@@ -56,7 +56,7 @@ describe('SmallWorldHero', () => {
     ).toBeInTheDocument();
   });
 
-  it('shows the fallback landmark bubbles until the 3D scene is ready', () => {
+  it('shows a random set of kawaii bubbles after mount', async () => {
     const content = getContent('en');
 
     render(
@@ -69,14 +69,13 @@ describe('SmallWorldHero', () => {
       </SearchProvider>,
     );
 
+    await waitFor(() => {
+      expect(
+        document.querySelectorAll('.small-world-bubble'),
+      ).toHaveLength(5);
+    });
     expect(
-      screen.getByAltText(content.smallWorld.bubbles.peakAlt),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByAltText(content.smallWorld.bubbles.ferryAlt),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByAltText(content.smallWorld.bubbles.tramAlt),
-    ).toBeInTheDocument();
+      document.querySelectorAll('.max-lg\\:hidden'),
+    ).toHaveLength(2);
   });
 });
