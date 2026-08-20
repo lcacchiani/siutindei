@@ -25,6 +25,7 @@ import { localizePath } from '@/lib/locale-routing';
 interface ListingCardProps {
   readonly locale: Locale;
   readonly listing: ActivityListing;
+  readonly parentVerifiedLabel: string;
   readonly freeTrialLabel: string;
   readonly imageAltFallback: string;
   readonly mapAltLabel: string;
@@ -37,6 +38,7 @@ interface ListingCardProps {
 export function ListingCard({
   locale,
   listing,
+  parentVerifiedLabel,
   freeTrialLabel,
   imageAltFallback,
   mapAltLabel,
@@ -82,11 +84,23 @@ export function ListingCard({
               {imageAltFallback}
             </div>
           )}
-          {listing.pricing.freeTrialClassOffered ? (
-            <span className="absolute left-3 top-3 rounded-md bg-white px-2 py-1 text-xs font-semibold text-ink-900 shadow-sm">
-              {freeTrialLabel}
+          <span className="absolute left-3 top-3 flex flex-wrap gap-1.5">
+            <span className="flex items-center gap-1 rounded-md bg-white px-2 py-1 text-xs font-semibold text-ink-900 shadow-sm">
+              <img
+                src="/images/brand/parent-verified.svg"
+                alt=""
+                width={14}
+                height={14}
+                aria-hidden="true"
+              />
+              {parentVerifiedLabel}
             </span>
-          ) : null}
+            {listing.pricing.freeTrialClassOffered ? (
+              <span className="rounded-md bg-white px-2 py-1 text-xs font-semibold text-ink-900 shadow-sm">
+                {freeTrialLabel}
+              </span>
+            ) : null}
+          </span>
           <ListingCardMiniMap
             locale={locale}
             listing={listing}

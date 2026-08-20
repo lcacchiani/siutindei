@@ -12,6 +12,7 @@ interface ListingGridProps {
   readonly listings: readonly ActivityListing[];
   readonly isLoading: boolean;
   readonly labels: {
+    readonly parentVerified: string;
     readonly freeTrial: string;
     readonly imageFallback: string;
     readonly empty: string;
@@ -51,6 +52,7 @@ export function ListingGrid({
           locale={locale}
           listing={listing}
           layout="grid"
+          parentVerifiedLabel={labels.parentVerified}
           freeTrialLabel={labels.freeTrial}
           imageAltFallback={labels.imageFallback}
           mapAltLabel={labels.mapAlt}

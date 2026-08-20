@@ -26,7 +26,17 @@ export function Footer({ locale, content }: FooterProps) {
       <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
         <div className="grid gap-10 md:grid-cols-2 lg:grid-cols-4">
           <div className="lg:col-span-2">
-            <p className="text-lg font-semibold text-ink-900">{siteName}</p>
+            <p className="flex items-center gap-2 text-lg font-semibold text-ink-900">
+              <img
+                src="/images/brand/siutindei-mark.svg"
+                alt=""
+                width={28}
+                height={28}
+                aria-hidden="true"
+                className="h-7 w-7"
+              />
+              {siteName}
+            </p>
             <p className="mt-2 text-sm">{content.tagline}</p>
             <div className="mt-4 text-sm">
               <p className="font-semibold text-ink-900">

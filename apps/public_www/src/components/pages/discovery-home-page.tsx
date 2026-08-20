@@ -1,8 +1,9 @@
 'use client';
 
 import type { Locale, SiteContent } from '@/content';
+import { CategoryTiles } from '@/components/sections/discovery/category-tiles';
 import { DiscoveryHomeSection } from '@/components/sections/discovery/discovery-home-section';
-import { FilterChipRow } from '@/components/sections/search/filter-chip-row';
+import { SmallWorldHero } from '@/components/sections/hero/small-world-hero';
 import { FeaturesSection } from '@/components/sections/grid/features-section';
 
 interface DiscoveryHomePageProps {
@@ -13,8 +14,13 @@ interface DiscoveryHomePageProps {
 export function DiscoveryHomePage({ locale, content }: DiscoveryHomePageProps) {
   return (
     <>
-      <h1 className="sr-only">{content.discovery.pageTitle}</h1>
-      <FilterChipRow locale={locale} />
+      <p className="sr-only">{content.discovery.pageTitle}</p>
+      <SmallWorldHero
+        locale={locale}
+        copy={content.smallWorld}
+        searchBarLabels={content.navbar.searchBar}
+      />
+      <CategoryTiles locale={locale} copy={content.smallWorld.categories} />
       <DiscoveryHomeSection locale={locale} copy={content.discovery} />
       <section className="border-t border-brand-100 bg-brand-50 py-10">
         <div className="mx-auto max-w-5xl px-4 text-center sm:px-6">

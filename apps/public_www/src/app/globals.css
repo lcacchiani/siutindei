@@ -1,16 +1,23 @@
 @import 'tailwindcss';
 
 @theme {
-  --color-brand-50: #f5f7fb;
-  --color-brand-100: #e1e8f5;
-  --color-brand-500: #3a5ba0;
-  --color-brand-600: #2c4a86;
-  --color-brand-700: #213a6c;
-  --color-accent-500: #f08a3c;
-  --color-accent-600: #d97728;
-  --color-ink-900: #0f172a;
-  --color-ink-700: #334155;
-  --color-ink-500: #64748b;
+  /* Grounded "small world" palette: warm paper and sand neutrals,
+     deep pine-teal brand, and a clay accent. Deliberately sophisticated
+     rather than bubbly. */
+  --color-brand-50: #f7f5f0;
+  --color-brand-100: #eae4d9;
+  --color-brand-200: #d8cfbd;
+  --color-brand-500: #33635c;
+  --color-brand-600: #27514b;
+  --color-brand-700: #1d403b;
+  --color-accent-500: #c2703e;
+  --color-accent-600: #a95c2f;
+  --color-ink-900: #1f2724;
+  --color-ink-700: #45514c;
+  --color-ink-500: #6b7671;
+  --color-night-900: #10231f;
+  --color-night-700: #1a3833;
+  --color-glow-300: #e8b04b;
   --font-sans:
     ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto,
     'Helvetica Neue', Arial, sans-serif;
@@ -80,6 +87,129 @@ body {
     transparent 0%,
     rgba(255, 255, 255, 0.85) 35%
   );
+}
+
+/* ---------------------------------------------------------------- */
+/* Small World hero: evening-harbour backdrop with a faint starfield */
+/* ---------------------------------------------------------------- */
+
+.small-world-hero {
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(
+      ellipse 120% 80% at 75% -20%,
+      rgba(79, 143, 134, 0.55) 0%,
+      rgba(79, 143, 134, 0) 60%
+    ),
+    linear-gradient(180deg, var(--color-night-900) 0%, #1d403b 100%);
+}
+
+.small-world-hero__stars {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    radial-gradient(1.5px 1.5px at 12% 22%, rgba(246, 243, 236, 0.5), transparent),
+    radial-gradient(1px 1px at 32% 64%, rgba(246, 243, 236, 0.35), transparent),
+    radial-gradient(1.5px 1.5px at 56% 14%, rgba(232, 176, 75, 0.45), transparent),
+    radial-gradient(1px 1px at 71% 48%, rgba(246, 243, 236, 0.4), transparent),
+    radial-gradient(1.5px 1.5px at 88% 26%, rgba(246, 243, 236, 0.45), transparent),
+    radial-gradient(1px 1px at 44% 38%, rgba(246, 243, 236, 0.3), transparent),
+    radial-gradient(1px 1px at 92% 72%, rgba(232, 176, 75, 0.3), transparent);
+}
+
+.small-world-hero__canvas-host,
+.small-world-hero__canvas-host canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.small-world-hero__canvas-host canvas {
+  display: block;
+}
+
+/* Static fallback bubbles (also shown until the 3D scene is ready). */
+.small-world-bubble {
+  position: absolute;
+  pointer-events: none;
+  filter: drop-shadow(0 18px 30px rgba(6, 18, 15, 0.45));
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .small-world-bubble--drift-a {
+    animation: bubble-drift-a 9s ease-in-out infinite;
+  }
+
+  .small-world-bubble--drift-b {
+    animation: bubble-drift-b 11s ease-in-out infinite;
+  }
+
+  .small-world-bubble--drift-c {
+    animation: bubble-drift-c 13s ease-in-out infinite;
+  }
+}
+
+@keyframes bubble-drift-a {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-2deg);
+  }
+  50% {
+    transform: translateY(-14px) rotate(2deg);
+  }
+}
+
+@keyframes bubble-drift-b {
+  0%,
+  100% {
+    transform: translateY(-8px) rotate(2deg);
+  }
+  50% {
+    transform: translateY(8px) rotate(-1.5deg);
+  }
+}
+
+@keyframes bubble-drift-c {
+  0%,
+  100% {
+    transform: translateY(4px) rotate(-1deg);
+  }
+  50% {
+    transform: translateY(-10px) rotate(2.5deg);
+  }
+}
+
+/* -------------------------------------------------------- */
+/* Tactile category tiles: isometric icons that lift, tilt,  */
+/* and settle with a playful-but-premium spring on hover.    */
+/* -------------------------------------------------------- */
+
+.category-tile__icon {
+  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .category-tile:hover .category-tile__icon,
+  .category-tile:focus-visible .category-tile__icon {
+    transform: translateY(-8px) rotate(-7deg) scale(1.08);
+  }
+
+  .category-tile:active .category-tile__icon {
+    transform: translateY(-2px) rotate(3deg) scale(1.02);
+    transition-duration: 0.15s;
+  }
+}
+
+/* Sparkle cursor overlay: sits above everything, never captures input. */
+.sparkle-cursor-canvas {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  pointer-events: none;
 }
 
 a {
