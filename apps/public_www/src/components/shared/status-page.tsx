@@ -40,7 +40,7 @@ export function StatusPage({
       <div className="mt-8 flex flex-col gap-3 sm:flex-row">
         <Link
           href={homeHref}
-          className="inline-flex min-h-11 items-center justify-center rounded-full bg-brand-500 px-5 py-2 font-semibold text-white transition hover:bg-brand-600"
+          className="inline-flex min-h-11 items-center justify-center rounded-full bg-brand-500 px-5 py-2 font-semibold text-ink-900 transition hover:bg-brand-600"
         >
           {homeLabel}
         </Link>

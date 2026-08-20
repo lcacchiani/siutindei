@@ -16,15 +16,16 @@ export interface SmallWorldSceneHandle {
   dispose(): void;
 }
 
+/* Colors sampled from the Siu Tin Dei logo artwork. */
 const PALETTE = {
-  pine: 0x2e5d55,
-  pineDeep: 0x1d403b,
-  pineDark: 0x274e46,
-  teal: 0x4f8f86,
-  clay: 0xc2703e,
-  clayDark: 0xa95c2f,
-  cream: 0xf6f3ec,
-  amber: 0xe8b04b,
+  pine: 0x8bc152,
+  pineDeep: 0x2e1d12,
+  pineDark: 0x5e9636,
+  teal: 0xa6dcd3,
+  clay: 0xf5c51b,
+  clayDark: 0xdfae10,
+  cream: 0xfff7e6,
+  amber: 0xffde64,
 } as const;
 
 const CAMERA_FOV = 35;
@@ -147,7 +148,7 @@ function buildFerryWorld(): THREE.Group {
     world,
     new THREE.CylinderGeometry(1.32, 1.32, 0.12, 30),
     new THREE.MeshStandardMaterial({
-      color: PALETTE.pineDark,
+      color: 0x7cc4b9,
       roughness: 0.25,
       metalness: 0.2,
     }),
@@ -266,14 +267,14 @@ function buildTramWorld(): THREE.Group {
   const foliage = addMesh(
     world,
     new THREE.SphereGeometry(0.3, 12, 10),
-    standardMaterial(0x5d9e6b, { flat: true }),
+    standardMaterial(0x5e9636, { flat: true }),
     [0.85, -0.3, -0.15],
   );
   foliage.scale.set(1, 1.15, 1);
   addMesh(
     world,
     new THREE.CylinderGeometry(0.05, 0.06, 0.4, 8),
-    standardMaterial(0x8c5a38),
+    standardMaterial(0x7e3f1e),
     [0.85, -0.62, -0.15],
   );
 
@@ -345,12 +346,14 @@ function createSparkles(): THREE.Points {
     'position',
     new THREE.BufferAttribute(positions, 3),
   );
+  // Normal blending: additive sparkles would wash out against the
+  // sunny yellow hero backdrop.
   const material = new THREE.PointsMaterial({
-    color: PALETTE.amber,
+    color: PALETTE.pineDeep,
     size: 0.055,
     transparent: true,
-    opacity: 0.7,
-    blending: THREE.AdditiveBlending,
+    opacity: 0.4,
+    blending: THREE.NormalBlending,
     depthWrite: false,
     sizeAttenuation: true,
   });
@@ -398,11 +401,11 @@ export function createSmallWorldScene(
   const environment = pmrem.fromScene(new RoomEnvironment(), 0.04);
   scene.environment = environment.texture;
 
-  scene.add(new THREE.HemisphereLight(0x9fd3c7, 0x10231f, 0.9));
+  scene.add(new THREE.HemisphereLight(0xfff3cf, 0x8a6a2a, 0.95));
   const keyLight = new THREE.DirectionalLight(0xfff1d6, 1.4);
   keyLight.position.set(4, 6, 8);
   scene.add(keyLight);
-  const rimLight = new THREE.DirectionalLight(0x4f8f86, 0.7);
+  const rimLight = new THREE.DirectionalLight(0xa6dcd3, 0.7);
   rimLight.position.set(-6, -2, -4);
   scene.add(rimLight);
 
@@ -466,12 +469,13 @@ export function createSmallWorldScene(
     );
   }
 
-  const clock = new THREE.Clock();
+  const timer = new THREE.Timer();
   let elapsed = 0;
   let paused = false;
 
   function frame(): void {
-    elapsed += clock.getDelta();
+    timer.update();
+    elapsed += timer.getDelta();
 
     pointerCurrent.lerp(pointerTarget, 0.045);
     camera.position.x = pointerCurrent.x * 0.55;
@@ -495,7 +499,7 @@ export function createSmallWorldScene(
 
     sparkles.rotation.y = elapsed * 0.008;
     const sparkleMaterial = sparkles.material as THREE.PointsMaterial;
-    sparkleMaterial.opacity = 0.5 + Math.sin(elapsed * 0.9) * 0.2;
+    sparkleMaterial.opacity = 0.3 + Math.sin(elapsed * 0.9) * 0.12;
 
     renderer.render(scene, camera);
   }
@@ -524,7 +528,8 @@ export function createSmallWorldScene(
       paused = nextPaused;
       setAnimating(!nextPaused);
       if (!nextPaused) {
-        clock.getDelta();
+        // Swallow the pause gap so bubbles don't jump on resume.
+        timer.update();
       }
     },
     dispose(): void {

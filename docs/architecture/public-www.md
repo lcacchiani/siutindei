@@ -83,10 +83,14 @@ Source: [`apps/public_www`](../../apps/public_www).
   immersive "Small World" hero, tactile category tiles, and horizontal
   listing carousels fed by `/v1/activities/search`).
 - **Brand & immersive homepage:** the "Small World" brand system lives in
-  the `@theme` tokens in `src/app/globals.css` (grounded pine-teal / clay /
-  sand palette), the planet-mark logo and badge SVGs in
-  `public/images/brand/`, and the isometric category icons in
-  `public/images/categories/`. The hero
+  the `@theme` tokens in `src/app/globals.css` (golden-yellow base with
+  earth-teal / leaf-green support colors and chocolate ink, sampled from
+  the logo artwork), the vectorized logo assets (mark, wordmark, stacked
+  lockup) and badge SVGs in `public/images/brand/`, and the kawaii
+  outline-style isometric category icons in `public/images/categories/`.
+  Display titles use the brand face Aero BC (`--font-display`,
+  `.brand-title`: letter-spacing 0.09em, 52px at desktop) with rounded
+  system fallbacks; the licensed webfont file is not committed. The hero
   (`src/components/sections/hero/small-world-hero.tsx`) shows illustrated
   glass-bubble landmarks (`public/images/small-world/`) and progressively
   upgrades to a three.js scene (`src/lib/small-world/scene.ts`) that is

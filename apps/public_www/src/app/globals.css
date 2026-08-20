@@ -1,26 +1,43 @@
 @import 'tailwindcss';
 
 @theme {
-  /* Grounded "small world" palette: warm paper and sand neutrals,
-     deep pine-teal brand, and a clay accent. Deliberately sophisticated
-     rather than bubbly. */
-  --color-brand-50: #f7f5f0;
-  --color-brand-100: #eae4d9;
-  --color-brand-200: #d8cfbd;
-  --color-brand-500: #33635c;
-  --color-brand-600: #27514b;
-  --color-brand-700: #1d403b;
-  --color-accent-500: #c2703e;
-  --color-accent-600: #a95c2f;
-  --color-ink-900: #1f2724;
-  --color-ink-700: #45514c;
-  --color-ink-500: #6b7671;
-  --color-night-900: #10231f;
-  --color-night-700: #1a3833;
-  --color-glow-300: #e8b04b;
+  /* "Small World" palette sampled from the Siu Tin Dei logo:
+     golden yellow base, earth-teal and leaf-green support colors,
+     and warm chocolate ink taken from the artwork outlines. */
+  --color-brand-50: #fffaec;
+  --color-brand-100: #fcefc0;
+  --color-brand-200: #f7de84;
+  --color-brand-500: #f5c51b;
+  --color-brand-600: #dfae10;
+  --color-brand-700: #6b4e0e;
+  --color-accent-500: #f5c51b;
+  --color-accent-600: #dfae10;
+  --color-ink-900: #2e1d12;
+  --color-ink-700: #57402e;
+  --color-ink-500: #8a7461;
+  --color-night-900: #241708;
+  --color-night-700: #57402e;
+  --color-glow-300: #5e9636;
+  --color-earth-teal: #a6dcd3;
+  --color-leaf-500: #8bc152;
+  --color-blush-300: #f2a0bf;
   --font-sans:
     ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto,
     'Helvetica Neue', Arial, sans-serif;
+  /* Brand display face per the identity spec (Aero BC). The webfont file
+     is licensed separately; rounded system faces stand in until it is
+     added via @font-face. */
+  --font-display:
+    'Aero BC', 'Arial Rounded MT Bold', 'Hiragino Maru Gothic ProN',
+    'Varela Round', 'Quicksand', ui-rounded, ui-sans-serif, system-ui,
+    sans-serif;
+}
+
+/* Brand title treatment: Aero BC, letter-spacing 90 (0.09em), size 52
+   at desktop (applied via type utilities where used). */
+.brand-title {
+  font-family: var(--font-display);
+  letter-spacing: 0.09em;
 }
 
 html,
@@ -98,25 +115,26 @@ body {
   overflow: hidden;
   background:
     radial-gradient(
-      ellipse 120% 80% at 75% -20%,
-      rgba(79, 143, 134, 0.55) 0%,
-      rgba(79, 143, 134, 0) 60%
+      ellipse 120% 85% at 70% -25%,
+      rgba(255, 250, 236, 0.95) 0%,
+      rgba(255, 250, 236, 0) 62%
     ),
-    linear-gradient(180deg, var(--color-night-900) 0%, #1d403b 100%);
+    linear-gradient(180deg, #ffd94f 0%, var(--color-brand-500) 100%);
 }
 
+/* Confetti flecks in the logo's support colors. */
 .small-world-hero__stars {
   position: absolute;
   inset: 0;
   pointer-events: none;
   background-image:
-    radial-gradient(1.5px 1.5px at 12% 22%, rgba(246, 243, 236, 0.5), transparent),
-    radial-gradient(1px 1px at 32% 64%, rgba(246, 243, 236, 0.35), transparent),
-    radial-gradient(1.5px 1.5px at 56% 14%, rgba(232, 176, 75, 0.45), transparent),
-    radial-gradient(1px 1px at 71% 48%, rgba(246, 243, 236, 0.4), transparent),
-    radial-gradient(1.5px 1.5px at 88% 26%, rgba(246, 243, 236, 0.45), transparent),
-    radial-gradient(1px 1px at 44% 38%, rgba(246, 243, 236, 0.3), transparent),
-    radial-gradient(1px 1px at 92% 72%, rgba(232, 176, 75, 0.3), transparent);
+    radial-gradient(2px 2px at 12% 22%, rgba(46, 29, 18, 0.25), transparent),
+    radial-gradient(1.5px 1.5px at 32% 64%, rgba(139, 193, 82, 0.5), transparent),
+    radial-gradient(2px 2px at 56% 14%, rgba(255, 255, 255, 0.7), transparent),
+    radial-gradient(1.5px 1.5px at 71% 48%, rgba(242, 160, 191, 0.55), transparent),
+    radial-gradient(2px 2px at 88% 26%, rgba(46, 29, 18, 0.2), transparent),
+    radial-gradient(1.5px 1.5px at 44% 38%, rgba(166, 220, 211, 0.7), transparent),
+    radial-gradient(1.5px 1.5px at 92% 72%, rgba(255, 255, 255, 0.6), transparent);
 }
 
 .small-world-hero__canvas-host,
@@ -135,7 +153,7 @@ body {
 .small-world-bubble {
   position: absolute;
   pointer-events: none;
-  filter: drop-shadow(0 18px 30px rgba(6, 18, 15, 0.45));
+  filter: drop-shadow(0 18px 30px rgba(46, 29, 18, 0.3));
 }
 
 @media (prefers-reduced-motion: no-preference) {

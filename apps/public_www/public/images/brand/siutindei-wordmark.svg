@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 350 60" fill="none">
+  <defs>
+    <g id="wm-letters">
+      <!-- S -->
+      <path d="M28 17 C28 8 12 8 12 17 C12 26 28 24 28 35 C28 44 12 44 12 35" />
+      <!-- I -->
+      <path d="M47 10 L47 50" />
+      <!-- U -->
+      <path d="M64 10 L64 36 C64 52 82 52 82 36 L82 10" />
+      <!-- T -->
+      <path d="M113 10 L135 10 M124 10 L124 50" />
+      <!-- I -->
+      <path d="M152 10 L152 50" />
+      <!-- N (rounded arch) -->
+      <path d="M169 50 L169 22 C169 8 187 8 187 22 L187 50" />
+      <!-- D -->
+      <path d="M219 50 L219 10 C241 10 241 50 219 50" />
+      <!-- E -->
+      <path d="M269 10 L255 10 L255 50 L269 50 M255 30 L265 30" />
+      <!-- I -->
+      <path d="M286 10 L286 50" />
+    </g>
+  </defs>
+  <use
+    href="#wm-letters"
+    stroke="#2E1D12"
+    stroke-width="16"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+  <use
+    href="#wm-letters"
+    stroke="#F5C51B"
+    stroke-width="8.5"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+</svg>
