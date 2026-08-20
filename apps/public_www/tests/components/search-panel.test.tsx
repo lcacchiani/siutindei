@@ -104,6 +104,16 @@ describe('SearchPanel', () => {
       (element) => element.textContent,
     );
     expect(choiceLabels.slice(0, areaLabels.length)).toEqual(areaLabels);
+
+    const areaIconSlots = [...document.querySelectorAll('.search-choice')]
+      .slice(0, areaLabels.length)
+      .map((element) => element.querySelector('.search-choice-icon'));
+    expect(areaIconSlots.every((slot) => slot !== null)).toBe(true);
+    expect(
+      areaIconSlots.every((slot) =>
+        slot?.classList.contains('h-12'),
+      ),
+    ).toBe(true);
   });
 
   it('toggles an activity type when its choice is pressed', () => {

@@ -34,20 +34,28 @@ export function SearchChoiceButton({
       className={
         'search-choice inline-flex shrink-0 items-center gap-2 ' +
         'rounded-full border px-4 py-2 text-sm font-medium transition ' +
-        'md:min-w-0 md:flex-1 md:flex-col md:rounded-2xl md:px-2 md:py-3 ' +
+        'md:min-w-0 md:w-full md:flex-1 md:flex-col md:justify-start ' +
+        'md:self-stretch md:rounded-2xl md:px-2 md:py-3 ' +
         `${selectedClassName} ${className}`
       }
     >
-      <img
-        src={iconSrc}
-        alt=""
-        width={iconShape === 'flag' ? 28 : 48}
-        height={iconShape === 'flag' ? 28 : 48}
-        decoding="async"
-        aria-hidden="true"
-        className={`hidden md:block ${iconClassName}`}
-      />
-      <span className="md:text-center">{label}</span>
+      <span
+        className={
+          'search-choice-icon hidden h-12 w-12 shrink-0 items-center ' +
+          'justify-center md:flex'
+        }
+      >
+        <img
+          src={iconSrc}
+          alt=""
+          width={iconShape === 'flag' ? 28 : 48}
+          height={iconShape === 'flag' ? 28 : 48}
+          decoding="async"
+          aria-hidden="true"
+          className={iconClassName}
+        />
+      </span>
+      <span className="md:min-h-[2.5rem] md:text-center">{label}</span>
     </button>
   );
 }

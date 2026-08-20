@@ -96,7 +96,7 @@ export function SearchPanel({ locale, copy }: SearchPanelProps) {
           <legend className="mb-2 text-sm font-semibold text-ink-900">
             {copy.whereLabel}
           </legend>
-          <div className="flex flex-nowrap gap-2 overflow-x-auto md:gap-3 md:overflow-visible">
+          <div className="flex flex-nowrap items-stretch gap-2 overflow-x-auto md:gap-3 md:overflow-visible">
             <SearchChoiceButton
               label={allHongKongLabel(locale)}
               iconSrc={ALL_HONG_KONG_ICON_SRC}
