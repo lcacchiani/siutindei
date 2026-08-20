@@ -79,7 +79,7 @@ export function SmallWorldHero({
         ))}
       </div>
       <SmallWorldScene onReady={() => setIsSceneReady(true)} />
-      <div className="relative z-10 mx-auto max-w-3xl px-4 py-16 text-center sm:px-6 md:py-24">
+      <div className="relative z-10 mx-auto max-w-3xl px-4 pb-16 pt-8 text-center sm:px-6 md:pb-24 md:pt-12">
         <img
           src="/images/brand/siutindei-logo-stacked.svg"
           alt=""
