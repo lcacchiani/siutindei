@@ -51,6 +51,9 @@ describe('SmallWorldHero', () => {
         name: content.navbar.searchBar.search,
       }).length,
     ).toBeGreaterThan(0);
+    expect(
+      document.querySelector('[data-hero-search-sentinel]'),
+    ).toBeInTheDocument();
   });
 
   it('shows the fallback landmark bubbles until the 3D scene is ready', () => {

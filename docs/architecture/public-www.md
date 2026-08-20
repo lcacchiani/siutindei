@@ -88,8 +88,10 @@ Source: [`apps/public_www`](../../apps/public_www).
   the logo artwork), the cropped source logo assets (mark, wordmark,
   stacked lockup) and badge SVGs in `public/images/brand/`, a favicon
   copied from the logo mark (`public/favicon.svg` plus a multi-size
-  `public/favicon.ico`). The sticky navbar pairs the mark with the
-  wordmark. The hero and footer use the stacked lockup. Category icons
+  `public/favicon.ico`). The navbar pairs the mark with the wordmark and
+  stays sticky on inner pages. On the home route it stays off-screen
+  until the hero search box scrolls out of view, then slides down. The
+  hero and footer use the stacked lockup. Category icons
   are the kawaii outline-style isometric SVGs in
   `public/images/categories/`.
   Display titles use the brand face Aero BC (`--font-display`,
