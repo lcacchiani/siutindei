@@ -9,56 +9,111 @@
       <circle cx="80" cy="80" r="70" />
     </clipPath>
   </defs>
+  <circle cx="80" cy="80" r="70" fill="#FFE9A0" />
   <circle cx="80" cy="80" r="70" fill="url(#tram-glass)" />
   <g clip-path="url(#tram-clip)">
-    <!-- Street (leaf green) -->
-    <path d="M6 116 L154 116 L154 150 L6 150 Z" fill="#8BC152" />
-    <rect x="6" y="116" width="148" height="4" fill="#2E1D12" />
-    <!-- Overhead line -->
-    <path d="M14 30 L146 30" stroke="#2E1D12" stroke-width="2.5" />
-    <path d="M80 30 L80 40" stroke="#2E1D12" stroke-width="3" />
-    <!-- Double-decker tram body (logo yellow) -->
+    <!-- Street and rails -->
+    <path d="M6 122 L154 122 L154 150 L6 150 Z" fill="#8BC152" />
+    <rect x="6" y="118" width="148" height="6" fill="#57402E" />
+    <path d="M10 121 L150 121" stroke="#FFF7E6" stroke-width="1.6" />
+    <path d="M10 124 L150 124" stroke="#FFF7E6" stroke-width="1.6" />
+    <!-- Overhead wire (ding ding trolley) -->
+    <path d="M14 28 L146 28" stroke="#2E1D12" stroke-width="3" />
+    <path
+      d="M80 28 L80 36 L92 44"
+      stroke="#2E1D12"
+      stroke-width="3.5"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+    <!-- Double-decker ding ding, side-on -->
     <rect
-      x="44"
-      y="40"
-      width="72"
-      height="72"
-      rx="9"
-      fill="#F5C51B"
+      x="22"
+      y="46"
+      width="116"
+      height="68"
+      rx="16"
+      fill="#3D6B2E"
       stroke="#2E1D12"
       stroke-width="4.5"
     />
-    <rect x="46" y="72" width="68" height="7" fill="#DFAE10" />
+    <!-- Cream window band -->
+    <rect x="26" y="70" width="108" height="8" fill="#FFF7E6" />
     <!-- Upper deck windows -->
     <g stroke="#2E1D12" stroke-width="3">
-      <rect x="51" y="48" width="14" height="16" rx="4" fill="#FFF7E6" />
-      <rect x="69" y="48" width="14" height="16" rx="4" fill="#FFF7E6" />
-      <rect x="87" y="48" width="14" height="16" rx="4" fill="#FFF7E6" />
-      <!-- Lower deck windows and door -->
-      <rect x="51" y="86" width="14" height="14" rx="4" fill="#FFF7E6" />
-      <rect x="69" y="86" width="14" height="20" rx="4" fill="#A6DCD3" />
-      <rect x="87" y="86" width="14" height="14" rx="4" fill="#FFF7E6" />
+      <rect x="32" y="52" width="16" height="14" rx="4" fill="#FFF7E6" />
+      <rect x="52" y="52" width="16" height="14" rx="4" fill="#FFF7E6" />
+      <rect x="72" y="52" width="16" height="14" rx="4" fill="#FFF7E6" />
+      <rect x="92" y="52" width="16" height="14" rx="4" fill="#FFF7E6" />
+      <rect x="112" y="52" width="16" height="14" rx="4" fill="#A6DCD3" />
     </g>
-    <!-- Roof -->
+    <!-- Lower deck windows and door -->
+    <g stroke="#2E1D12" stroke-width="3">
+      <rect x="32" y="84" width="16" height="16" rx="4" fill="#FFF7E6" />
+      <rect x="52" y="84" width="16" height="22" rx="5" fill="#A6DCD3" />
+      <rect x="72" y="84" width="16" height="16" rx="4" fill="#FFF7E6" />
+      <rect x="92" y="84" width="16" height="16" rx="4" fill="#FFF7E6" />
+      <rect x="112" y="84" width="16" height="16" rx="4" fill="#FFF7E6" />
+    </g>
+    <!-- Roof and destination board -->
     <rect
-      x="40"
-      y="33"
-      width="80"
-      height="11"
-      rx="5.5"
+      x="30"
+      y="38"
+      width="100"
+      height="12"
+      rx="6"
       fill="#2E1D12"
+    />
+    <rect
+      x="108"
+      y="40"
+      width="26"
+      height="10"
+      rx="4"
+      fill="#F5C51B"
+      stroke="#2E1D12"
+      stroke-width="2.5"
+    />
+    <!-- Bell (the ding ding) -->
+    <path
+      d="M48 38 L48 34"
       stroke="#2E1D12"
       stroke-width="3"
+      stroke-linecap="round"
     />
+    <path
+      d="M42 34 C42 28 54 28 54 34 Z"
+      fill="#F5C51B"
+      stroke="#2E1D12"
+      stroke-width="2.5"
+      stroke-linejoin="round"
+    />
+    <circle cx="48" cy="36" r="1.6" fill="#2E1D12" />
     <!-- Wheels -->
-    <circle cx="60" cy="114" r="7.5" fill="#2E1D12" />
-    <circle cx="100" cy="114" r="7.5" fill="#2E1D12" />
-    <circle cx="60" cy="114" r="2.8" fill="#A6DCD3" />
-    <circle cx="100" cy="114" r="2.8" fill="#A6DCD3" />
+    <circle cx="46" cy="116" r="8" fill="#2E1D12" />
+    <circle cx="80" cy="116" r="8" fill="#2E1D12" />
+    <circle cx="114" cy="116" r="8" fill="#2E1D12" />
+    <circle cx="46" cy="116" r="3" fill="#A6DCD3" />
+    <circle cx="80" cy="116" r="3" fill="#A6DCD3" />
+    <circle cx="114" cy="116" r="3" fill="#A6DCD3" />
     <!-- Headlamp -->
-    <circle cx="112" cy="104" r="3" fill="#F2A0BF" stroke="#2E1D12" stroke-width="2" />
+    <circle
+      cx="134"
+      cy="100"
+      r="4"
+      fill="#F5C51B"
+      stroke="#2E1D12"
+      stroke-width="2.5"
+    />
   </g>
-  <circle cx="80" cy="80" r="70" stroke="#ffffff" stroke-opacity="0.75" stroke-width="2.5" />
+  <circle
+    cx="80"
+    cy="80"
+    r="70"
+    stroke="#ffffff"
+    stroke-opacity="0.75"
+    stroke-width="2.5"
+  />
   <path
     d="M32 46 C42 30 60 20 78 19"
     stroke="#ffffff"
