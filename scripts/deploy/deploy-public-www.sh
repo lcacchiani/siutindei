@@ -161,6 +161,24 @@ prepare_maintenance_build_dir() {
   echo "$maintenance_build_dir"
 }
 
+assert_wildcard_invalidation_limit() {
+  local max_wildcard_paths=15
+  local wildcard_count=0
+  local invalidation_path
+
+  for invalidation_path in "$@"; do
+    if [[ "$invalidation_path" == *"*"* ]]; then
+      wildcard_count=$((wildcard_count + 1))
+    fi
+  done
+
+  if [ "$wildcard_count" -gt "$max_wildcard_paths" ]; then
+    echo "CloudFront allows at most $max_wildcard_paths wildcard invalidation paths in progress."
+    echo "Configured invalidation request has $wildcard_count wildcard paths."
+    return 1
+  fi
+}
+
 invalidate_distribution() {
   local distribution_id="$1"
   local invalidation_scope="${2:-site}"
@@ -168,6 +186,9 @@ invalidate_distribution() {
     return 0
   fi
 
+  # Site-scope paths follow evolvesprouts: cover locale prefixes and
+  # exported page prefixes so CloudFront drops rewritten cache keys such
+  # as /en/index.html. /* is reserved for promote/maintenance.
   local -a invalidation_paths
   if [ "$invalidation_scope" = "full" ]; then
     invalidation_paths=("/*")
@@ -176,11 +197,23 @@ invalidate_distribution() {
       "/"
       "/index.html"
       "/404.html"
+      "/404/index.html"
+      "/_not-found/index.html"
       "/_next/static/*"
+      "/en*"
+      "/zh-HK*"
+      "/about*"
+      "/search*"
+      "/activity*"
+      "/privacy*"
+      "/terms*"
+      "/fixtures/*"
+      "/v1/activities/search*"
       "/robots.txt"
       "/sitemap.xml"
     )
   fi
+  assert_wildcard_invalidation_limit "${invalidation_paths[@]}" || return 1
 
   local max_attempts=5
   local retry_delay_seconds=20

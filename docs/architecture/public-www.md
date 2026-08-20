@@ -203,7 +203,10 @@ and is invoked by both workflows. It supports three primary modes:
 
 1. **Standard deploy**: `PUBLIC_WWW_ENVIRONMENT=staging|production` syncs
    `apps/public_www/out` to the bucket, writes a release marker, and
-   invalidates CloudFront.
+   invalidates CloudFront with a site-scope path list (locale prefixes
+   `/en*` and `/zh-HK*`, exported pages, `/_next/static/*`,
+   `/fixtures/*`, and `/v1/activities/search*`). Promotion and
+   maintenance still invalidate `/*`.
 2. **Promotion**: when `PUBLIC_WWW_PROMOTE_RELEASE_ID` is set:
    - if `PUBLIC_WWW_PROMOTION_BUILD_DIR` is also set, the local build (with
      production env vars) is uploaded to production;
@@ -216,6 +219,16 @@ and is invoked by both workflows. It supports three primary modes:
 
 The script also enforces `robots.txt: User-agent: *\nDisallow: /` whenever
 the target environment is `staging`.
+
+CloudFront is the only edge cache on the public website hostnames
+(`siutindei-www` / `siutindei-www-staging` CNAME directly to CloudFront;
+Cloudflare is DNS-only for those records). Standard deploys do not
+invalidate `/*` so they stay under CloudFront's 15-wildcard-in-progress
+cap. The site-scope list is aligned with evolvesprouts and adapted to
+this site's locales, pages, staging search fixture, and search-API
+proxy. HTML objects still carry `Cache-Control: public, max-age=300,
+must-revalidate`, so browsers may keep a page for up to five minutes
+after the CloudFront invalidation.
 
 ## Security headers and CSP
 
