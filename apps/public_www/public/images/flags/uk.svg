@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img">
+  <defs>
+    <clipPath id="uk-circle">
+      <circle cx="32" cy="32" r="32"/>
+    </clipPath>
+  </defs>
+  <g clip-path="url(#uk-circle)">
+    <g transform="translate(-32 0)">
+      <rect width="128" height="64" fill="#012169"/>
+      <path d="M0 0 L128 64 M128 0 L0 64" stroke="#fff" stroke-width="12.8"/>
+      <path d="M0 0 L128 64 M128 0 L0 64" stroke="#C8102E" stroke-width="4.27"/>
+      <path d="M64 0 V64 M0 32 H128" stroke="#fff" stroke-width="21.33"/>
+      <path d="M64 0 V64 M0 32 H128" stroke="#C8102E" stroke-width="12.8"/>
+    </g>
+  </g>
+</svg>
