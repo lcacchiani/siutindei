@@ -7,8 +7,7 @@ import {
   AGE_ICON_SRC,
   ALL_HONG_KONG_ICON_SRC,
   REGION_ICON_SRC,
-  REGION_MAP_CLASS,
-  REGION_MAP_ORDER,
+  REGION_ROW_ORDER,
   iconSrcForActivity,
   iconSrcForAge,
   iconSrcForRegion,
@@ -38,13 +37,18 @@ describe('choice icons', () => {
     }
   });
 
-  it('maps every region onto the Hong Kong layout', () => {
-    expect([...REGION_MAP_ORDER].sort()).toEqual(
+  it('lists regions from Hong Kong Island through the islands', () => {
+    expect([...REGION_ROW_ORDER]).toEqual([
+      'hong_kong_island',
+      'kowloon',
+      'new_territories',
+      'islands',
+    ]);
+    expect([...REGION_ROW_ORDER].sort()).toEqual(
       homeWizardChoices.regions.map((region) => region.id).sort(),
     );
     for (const region of homeWizardChoices.regions) {
       expect(iconSrcForRegion(region.id)).toBe(REGION_ICON_SRC[region.id]);
-      expect(REGION_MAP_CLASS[region.id]).toMatch(/md:col-start-/);
     }
     expect(ALL_HONG_KONG_ICON_SRC).toBe('/images/flags/hong-kong.svg');
   });

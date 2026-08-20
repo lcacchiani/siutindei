@@ -22,19 +22,12 @@ export const REGION_ICON_SRC: Record<string, string> = {
 
 export const ALL_HONG_KONG_ICON_SRC = '/images/flags/hong-kong.svg';
 
-export const REGION_MAP_ORDER = [
-  'islands',
-  'new_territories',
-  'kowloon',
+export const REGION_ROW_ORDER = [
   'hong_kong_island',
+  'kowloon',
+  'new_territories',
+  'islands',
 ] as const;
-
-export const REGION_MAP_CLASS: Record<string, string> = {
-  islands: 'md:col-start-1 md:row-start-2',
-  new_territories: 'md:col-start-2 md:row-start-2',
-  kowloon: 'md:col-start-3 md:row-start-2',
-  hong_kong_island: 'md:col-start-2 md:row-start-3',
-};
 
 export function iconSrcForActivity(typeId: string): string {
   return ACTIVITY_ICON_SRC[typeId] ?? DEFAULT_ACTIVITY_ICON_SRC;

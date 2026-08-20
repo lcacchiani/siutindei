@@ -18,8 +18,7 @@ import {
 } from '@/lib/home-wizard/choices';
 import {
   ALL_HONG_KONG_ICON_SRC,
-  REGION_MAP_CLASS,
-  REGION_MAP_ORDER,
+  REGION_ROW_ORDER,
   iconSrcForActivity,
   iconSrcForAge,
   iconSrcForRegion,
@@ -97,21 +96,15 @@ export function SearchPanel({ locale, copy }: SearchPanelProps) {
           <legend className="mb-2 text-sm font-semibold text-ink-900">
             {copy.whereLabel}
           </legend>
-          <div
-            className={
-              'flex flex-wrap gap-2 md:grid md:grid-cols-3 ' +
-              'md:justify-items-stretch md:gap-3'
-            }
-          >
+          <div className="flex flex-nowrap gap-2 overflow-x-auto md:gap-3">
             <SearchChoiceButton
               label={allHongKongLabel(locale)}
               iconSrc={ALL_HONG_KONG_ICON_SRC}
               iconShape="flag"
               isSelected={draft.regionId === null}
               onClick={() => updateDraft({ regionId: null })}
-              className="md:col-span-3 md:max-w-xs md:justify-self-center"
             />
-            {REGION_MAP_ORDER.map((regionId) => {
+            {REGION_ROW_ORDER.map((regionId) => {
               const region = regionsById.get(regionId);
               if (!region) {
                 return null;
@@ -127,7 +120,6 @@ export function SearchPanel({ locale, copy }: SearchPanelProps) {
                   iconSrc={iconSrc}
                   isSelected={draft.regionId === region.id}
                   onClick={() => updateDraft({ regionId: region.id })}
-                  className={REGION_MAP_CLASS[region.id] ?? ''}
                 />
               );
             })}

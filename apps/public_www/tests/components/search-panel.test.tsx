@@ -90,28 +90,20 @@ describe('SearchPanel', () => {
     }
   });
 
-  it('places region choices on a Hong Kong map grid', () => {
+  it('lists areas in one row from All Hong Kong to the islands', () => {
     renderPanel();
 
-    expect(screen.getByRole('button', { name: 'All Hong Kong' })).toHaveClass(
-      'md:col-span-3',
+    const areaLabels = [
+      'All Hong Kong',
+      'Hong Kong Island',
+      'Kowloon',
+      'New Territories',
+      'Islands',
+    ];
+    const choiceLabels = [...document.querySelectorAll('.search-choice')].map(
+      (element) => element.textContent,
     );
-    expect(screen.getByRole('button', { name: 'Islands' })).toHaveClass(
-      'md:col-start-1',
-      'md:row-start-2',
-    );
-    expect(screen.getByRole('button', { name: 'New Territories' })).toHaveClass(
-      'md:col-start-2',
-      'md:row-start-2',
-    );
-    expect(screen.getByRole('button', { name: 'Kowloon' })).toHaveClass(
-      'md:col-start-3',
-      'md:row-start-2',
-    );
-    expect(screen.getByRole('button', { name: 'Hong Kong Island' })).toHaveClass(
-      'md:col-start-2',
-      'md:row-start-3',
-    );
+    expect(choiceLabels.slice(0, areaLabels.length)).toEqual(areaLabels);
   });
 
   it('toggles an activity type when its choice is pressed', () => {
