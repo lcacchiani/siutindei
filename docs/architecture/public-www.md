@@ -85,11 +85,13 @@ Source: [`apps/public_www`](../../apps/public_www).
 - **Brand & immersive homepage:** the "Small World" brand system lives in
   the `@theme` tokens in `src/app/globals.css` (golden-yellow base with
   earth-teal / leaf-green support colors and chocolate ink, sampled from
-  the logo artwork), the cropped source logo assets (mark, wordmark,
+  the logo artwork),   the cropped source logo assets (mark, wordmark,
   stacked lockup) and badge SVGs in `public/images/brand/`, a favicon
   copied from the logo mark (`public/favicon.svg` plus a multi-size
-  `public/favicon.ico`), and the kawaii
-  outline-style isometric category icons in `public/images/categories/`.
+  `public/favicon.ico`). The sticky navbar pairs the mark with the
+  wordmark. The hero and footer use the stacked lockup. Category icons
+  are the kawaii outline-style isometric SVGs in
+  `public/images/categories/`.
   Display titles use the brand face Aero BC (`--font-display`,
   `.brand-title`: letter-spacing 0.09em, 52px at desktop) with rounded
   system fallbacks; the licensed webfont file is not committed. The hero

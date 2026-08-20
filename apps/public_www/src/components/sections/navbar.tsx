@@ -40,7 +40,13 @@ export function Navbar({ locale, content }: NavbarProps) {
                 aria-hidden="true"
                 className="h-9 w-9 sm:h-10 sm:w-10"
               />
-              {content.brand}
+              <img
+                src="/images/brand/siutindei-wordmark.svg"
+                alt={content.brand}
+                width={180}
+                height={30}
+                className="h-6 w-auto sm:h-7"
+              />
             </Link>
             <div className="hidden flex-1 justify-center md:flex">
               <SearchBarCompact locale={locale} labels={content.searchBar} />
