@@ -31,6 +31,15 @@ describe('DiscoveryHomePage', () => {
       </PageLayout>,
     );
 
+    const homeLink = screen.getByRole('link', { name: content.navbar.brand });
+    expect(
+      homeLink.querySelector('img[src="/images/brand/siutindei-logo-mark.svg"]'),
+    ).toBeInTheDocument();
+    expect(
+      homeLink.querySelector('img[src="/images/brand/siutindei-wordmark.svg"]'),
+    ).toBeInTheDocument();
+    expect(homeLink).not.toHaveTextContent(content.navbar.brand);
+
     expect(
       screen.getAllByRole('button', { name: content.navbar.searchBar.search })
         .length,

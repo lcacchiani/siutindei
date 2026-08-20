@@ -81,12 +81,12 @@ export function SmallWorldHero({
       <SmallWorldScene onReady={() => setIsSceneReady(true)} />
       <div className="relative z-10 mx-auto max-w-3xl px-4 py-16 text-center sm:px-6 md:py-24">
         <img
-          src="/images/brand/siutindei-logo-mark.svg"
+          src="/images/brand/siutindei-logo-stacked.svg"
           alt=""
-          width={76}
-          height={76}
+          width={175}
+          height={150}
           aria-hidden="true"
-          className="mx-auto h-16 w-16 md:h-[76px] md:w-[76px]"
+          className="mx-auto h-auto w-40 md:w-48"
         />
         <p className="mt-4 text-sm font-bold uppercase tracking-[0.2em] text-glow-300">
           {copy.eyebrow}

@@ -29,6 +29,16 @@ describe('SmallWorldHero', () => {
       screen.getByRole('heading', { level: 1, name: content.smallWorld.title }),
     ).toBeInTheDocument();
     expect(
+      document.querySelector(
+        'img[src="/images/brand/siutindei-logo-stacked.svg"]',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      document.querySelector(
+        'img[src="/images/brand/siutindei-logo-mark.svg"]',
+      ),
+    ).not.toBeInTheDocument();
+    expect(
       screen.getByText(content.smallWorld.subtitle),
     ).toBeInTheDocument();
 
