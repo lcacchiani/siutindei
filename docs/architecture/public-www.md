@@ -98,9 +98,10 @@ Source: [`apps/public_www`](../../apps/public_www).
   `.brand-title`: letter-spacing 0.09em, 52px at desktop) with rounded
   system fallbacks; the licensed webfont file is not committed. The hero
   (`src/components/sections/hero/small-world-hero.tsx`) shows a random
-  subset of 20 kawaii circular pictures (`public/images/small-world/`):
-  5 on large screens and 3 otherwise, with a CSS drift only. There is no
-  WebGL / three.js upgrade. A
+  subset of 20 original kawaii pictures cropped from the Hong Kong icon
+  sheet (`public/images/small-world/bubble-*.webp`): 5 on large screens
+  and 3 otherwise, with a CSS drift only. There is no WebGL / three.js
+  upgrade. A
   canvas-based sparkle cursor trail
   (`src/components/shared/sparkle-cursor.tsx`) is mounted from the locale
   layout for fine-pointer devices. No CSP changes are required: everything

@@ -30,9 +30,9 @@ describe('kawaii bubbles', () => {
     expect(SMALL_BUBBLE_COUNT).toBe(3);
   });
 
-  it('maps ids onto bubble svg paths', () => {
+  it('maps ids onto original bubble picture paths', () => {
     expect(bubbleSrc('clock-tower')).toBe(
-      '/images/small-world/bubble-clock-tower.svg',
+      '/images/small-world/bubble-clock-tower.webp',
     );
   });
 });

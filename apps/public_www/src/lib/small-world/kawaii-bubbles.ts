@@ -60,7 +60,7 @@ export const LARGE_BUBBLE_COUNT = 5;
 export const SMALL_BUBBLE_COUNT = 3;
 
 export function bubbleSrc(id: BubbleId): string {
-  return `/images/small-world/bubble-${id}.svg`;
+  return `/images/small-world/bubble-${id}.webp`;
 }
 
 export function shuffleIds(

@@ -137,7 +137,7 @@ body {
     radial-gradient(1.5px 1.5px at 92% 72%, rgba(255, 255, 255, 0.6), transparent);
 }
 
-/* Illustrated hero bubbles (flat circular pictures, CSS drift only). */
+/* Hero bubbles: original cropped icon pictures, CSS drift only. */
 .small-world-bubble {
   position: absolute;
   pointer-events: none;
