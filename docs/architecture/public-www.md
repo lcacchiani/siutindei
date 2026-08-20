@@ -86,7 +86,9 @@ Source: [`apps/public_www`](../../apps/public_www).
   the `@theme` tokens in `src/app/globals.css` (golden-yellow base with
   earth-teal / leaf-green support colors and chocolate ink, sampled from
   the logo artwork), the cropped source logo assets (mark, wordmark,
-  stacked lockup) and badge SVGs in `public/images/brand/`, and the kawaii
+  stacked lockup) and badge SVGs in `public/images/brand/`, a favicon
+  copied from the logo mark (`public/favicon.svg` plus a multi-size
+  `public/favicon.ico`), and the kawaii
   outline-style isometric category icons in `public/images/categories/`.
   Display titles use the brand face Aero BC (`--font-display`,
   `.brand-title`: letter-spacing 0.09em, 52px at desktop) with rounded
