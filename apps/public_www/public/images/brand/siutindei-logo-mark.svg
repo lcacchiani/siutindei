@@ -1,0 +1,105 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none">
+  <defs>
+    <clipPath id="earth-clip">
+      <circle cx="72" cy="66" r="49" />
+    </clipPath>
+  </defs>
+  <!-- Earth -->
+  <circle cx="72" cy="66" r="49" fill="#A6DCD3" />
+  <g clip-path="url(#earth-clip)">
+    <path
+      d="M60 20 C64 8 92 10 96 22 C99 32 86 38 76 34 C66 31 57 28 60 20 Z"
+      fill="#8BC152"
+    />
+    <path
+      d="M112 44 C122 42 126 52 122 60 C116 66 106 62 106 54 C106 48 108 45 112 44 Z"
+      fill="#8BC152"
+    />
+    <path
+      d="M76 88 C90 80 112 86 118 102 C112 118 88 122 78 108 C72 100 70 92 76 88 Z"
+      fill="#8BC152"
+    />
+    <path
+      d="M30 96 C44 90 58 98 56 112 C48 122 32 118 28 108 C26 102 26 98 30 96 Z"
+      fill="#8BC152"
+    />
+  </g>
+  <circle cx="72" cy="66" r="49" stroke="#2E1D12" stroke-width="7" />
+  <!-- Earth face -->
+  <path
+    d="M80 42 Q87 37 93 41"
+    stroke="#2E1D12"
+    stroke-width="4.5"
+    stroke-linecap="round"
+  />
+  <path
+    d="M101 43 Q107 39 113 44"
+    stroke="#2E1D12"
+    stroke-width="4.5"
+    stroke-linecap="round"
+  />
+  <ellipse cx="88" cy="54" rx="4.5" ry="7" fill="#2E1D12" />
+  <ellipse cx="107" cy="56" rx="4.5" ry="7" fill="#2E1D12" />
+  <path
+    d="M80 63 C84 79 105 80 112 64 C103 72 89 72 80 63 Z"
+    fill="#2E1D12"
+  />
+  <path
+    d="M92 73 C95 69.5 101 69.5 103.5 73 C101 77 94 77 92 73 Z"
+    fill="#F2A0BF"
+  />
+  <!-- Child body (bottom left) -->
+  <path
+    d="M12 86 C20 78 36 80 43 90 C50 100 49 112 44 119 C34 126 16 126 10 117 C5 107 5 94 12 86 Z"
+    fill="#F5C51B"
+    stroke="#2E1D12"
+    stroke-width="6"
+    stroke-linejoin="round"
+  />
+  <!-- Hugging arm across the Earth -->
+  <path
+    d="M20 82 C34 70 56 66 72 70 C86 74 96 81 99 88 C101 94 96 100 89 98 C77 94 62 92 49 96 C37 100 25 98 18 91 C14 87 16 85 20 82 Z"
+    fill="#F5C51B"
+    stroke="#2E1D12"
+    stroke-width="6"
+    stroke-linejoin="round"
+  />
+  <!-- Head -->
+  <circle
+    cx="38"
+    cy="42"
+    r="25"
+    fill="#FBE0C8"
+    stroke="#2E1D12"
+    stroke-width="7"
+  />
+  <!-- Hair -->
+  <path
+    d="M12 50 C2 26 22 5 44 8 C60 10 68 22 63 33 C56 27 47 26 41 31 C31 27 21 34 19 46 C18 52 14 55 12 50 Z"
+    fill="#7E3F1E"
+    stroke="#2E1D12"
+    stroke-width="6"
+    stroke-linejoin="round"
+  />
+  <!-- Sleeping face -->
+  <path
+    d="M28 49 Q32 53 36 49"
+    stroke="#2E1D12"
+    stroke-width="4"
+    stroke-linecap="round"
+  />
+  <path
+    d="M45 47 Q49 51 53 47"
+    stroke="#2E1D12"
+    stroke-width="4"
+    stroke-linecap="round"
+  />
+  <path
+    d="M36 57 Q41 62 46 57"
+    stroke="#2E1D12"
+    stroke-width="4"
+    stroke-linecap="round"
+  />
+  <circle cx="26.5" cy="56.5" r="4.5" fill="#F2A0BF" />
+  <circle cx="55" cy="54" r="4.5" fill="#F2A0BF" />
+</svg>
