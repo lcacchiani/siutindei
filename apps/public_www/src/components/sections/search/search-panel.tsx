@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 
 import type { Locale } from '@/content';
 import { Button } from '@/components/shared/ui/button';
-import { Chip } from '@/components/shared/ui/chip';
 import { Modal } from '@/components/shared/ui/modal';
 import { useSearchContext } from '@/components/shared/search/search-context';
 import { saveRecentSearch } from '@/lib/activities/recent-storage';
@@ -13,8 +12,20 @@ import {
   buildSearchQueryString,
   type SearchFiltersState,
 } from '@/lib/activities/search-params';
-import { homeWizardChoices, labelForLocale } from '@/lib/home-wizard/choices';
+import {
+  homeWizardChoices,
+  labelForLocale,
+} from '@/lib/home-wizard/choices';
+import {
+  ALL_HONG_KONG_ICON_SRC,
+  REGION_ROW_ORDER,
+  iconSrcForActivity,
+  iconSrcForAge,
+  iconSrcForRegion,
+} from '@/lib/home-wizard/choice-icons';
 import { localizePath } from '@/lib/locale-routing';
+
+import { SearchChoiceButton } from './search-choice-button';
 
 interface SearchPanelCopy {
   readonly title: string;
@@ -28,6 +39,10 @@ interface SearchPanelCopy {
 interface SearchPanelProps {
   readonly locale: Locale;
   readonly copy: SearchPanelCopy;
+}
+
+function allHongKongLabel(locale: Locale): string {
+  return locale === 'zh-HK' ? '全港' : 'All Hong Kong';
 }
 
 export function SearchPanel({ locale, copy }: SearchPanelProps) {
@@ -70,6 +85,10 @@ export function SearchPanel({ locale, copy }: SearchPanelProps) {
     router.push(query ? `${path}?${query}` : path);
   }
 
+  const regionsById = new Map(
+    homeWizardChoices.regions.map((region) => [region.id, region]),
+  );
+
   return (
     <Modal isOpen={isSearchOpen} title={copy.title} onClose={closeSearch}>
       <form className="space-y-6" onSubmit={handleSubmit}>
@@ -77,53 +96,70 @@ export function SearchPanel({ locale, copy }: SearchPanelProps) {
           <legend className="mb-2 text-sm font-semibold text-ink-900">
             {copy.whereLabel}
           </legend>
-          <div className="flex flex-wrap gap-2">
-            <Chip
+          <div className="flex flex-nowrap items-stretch gap-2 overflow-x-auto md:grid md:grid-cols-5 md:gap-3 md:overflow-visible">
+            <SearchChoiceButton
+              label={allHongKongLabel(locale)}
+              iconSrc={ALL_HONG_KONG_ICON_SRC}
+              iconShape="flag"
               isSelected={draft.regionId === null}
               onClick={() => updateDraft({ regionId: null })}
-            >
-              {locale === 'zh-HK' ? '全港' : 'All Hong Kong'}
-            </Chip>
-            {homeWizardChoices.regions.map((region) => (
-              <Chip
-                key={region.id}
-                isSelected={draft.regionId === region.id}
-                onClick={() => updateDraft({ regionId: region.id })}
-              >
-                {labelForLocale(region.labels, locale)}
-              </Chip>
-            ))}
+            />
+            {REGION_ROW_ORDER.map((regionId) => {
+              const region = regionsById.get(regionId);
+              if (!region) {
+                return null;
+              }
+              const iconSrc = iconSrcForRegion(region.id);
+              if (!iconSrc) {
+                return null;
+              }
+              return (
+                <SearchChoiceButton
+                  key={region.id}
+                  label={labelForLocale(region.labels, locale)}
+                  iconSrc={iconSrc}
+                  isSelected={draft.regionId === region.id}
+                  onClick={() => updateDraft({ regionId: region.id })}
+                />
+              );
+            })}
           </div>
         </fieldset>
         <fieldset>
           <legend className="mb-2 text-sm font-semibold text-ink-900">
             {copy.childAgeLabel}
           </legend>
-          <div className="flex flex-wrap gap-2">
-            {homeWizardChoices.ageGroups.map((group) => (
-              <Chip
-                key={group.id}
-                isSelected={draft.ageGroupId === group.id}
-                onClick={() => updateDraft({ ageGroupId: group.id })}
-              >
-                {labelForLocale(group.labels, locale)}
-              </Chip>
-            ))}
+          <div className="flex flex-wrap gap-2 md:gap-3">
+            {homeWizardChoices.ageGroups.map((group) => {
+              const iconSrc = iconSrcForAge(group.id);
+              if (!iconSrc) {
+                return null;
+              }
+              return (
+                <SearchChoiceButton
+                  key={group.id}
+                  label={labelForLocale(group.labels, locale)}
+                  iconSrc={iconSrc}
+                  isSelected={draft.ageGroupId === group.id}
+                  onClick={() => updateDraft({ ageGroupId: group.id })}
+                />
+              );
+            })}
           </div>
         </fieldset>
         <fieldset>
           <legend className="mb-2 text-sm font-semibold text-ink-900">
             {copy.activityTypesLabel}
           </legend>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2 md:gap-3">
             {homeWizardChoices.activityTypes.map((type) => (
-              <Chip
+              <SearchChoiceButton
                 key={type.id}
+                label={labelForLocale(type.labels, locale)}
+                iconSrc={iconSrcForActivity(type.id)}
                 isSelected={draft.activityTypeIds.includes(type.id)}
                 onClick={() => toggleType(type.id)}
-              >
-                {labelForLocale(type.labels, locale)}
-              </Chip>
+              />
             ))}
           </div>
           {draft.activityTypeIds.length > 0 ? (

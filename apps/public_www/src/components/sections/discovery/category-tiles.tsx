@@ -3,20 +3,12 @@
 import type { Locale, SiteContent } from '@/content';
 import { useSearchContext } from '@/components/shared/search/search-context';
 import { homeWizardChoices, labelForLocale } from '@/lib/home-wizard/choices';
+import { iconSrcForActivity } from '@/lib/home-wizard/choice-icons';
 
 interface CategoryTilesProps {
   readonly locale: Locale;
   readonly copy: SiteContent['smallWorld']['categories'];
 }
-
-const CATEGORY_ICON_SRC: Record<string, string> = {
-  workshop: '/images/categories/workshop.svg',
-  class: '/images/categories/class.svg',
-  outdoor: '/images/categories/outdoor.svg',
-  indoor: '/images/categories/indoor.svg',
-};
-
-const DEFAULT_ICON_SRC = '/images/categories/workshop.svg';
 
 /**
  * Tactile category navigation: isometric 3D icons that lift and tilt on
@@ -63,7 +55,7 @@ export function CategoryTiles({ locale, copy }: CategoryTilesProps) {
                 }`}
               >
                 <img
-                  src={CATEGORY_ICON_SRC[type.id] ?? DEFAULT_ICON_SRC}
+                  src={iconSrcForActivity(type.id)}
                   alt=""
                   width={96}
                   height={96}
