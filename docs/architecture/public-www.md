@@ -98,10 +98,8 @@ Source: [`apps/public_www`](../../apps/public_www).
   `.brand-title`: letter-spacing 0.09em, 52px at desktop) with rounded
   system fallbacks; the licensed webfont file is not committed. The hero
   (`src/components/sections/hero/small-world-hero.tsx`) shows illustrated
-  glass-bubble landmarks (`public/images/small-world/`) and progressively
-  upgrades to a three.js scene (`src/lib/small-world/scene.ts`) that is
-  loaded as a lazy async chunk only when the hero is visible, and only for
-  users without `prefers-reduced-motion` on WebGL-capable devices. A
+  glass-bubble landmarks (`public/images/small-world/`) as flat SVG
+  pictures with a CSS drift; there is no WebGL / three.js upgrade. A
   canvas-based sparkle cursor trail
   (`src/components/shared/sparkle-cursor.tsx`) is mounted from the locale
   layout for fine-pointer devices. No CSP changes are required: everything

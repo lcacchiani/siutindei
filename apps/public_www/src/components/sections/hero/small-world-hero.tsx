@@ -1,10 +1,5 @@
-'use client';
-
-import { useState } from 'react';
-
 import type { Locale, SiteContent } from '@/content';
 import { HeroSearchBar } from '@/components/sections/hero/hero-search-bar';
-import { SmallWorldScene } from '@/components/sections/hero/small-world-scene';
 
 interface SmallWorldHeroProps {
   readonly locale: Locale;
@@ -12,7 +7,7 @@ interface SmallWorldHeroProps {
   readonly searchBarLabels: SiteContent['navbar']['searchBar'];
 }
 
-interface FallbackBubble {
+interface HeroBubble {
   readonly src: string;
   readonly alt: string;
   readonly className: string;
@@ -20,19 +15,15 @@ interface FallbackBubble {
 }
 
 /**
- * The immersive "Small World" hero: a sanctuary-like evening-harbour
- * backdrop where miniature Hong Kong landmarks float in glass bubbles
- * (three.js when available, illustrated bubbles otherwise), with the
- * global discovery search front and center.
+ * The immersive "Small World" hero: miniature Hong Kong landmarks in
+ * flat illustrated bubbles, with the discovery search front and center.
  */
 export function SmallWorldHero({
   locale,
   copy,
   searchBarLabels,
 }: SmallWorldHeroProps) {
-  const [isSceneReady, setIsSceneReady] = useState(false);
-
-  const fallbackBubbles: readonly FallbackBubble[] = [
+  const bubbles: readonly HeroBubble[] = [
     {
       src: '/images/small-world/bubble-peak.svg',
       alt: copy.bubbles.peakAlt,
@@ -59,13 +50,8 @@ export function SmallWorldHero({
   return (
     <section className="small-world-hero" aria-label={copy.sceneAriaLabel}>
       <div className="small-world-hero__stars" aria-hidden="true" />
-      <div
-        aria-hidden={isSceneReady}
-        className={`absolute inset-0 transition-opacity duration-700 ${
-          isSceneReady ? 'opacity-0' : 'opacity-100'
-        }`}
-      >
-        {fallbackBubbles.map((bubble) => (
+      <div className="absolute inset-0">
+        {bubbles.map((bubble) => (
           <img
             key={bubble.src}
             src={bubble.src}
@@ -78,7 +64,6 @@ export function SmallWorldHero({
           />
         ))}
       </div>
-      <SmallWorldScene onReady={() => setIsSceneReady(true)} />
       <div className="relative z-10 mx-auto max-w-3xl px-4 pb-16 pt-8 text-center sm:px-6 md:pb-24 md:pt-12">
         <img
           src="/images/brand/siutindei-logo-stacked.svg"

@@ -56,7 +56,7 @@ describe('SmallWorldHero', () => {
     ).toBeInTheDocument();
   });
 
-  it('shows the fallback landmark bubbles until the 3D scene is ready', () => {
+  it('shows the illustrated landmark bubbles', () => {
     const content = getContent('en');
 
     render(
