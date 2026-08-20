@@ -126,12 +126,33 @@
       }
     }
   },
+  "smallWorld": {
+    "eyebrow": "A small world for little explorers",
+    "title": "Every child deserves their own small world",
+    "subtitle": "Siu Tin Dei curates trusted classes, workshops, and outdoor adventures across Hong Kong — each one checked by local parents before it appears here.",
+    "sceneAriaLabel": "Miniature Hong Kong landmarks floating inside glass bubbles",
+    "bubbles": {
+      "peakAlt": "A miniature Victoria Peak inside a glass bubble",
+      "ferryAlt": "A miniature Star Ferry crossing the harbour inside a glass bubble",
+      "tramAlt": "A miniature Hong Kong tram inside a glass bubble"
+    },
+    "trustBadges": [
+      { "label": "Parent-Verified programmes" },
+      { "label": "Curated across Hong Kong" },
+      { "label": "Clear schedules and pricing" }
+    ],
+    "categories": {
+      "title": "Choose a world to explore",
+      "subtitle": "Workshops, classes, nature days, and rainy-day fun — pick one or mix a few."
+    }
+  },
   "discovery": {
     "pageTitle": "Discover children's activities in Hong Kong",
     "continueSearchingTitle": "Continue searching",
     "recentlyViewedTitle": "Recently viewed",
     "popularTitle": "Popular activities in Hong Kong",
     "nearRegionTitle": "Activities in",
+    "parentVerifiedLabel": "Parent-Verified",
     "freeTrialLabel": "Free trial",
     "imageFallbackLabel": "Photo coming soon",
     "mapAltLabel": "Map location",
@@ -155,6 +176,7 @@
     "mapAriaLabel": "Activity locations on Google Maps",
     "loadingMapLabel": "Loading map...",
     "mapAltLabel": "Map location",
+    "parentVerifiedLabel": "Parent-Verified",
     "freeTrialLabel": "Free trial",
     "imageFallbackLabel": "Photo coming soon"
   },

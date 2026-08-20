@@ -21,6 +21,7 @@ interface ListingCarouselSectionProps {
   readonly labels: {
     readonly previous: string;
     readonly next: string;
+    readonly parentVerified: string;
     readonly freeTrial: string;
     readonly imageFallback: string;
     readonly mapAlt: string;
@@ -66,6 +67,7 @@ export function ListingCarouselSection({
                       key={listing.activity.id}
                       locale={locale}
                       listing={listing}
+                      parentVerifiedLabel={labels.parentVerified}
                       freeTrialLabel={labels.freeTrial}
                       imageAltFallback={labels.imageFallback}
                       mapAltLabel={labels.mapAlt}

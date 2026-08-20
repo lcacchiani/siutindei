@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" fill="none">
+  <!-- Ground shadow -->
+  <ellipse cx="48" cy="84" rx="36" ry="9" fill="#1d403b" opacity="0.12" />
+  <!-- Toy box interior -->
+  <polygon points="48,28 79.2,46 48,64 16.8,46" fill="#16302c" />
+  <!-- Balls inside -->
+  <circle cx="40" cy="41" r="9" fill="#c2703e" />
+  <circle cx="36.8" cy="37.8" r="3" fill="#e8b04b" opacity="0.7" />
+  <circle cx="57" cy="43" r="8" fill="#e8b04b" />
+  <circle cx="54.2" cy="40.2" r="2.6" fill="#f6f3ec" opacity="0.8" />
+  <circle cx="48" cy="34" r="6.5" fill="#4f8f86" />
+  <circle cx="45.8" cy="31.8" r="2.2" fill="#8cc79a" opacity="0.8" />
+  <!-- Box walls -->
+  <polygon points="16.8,46 48,64 48,90 16.8,72" fill="#33635c" />
+  <polygon points="48,64 79.2,46 79.2,72 48,90" fill="#1d403b" />
+  <!-- Rim highlights -->
+  <polyline points="16.8,46 48,64 79.2,46" stroke="#4f8f86" stroke-width="2.5" />
+  <!-- Heart on the front face -->
+  <path
+    d="M30 62 C28 59.6 24.4 60.4 24.4 63.4 C24.4 66 27.6 68.4 30 70.6 C32.4 68.4 35.6 66 35.6 63.4 C35.6 60.4 32 59.6 30 62 Z"
+    fill="#f6f3ec"
+    opacity="0.85"
+  />
+  <!-- Ball outside the box -->
+  <circle cx="14" cy="76" r="6" fill="#b5544e" />
+  <circle cx="12" cy="74" r="2" fill="#f6f3ec" opacity="0.8" />
+</svg>

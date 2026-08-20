@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" fill="none">
+  <!-- Ground shadow -->
+  <ellipse cx="48" cy="84" rx="34" ry="9" fill="#1d403b" opacity="0.12" />
+  <!-- Large building block -->
+  <polygon points="48,33 77.4,50 48,67 18.6,50" fill="#e8b04b" />
+  <polygon points="18.6,50 48,67 48,90 18.6,73" fill="#c2703e" />
+  <polygon points="48,67 77.4,50 77.4,73 48,90" fill="#a95c2f" />
+  <circle cx="63" cy="66" r="6.5" fill="#f6f3ec" opacity="0.85" />
+  <circle cx="33" cy="64" r="6.5" fill="#f6f3ec" opacity="0.6" />
+  <!-- Small block stacked on top -->
+  <polygon points="48,23 67,34 48,45 29,34" fill="#4f8f86" />
+  <polygon points="29,34 48,45 48,61 29,50" fill="#33635c" />
+  <polygon points="48,45 67,34 67,50 48,61" fill="#1d403b" />
+  <path
+    d="M48 27.5 L49.7 31.2 L53.7 31.7 L50.8 34.3 L51.5 38.2 L48 36.3 L44.5 38.2 L45.2 34.3 L42.3 31.7 L46.3 31.2 Z"
+    fill="#f6f3ec"
+  />
+</svg>

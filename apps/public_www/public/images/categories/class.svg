@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" fill="none">
+  <!-- Ground shadow -->
+  <ellipse cx="48" cy="80" rx="36" ry="9" fill="#1d403b" opacity="0.12" />
+  <!-- Bottom book -->
+  <polygon points="41,34 79,56 55,70 17,48" fill="#4f8f86" />
+  <polygon points="17,48 55,70 55,80 17,58" fill="#33635c" />
+  <polygon points="55,70 79,56 79,66 55,80" fill="#1d403b" />
+  <polygon points="43.5,35.5 76,54.5 55,66.5 22.5,47.5" fill="#f6f3ec" />
+  <!-- Top book, slightly rotated -->
+  <polygon points="41.9,24.5 74.9,43.5 54.1,55.5 21.1,36.5" fill="#c2703e" />
+  <polygon points="21.1,36.5 54.1,55.5 54.1,64.5 21.1,45.5" fill="#a95c2f" />
+  <polygon points="54.1,55.5 74.9,43.5 74.9,52.5 54.1,64.5" fill="#8c4a24" />
+  <polygon points="44.4,26.3 71.4,41.8 54.4,51.6 27.4,36.1" fill="#e8b04b" />
+  <!-- Bookmark ribbon -->
+  <polygon points="60,33.5 66,37 66,46 63,43.6 60,46" fill="#b5544e" />
+  <!-- Pencil resting on top -->
+  <polygon points="32.9,16.8 63.1,34.2 60.9,37.2 30.7,19.8" fill="#e8b04b" />
+  <polygon points="63.1,34.2 70.5,40.6 60.9,37.2" fill="#f6f3ec" />
+  <polygon points="67.8,38.3 70.5,40.6 65.4,38.8" fill="#1d403b" />
+  <polygon points="32.9,16.8 30.7,19.8 26.4,17.3 28.6,14.3" fill="#b5544e" />
+</svg>

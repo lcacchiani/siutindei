@@ -110,6 +110,7 @@ export function DiscoveryHomeSection({ locale, copy }: DiscoveryHomeSectionProps
   const cardLabels = {
     previous: copy.carousel.previousLabel,
     next: copy.carousel.nextLabel,
+    parentVerified: copy.parentVerifiedLabel,
     freeTrial: copy.freeTrialLabel,
     imageFallback: copy.imageFallbackLabel,
     mapAlt: copy.mapAltLabel,

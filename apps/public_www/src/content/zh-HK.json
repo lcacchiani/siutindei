@@ -126,12 +126,33 @@
       }
     }
   },
+  "smallWorld": {
+    "eyebrow": "屬於小探險家的小天地",
+    "title": "每個孩子，都值得擁有自己的小天地",
+    "subtitle": "小天地為香港家庭精選可信的課程、工作坊及戶外體驗，每一項活動上架前都經本地家長審核。",
+    "sceneAriaLabel": "漂浮玻璃泡泡中的迷你香港地標",
+    "bubbles": {
+      "peakAlt": "玻璃泡泡中的迷你太平山",
+      "ferryAlt": "玻璃泡泡中橫渡維港的迷你天星小輪",
+      "tramAlt": "玻璃泡泡中的迷你香港電車"
+    },
+    "trustBadges": [
+      { "label": "家長實測認證" },
+      { "label": "精選全港各區" },
+      { "label": "時間表及收費透明" }
+    ],
+    "categories": {
+      "title": "選一個世界去探索",
+      "subtitle": "工作坊、課程、親近大自然或室內玩樂——揀一款，或者襯幾款。"
+    }
+  },
   "discovery": {
     "pageTitle": "探索香港兒童活動",
     "continueSearchingTitle": "繼續搜尋",
     "recentlyViewedTitle": "最近瀏覽",
     "popularTitle": "香港熱門活動",
     "nearRegionTitle": "活動 —",
+    "parentVerifiedLabel": "家長認證",
     "freeTrialLabel": "免費試堂",
     "imageFallbackLabel": "相片稍後提供",
     "mapAltLabel": "地圖位置",
@@ -155,6 +176,7 @@
     "mapAriaLabel": "Google 地圖上的活動位置",
     "loadingMapLabel": "載入地圖中...",
     "mapAltLabel": "地圖位置",
+    "parentVerifiedLabel": "家長認證",
     "freeTrialLabel": "免費試堂",
     "imageFallbackLabel": "相片稍後提供"
   },

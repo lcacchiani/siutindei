@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" fill="none">
+  <defs>
+    <radialGradient id="tram-glass" cx="35%" cy="30%" r="80%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.28" />
+      <stop offset="55%" stop-color="#ffffff" stop-opacity="0.08" />
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0.02" />
+    </radialGradient>
+    <clipPath id="tram-clip">
+      <circle cx="80" cy="80" r="70" />
+    </clipPath>
+  </defs>
+  <circle cx="80" cy="80" r="70" fill="url(#tram-glass)" />
+  <g clip-path="url(#tram-clip)">
+    <!-- Street -->
+    <path d="M6 116 L154 116 L154 150 L6 150 Z" fill="#2e5d55" />
+    <rect x="6" y="116" width="148" height="4" fill="#1d403b" />
+    <!-- Overhead line -->
+    <path d="M14 30 L146 30" stroke="#4f8f86" stroke-width="2" />
+    <path d="M80 30 L80 40" stroke="#4f8f86" stroke-width="2.4" />
+    <!-- Double-decker tram body -->
+    <rect x="44" y="40" width="72" height="72" rx="8" fill="#c2703e" />
+    <rect x="44" y="72" width="72" height="8" fill="#a95c2f" />
+    <!-- Upper deck windows -->
+    <rect x="51" y="48" width="14" height="16" rx="3" fill="#f6f3ec" />
+    <rect x="69" y="48" width="14" height="16" rx="3" fill="#f6f3ec" />
+    <rect x="87" y="48" width="14" height="16" rx="3" fill="#f6f3ec" />
+    <!-- Lower deck windows and door -->
+    <rect x="51" y="86" width="14" height="14" rx="3" fill="#f6f3ec" />
+    <rect x="69" y="86" width="14" height="20" rx="3" fill="#e8b04b" />
+    <rect x="87" y="86" width="14" height="14" rx="3" fill="#f6f3ec" />
+    <!-- Roof -->
+    <rect x="40" y="34" width="80" height="10" rx="5" fill="#1d403b" />
+    <!-- Wheels -->
+    <circle cx="60" cy="114" r="7" fill="#16302c" />
+    <circle cx="100" cy="114" r="7" fill="#16302c" />
+    <circle cx="60" cy="114" r="2.6" fill="#4f8f86" />
+    <circle cx="100" cy="114" r="2.6" fill="#4f8f86" />
+    <!-- Headlamp -->
+    <circle cx="112" cy="104" r="2.6" fill="#e8b04b" />
+  </g>
+  <circle cx="80" cy="80" r="70" stroke="#ffffff" stroke-opacity="0.35" stroke-width="2" />
+  <path
+    d="M32 46 C42 30 60 20 78 19"
+    stroke="#ffffff"
+    stroke-opacity="0.65"
+    stroke-width="5"
+    stroke-linecap="round"
+  />
+</svg>

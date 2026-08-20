@@ -169,6 +169,7 @@ export function SearchResultsPage({ locale, copy }: SearchResultsPageProps) {
             listings={visibleListings}
             isLoading={isLoading}
             labels={{
+              parentVerified: copy.parentVerifiedLabel,
               freeTrial: copy.freeTrialLabel,
               imageFallback: copy.imageFallbackLabel,
               mapAlt: copy.mapAltLabel,
