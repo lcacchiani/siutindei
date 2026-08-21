@@ -1,29 +1,37 @@
 'use client';
 
+import { useRouter, useSearchParams } from 'next/navigation';
+
 import type { Locale } from '@/content';
 import { Chip } from '@/components/shared/ui/chip';
 import { useSearchContext } from '@/components/shared/search/search-context';
 import { homeWizardChoices, labelForLocale } from '@/lib/home-wizard/choices';
 import { iconSrcForActivity } from '@/lib/home-wizard/choice-icons';
+import {
+  buildSearchQueryString,
+  parseSearchViewMode,
+  toggleActivityTypeId,
+} from '@/lib/activities/search-params';
+import { localizePath } from '@/lib/locale-routing';
 
 interface FilterChipRowProps {
   readonly locale: Locale;
 }
 
 export function FilterChipRow({ locale }: FilterChipRowProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const { filters, setFilters } = useSearchContext();
 
   function toggleType(typeId: string) {
-    const next = new Set(filters.activityTypeIds);
-    if (next.has(typeId)) {
-      next.delete(typeId);
-    } else {
-      next.add(typeId);
-    }
-    setFilters({
-      ...filters,
-      activityTypeIds: [...next],
+    const nextFilters = toggleActivityTypeId(filters, typeId);
+    setFilters(nextFilters);
+    const viewMode = parseSearchViewMode(searchParams);
+    const query = buildSearchQueryString(nextFilters, {
+      view: viewMode,
     });
+    const path = localizePath('/search', locale);
+    router.replace(query ? `${path}?${query}` : path);
   }
 
   return (

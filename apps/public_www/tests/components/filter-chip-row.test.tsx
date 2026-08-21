@@ -1,10 +1,23 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { FilterChipRow } from '@/components/sections/search/filter-chip-row';
 import { SearchProvider } from '@/components/shared/search/search-context';
+import { DEFAULT_SEARCH_FILTERS } from '@/lib/activities/search-params';
 import { iconSrcForActivity } from '@/lib/home-wizard/choice-icons';
 import { homeWizardChoices } from '@/lib/home-wizard/choices';
+
+const replace = vi.hoisted(() => vi.fn());
+const currentSearchParams = vi.hoisted(() => ({
+  value: new URLSearchParams(),
+}));
+
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({
+    replace,
+  }),
+  useSearchParams: () => currentSearchParams.value,
+}));
 
 function renderChipRow() {
   render(
@@ -15,6 +28,11 @@ function renderChipRow() {
 }
 
 describe('FilterChipRow', () => {
+  beforeEach(() => {
+    replace.mockClear();
+    currentSearchParams.value = new URLSearchParams();
+  });
+
   it('places each activity icon to the left of its label', () => {
     renderChipRow();
 
@@ -42,5 +60,44 @@ describe('FilterChipRow', () => {
 
     fireEvent.click(chip);
     expect(chip.className).not.toContain('bg-ink-900');
+  });
+
+  it('writes the selected type into the search URL', () => {
+    renderChipRow();
+
+    const workshop = homeWizardChoices.activityTypes[0];
+    const classType = homeWizardChoices.activityTypes[1];
+    fireEvent.click(screen.getByRole('button', { name: workshop.labels.en }));
+
+    expect(replace).toHaveBeenCalledWith(
+      `/en/search/?age=${DEFAULT_SEARCH_FILTERS.ageGroupId}&types=${workshop.id}`,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: classType.labels.en }));
+    expect(replace).toHaveBeenLastCalledWith(
+      `/en/search/?age=${DEFAULT_SEARCH_FILTERS.ageGroupId}&types=${workshop.id},${classType.id}`,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: workshop.labels.en }));
+    expect(replace).toHaveBeenLastCalledWith(
+      `/en/search/?age=${DEFAULT_SEARCH_FILTERS.ageGroupId}&types=${classType.id}`,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: classType.labels.en }));
+    expect(replace).toHaveBeenLastCalledWith(
+      `/en/search/?age=${DEFAULT_SEARCH_FILTERS.ageGroupId}`,
+    );
+  });
+
+  it('keeps map view in the query string when toggling a type', () => {
+    currentSearchParams.value = new URLSearchParams('view=map');
+    renderChipRow();
+
+    const workshop = homeWizardChoices.activityTypes[0];
+    fireEvent.click(screen.getByRole('button', { name: workshop.labels.en }));
+
+    expect(replace).toHaveBeenCalledWith(
+      `/en/search/?age=${DEFAULT_SEARCH_FILTERS.ageGroupId}&types=${workshop.id}&view=map`,
+    );
   });
 });
