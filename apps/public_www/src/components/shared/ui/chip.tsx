@@ -13,7 +13,7 @@ export function Chip({
   ...props
 }: ChipProps) {
   const stateClassName = isSelected
-    ? 'border-ink-900 bg-ink-900 text-white'
+    ? 'border-ink-900 bg-accent-500 text-ink-900'
     : 'border-ink-900/15 bg-white text-ink-700 hover:border-ink-900/30';
 
   return (

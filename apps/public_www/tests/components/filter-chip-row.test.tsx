@@ -53,13 +53,13 @@ describe('FilterChipRow', () => {
     const firstType = homeWizardChoices.activityTypes[0];
     const chip = screen.getByRole('button', { name: firstType.labels.en });
 
-    expect(chip.className).not.toContain('bg-ink-900');
+    expect(chip.className).not.toContain('bg-accent-500');
 
     fireEvent.click(chip);
-    expect(chip.className).toContain('bg-ink-900');
+    expect(chip.className).toContain('bg-accent-500');
 
     fireEvent.click(chip);
-    expect(chip.className).not.toContain('bg-ink-900');
+    expect(chip.className).not.toContain('bg-accent-500');
   });
 
   it('writes the selected type into the search URL', () => {
