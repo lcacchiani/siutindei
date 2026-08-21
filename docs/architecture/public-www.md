@@ -106,12 +106,18 @@ Source: [`apps/public_www`](../../apps/public_www).
   (`src/components/shared/sparkle-cursor.tsx`) is mounted from the locale
   layout for fine-pointer devices. No CSP changes are required: everything
   is same-origin static JS and `<canvas>` rendering.
-- **Search & detail:** `/[locale]/search/` (results grid, or `?view=map` for a
-  50/50 list + Google Maps split) and `/[locale]/activity/?id=<uuid>` (detail +
-  WhatsApp CTA). Optional `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` enables Static Maps
-  on listing cards, map markers on the split view, and CSP entries for
+- **Search & detail:** `/[locale]/search/` (results grid, or `?view=map` for
+  Google Maps). Below the `lg` breakpoint the map is full-width with pins for
+  the filtered results and a selected-activity summary card at the bottom.
+  Tapping a pin selects that activity; tapping the card opens the activity
+  detail page. From `lg` (iPad landscape and computer) the default is a 50/50
+  list + map split, with enlarge/reduce controls to switch into the mobile
+  map+card layout and back. Activity detail is `/[locale]/activity/?id=<uuid>`
+  (detail + WhatsApp CTA). Optional `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` enables
+  Static Maps on listing cards, map markers on the search map view, and CSP
+  entries for
   `maps.googleapis.com` / `maps.gstatic.com`. The search bar **area** label links
-  to the map split for the selected region. Search uses browser-side `fetch` to
+  to the map view for the selected region. Search uses browser-side `fetch` to
   `NEXT_PUBLIC_SEARCH_API_BASE_URL` unless
   `NEXT_PUBLIC_STAGING_SEARCH_DATA_ENABLED=true`, in which case listings are
   loaded at runtime from

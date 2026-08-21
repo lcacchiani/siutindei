@@ -187,6 +187,8 @@
     "mapEmptyLabel": "No map locations for these results.",
     "mapUnavailableLabel": "Google Maps is not configured for this environment.",
     "mapAriaLabel": "Activity locations on Google Maps",
+    "enlargeMapLabel": "Enlarge map",
+    "reduceMapLabel": "Reduce map",
     "loadingMapLabel": "Loading map...",
     "mapAltLabel": "Map location",
     "parentVerifiedLabel": "Parent-Verified",

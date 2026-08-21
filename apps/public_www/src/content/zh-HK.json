@@ -187,6 +187,8 @@
     "mapEmptyLabel": "這些結果沒有地圖位置。",
     "mapUnavailableLabel": "此環境未設定 Google Maps。",
     "mapAriaLabel": "Google 地圖上的活動位置",
+    "enlargeMapLabel": "放大地圖",
+    "reduceMapLabel": "縮小地圖",
     "loadingMapLabel": "載入地圖中...",
     "mapAltLabel": "地圖位置",
     "parentVerifiedLabel": "家長認證",
