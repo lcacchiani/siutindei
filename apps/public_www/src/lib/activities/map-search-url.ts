@@ -9,13 +9,26 @@ import {
   type SearchViewMode,
 } from './search-params';
 
-export function regionIdForListing(listing: ActivityListing): string | null {
-  const areaId =
-    listing.location.regionAreaId ?? listing.location.areaId;
+export function regionIdForAreaId(areaId: string): string | null {
   const match = homeWizardChoices.regions.find(
     (region) => region.areaId === areaId,
   );
   return match?.id ?? null;
+}
+
+export function regionIdForListing(listing: ActivityListing): string | null {
+  const areaId =
+    listing.location.regionAreaId ?? listing.location.areaId;
+  return regionIdForAreaId(areaId);
+}
+
+export function buildSearchHref(
+  locale: Locale,
+  filters: SearchFiltersState,
+): string {
+  const query = buildSearchQueryString(filters);
+  const path = localizePath('/search', locale);
+  return query ? `${path}?${query}` : path;
 }
 
 export function buildMapSearchHref(

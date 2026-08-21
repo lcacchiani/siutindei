@@ -175,8 +175,7 @@
     "mapAltLabel": "Map location",
     "errorLabel": "Unable to load activities.",
     "carousel": {
-      "previousLabel": "Previous activities",
-      "nextLabel": "Next activities"
+      "seeAllLabel": "See all"
     }
   },
   "searchPage": {

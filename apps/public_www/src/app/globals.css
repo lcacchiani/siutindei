@@ -53,6 +53,17 @@ body {
   scrollbar-width: none;
 }
 
+/* Chevron SVGs are square and geometrically centered. Keep the
+   replaced <img> a block so it does not sit on the text baseline. */
+.listing-carousel__nav {
+  line-height: 0;
+}
+
+.listing-carousel__arrow {
+  display: block;
+  flex: none;
+}
+
 .listing-carousel__track::-webkit-scrollbar {
   display: none;
 }
@@ -219,6 +230,15 @@ body {
 
 a {
   color: inherit;
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+a.link-unadorned:hover {
   text-decoration: none;
 }
 

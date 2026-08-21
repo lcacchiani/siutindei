@@ -8,6 +8,10 @@ import { ListingCarouselSection } from '@/components/sections/listings/listing-c
 import { logActivityLoadError } from '@/lib/activities/load-error';
 import { fetchActivitySearch } from '@/lib/activities/search-client';
 import {
+  buildSearchHref,
+  regionIdForAreaId,
+} from '@/lib/activities/map-search-url';
+import {
   filtersToApiParams,
   type SearchFiltersState,
 } from '@/lib/activities/search-params';
@@ -108,8 +112,6 @@ export function DiscoveryHomeSection({ locale, copy }: DiscoveryHomeSectionProps
   );
 
   const cardLabels = {
-    previous: copy.carousel.previousLabel,
-    next: copy.carousel.nextLabel,
     parentVerified: copy.parentVerifiedLabel,
     freeTrial: copy.freeTrialLabel,
     imageFallback: copy.imageFallbackLabel,
@@ -122,14 +124,16 @@ export function DiscoveryHomeSection({ locale, copy }: DiscoveryHomeSectionProps
       readonly title: string;
       readonly listings: readonly ActivityListing[];
       readonly isLoading: boolean;
+      readonly searchHref: string;
     }> = [];
 
-    if (recentListings.length > 0) {
+    if (recentSearchFilters && recentListings.length > 0) {
       sections.push({
         key: 'recent-search',
         title: copy.continueSearchingTitle,
         listings: recentListings,
         isLoading: false,
+        searchHref: buildSearchHref(locale, recentSearchFilters),
       });
     }
 
@@ -139,6 +143,7 @@ export function DiscoveryHomeSection({ locale, copy }: DiscoveryHomeSectionProps
         title: copy.recentlyViewedTitle,
         listings: viewedListings,
         isLoading: false,
+        searchHref: buildSearchHref(locale, filters),
       });
     }
 
@@ -147,6 +152,7 @@ export function DiscoveryHomeSection({ locale, copy }: DiscoveryHomeSectionProps
       title: copy.popularTitle,
       listings: popularListings,
       isLoading,
+      searchHref: buildSearchHref(locale, filters),
     });
 
     for (const [regionKey, regionListings] of regionGroups.entries()) {
@@ -156,11 +162,16 @@ export function DiscoveryHomeSection({ locale, copy }: DiscoveryHomeSectionProps
       const title = region
         ? `${copy.nearRegionTitle} ${labelForLocale(region.labels, locale)}`
         : copy.nearRegionTitle;
+      const regionId = regionIdForAreaId(regionKey);
       sections.push({
         key: `region-${regionKey}`,
         title,
         listings: regionListings.slice(0, 12),
         isLoading,
+        searchHref: buildSearchHref(locale, {
+          ...filters,
+          regionId: regionId ?? filters.regionId,
+        }),
       });
     }
 
@@ -170,10 +181,12 @@ export function DiscoveryHomeSection({ locale, copy }: DiscoveryHomeSectionProps
     copy.nearRegionTitle,
     copy.popularTitle,
     copy.recentlyViewedTitle,
+    filters,
     isLoading,
     locale,
     popularListings,
     recentListings,
+    recentSearchFilters,
     regionGroups,
     viewedListings,
   ]);
@@ -193,6 +206,8 @@ export function DiscoveryHomeSection({ locale, copy }: DiscoveryHomeSectionProps
           key={section.key}
           locale={locale}
           title={section.title}
+          searchHref={section.searchHref}
+          seeAllLabel={copy.carousel.seeAllLabel}
           listings={section.listings}
           isLoading={section.isLoading}
           sectionIndex={sectionIndex}

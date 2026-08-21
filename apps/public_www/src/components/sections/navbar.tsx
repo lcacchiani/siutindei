@@ -49,7 +49,7 @@ export function Navbar({ locale, content }: NavbarProps) {
           <div className="flex min-h-16 items-center gap-3 py-3">
             <Link
               href={localizeHref(ROUTES.home, locale)}
-              className="brand-title flex shrink-0 items-center gap-2 text-base font-bold text-brand-700 sm:text-lg"
+              className="link-unadorned brand-title flex shrink-0 items-center gap-2 text-base font-bold text-brand-700 sm:text-lg"
             >
               <img
                 src="/images/brand/siutindei-logo-mark.svg"
@@ -73,7 +73,7 @@ export function Navbar({ locale, content }: NavbarProps) {
             <div className="ml-auto flex items-center gap-2">
               <Link
                 href={content.hostLink.href}
-                className="hidden rounded-full border border-ink-900/15 px-3 py-2 text-sm font-semibold text-ink-900 hover:bg-brand-50 lg:inline-flex"
+                className="link-unadorned hidden rounded-full border border-ink-900/15 px-3 py-2 text-sm font-semibold text-ink-900 hover:bg-brand-50 lg:inline-flex"
               >
                 {content.hostLink.label}
               </Link>

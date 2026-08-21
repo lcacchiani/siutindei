@@ -64,7 +64,7 @@ export function ListingCard({
     <article
       className={`listing-card ${widthClassName} ${deferClassName}`.trim()}
     >
-      <Link href={href} className="group block">
+      <Link href={href} className="link-unadorned group block">
         <div className="relative aspect-[4/3] overflow-hidden rounded-xl bg-brand-100">
           {imageUrl ? (
             <img

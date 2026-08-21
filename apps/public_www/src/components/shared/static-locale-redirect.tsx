@@ -23,7 +23,7 @@ export function StaticLocaleRedirect({
         <p className="text-base text-ink-700">{message}</p>
         <a
           href={href}
-          className="mt-6 inline-block rounded-full bg-brand-500 px-5 py-2 font-semibold text-ink-900 transition hover:bg-brand-600"
+          className="link-unadorned mt-6 inline-block rounded-full bg-brand-500 px-5 py-2 font-semibold text-ink-900 transition hover:bg-brand-600"
         >
           {linkLabel}
         </a>

@@ -223,9 +223,10 @@ export function ActivityDetailPage({
               <a
                 href={whatsappHref}
                 className={
-                  'inline-flex min-h-11 w-full items-center justify-center ' +
-                  'rounded-lg border border-ink-900/20 bg-accent-500 px-4 ' +
-                  'text-sm font-semibold text-ink-900 transition ' +
+                  'link-unadorned inline-flex min-h-11 w-full ' +
+                  'items-center justify-center rounded-lg border ' +
+                  'border-ink-900/20 bg-accent-500 px-4 text-sm ' +
+                  'font-semibold text-ink-900 transition ' +
                   'hover:bg-accent-600 sm:w-auto'
                 }
               >
