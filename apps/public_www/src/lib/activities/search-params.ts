@@ -36,6 +36,22 @@ export function areaIdForRegion(regionId: string | null): string | undefined {
   return region?.areaId;
 }
 
+export function toggleActivityTypeId(
+  filters: SearchFiltersState,
+  typeId: string,
+): SearchFiltersState {
+  const next = new Set(filters.activityTypeIds);
+  if (next.has(typeId)) {
+    next.delete(typeId);
+  } else {
+    next.add(typeId);
+  }
+  return {
+    ...filters,
+    activityTypeIds: [...next],
+  };
+}
+
 export function categoryIdsForTypes(
   activityTypeIds: readonly string[],
 ): readonly string[] {
