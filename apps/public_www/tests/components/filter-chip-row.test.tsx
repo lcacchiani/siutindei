@@ -75,7 +75,7 @@ describe('FilterChipRow', () => {
 
     fireEvent.click(screen.getByRole('button', { name: classType.labels.en }));
     expect(replace).toHaveBeenLastCalledWith(
-      `/en/search/?age=${DEFAULT_SEARCH_FILTERS.ageGroupId}&types=${workshop.id},${classType.id}`,
+      `/en/search/?age=${DEFAULT_SEARCH_FILTERS.ageGroupId}&types=${workshop.id}%2C${classType.id}`,
     );
 
     fireEvent.click(screen.getByRole('button', { name: workshop.labels.en }));
