@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { SearchViewToggle } from '@/components/sections/search/search-view-toggle';
 
 describe('SearchViewToggle', () => {
-  it('shows the map icon while the list is visible', () => {
+  it('shows the map icon while the list is visible', async () => {
     const onShowList = vi.fn();
     const onShowMap = vi.fn();
 
@@ -18,7 +18,7 @@ describe('SearchViewToggle', () => {
       />,
     );
 
-    const toggle = screen.getByRole('button', { name: 'Map' });
+    const toggle = await screen.findByRole('button', { name: 'Map' });
     expect(toggle.querySelector('img')).toHaveAttribute(
       'src',
       '/images/ui/map.svg',
@@ -29,7 +29,7 @@ describe('SearchViewToggle', () => {
     expect(onShowList).not.toHaveBeenCalled();
   });
 
-  it('shows the list icon while the map is visible', () => {
+  it('shows the list icon while the map is visible', async () => {
     const onShowList = vi.fn();
     const onShowMap = vi.fn();
 
@@ -43,7 +43,7 @@ describe('SearchViewToggle', () => {
       />,
     );
 
-    const toggle = screen.getByRole('button', { name: 'List' });
+    const toggle = await screen.findByRole('button', { name: 'List' });
     expect(toggle.querySelector('img')).toHaveAttribute(
       'src',
       '/images/ui/list.svg',

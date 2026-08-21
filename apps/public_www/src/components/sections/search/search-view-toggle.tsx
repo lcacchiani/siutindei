@@ -1,3 +1,8 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
+
 interface SearchViewToggleProps {
   readonly isMapView: boolean;
   readonly listLabel: string;
@@ -16,17 +21,26 @@ export function SearchViewToggle({
   onShowList,
   onShowMap,
 }: SearchViewToggleProps) {
+  const [isMounted, setIsMounted] = useState(false);
   const nextIsMap = !isMapView;
 
-  return (
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  if (!isMounted) {
+    return null;
+  }
+
+  return createPortal(
     <button
       type="button"
       aria-label={nextIsMap ? mapLabel : listLabel}
       onClick={nextIsMap ? onShowMap : onShowList}
       className={
-        'fixed bottom-4 left-4 z-30 inline-flex h-12 w-12 items-center ' +
-        'justify-center rounded-full border border-ink-900/15 bg-white ' +
-        'shadow-lg transition hover:bg-brand-50'
+        'search-view-toggle fixed bottom-4 left-4 z-40 inline-flex h-12 ' +
+        'w-12 items-center justify-center rounded-full border ' +
+        'border-ink-900/15 bg-white shadow-lg transition hover:bg-brand-50'
       }
     >
       <img
@@ -38,6 +52,7 @@ export function SearchViewToggle({
         aria-hidden="true"
         className="h-5 w-5"
       />
-    </button>
+    </button>,
+    document.body,
   );
 }

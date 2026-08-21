@@ -71,7 +71,8 @@ describe('SearchResultsPage', () => {
       'src',
       '/images/ui/map.svg',
     );
-    expect(toggle).toHaveClass('fixed', 'rounded-full', 'bg-white');
+    expect(toggle).toHaveClass('search-view-toggle', 'fixed', 'rounded-full', 'bg-white');
+    expect(toggle.parentElement).toBe(document.body);
 
     fireEvent.click(toggle);
     expect(push).toHaveBeenCalledWith(expect.stringContaining('view=map'));
