@@ -4,6 +4,7 @@ import type { Locale } from '@/content';
 import { Chip } from '@/components/shared/ui/chip';
 import { useSearchContext } from '@/components/shared/search/search-context';
 import { homeWizardChoices, labelForLocale } from '@/lib/home-wizard/choices';
+import { iconSrcForActivity } from '@/lib/home-wizard/choice-icons';
 
 interface FilterChipRowProps {
   readonly locale: Locale;
@@ -34,6 +35,15 @@ export function FilterChipRow({ locale }: FilterChipRowProps) {
             isSelected={filters.activityTypeIds.includes(type.id)}
             onClick={() => toggleType(type.id)}
           >
+            <img
+              src={iconSrcForActivity(type.id)}
+              alt=""
+              width={20}
+              height={20}
+              decoding="async"
+              aria-hidden="true"
+              className="h-5 w-5 object-contain"
+            />
             {labelForLocale(type.labels, locale)}
           </Chip>
         ))}
