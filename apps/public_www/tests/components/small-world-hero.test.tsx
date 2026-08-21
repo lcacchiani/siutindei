@@ -72,10 +72,10 @@ describe('SmallWorldHero', () => {
     await waitFor(() => {
       expect(
         document.querySelectorAll('.small-world-bubble'),
-      ).toHaveLength(5);
+      ).toHaveLength(6);
     });
     expect(
       document.querySelectorAll('.max-lg\\:hidden'),
-    ).toHaveLength(2);
+    ).toHaveLength(3);
   });
 });
