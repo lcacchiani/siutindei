@@ -27,6 +27,7 @@ describe('kawaii bubbles', () => {
     expect(
       picked.every((id) => BUBBLE_IDS.includes(id)),
     ).toBe(true);
+    expect(LARGE_BUBBLE_COUNT).toBe(6);
     expect(SMALL_BUBBLE_COUNT).toBe(3);
   });
 

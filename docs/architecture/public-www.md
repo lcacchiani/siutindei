@@ -99,7 +99,7 @@ Source: [`apps/public_www`](../../apps/public_www).
   system fallbacks; the licensed webfont file is not committed. The hero
   (`src/components/sections/hero/small-world-hero.tsx`) shows a random
   subset of 20 original kawaii pictures cropped from the Hong Kong icon
-  sheet (`public/images/small-world/bubble-*.webp`): 5 on large screens
+  sheet (`public/images/small-world/bubble-*.webp`): 6 on large screens
   and 3 otherwise, with a CSS drift only. There is no WebGL / three.js
   upgrade. A
   canvas-based sparkle cursor trail

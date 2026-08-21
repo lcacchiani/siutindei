@@ -54,9 +54,14 @@ export const BUBBLE_SLOTS: readonly BubbleSlot[] = [
       'left-[10%] top-[42%] w-16 md:left-[14%] md:w-24',
     largeOnly: true,
   },
+  {
+    className:
+      'right-[10%] bottom-[12%] w-16 md:right-[14%] md:w-24',
+    largeOnly: true,
+  },
 ];
 
-export const LARGE_BUBBLE_COUNT = 5;
+export const LARGE_BUBBLE_COUNT = 6;
 export const SMALL_BUBBLE_COUNT = 3;
 
 export function bubbleSrc(id: BubbleId): string {
