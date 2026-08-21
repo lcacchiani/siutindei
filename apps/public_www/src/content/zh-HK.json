@@ -175,8 +175,7 @@
     "mapAltLabel": "地圖位置",
     "errorLabel": "無法載入活動。",
     "carousel": {
-      "previousLabel": "上一組活動",
-      "nextLabel": "下一組活動"
+      "seeAllLabel": "查看全部"
     }
   },
   "searchPage": {
