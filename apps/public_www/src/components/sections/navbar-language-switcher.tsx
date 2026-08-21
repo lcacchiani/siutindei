@@ -39,7 +39,7 @@ export function NavbarLanguageSwitcher({
           <Link
             key={option.locale}
             href={localizeHref(currentPath, option.locale)}
-            className={`inline-flex h-11 w-11 items-center justify-center rounded-full ${
+            className={`link-unadorned inline-flex h-11 w-11 items-center justify-center rounded-full ${
               isCurrent
                 ? 'bg-brand-50 ring-2 ring-brand-500 ring-offset-2'
                 : 'hover:bg-brand-50'

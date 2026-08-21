@@ -93,7 +93,7 @@ export function SearchBarCompact({ locale, labels }: SearchBarCompactProps) {
       <span className="hidden min-w-0 flex-1 grid-cols-3 divide-x divide-ink-900/10 md:grid">
         <Link
           href={mapHref}
-          className="truncate px-3 py-2 text-left transition hover:bg-brand-50"
+          className="link-unadorned truncate px-3 py-2 text-left transition hover:bg-brand-50"
           aria-label={`${labels.openMapForAreaLabel}: ${whereLabel}`}
           onClick={(event) => event.stopPropagation()}
         >
