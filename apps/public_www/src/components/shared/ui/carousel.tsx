@@ -10,6 +10,38 @@ interface CarouselProps {
   readonly nextLabel: string;
 }
 
+const CHEVRON_LEFT_SRC = '/images/ui/chevron-left.svg';
+const CHEVRON_RIGHT_SRC = '/images/ui/chevron-right.svg';
+
+function CarouselNavButton({
+  label,
+  iconSrc,
+  onClick,
+}: {
+  readonly label: string;
+  readonly iconSrc: string;
+  readonly onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      className="listing-carousel__nav inline-flex h-8 w-8 items-center justify-center rounded-full border border-ink-900/15 bg-white p-0 leading-none text-ink-700 hover:bg-brand-50"
+      aria-label={label}
+      onClick={onClick}
+    >
+      <img
+        src={iconSrc}
+        alt=""
+        width={12}
+        height={12}
+        decoding="async"
+        aria-hidden="true"
+        className="listing-carousel__arrow block h-3 w-3"
+      />
+    </button>
+  );
+}
+
 export function Carousel({
   ariaLabel,
   children,
@@ -30,22 +62,16 @@ export function Carousel({
   return (
     <section className="relative" aria-label={ariaLabel}>
       <div className="mb-3 flex items-center justify-end gap-2">
-        <button
-          type="button"
-          className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-ink-900/15 bg-white text-ink-700 hover:bg-brand-50"
-          aria-label={previousLabel}
+        <CarouselNavButton
+          label={previousLabel}
+          iconSrc={CHEVRON_LEFT_SRC}
           onClick={() => scrollByDirection(-1)}
-        >
-          ‹
-        </button>
-        <button
-          type="button"
-          className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-ink-900/15 bg-white text-ink-700 hover:bg-brand-50"
-          aria-label={nextLabel}
+        />
+        <CarouselNavButton
+          label={nextLabel}
+          iconSrc={CHEVRON_RIGHT_SRC}
           onClick={() => scrollByDirection(1)}
-        >
-          ›
-        </button>
+        />
       </div>
       <div
         ref={trackRef}
