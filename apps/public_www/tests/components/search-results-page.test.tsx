@@ -161,7 +161,7 @@ describe('SearchResultsPage', () => {
     const summaryLink = await screen.findByRole('link', {
       name: /Kowloon art/,
     });
-    expect(summaryLink).toHaveAttribute('href', '/en/activity/?id=act-1');
+    expect(summaryLink).toHaveAttribute('href', '/en/activity?id=act-1');
     expect(
       document.querySelector('.search-map-split-layout__list'),
     ).toHaveClass('hidden', 'lg:block');

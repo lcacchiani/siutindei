@@ -117,7 +117,7 @@ describe('SearchMapSplitLayout', () => {
     expect(card).toHaveClass('lg:hidden');
 
     const summaryLink = screen.getByRole('link', { name: /Kowloon art/ });
-    expect(summaryLink).toHaveAttribute('href', '/en/activity/?id=act-1');
+    expect(summaryLink).toHaveAttribute('href', '/en/activity?id=act-1');
     expect(summaryLink).toHaveTextContent('Kowloon');
     expect(summaryLink).toHaveTextContent('HK$180 / class');
 
