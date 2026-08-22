@@ -4,6 +4,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { SearchResultsPage } from '@/components/pages/search-results-page';
 import { SearchProvider } from '@/components/shared/search/search-context';
 import { getContent } from '@/content';
+import { fetchActivitySearch } from '@/lib/activities/search-client';
+import type { ActivityListing } from '@/lib/activities/types';
 
 const push = vi.hoisted(() => vi.fn());
 const mapsEnabled = vi.hoisted(() => ({ value: true }));
@@ -29,6 +31,55 @@ vi.mock('@/lib/activities/search-client', () => ({
   }),
 }));
 
+vi.mock('@/components/shared/maps/activity-google-map', () => ({
+  ActivityGoogleMap: ({ ariaLabel }: { ariaLabel: string }) => (
+    <div role="application" aria-label={ariaLabel} />
+  ),
+}));
+
+function buildListing(): ActivityListing {
+  return {
+    activity: {
+      id: 'act-1',
+      name: 'Kowloon art',
+      description: null,
+      nameTranslations: {},
+      descriptionTranslations: {},
+      ageMin: null,
+      ageMax: null,
+      categoryId: 'c1111111-1111-1111-1111-111111111101',
+    },
+    organization: {
+      id: 'org-1',
+      name: 'Studio',
+      description: null,
+      nameTranslations: {},
+      mediaUrls: [],
+      logoMediaUrl: null,
+    },
+    location: {
+      id: 'loc-1',
+      areaId: 'a1111111-1111-1111-1111-111111111102',
+      regionAreaId: 'a1111111-1111-1111-1111-111111111102',
+      address: null,
+      lat: 22.3193,
+      lng: 114.1694,
+    },
+    pricing: {
+      pricingType: 'per_class',
+      amount: 180,
+      currency: 'hkd',
+      sessionsCount: null,
+      freeTrialClassOffered: false,
+    },
+    schedule: {
+      scheduleType: 'weekly',
+      weeklyEntries: [],
+      languages: ['en'],
+    },
+  };
+}
+
 function renderPage() {
   const copy = getContent('en').searchPage;
   render(
@@ -44,6 +95,10 @@ describe('SearchResultsPage', () => {
     push.mockClear();
     mapsEnabled.value = true;
     currentSearchParams.value = new URLSearchParams();
+    vi.mocked(fetchActivitySearch).mockResolvedValue({
+      items: [],
+      nextCursor: null,
+    });
   });
 
   it('hides the name search field and activity count', async () => {
@@ -93,6 +148,23 @@ describe('SearchResultsPage', () => {
     fireEvent.click(toggle);
     expect(push).toHaveBeenCalled();
     expect(push.mock.calls[0][0]).not.toContain('view=map');
+  });
+
+  it('auto-selects a filtered pin and links the map card to activity details', async () => {
+    currentSearchParams.value = new URLSearchParams('view=map');
+    vi.mocked(fetchActivitySearch).mockResolvedValue({
+      items: [buildListing()],
+      nextCursor: null,
+    });
+    renderPage();
+
+    const summaryLink = await screen.findByRole('link', {
+      name: /Kowloon art/,
+    });
+    expect(summaryLink).toHaveAttribute('href', '/en/activity?id=act-1');
+    expect(
+      document.querySelector('.search-map-split-layout__list'),
+    ).toHaveClass('hidden', 'lg:block');
   });
 
   it('hides the view toggle when maps are disabled', async () => {

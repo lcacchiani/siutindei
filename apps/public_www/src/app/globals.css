@@ -109,6 +109,10 @@ body {
   min-height: 100%;
 }
 
+.search-map-split-layout--expanded .search-map-split-layout__map {
+  min-height: 100%;
+}
+
 .listing-card-mini-map {
   background: linear-gradient(
     180deg,
