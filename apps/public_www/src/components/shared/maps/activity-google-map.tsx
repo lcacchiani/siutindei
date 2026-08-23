@@ -93,7 +93,10 @@ export function ActivityGoogleMap({
   const mapRef = useRef<google.maps.Map | null>(null);
   const markersRef = useRef<Map<string, google.maps.Marker>>(new Map());
   const selectedIdRef = useRef(selectedId);
-  selectedIdRef.current = selectedId;
+
+  useEffect(() => {
+    selectedIdRef.current = selectedId;
+  }, [selectedId]);
 
   const listingIds = listings.map((listing) => listing.activity.id).join(',');
 

@@ -17,7 +17,7 @@ function installGoogleMapsStub(options?: {
       importLibrary:
         options?.importLibrary ??
         vi.fn().mockResolvedValue({}),
-    } as typeof google.maps,
+    } as unknown as typeof google.maps,
   };
 }
 
@@ -25,12 +25,12 @@ describe('loadGoogleMapsScript', () => {
   beforeEach(() => {
     vi.resetModules();
     document.getElementById('siutindei-google-maps-script')?.remove();
-    delete window.google;
+    Reflect.deleteProperty(window, 'google');
   });
 
   afterEach(() => {
     document.getElementById('siutindei-google-maps-script')?.remove();
-    delete window.google;
+    Reflect.deleteProperty(window, 'google');
   });
 
   it('returns immediately when Map is already available', async () => {

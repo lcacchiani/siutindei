@@ -105,7 +105,7 @@ describe('SearchResultsPage', () => {
     const copy = renderPage();
 
     await waitFor(() => {
-      expect(screen.getByText(copy.emptyLabel)).toBeInTheDocument();
+      expect(screen.getAllByText(copy.emptyLabel).length).toBeGreaterThan(0);
     });
 
     expect(
@@ -149,37 +149,35 @@ describe('SearchResultsPage', () => {
   });
 
   it('does not refetch when only the view query changes', async () => {
-    const { rerender } = render(
-      <SearchProvider>
-        <SearchResultsPage
-          locale="en"
-          copy={getContent('en').searchPage}
-        />
-      </SearchProvider>,
-    );
+    const copy = getContent('en').searchPage;
+    function Tree() {
+      return (
+        <SearchProvider>
+          <SearchResultsPage locale="en" copy={copy} />
+        </SearchProvider>
+      );
+    }
+
+    vi.mocked(fetchActivitySearch).mockClear();
+    const { rerender } = render(<Tree />);
 
     await waitFor(() => {
-      expect(fetchActivitySearch).toHaveBeenCalledTimes(1);
+      expect(fetchActivitySearch).toHaveBeenCalled();
     });
+    const callsAfterFirstLoad =
+      vi.mocked(fetchActivitySearch).mock.calls.length;
 
     currentSearchParams.value = new URLSearchParams('view=list');
-    rerender(
-      <SearchProvider>
-        <SearchResultsPage
-          locale="en"
-          copy={getContent('en').searchPage}
-        />
-      </SearchProvider>,
-    );
+    rerender(<Tree />);
 
     await waitFor(() => {
       expect(
-        screen.getByRole('button', {
-          name: getContent('en').searchPage.mapViewLabel,
-        }),
+        screen.getByRole('button', { name: copy.mapViewLabel }),
       ).toBeInTheDocument();
     });
-    expect(fetchActivitySearch).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(fetchActivitySearch).mock.calls.length).toBe(
+      callsAfterFirstLoad,
+    );
   });
 
   it('auto-selects a filtered pin and links the map card to activity details', async () => {

@@ -121,7 +121,7 @@ describe('ActivityGoogleMap', () => {
   });
 
   afterEach(() => {
-    delete window.google;
+    Reflect.deleteProperty(window, 'google');
   });
 
   it('uses the activity-type icon instead of the default Google pin', async () => {

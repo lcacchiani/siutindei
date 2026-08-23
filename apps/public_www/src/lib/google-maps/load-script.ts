@@ -17,7 +17,7 @@ export async function loadGoogleMapsScript(apiKey: string): Promise<void> {
   }
 
   if (!loadPromise) {
-    loadPromise = new Promise((resolve, reject) => {
+    loadPromise = new Promise<void>((resolve, reject) => {
       const existing = document.getElementById(SCRIPT_ID);
       if (existing) {
         existing.addEventListener('load', () => resolve(), { once: true });
@@ -41,7 +41,7 @@ export async function loadGoogleMapsScript(apiKey: string): Promise<void> {
       document.head.appendChild(script);
     }).catch((error: unknown) => {
       loadPromise = null;
-      throw error;
+      return Promise.reject(error);
     });
   }
 
