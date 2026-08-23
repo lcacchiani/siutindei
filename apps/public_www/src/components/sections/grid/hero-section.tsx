@@ -39,13 +39,23 @@ export function HeroSection({
         <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
           <a
             href={localizeHref(primaryCtaHref, locale)}
-            className="link-unadorned rounded-lg bg-ink-900 px-6 py-3 text-sm font-semibold text-white transition hover:bg-ink-700"
+            className={
+              'link-unadorned inline-flex min-h-11 items-center ' +
+              'justify-center rounded-lg border border-ink-900/20 ' +
+              'bg-accent-500 px-6 py-3 text-sm font-semibold ' +
+              'text-ink-900 transition hover:bg-accent-600'
+            }
           >
             {primaryCtaLabel}
           </a>
           <a
             href={localizeHref(secondaryCtaHref, locale)}
-            className="link-unadorned rounded-lg border border-ink-900/15 px-6 py-3 text-sm font-semibold text-ink-900 transition hover:bg-brand-50"
+            className={
+              'link-unadorned inline-flex min-h-11 items-center ' +
+              'justify-center rounded-lg border border-ink-900/15 ' +
+              'bg-white px-6 py-3 text-sm font-semibold text-ink-900 ' +
+              'transition hover:bg-brand-50'
+            }
           >
             {secondaryCtaLabel}
           </a>
