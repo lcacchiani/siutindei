@@ -41,39 +41,36 @@ function MapPaneBody({
   isLoading,
   mappableCount,
 }: MapPaneBodyProps) {
-  if (isLoading) {
-    return (
-      <p className="flex h-full items-center justify-center bg-brand-50 px-4 text-center text-sm text-ink-500">
-        {copy.loadingMapLabel}
-      </p>
-    );
-  }
-
-  if (listings.length === 0) {
-    return (
-      <p className="flex h-full items-center justify-center bg-brand-50 px-4 text-center text-sm text-ink-700">
-        {copy.emptyLabel}
-      </p>
-    );
-  }
-
-  if (mappableCount === 0) {
-    return (
-      <div className="flex h-full items-center justify-center bg-brand-50 px-4 text-center text-sm text-ink-500">
-        {copy.mapEmptyLabel}
-      </div>
-    );
-  }
+  const canRenderMap = listings.length > 0 && mappableCount > 0;
 
   return (
-    <ActivityGoogleMap
-      locale={locale}
-      listings={listings}
-      selectedId={selectedId}
-      onSelect={onSelect}
-      className="h-full w-full"
-      ariaLabel={copy.mapAriaLabel}
-    />
+    <div className="relative h-full w-full">
+      {isLoading ? (
+        <p className="absolute inset-0 z-10 flex items-center justify-center bg-brand-50 px-4 text-center text-sm text-ink-500">
+          {copy.loadingMapLabel}
+        </p>
+      ) : null}
+      {!isLoading && listings.length === 0 ? (
+        <p className="flex h-full items-center justify-center bg-brand-50 px-4 text-center text-sm text-ink-700">
+          {copy.emptyLabel}
+        </p>
+      ) : null}
+      {!isLoading && listings.length > 0 && mappableCount === 0 ? (
+        <div className="flex h-full items-center justify-center bg-brand-50 px-4 text-center text-sm text-ink-500">
+          {copy.mapEmptyLabel}
+        </div>
+      ) : null}
+      {canRenderMap ? (
+        <ActivityGoogleMap
+          locale={locale}
+          listings={listings}
+          selectedId={selectedId}
+          onSelect={onSelect}
+          className="h-full w-full"
+          ariaLabel={copy.mapAriaLabel}
+        />
+      ) : null}
+    </div>
   );
 }
 

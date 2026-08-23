@@ -37,10 +37,26 @@ export function SearchResultsPage({ locale, copy }: SearchResultsPageProps) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  const urlFilters = useMemo(
-    () => parseSearchFiltersFromQuery(searchParams),
-    [searchParams],
-  );
+  const ageParam = searchParams.get('age');
+  const regionParam = searchParams.get('region');
+  const typesParam = searchParams.get('types');
+  const queryParam = searchParams.get('q');
+  const urlFilters = useMemo(() => {
+    const params = new URLSearchParams();
+    if (ageParam) {
+      params.set('age', ageParam);
+    }
+    if (regionParam) {
+      params.set('region', regionParam);
+    }
+    if (typesParam) {
+      params.set('types', typesParam);
+    }
+    if (queryParam) {
+      params.set('q', queryParam);
+    }
+    return parseSearchFiltersFromQuery(params);
+  }, [ageParam, queryParam, regionParam, typesParam]);
   const urlViewMode = useMemo(
     () => parseSearchViewMode(searchParams),
     [searchParams],
@@ -94,9 +110,9 @@ export function SearchResultsPage({ locale, copy }: SearchResultsPageProps) {
   }, [listings, selectedId, showMapSplit]);
 
   function navigateToListView() {
-    const query = buildSearchQueryString(urlFilters);
+    const query = buildSearchQueryString(urlFilters, { view: 'list' });
     const path = localizePath('/search', locale);
-    router.push(query ? `${path}?${query}` : path);
+    router.push(`${path}?${query}`);
   }
 
   function navigateToMapView() {

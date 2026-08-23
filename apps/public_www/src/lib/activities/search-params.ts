@@ -89,7 +89,7 @@ export function parseSearchFiltersFromQuery(
 export function parseSearchViewMode(
   searchParams: URLSearchParams,
 ): SearchViewMode {
-  return searchParams.get('view') === 'map' ? 'map' : 'list';
+  return searchParams.get('view') === 'list' ? 'list' : 'map';
 }
 
 export function buildSearchQueryString(
@@ -109,9 +109,8 @@ export function buildSearchQueryString(
   if (filters.textQuery.trim()) {
     params.set('q', filters.textQuery.trim());
   }
-  if (options?.view === 'map') {
-    params.set('view', 'map');
-  }
+  const view = options?.view ?? 'map';
+  params.set('view', view);
   return params.toString();
 }
 

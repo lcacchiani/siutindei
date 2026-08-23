@@ -19,13 +19,13 @@ describe('buildMapSearchHref', () => {
 });
 
 describe('buildSearchHref', () => {
-  it('builds a list-search URL from the current filters', () => {
+  it('builds a map-search URL from the current filters', () => {
     const href = buildSearchHref('en', {
       ...DEFAULT_SEARCH_FILTERS,
       regionId: 'kowloon',
     });
 
-    expect(href).toBe('/en/search/?age=3-6&region=kowloon');
+    expect(href).toBe('/en/search/?age=3-6&region=kowloon&view=map');
   });
 });
 

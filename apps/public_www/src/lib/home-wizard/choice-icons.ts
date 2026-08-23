@@ -1,3 +1,5 @@
+import { homeWizardChoices } from './choices';
+
 export const ACTIVITY_ICON_SRC: Record<string, string> = {
   workshop: '/images/categories/workshop.svg',
   class: '/images/categories/class.svg',
@@ -31,6 +33,24 @@ export const REGION_ROW_ORDER = [
 
 export function iconSrcForActivity(typeId: string): string {
   return ACTIVITY_ICON_SRC[typeId] ?? DEFAULT_ACTIVITY_ICON_SRC;
+}
+
+export function activityTypeIdForCategory(
+  categoryId: string | null,
+): string {
+  if (!categoryId) {
+    return homeWizardChoices.activityTypes[0]?.id ?? 'workshop';
+  }
+  const match = homeWizardChoices.activityTypes.find(
+    (type) => type.categoryId === categoryId,
+  );
+  return match?.id ?? homeWizardChoices.activityTypes[0]?.id ?? 'workshop';
+}
+
+export function iconSrcForActivityCategory(
+  categoryId: string | null,
+): string {
+  return iconSrcForActivity(activityTypeIdForCategory(categoryId));
 }
 
 export function iconSrcForAge(ageGroupId: string): string | undefined {

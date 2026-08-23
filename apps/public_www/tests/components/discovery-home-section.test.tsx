@@ -72,18 +72,18 @@ describe('DiscoveryHomeSection', () => {
     await waitFor(() => {
       expect(
         screen.getByRole('link', { name: content.discovery.popularTitle }),
-        ).toHaveAttribute('href', '/en/search?age=3-6');
+        ).toHaveAttribute('href', '/en/search?age=3-6&view=map');
     });
 
     const regionTitle = `${content.discovery.nearRegionTitle} Kowloon`;
     expect(screen.getByRole('link', { name: regionTitle })).toHaveAttribute(
       'href',
-      '/en/search?age=3-6&region=kowloon',
+      '/en/search?age=3-6&region=kowloon&view=map',
     );
     expect(
       screen.getByRole('link', {
         name: `${content.discovery.carousel.seeAllLabel}: ${regionTitle}`,
       }),
-    ).toHaveAttribute('href', '/en/search?age=3-6&region=kowloon');
+    ).toHaveAttribute('href', '/en/search?age=3-6&region=kowloon&view=map');
   });
 });
