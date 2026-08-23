@@ -24,11 +24,28 @@ describe('search-params', () => {
     expect(parsed.regionId).toBe('kowloon');
     expect(parsed.activityTypeIds).toEqual(['workshop', 'class']);
     expect(parsed.textQuery).toBe('music');
+    expect(params.get('view')).toBe('map');
   });
 
-  it('parses map view mode from the query string', () => {
-    const params = new URLSearchParams('view=map');
-    expect(parseSearchViewMode(params)).toBe('map');
+  it('defaults to map view unless the query asks for the list', () => {
+    expect(parseSearchViewMode(new URLSearchParams())).toBe('map');
+    expect(parseSearchViewMode(new URLSearchParams('view=map'))).toBe('map');
+    expect(parseSearchViewMode(new URLSearchParams('view=list'))).toBe(
+      'list',
+    );
+  });
+
+  it('writes view=list when the list is requested', () => {
+    const query = buildSearchQueryString(
+      {
+        ageGroupId: '3-6',
+        regionId: null,
+        activityTypeIds: [],
+        textQuery: '',
+      },
+      { view: 'list' },
+    );
+    expect(new URLSearchParams(query).get('view')).toBe('list');
   });
 
   it('maps activity types to category ids', () => {

@@ -7,6 +7,14 @@ declare namespace google.maps {
     extend(point: LatLng): void;
   }
 
+  class Size {
+    constructor(width: number, height: number);
+  }
+
+  class Point {
+    constructor(x: number, y: number);
+  }
+
   interface MapOptions {
     center?: LatLng;
     zoom?: number;
@@ -22,17 +30,31 @@ declare namespace google.maps {
     setZoom(zoom: number): void;
   }
 
+  interface Icon {
+    url?: string;
+    scaledSize?: Size;
+    anchor?: Point;
+  }
+
   interface MarkerOptions {
     map?: Map;
     position?: LatLng;
     title?: string;
+    icon?: Icon | string;
   }
 
   class Marker {
     constructor(options?: MarkerOptions);
     setMap(map: Map | null): void;
+    setIcon(icon: Icon | string): void;
     addListener(eventName: string, handler: () => void): void;
   }
+
+  const event: {
+    trigger(instance: object, eventName: string): void;
+  };
+
+  function importLibrary(name: string): Promise<unknown>;
 }
 
 interface Window {

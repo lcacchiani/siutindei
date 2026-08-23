@@ -6,9 +6,12 @@ import { describe, expect, it } from 'vitest';
 import {
   AGE_ICON_SRC,
   ALL_HONG_KONG_ICON_SRC,
+  DEFAULT_ACTIVITY_ICON_SRC,
   REGION_ICON_SRC,
   REGION_ROW_ORDER,
+  activityTypeIdForCategory,
   iconSrcForActivity,
+  iconSrcForActivityCategory,
   iconSrcForAge,
   iconSrcForRegion,
 } from '@/lib/home-wizard/choice-icons';
@@ -21,6 +24,18 @@ describe('choice icons', () => {
         /^\/images\/categories\/.+\.svg$/,
       );
     }
+  });
+
+  it('maps listing category ids to activity-type icons', () => {
+    for (const type of homeWizardChoices.activityTypes) {
+      expect(activityTypeIdForCategory(type.categoryId)).toBe(type.id);
+      expect(iconSrcForActivityCategory(type.categoryId)).toBe(
+        iconSrcForActivity(type.id),
+      );
+    }
+    expect(activityTypeIdForCategory(null)).toBe('workshop');
+    expect(activityTypeIdForCategory('unknown')).toBe('workshop');
+    expect(iconSrcForActivityCategory(null)).toBe(DEFAULT_ACTIVITY_ICON_SRC);
   });
 
   it('maps every age group to the original age PNGs', () => {
