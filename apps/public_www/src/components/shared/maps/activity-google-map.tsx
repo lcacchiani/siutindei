@@ -12,6 +12,7 @@ import {
 import { loadGoogleMapsScript } from '@/lib/google-maps/load-script';
 import { getGoogleMapsConfig } from '@/lib/google-maps/config';
 import { listingTitle } from '@/lib/activities/listing-utils';
+import { iconSrcForActivityCategory } from '@/lib/home-wizard/choice-icons';
 import type { ActivityListing } from '@/lib/activities/types';
 
 interface ActivityGoogleMapProps {
@@ -21,6 +22,62 @@ interface ActivityGoogleMapProps {
   readonly onSelect: (activityId: string) => void;
   readonly className?: string;
   readonly ariaLabel: string;
+}
+
+const MARKER_SIZE = 36;
+const SELECTED_MARKER_SIZE = 48;
+
+function hasSize(element: HTMLElement): boolean {
+  return element.clientWidth > 0 && element.clientHeight > 0;
+}
+
+async function whenContainerHasSize(element: HTMLElement): Promise<void> {
+  if (hasSize(element)) {
+    return;
+  }
+
+  await new Promise<void>((resolve) => {
+    requestAnimationFrame(() => resolve());
+  });
+
+  if (hasSize(element) || typeof ResizeObserver !== 'function') {
+    return;
+  }
+
+  await new Promise<void>((resolve) => {
+    const observer = new ResizeObserver(() => {
+      if (hasSize(element)) {
+        observer.disconnect();
+        window.clearTimeout(timeoutId);
+        resolve();
+      }
+    });
+    observer.observe(element);
+    const timeoutId = window.setTimeout(() => {
+      observer.disconnect();
+      resolve();
+    }, 400);
+  });
+}
+
+function markerIconUrl(categoryId: string | null): string {
+  const src = iconSrcForActivityCategory(categoryId);
+  if (typeof window === 'undefined') {
+    return src;
+  }
+  return new URL(src, window.location.origin).href;
+}
+
+function markerIcon(
+  categoryId: string | null,
+  isSelected: boolean,
+): google.maps.Icon {
+  const size = isSelected ? SELECTED_MARKER_SIZE : MARKER_SIZE;
+  return {
+    url: markerIconUrl(categoryId),
+    scaledSize: new google.maps.Size(size, size),
+    anchor: new google.maps.Point(size / 2, size),
+  };
 }
 
 export function ActivityGoogleMap({
@@ -34,7 +91,9 @@ export function ActivityGoogleMap({
   const containerId = useId().replace(/:/g, '');
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
-  const markersRef = useRef<google.maps.Marker[]>([]);
+  const markersRef = useRef<Map<string, google.maps.Marker>>(new Map());
+  const selectedIdRef = useRef(selectedId);
+  selectedIdRef.current = selectedId;
 
   const listingIds = listings.map((listing) => listing.activity.id).join(',');
 
@@ -52,7 +111,12 @@ export function ActivityGoogleMap({
     let cancelled = false;
 
     loadGoogleMapsScript(apiKey)
-      .then(() => {
+      .then(async () => {
+        if (cancelled || !containerRef.current) {
+          return;
+        }
+
+        await whenContainerHasSize(containerRef.current);
         if (cancelled || !containerRef.current) {
           return;
         }
@@ -76,11 +140,12 @@ export function ActivityGoogleMap({
             fullscreenControl: false,
           });
         mapRef.current = map;
+        google.maps.event.trigger(map, 'resize');
 
-        for (const marker of markersRef.current) {
+        for (const marker of markersRef.current.values()) {
           marker.setMap(null);
         }
-        markersRef.current = [];
+        markersRef.current.clear();
 
         const bounds = new google.maps.LatLngBounds();
         for (const listing of mappableListings) {
@@ -97,11 +162,15 @@ export function ActivityGoogleMap({
             map,
             position,
             title: listingTitle(locale, listing),
+            icon: markerIcon(
+              listing.activity.categoryId,
+              listing.activity.id === selectedIdRef.current,
+            ),
           });
           marker.addListener('click', () => {
             onSelect(listing.activity.id);
           });
-          markersRef.current.push(marker);
+          markersRef.current.set(listing.activity.id, marker);
         }
 
         if (coordinates.length > 1) {
@@ -127,6 +196,13 @@ export function ActivityGoogleMap({
     const coordinate = listing ? listingCoordinate(listing) : null;
     if (!coordinate) {
       return;
+    }
+
+    for (const [activityId, marker] of markersRef.current) {
+      const entry = listings.find((item) => item.activity.id === activityId);
+      marker.setIcon(
+        markerIcon(entry?.activity.categoryId ?? null, activityId === selectedId),
+      );
     }
 
     map.panTo(new google.maps.LatLng(coordinate.lat, coordinate.lng));

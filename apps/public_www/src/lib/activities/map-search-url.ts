@@ -26,9 +26,7 @@ export function buildSearchHref(
   locale: Locale,
   filters: SearchFiltersState,
 ): string {
-  const query = buildSearchQueryString(filters);
-  const path = localizePath('/search', locale);
-  return query ? `${path}?${query}` : path;
+  return buildMapSearchHref(locale, filters);
 }
 
 export function buildMapSearchHref(

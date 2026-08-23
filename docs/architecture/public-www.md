@@ -106,8 +106,11 @@ Source: [`apps/public_www`](../../apps/public_www).
   (`src/components/shared/sparkle-cursor.tsx`) is mounted from the locale
   layout for fine-pointer devices. No CSP changes are required: everything
   is same-origin static JS and `<canvas>` rendering.
-- **Search & detail:** `/[locale]/search/` (results grid, or `?view=map` for
-  Google Maps). Below the `lg` breakpoint the map is full-width with pins for
+- **Search & detail:** `/[locale]/search/` opens the Google Maps split view
+  when maps are enabled (explicit `?view=map`, or no `view` param). `?view=list`
+  is the results grid. Search, See all, and discovery carousel links land on
+  the map. Pins use the activity-type icons (workshop / class / outdoor /
+  indoor). Below the `lg` breakpoint the map is full-width with pins for
   the filtered results and a selected-activity summary card at the bottom.
   Tapping a pin selects that activity; tapping the card opens the activity
   detail page. From `lg` (iPad landscape and computer) the default is a 50/50

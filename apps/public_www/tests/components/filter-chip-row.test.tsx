@@ -70,34 +70,34 @@ describe('FilterChipRow', () => {
     fireEvent.click(screen.getByRole('button', { name: workshop.labels.en }));
 
     expect(replace).toHaveBeenCalledWith(
-      `/en/search/?age=${DEFAULT_SEARCH_FILTERS.ageGroupId}&types=${workshop.id}`,
+      `/en/search/?age=${DEFAULT_SEARCH_FILTERS.ageGroupId}&types=${workshop.id}&view=map`,
     );
 
     fireEvent.click(screen.getByRole('button', { name: classType.labels.en }));
     expect(replace).toHaveBeenLastCalledWith(
-      `/en/search/?age=${DEFAULT_SEARCH_FILTERS.ageGroupId}&types=${workshop.id}%2C${classType.id}`,
+      `/en/search/?age=${DEFAULT_SEARCH_FILTERS.ageGroupId}&types=${workshop.id}%2C${classType.id}&view=map`,
     );
 
     fireEvent.click(screen.getByRole('button', { name: workshop.labels.en }));
     expect(replace).toHaveBeenLastCalledWith(
-      `/en/search/?age=${DEFAULT_SEARCH_FILTERS.ageGroupId}&types=${classType.id}`,
+      `/en/search/?age=${DEFAULT_SEARCH_FILTERS.ageGroupId}&types=${classType.id}&view=map`,
     );
 
     fireEvent.click(screen.getByRole('button', { name: classType.labels.en }));
     expect(replace).toHaveBeenLastCalledWith(
-      `/en/search/?age=${DEFAULT_SEARCH_FILTERS.ageGroupId}`,
+      `/en/search/?age=${DEFAULT_SEARCH_FILTERS.ageGroupId}&view=map`,
     );
   });
 
-  it('keeps map view in the query string when toggling a type', () => {
-    currentSearchParams.value = new URLSearchParams('view=map');
+  it('keeps list view in the query string when toggling a type', () => {
+    currentSearchParams.value = new URLSearchParams('view=list');
     renderChipRow();
 
     const workshop = homeWizardChoices.activityTypes[0];
     fireEvent.click(screen.getByRole('button', { name: workshop.labels.en }));
 
     expect(replace).toHaveBeenCalledWith(
-      `/en/search/?age=${DEFAULT_SEARCH_FILTERS.ageGroupId}&types=${workshop.id}&view=map`,
+      `/en/search/?age=${DEFAULT_SEARCH_FILTERS.ageGroupId}&types=${workshop.id}&view=list`,
     );
   });
 });

@@ -113,28 +113,9 @@ describe('SearchResultsPage', () => {
     ).not.toBeInTheDocument();
     expect(screen.queryByRole('searchbox')).not.toBeInTheDocument();
     expect(screen.queryByText(/^\d+ activities$/)).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'List' })).not.toBeInTheDocument();
   });
 
-  it('overlays a map toggle on the list when maps are enabled', async () => {
-    const copy = renderPage();
-
-    const toggle = await screen.findByRole('button', {
-      name: copy.mapViewLabel,
-    });
-    expect(toggle.querySelector('img')).toHaveAttribute(
-      'src',
-      '/images/ui/map.svg',
-    );
-    expect(toggle).toHaveClass('search-view-toggle', 'fixed', 'rounded-full', 'bg-white');
-    expect(toggle.parentElement).toBe(document.body);
-
-    fireEvent.click(toggle);
-    expect(push).toHaveBeenCalledWith(expect.stringContaining('view=map'));
-  });
-
-  it('overlays a list toggle on the map when maps are enabled', async () => {
-    currentSearchParams.value = new URLSearchParams('view=map');
+  it('opens the map by default and overlays a list toggle', async () => {
     const copy = renderPage();
 
     const toggle = await screen.findByRole('button', {
@@ -144,14 +125,64 @@ describe('SearchResultsPage', () => {
       'src',
       '/images/ui/list.svg',
     );
+    expect(toggle).toHaveClass('search-view-toggle', 'fixed', 'rounded-full', 'bg-white');
+    expect(toggle.parentElement).toBe(document.body);
 
     fireEvent.click(toggle);
-    expect(push).toHaveBeenCalled();
-    expect(push.mock.calls[0][0]).not.toContain('view=map');
+    expect(push).toHaveBeenCalledWith(expect.stringContaining('view=list'));
+  });
+
+  it('overlays a map toggle on the list when view=list', async () => {
+    currentSearchParams.value = new URLSearchParams('view=list');
+    const copy = renderPage();
+
+    const toggle = await screen.findByRole('button', {
+      name: copy.mapViewLabel,
+    });
+    expect(toggle.querySelector('img')).toHaveAttribute(
+      'src',
+      '/images/ui/map.svg',
+    );
+
+    fireEvent.click(toggle);
+    expect(push).toHaveBeenCalledWith(expect.stringContaining('view=map'));
+  });
+
+  it('does not refetch when only the view query changes', async () => {
+    const { rerender } = render(
+      <SearchProvider>
+        <SearchResultsPage
+          locale="en"
+          copy={getContent('en').searchPage}
+        />
+      </SearchProvider>,
+    );
+
+    await waitFor(() => {
+      expect(fetchActivitySearch).toHaveBeenCalledTimes(1);
+    });
+
+    currentSearchParams.value = new URLSearchParams('view=list');
+    rerender(
+      <SearchProvider>
+        <SearchResultsPage
+          locale="en"
+          copy={getContent('en').searchPage}
+        />
+      </SearchProvider>,
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('button', {
+          name: getContent('en').searchPage.mapViewLabel,
+        }),
+      ).toBeInTheDocument();
+    });
+    expect(fetchActivitySearch).toHaveBeenCalledTimes(1);
   });
 
   it('auto-selects a filtered pin and links the map card to activity details', async () => {
-    currentSearchParams.value = new URLSearchParams('view=map');
     vi.mocked(fetchActivitySearch).mockResolvedValue({
       items: [buildListing()],
       nextCursor: null,

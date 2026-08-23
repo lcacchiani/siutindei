@@ -183,5 +183,8 @@ describe('SearchMapSplitLayout', () => {
     expect(
       document.querySelector('.search-map-split-layout__card'),
     ).toBeNull();
+    expect(
+      screen.getByRole('button', { name: copy.mapAriaLabel }),
+    ).toBeInTheDocument();
   });
 });
