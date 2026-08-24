@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import type { Locale, SiteContent } from '@/content';
+import { TrackedWhatsappLink } from '@/components/shared/tracked-whatsapp-link';
 import { preloadActivityImage } from '@/lib/activity-image-preload';
 import { logActivityLoadError } from '@/lib/activities/load-error';
 import { fetchActivityListingById } from '@/lib/activities/search-client';
@@ -21,6 +22,10 @@ import {
   LISTING_IMAGE_HEIGHT,
   LISTING_IMAGE_WIDTH,
 } from '@/lib/listing-image';
+import {
+  itemFieldsFromListing,
+  trackViewItem,
+} from '@/lib/analytics/data-layer';
 import { getSiteConfig } from '@/lib/site-config';
 
 interface ActivityDetailPageProps {
@@ -149,6 +154,13 @@ export function ActivityDetailPage({
     };
   }, [listing, locale, siteName]);
 
+  useEffect(() => {
+    if (!listing) {
+      return;
+    }
+    trackViewItem(locale, listing);
+  }, [listing, locale]);
+
   if (isLoading) {
     return (
       <p
@@ -220,8 +232,10 @@ export function ActivityDetailPage({
           ) : null}
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             {whatsappHref ? (
-              <a
+              <TrackedWhatsappLink
                 href={whatsappHref}
+                leadType="whatsapp_activity"
+                item={itemFieldsFromListing(locale, listing)}
                 className={
                   'link-unadorned inline-flex min-h-11 w-full ' +
                   'items-center justify-center rounded-lg border ' +
@@ -231,7 +245,7 @@ export function ActivityDetailPage({
                 }
               >
                 {copy.whatsappCtaLabel}
-              </a>
+              </TrackedWhatsappLink>
             ) : null}
           </div>
         </div>

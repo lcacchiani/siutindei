@@ -4,8 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AnalyticsConsentBanner } from '@/components/shared/analytics-consent-banner';
 import enContent from '@/content/en.json';
 import zhHKContent from '@/content/zh-HK.json';
-
-const CONSENT_STORAGE_KEY = 'siutindei-analytics-consent';
+import { ANALYTICS_CONSENT_STORAGE_KEY } from '@/lib/analytics/consent';
 
 vi.mock('next/navigation', () => ({
   usePathname: () => mockPathname,
@@ -49,7 +48,7 @@ describe('AnalyticsConsentBanner', () => {
   });
 
   it('stays hidden when a consent decision is already stored', () => {
-    window.localStorage.setItem(CONSENT_STORAGE_KEY, 'denied');
+    window.localStorage.setItem(ANALYTICS_CONSENT_STORAGE_KEY, 'denied');
 
     render(<AnalyticsConsentBanner />);
 
@@ -72,7 +71,9 @@ describe('AnalyticsConsentBanner', () => {
       }),
     );
 
-    expect(window.localStorage.getItem(CONSENT_STORAGE_KEY)).toBe('granted');
+    expect(window.localStorage.getItem(ANALYTICS_CONSENT_STORAGE_KEY)).toBe(
+      'granted',
+    );
     expect(consentListener).toHaveBeenCalledTimes(1);
     expect(
       screen.queryByTestId('analytics-consent-banner'),
@@ -98,7 +99,9 @@ describe('AnalyticsConsentBanner', () => {
       }),
     );
 
-    expect(window.localStorage.getItem(CONSENT_STORAGE_KEY)).toBe('denied');
+    expect(window.localStorage.getItem(ANALYTICS_CONSENT_STORAGE_KEY)).toBe(
+      'denied',
+    );
     expect(consentListener).not.toHaveBeenCalled();
     expect(
       screen.queryByTestId('analytics-consent-banner'),

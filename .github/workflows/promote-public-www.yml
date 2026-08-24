@@ -128,6 +128,8 @@ jobs:
           NEXT_PUBLIC_SEARCH_API_BASE_URL: ${{ vars.NEXT_PUBLIC_SEARCH_API_BASE_URL }}
           NEXT_PUBLIC_SEARCH_API_KEY: ${{ secrets.NEXT_PUBLIC_SEARCH_API_KEY }}
           NEXT_PUBLIC_DEVICE_ATTESTATION_TOKEN: ${{ secrets.NEXT_PUBLIC_DEVICE_ATTESTATION_TOKEN }}
+          NEXT_PUBLIC_GTM_ID: ${{ vars.NEXT_PUBLIC_GTM_ID }}
+          NEXT_PUBLIC_GTM_ALLOWED_HOSTS: ${{ vars.NEXT_PUBLIC_GTM_ALLOWED_HOSTS }}
 
       - name: Build public website for production
         if: ${{ steps.resolve_release.outputs.maintenance_mode != 'true' }}
@@ -147,6 +149,8 @@ jobs:
           NEXT_PUBLIC_SEARCH_API_KEY: ${{ secrets.NEXT_PUBLIC_SEARCH_API_KEY }}
           NEXT_PUBLIC_DEVICE_ATTESTATION_TOKEN: ${{ secrets.NEXT_PUBLIC_DEVICE_ATTESTATION_TOKEN }}
           NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: ${{ vars.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY }}
+          NEXT_PUBLIC_GTM_ID: ${{ vars.NEXT_PUBLIC_GTM_ID }}
+          NEXT_PUBLIC_GTM_ALLOWED_HOSTS: ${{ vars.NEXT_PUBLIC_GTM_ALLOWED_HOSTS }}
 
       - name: Promote release or enable maintenance mode
         run: bash 'scripts/deploy/deploy-public-www.sh'

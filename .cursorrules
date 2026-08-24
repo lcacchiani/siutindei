@@ -233,6 +233,10 @@ repo root
   - `style={...}` JSX attributes / `React.CSSProperties`
   - Hardcoded environment-specific values (domains, origins, emails) — read
     them from `apps/public_www/src/lib/site-config.ts`
+  - GA4 `G-` or Google Ads `AW-` IDs in git or `NEXT_PUBLIC_*` (only
+    `GTM-…` may be a GitHub Environment build var). Push analytics events
+    through `src/lib/analytics/data-layer.ts`; do not add extra GA/Ads
+    snippets.
 - The build pipeline must keep `npm run csp:inject && npm run csp:validate`
   in `apps/public_www/package.json#scripts.build`.
 - The build env contract enforced by

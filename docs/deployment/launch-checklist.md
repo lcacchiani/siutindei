@@ -122,7 +122,15 @@ Verify each with `curl -sI https://<domain>` (expect 200/301, valid cert).
    regression before promoting.
 3. Verify legal pages render (`/en/privacy`, `/zh-HK/privacy`, `/en/terms`)
    and the analytics consent banner appears when GTM/Meta Pixel IDs are
-   configured.
+   configured. Set GitHub Environment `NEXT_PUBLIC_GTM_ID` (`GTM-…` only)
+   and `NEXT_PUBLIC_GTM_ALLOWED_HOSTS` (production:
+   `siutindei.com,www.siutindei.com`; staging should also include
+   `siutindei-www-staging.lx-software.com`). Confirm
+   `NEXT_PUBLIC_WHATSAPP_URL` is set. Rebuild/promote after changing
+   `NEXT_PUBLIC_*` — they are build-time. After consent: decline must not
+   load `gtm.js`; accept loads `gtm.js?id=GTM-…`. GTM Preview should show
+   All Pages → GA4 Config, activity → `view_item`, WhatsApp →
+   `generate_lead`.
 4. Promote with `promote-public-www.yml`
    (`PUBLIC_WWW_PROMOTE_RELEASE_ID` = the staging release to promote).
 5. Post-promote: spot-check production search, an activity detail page, and

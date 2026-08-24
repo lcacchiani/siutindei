@@ -91,6 +91,9 @@ Optional `NEXT_PUBLIC_*` variables documented in `.env.example` are read by
   optional `NEXT_PUBLIC_GTM_ID` and `NEXT_PUBLIC_META_PIXEL_ID` with host
   allow-lists (same pattern as
   [evolvesprouts](https://github.com/lcacchiani/evolvesprouts)).
+  After consent, `src/lib/analytics/data-layer.ts` pushes `view_item`,
+  `generate_lead`, and `search` to `window.dataLayer` for GTM. Do not add
+  GA4 `G-` or Ads `AW-` IDs to git or `NEXT_PUBLIC_*`.
 
 See the `Public Website` section in the repository root `.cursorrules` for the
 authoritative checklist.
