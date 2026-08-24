@@ -6,7 +6,7 @@ data flows. Keep this file in sync with `docs/legal/README.md` whenever data
 practices change.
 
 Privacy policy URL for both stores:
-`https://siutindei-www.lx-software.com/privacy`
+`https://siutindei.com/privacy`
 
 ## What the app actually collects
 

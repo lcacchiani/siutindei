@@ -35,14 +35,20 @@ Stack registration: [`backend/infrastructure/bin/app.ts`](../../backend/infrastr
 ### Custom domains
 
 Configured via `backend/infrastructure/params/production.json` and passed to
-CloudFront as alternate domain names (CNAMEs). Both environments reuse the
-same us-east-1 ACM certificate as the admin web; hostnames must be listed on
-that certificate.
+CloudFront as alternate domain names (CNAMEs). Production uses a dedicated
+`us-east-1` ACM certificate covering `siutindei.com` and `*.siutindei.com`.
+Staging reuses the shared `lx-software.com` certificate. Hostnames must be
+listed on the certificate attached to that distribution.
 
 | Environment | CloudFront alias |
 |---|---|
-| Production | `siutindei-www.lx-software.com` |
+| Production | `siutindei.com` |
 | Staging | `siutindei-www-staging.lx-software.com` |
+
+`www.siutindei.com` and the legacy `siutindei-www.lx-software.com` hostname
+301 to the apex at the Cloudflare edge (Worker
+`siutindei-canonical-redirects`). Do not add those names as CloudFront
+aliases unless the attached certificate covers them.
 
 ### Resource naming
 
@@ -229,10 +235,12 @@ and is invoked by both workflows. It supports three primary modes:
 The script also enforces `robots.txt: User-agent: *\nDisallow: /` whenever
 the target environment is `staging`.
 
-CloudFront is the only edge cache on the public website hostnames
-(`siutindei-www` / `siutindei-www-staging` CNAME directly to CloudFront;
-Cloudflare is DNS-only for those records). Standard deploys do not
-invalidate `/*` so they stay under CloudFront's 15-wildcard-in-progress
+CloudFront is the only edge cache on the CloudFront aliases
+(`siutindei.com` / `siutindei-www-staging`). Those records CNAME directly
+to CloudFront (DNS-only / grey cloud). `www.siutindei.com` and
+`siutindei-www.lx-software.com` are Cloudflare-proxied 301s to the apex.
+Standard deploys do not invalidate `/*` so they stay under CloudFront's
+15-wildcard-in-progress
 cap. The site-scope list is aligned with evolvesprouts and adapted to
 this site's locales, pages, staging search fixture, and search-API
 proxy. HTML objects still carry `Cache-Control: public, max-age=300,
@@ -293,7 +301,7 @@ regional CloudFront Functions API rate limit.
 
 To route traffic through the edge cache, the website build must point
 `NEXT_PUBLIC_SEARCH_API_BASE_URL` at the website's own origin (e.g.
-`https://siutindei-www.lx-software.com`) rather than directly at
+`https://siutindei.com`) rather than directly at
 `siutindei-api.lx-software.com`; `src/lib/activities/search-client.ts`
 resolves `new URL('/v1/activities/search', base)`, which then hits this
 behavior same-origin. With same-origin requests the CSP `connect-src 'self'`

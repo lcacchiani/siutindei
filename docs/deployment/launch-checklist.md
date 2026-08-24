@@ -90,14 +90,18 @@ On the **staging** environment (public www):
 
 ## 6. DNS / certificates
 
-All custom domains are Cloudflare CNAMEs (proxy disabled / grey cloud):
+CloudFront aliases are Cloudflare CNAMEs with the proxy **disabled**
+(grey cloud). `www.siutindei.com` and the legacy
+`siutindei-www.lx-software.com` hostname are orange-cloud 301s to the apex.
 
 | Record | Target source |
 |---|---|
+| `siutindei.com` | public-www CloudFront distribution (canonical) |
+| `www.siutindei.com` | 301 → `https://siutindei.com/$1` (Cloudflare Worker) |
+| `siutindei-www.lx-software.com` | 301 → `https://siutindei.com/$1` (Cloudflare Worker) |
 | `siutindei-api.lx-software.com` | `ApiCustomDomainTarget` stack output |
 | `siutindei-auth.lx-software.com` | `CognitoCustomDomainCloudFront` stack output |
 | `siutindei.lx-software.com` | admin-web CloudFront distribution |
-| `siutindei-www.lx-software.com` | public-www CloudFront distribution |
 | `siutindei-www-staging.lx-software.com` | public-www staging distribution |
 
 Verify each with `curl -sI https://<domain>` (expect 200/301, valid cert).
