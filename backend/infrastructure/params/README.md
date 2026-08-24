@@ -31,7 +31,7 @@ or `all stacks`). Deploy static site artifacts with
 
 | Parameter | Purpose |
 |-----------|---------|
-| `PublicWwwDomainName` | Production CloudFront alias (e.g. `siutindei-www.lx-software.com`). |
+| `PublicWwwDomainName` | Production CloudFront alias (e.g. `siutindei.com`). |
 | `PublicWwwCertificateArn` | ACM cert ARN in **us-east-1** that covers the production alias. |
 | `PublicWwwStagingDomainName` | Staging CloudFront alias (e.g. `siutindei-www-staging.lx-software.com`). |
 | `PublicWwwStagingCertificateArn` | ACM cert ARN in **us-east-1** that covers the staging alias. |
@@ -42,9 +42,9 @@ Static-export branding defaults (site name, tagline, contact email) live in
 CI reads them via `scripts/deploy/resolve-public-www-build-env.sh`.
 
 Before the first `cdk deploy`, ensure the ACM certificate listed in
-`PublicWwwCertificateArn`/`PublicWwwStagingCertificateArn` includes the public
-website hostnames as Subject Alternative Names. The default values reuse the
-same us-east-1 certificate as the admin web (`siutindei.lx-software.com`);
-hostnames must follow the `siutindei-*` pattern on `lx-software.com` (e.g.
-`siutindei-www.lx-software.com`, `siutindei-www-staging.lx-software.com`).
-Extend the certificate SANs if a hostname is not yet covered before deploying.
+`PublicWwwCertificateArn`/`PublicWwwStagingCertificateArn` includes the
+public website hostnames as Subject Alternative Names. Production uses a
+dedicated `us-east-1` certificate covering `siutindei.com` and
+`*.siutindei.com`. Staging still uses the shared `lx-software.com`
+certificate for `siutindei-www-staging.lx-software.com`. Extend the
+certificate SANs if a hostname is not yet covered before deploying.

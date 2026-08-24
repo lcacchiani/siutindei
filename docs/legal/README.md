@@ -7,8 +7,8 @@ Every other surface links to it instead of embedding its own copy:
 
 | Document | Canonical URL | Source of the text |
 |---|---|---|
-| Privacy Policy (incl. PICS) | `https://siutindei-www.lx-software.com/privacy` | `apps/public_www/src/content/en.json` + `zh-HK.json` → `legal.privacy` |
-| Terms of Use (incl. manager/listing terms) | `https://siutindei-www.lx-software.com/terms` | same files → `legal.terms` |
+| Privacy Policy (incl. PICS) | `https://siutindei.com/privacy` | `apps/public_www/src/content/en.json` + `zh-HK.json` → `legal.privacy` |
+| Terms of Use (incl. manager/listing terms) | `https://siutindei.com/terms` | same files → `legal.terms` |
 
 Rendering component: `apps/public_www/src/components/sections/legal-page.tsx`.
 

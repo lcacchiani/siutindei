@@ -9,7 +9,7 @@ class SiteLinks {
   /// `--dart-define=PUBLIC_WWW_BASE_URL=...`.
   static const publicWwwBaseUrl = String.fromEnvironment(
     'PUBLIC_WWW_BASE_URL',
-    defaultValue: 'https://siutindei-www.lx-software.com',
+    defaultValue: 'https://siutindei.com',
   );
 
   /// Privacy Policy page on the public website.

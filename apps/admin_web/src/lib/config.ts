@@ -6,7 +6,7 @@ export interface AppConfig {
   publicWwwBaseUrl: string;
 }
 
-const DEFAULT_PUBLIC_WWW_BASE_URL = 'https://siutindei-www.lx-software.com';
+const DEFAULT_PUBLIC_WWW_BASE_URL = 'https://siutindei.com';
 
 export const appConfig: AppConfig = {
   apiBaseUrl: process.env.NEXT_PUBLIC_API_BASE_URL ?? '',
