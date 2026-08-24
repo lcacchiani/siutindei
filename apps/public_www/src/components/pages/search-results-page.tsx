@@ -22,6 +22,7 @@ import { listingsWithCoordinates } from '@/lib/google-maps/coordinates';
 import { isGoogleMapsEnabled } from '@/lib/google-maps/config';
 import { localizePath } from '@/lib/locale-routing';
 import type { ActivityListing } from '@/lib/activities/types';
+import { trackSearch } from '@/lib/analytics/data-layer';
 
 interface SearchResultsPageProps {
   readonly locale: Locale;
@@ -81,6 +82,7 @@ export function SearchResultsPage({ locale, copy }: SearchResultsPageProps) {
         matchesTextQuery(listing, locale, urlFilters.textQuery),
       );
       setListings(filtered);
+      trackSearch(urlFilters);
     } catch {
       setErrorMessage(copy.errorLabel);
       setListings([]);

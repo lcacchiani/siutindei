@@ -5,15 +5,16 @@ import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
 import { getContent } from '@/content';
+import {
+  ANALYTICS_CONSENT_GRANTED_EVENT,
+  ANALYTICS_CONSENT_STORAGE_KEY,
+} from '@/lib/analytics/consent';
 import { getLocaleFromPath, localizeHref } from '@/lib/locale-routing';
 import { ROUTES } from '@/lib/routes';
 
-const CONSENT_STORAGE_KEY = 'siutindei-analytics-consent';
-const CONSENT_GRANTED_EVENT = 'siutindei-analytics-consent-granted';
-
 function readStoredConsent(): string | null {
   try {
-    return window.localStorage.getItem(CONSENT_STORAGE_KEY);
+    return window.localStorage.getItem(ANALYTICS_CONSENT_STORAGE_KEY);
   } catch {
     return null;
   }
@@ -21,7 +22,7 @@ function readStoredConsent(): string | null {
 
 function storeConsent(value: 'granted' | 'denied'): void {
   try {
-    window.localStorage.setItem(CONSENT_STORAGE_KEY, value);
+    window.localStorage.setItem(ANALYTICS_CONSENT_STORAGE_KEY, value);
   } catch {
     // Consent still applies for this page view even if storage is blocked.
   }
@@ -52,7 +53,7 @@ export function AnalyticsConsentBanner() {
 
   const handleAccept = () => {
     storeConsent('granted');
-    window.dispatchEvent(new Event(CONSENT_GRANTED_EVENT));
+    window.dispatchEvent(new Event(ANALYTICS_CONSENT_GRANTED_EVENT));
     setIsVisible(false);
   };
 

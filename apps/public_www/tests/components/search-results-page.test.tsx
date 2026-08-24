@@ -1,11 +1,12 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { SearchResultsPage } from '@/components/pages/search-results-page';
 import { SearchProvider } from '@/components/shared/search/search-context';
 import { getContent } from '@/content';
 import { fetchActivitySearch } from '@/lib/activities/search-client';
 import type { ActivityListing } from '@/lib/activities/types';
+import { ANALYTICS_CONSENT_STORAGE_KEY } from '@/lib/analytics/consent';
 
 const push = vi.hoisted(() => vi.fn());
 const mapsEnabled = vi.hoisted(() => ({ value: true }));
@@ -95,10 +96,17 @@ describe('SearchResultsPage', () => {
     push.mockClear();
     mapsEnabled.value = true;
     currentSearchParams.value = new URLSearchParams();
+    window.localStorage.clear();
+    window.dataLayer = [];
     vi.mocked(fetchActivitySearch).mockResolvedValue({
       items: [],
       nextCursor: null,
     });
+  });
+
+  afterEach(() => {
+    window.localStorage.clear();
+    delete window.dataLayer;
   });
 
   it('hides the name search field and activity count', async () => {
@@ -210,5 +218,38 @@ describe('SearchResultsPage', () => {
     expect(
       screen.queryByRole('button', { name: copy.listViewLabel }),
     ).not.toBeInTheDocument();
+  });
+
+  it('pushes search after a successful fetch when consent is granted', async () => {
+    window.localStorage.setItem(ANALYTICS_CONSENT_STORAGE_KEY, 'granted');
+    currentSearchParams.value = new URLSearchParams(
+      'q=pottery&region=kowloon&age=3-6&types=workshop',
+    );
+    vi.mocked(fetchActivitySearch).mockResolvedValue({
+      items: [buildListing()],
+      nextCursor: null,
+    });
+    renderPage();
+
+    await waitFor(() => {
+      expect(window.dataLayer).toContainEqual({
+        event: 'search',
+        search_term: 'pottery',
+        area_id: 'a1111111-1111-1111-1111-111111111102',
+        age: 4,
+        category_id: 'c1111111-1111-1111-1111-111111111101',
+      });
+    });
+  });
+
+  it('does not push search when the fetch fails', async () => {
+    window.localStorage.setItem(ANALYTICS_CONSENT_STORAGE_KEY, 'granted');
+    vi.mocked(fetchActivitySearch).mockRejectedValue(new Error('offline'));
+    const copy = renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByText(copy.errorLabel)).toBeInTheDocument();
+    });
+    expect(window.dataLayer).toEqual([]);
   });
 });

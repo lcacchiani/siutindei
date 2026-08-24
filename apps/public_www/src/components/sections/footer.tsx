@@ -2,6 +2,7 @@ import Link from 'next/link';
 
 import type { FooterContent, Locale } from '@/content';
 import { formatContentTemplate } from '@/content/content-field-utils';
+import { TrackedWhatsappLink } from '@/components/shared/tracked-whatsapp-link';
 import { localizeHref } from '@/lib/locale-routing';
 import { getCopyrightYear, getSiteConfig } from '@/lib/site-config';
 
@@ -50,14 +51,15 @@ export function Footer({ locale, content }: FooterProps) {
               ) : null}
               {contact.whatsappUrl ? (
                 <p className="mt-1">
-                  <a
+                  <TrackedWhatsappLink
                     href={contact.whatsappUrl}
+                    leadType="whatsapp_footer"
                     target="_blank"
                     rel="noreferrer noopener"
                     className="underline-offset-2 hover:underline"
                   >
                     WhatsApp
-                  </a>
+                  </TrackedWhatsappLink>
                 </p>
               ) : null}
               {contact.instagramUrl ? (
