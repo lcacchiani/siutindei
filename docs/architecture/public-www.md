@@ -152,7 +152,11 @@ Source: [`apps/public_www`](../../apps/public_www).
   Optional GTM / Meta Pixel via `NEXT_PUBLIC_GTM_ID` /
   `NEXT_PUBLIC_META_PIXEL_ID` and host allow-lists; CSP `script-src` /
   `connect-src` extended at build time when those env vars are set
-  (`scripts/inject-csp-meta.mjs`).
+  (`scripts/inject-csp-meta.mjs`). `deploy-public-www.yml` and
+  `promote-public-www.yml` pass `NEXT_PUBLIC_GTM_ID` /
+  `NEXT_PUBLIC_GTM_ALLOWED_HOSTS` from the GitHub Environment. Only the
+  GTM container public ID (`GTM-…`) belongs in those vars — GA4 `G-` and
+  Google Ads `AW-` IDs stay in the GTM container, not git.
 - **Analytics consent:** GTM and the Meta Pixel are consent-gated. The init
   scripts (`public/scripts/init-gtm.js`, `init-meta-pixel.js`) only load the
   vendor scripts when `localStorage` key `siutindei-analytics-consent` is
@@ -163,6 +167,20 @@ Source: [`apps/public_www`](../../apps/public_www).
   `src/content/{en,zh-HK}.json#legal` via
   `src/components/sections/legal-page.tsx`; `docs/legal/README.md` documents
   the update procedure.
+- **Data layer (GTM only):** After consent, `src/lib/analytics/data-layer.ts`
+  no-ops until `siutindei-analytics-consent=granted`, then
+  `window.dataLayer.push({ event, ...params })`. The site does not embed
+  extra GA4 or Ads snippets. Events:
+
+  | Event | When | Params |
+  |---|---|---|
+  | `view_item` | Activity detail listing loaded | `item_id`, `item_name`, `item_brand` (org), `price`, `currency` |
+  | `generate_lead` | WhatsApp click | `lead_type`: `whatsapp_activity` / `whatsapp_fab` / `whatsapp_footer`; item fields on the activity CTA |
+  | `search` | Search results fetch succeeds | `search_term` / `area_id` / `age` / `category_id` when set |
+
+  Wire-up: `activity-detail-page.tsx`, `whatsapp-fab.tsx`, `footer.tsx`,
+  and the search-results success path. GTM fires GA4 (and Ads, once an
+  Ads conversion ID/label exists in the container) from these events.
 
 The build is deliberately **gated** by:
 
