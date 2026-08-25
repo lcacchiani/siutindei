@@ -19,3 +19,6 @@ export type ActivitySchedule = S['Schedule'];
 export type AuditLog = S['AuditLogEntry'];
 export type FeedbackLabel = S['FeedbackLabel'];
 export type OrganizationFeedback = S['OrganizationFeedback'];
+export type ApiKey = S['ApiKey'];
+export type ApiKeyCreate = S['ApiKeyCreate'];
+export type ApiKeyCreated = S['ApiKeyCreated'];

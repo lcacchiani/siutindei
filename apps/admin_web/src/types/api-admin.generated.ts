@@ -2127,6 +2127,182 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/api-keys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List partner API keys
+         * @description Paginated list of partner API keys used to authenticate the
+         *     `/v1/partner/*` endpoints (see `partner.yaml`). Only metadata is
+         *     returned; plaintext key values are never stored.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    limit?: number;
+                    cursor?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description List of partner API keys */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiKeyListResponse"];
+                    };
+                };
+                /** @description Not an admin */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Create partner API key
+         * @description Generate a new partner API key. The plaintext key value is
+         *     returned only in this response and cannot be retrieved again.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ApiKeyCreate"];
+                };
+            };
+            responses: {
+                /** @description Created API key including the one-time plaintext value */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiKeyCreated"];
+                    };
+                };
+                /** @description Validation error */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ValidationError"];
+                    };
+                };
+                /** @description Not an admin */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/api-keys/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** Get partner API key metadata */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description API key metadata */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiKey"];
+                    };
+                };
+                /** @description API key not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        /**
+         * Revoke partner API key
+         * @description Revoke a key (idempotent soft delete; the record is kept for the
+         *     audit trail). Revoked keys stop working within the authorizer
+         *     cache window (up to 5 minutes).
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The revoked API key metadata */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApiKey"];
+                    };
+                };
+                /** @description API key not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/manager/organizations": {
         parameters: {
             query?: never;
@@ -4546,6 +4722,63 @@ export interface components {
         };
         AuditLogListResponse: {
             items: components["schemas"]["AuditLogEntry"][];
+            next_cursor?: string | null;
+        };
+        ApiKey: {
+            /** Format: uuid */
+            id: string;
+            /** @description Human-readable label for the key */
+            name: string;
+            /** @description First characters of the plaintext key, for display */
+            key_prefix: string;
+            /**
+             * @description read = GET only; crud = full CRUD on partner routes
+             * @enum {string}
+             */
+            scope: "read" | "crud";
+            /**
+             * Format: uuid
+             * @description Organization the key is scoped to; null = full access
+             */
+            org_id?: string | null;
+            /** @enum {string} */
+            status: "active" | "revoked" | "expired";
+            /** @description Cognito sub of the admin who created the key */
+            created_by?: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            expires_at?: string | null;
+            /** Format: date-time */
+            revoked_at?: string | null;
+            /** Format: date-time */
+            last_used_at?: string | null;
+        };
+        ApiKeyCreate: {
+            /** @description Human-readable label for the key */
+            name: string;
+            /** @enum {string} */
+            scope: "read" | "crud";
+            /**
+             * Format: uuid
+             * @description Scope the key to one organization; omit for full access
+             */
+            org_id?: string | null;
+            /**
+             * Format: date-time
+             * @description Optional expiry (ISO 8601, must be in the future)
+             */
+            expires_at?: string | null;
+        };
+        ApiKeyCreated: components["schemas"]["ApiKey"] & {
+            /**
+             * @description The plaintext API key. Returned only once at creation and
+             *     never stored.
+             */
+            api_key: string;
+        };
+        ApiKeyListResponse: {
+            items: components["schemas"]["ApiKey"][];
             next_cursor?: string | null;
         };
         ActivityCategory: {

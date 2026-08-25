@@ -28,11 +28,14 @@ test.describe('Admin Dashboard', () => {
       'Feedback',
       'Feedback Labels',
       'Users',
+      'API Keys',
       'Audit Logs',
     ];
 
     for (const section of expectedSections) {
-      await expect(adminPage.getByRole('button', { name: section })).toBeVisible();
+      await expect(
+        adminPage.getByRole('button', { name: section, exact: true })
+      ).toBeVisible();
     }
   });
 
@@ -187,9 +190,10 @@ test.describe('Admin Dashboard Layout', () => {
   test('should have sidebar navigation', async ({ adminPage }) => {
     await adminPage.goto('/admin/dashboard');
 
-    // Check that nav element exists with buttons
+    // Check that nav element exists with buttons. Each of the 14 sections
+    // renders twice: desktop sidebar + mobile drawer.
     const navButtons = adminPage.locator('nav button');
-    await expect(navButtons).toHaveCount(13); // 13 navigation sections
+    await expect(navButtons).toHaveCount(28);
   });
 
   test('should have main content area', async ({ adminPage }) => {
@@ -203,8 +207,8 @@ test.describe('Admin Dashboard Layout', () => {
   test('should display divider before Tickets section', async ({ adminPage }) => {
     await adminPage.goto('/admin/dashboard');
 
-    // Check that a horizontal rule exists in the navigation
+    // One divider per navigation (desktop sidebar + mobile drawer)
     const dividers = adminPage.locator('nav hr');
-    await expect(dividers).toHaveCount(1);
+    await expect(dividers).toHaveCount(2);
   });
 });
