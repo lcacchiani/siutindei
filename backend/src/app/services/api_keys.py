@@ -10,8 +10,8 @@ import hashlib
 import secrets
 from typing import NamedTuple
 
-API_KEY_TOKEN_PREFIX = "stk_"
-API_KEY_DISPLAY_PREFIX_LENGTH = 12
+PARTNER_KEY_PREFIX = "stk_"
+DISPLAY_PREFIX_LENGTH = 12
 _SECRET_BYTES = 32  # 32 bytes -> 43 urlsafe base64 characters
 
 
@@ -30,10 +30,10 @@ def hash_api_key(plaintext: str) -> str:
 
 def generate_api_key() -> GeneratedApiKey:
     """Generate a new API key using a cryptographically secure source."""
-    plaintext = API_KEY_TOKEN_PREFIX + secrets.token_urlsafe(_SECRET_BYTES)
+    plaintext = PARTNER_KEY_PREFIX + secrets.token_urlsafe(_SECRET_BYTES)
     return GeneratedApiKey(
         plaintext=plaintext,
-        prefix=plaintext[:API_KEY_DISPLAY_PREFIX_LENGTH],
+        prefix=plaintext[:DISPLAY_PREFIX_LENGTH],
         key_hash=hash_api_key(plaintext),
     )
 
@@ -41,6 +41,6 @@ def generate_api_key() -> GeneratedApiKey:
 def looks_like_api_key(value: str) -> bool:
     """Cheap format check before hitting the database."""
     return (
-        value.startswith(API_KEY_TOKEN_PREFIX)
-        and API_KEY_DISPLAY_PREFIX_LENGTH <= len(value) <= 128
+        value.startswith(PARTNER_KEY_PREFIX)
+        and DISPLAY_PREFIX_LENGTH <= len(value) <= 128
     )

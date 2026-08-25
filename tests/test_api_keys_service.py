@@ -9,8 +9,8 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).resolve().parents[1] / "backend" / "src"))
 
 from app.services.api_keys import (  # noqa: E402
-    API_KEY_DISPLAY_PREFIX_LENGTH,
-    API_KEY_TOKEN_PREFIX,
+    DISPLAY_PREFIX_LENGTH,
+    PARTNER_KEY_PREFIX,
     generate_api_key,
     hash_api_key,
     looks_like_api_key,
@@ -20,14 +20,14 @@ from app.services.api_keys import (  # noqa: E402
 def test_generate_api_key_format() -> None:
     """Generated keys use the stk_ prefix and urlsafe characters."""
     generated = generate_api_key()
-    assert generated.plaintext.startswith(API_KEY_TOKEN_PREFIX)
+    assert generated.plaintext.startswith(PARTNER_KEY_PREFIX)
     assert len(generated.plaintext) > 40
 
 
 def test_generate_api_key_prefix_and_hash_match_plaintext() -> None:
     """Prefix and hash are derived from the plaintext."""
     generated = generate_api_key()
-    assert generated.prefix == generated.plaintext[:API_KEY_DISPLAY_PREFIX_LENGTH]
+    assert generated.prefix == generated.plaintext[:DISPLAY_PREFIX_LENGTH]
     expected_hash = hashlib.sha256(generated.plaintext.encode("utf-8")).hexdigest()
     assert generated.key_hash == expected_hash
 
@@ -55,4 +55,4 @@ def test_looks_like_api_key_rejects_bad_values() -> None:
     assert not looks_like_api_key("")
     assert not looks_like_api_key("not-a-key")
     assert not looks_like_api_key("stk_")
-    assert not looks_like_api_key(API_KEY_TOKEN_PREFIX + "x" * 200)
+    assert not looks_like_api_key(PARTNER_KEY_PREFIX + "x" * 200)

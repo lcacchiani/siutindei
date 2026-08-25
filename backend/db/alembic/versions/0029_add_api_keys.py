@@ -102,9 +102,7 @@ def upgrade() -> None:
     # SELECT and refreshes last_used_at via a column-scoped UPDATE grant.
     op.execute("GRANT SELECT ON api_keys TO siutindei_app;")
     op.execute("GRANT UPDATE (last_used_at) ON api_keys TO siutindei_app;")
-    op.execute(
-        "GRANT SELECT, INSERT, UPDATE, DELETE ON api_keys TO siutindei_admin;"
-    )
+    op.execute("GRANT SELECT, INSERT, UPDATE, DELETE ON api_keys TO siutindei_admin;")
 
     op.execute(
         """
