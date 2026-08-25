@@ -1123,6 +1123,100 @@ paths:
         "404":
           description: Audit log entry not found
 
+  # --- Partner API Key Management (Admin Group) ---
+
+  /v1/admin/api-keys:
+    get:
+      summary: List partner API keys
+      description: |
+        Paginated list of partner API keys used to authenticate the
+        `/v1/partner/*` endpoints (see `partner.yaml`). Only metadata is
+        returned; plaintext key values are never stored.
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of partner API keys
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiKeyListResponse'
+        "403":
+          description: Not an admin
+    post:
+      summary: Create partner API key
+      description: |
+        Generate a new partner API key. The plaintext key value is
+        returned only in this response and cannot be retrieved again.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApiKeyCreate'
+      responses:
+        "201":
+          description: Created API key including the one-time plaintext value
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiKeyCreated'
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+        "403":
+          description: Not an admin
+
+  /v1/admin/api-keys/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      summary: Get partner API key metadata
+      responses:
+        "200":
+          description: API key metadata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiKey'
+        "404":
+          description: API key not found
+    delete:
+      summary: Revoke partner API key
+      description: |
+        Revoke a key (idempotent soft delete; the record is kept for the
+        audit trail). Revoked keys stop working within the authorizer
+        cache window (up to 5 minutes).
+      responses:
+        "200":
+          description: The revoked API key metadata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiKey'
+        "404":
+          description: API key not found
+
   # --- Manager Routes (Admin or Manager Group) ---
 
   /v1/manager/organizations:
@@ -3511,6 +3605,98 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/AuditLogEntry'
+        next_cursor:
+          type: string
+          nullable: true
+
+    # Partner API key schemas
+    ApiKey:
+      type: object
+      required: [id, name, key_prefix, scope, status, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          description: Human-readable label for the key
+        key_prefix:
+          type: string
+          description: First characters of the plaintext key, for display
+        scope:
+          type: string
+          enum: [read, crud]
+          description: read = GET only; crud = full CRUD on partner routes
+        org_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Organization the key is scoped to; null = full access
+        status:
+          type: string
+          enum: [active, revoked, expired]
+        created_by:
+          type: string
+          nullable: true
+          description: Cognito sub of the admin who created the key
+        created_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+        revoked_at:
+          type: string
+          format: date-time
+          nullable: true
+        last_used_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    ApiKeyCreate:
+      type: object
+      required: [name, scope]
+      properties:
+        name:
+          type: string
+          maxLength: 200
+          description: Human-readable label for the key
+        scope:
+          type: string
+          enum: [read, crud]
+        org_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Scope the key to one organization; omit for full access
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Optional expiry (ISO 8601, must be in the future)
+
+    ApiKeyCreated:
+      allOf:
+        - $ref: '#/components/schemas/ApiKey'
+        - type: object
+          required: [api_key]
+          properties:
+            api_key:
+              type: string
+              description: |
+                The plaintext API key. Returned only once at creation and
+                never stored.
+
+    ApiKeyListResponse:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ApiKey'
         next_cursor:
           type: string
           nullable: true

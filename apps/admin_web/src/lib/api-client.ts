@@ -108,6 +108,14 @@ export {
 } from './api-client-audit';
 
 export {
+  createApiKey,
+  getApiKey,
+  listApiKeys,
+  revokeApiKey,
+  type ApiKeysResponse,
+} from './api-client-api-keys';
+
+export {
   listTickets,
   reviewTicket,
   type ReviewTicketPayload,

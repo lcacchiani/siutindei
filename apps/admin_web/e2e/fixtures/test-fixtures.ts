@@ -495,6 +495,48 @@ export const mockFeedbackLabels = [
   },
 ];
 
+export const mockApiKeys = [
+  {
+    id: 'api-key-1',
+    name: 'Partner read key',
+    key_prefix: 'stk_readkey1',
+    scope: 'read',
+    org_id: null,
+    status: 'active',
+    created_by: 'admin-user-id-123',
+    created_at: '2024-01-01T00:00:00Z',
+    expires_at: null,
+    revoked_at: null,
+    last_used_at: '2024-01-10T08:00:00Z',
+  },
+  {
+    id: 'api-key-2',
+    name: 'Org One CRUD key',
+    key_prefix: 'stk_crudkey2',
+    scope: 'crud',
+    org_id: 'org-1',
+    status: 'active',
+    created_by: 'admin-user-id-123',
+    created_at: '2024-01-02T00:00:00Z',
+    expires_at: '2030-01-01T00:00:00Z',
+    revoked_at: null,
+    last_used_at: null,
+  },
+  {
+    id: 'api-key-3',
+    name: 'Old revoked key',
+    key_prefix: 'stk_oldkey33',
+    scope: 'read',
+    org_id: null,
+    status: 'revoked',
+    created_by: 'admin-user-id-123',
+    created_at: '2023-06-01T00:00:00Z',
+    expires_at: null,
+    revoked_at: '2023-12-01T00:00:00Z',
+    last_used_at: '2023-11-30T00:00:00Z',
+  },
+];
+
 export const mockOrganizationFeedback = [
   {
     id: 'feedback-1',
@@ -1173,6 +1215,63 @@ export async function setupApiMocks(page: Page): Promise<void> {
           ...body,
           updated_at: new Date().toISOString(),
         }),
+      });
+    } else {
+      await route.continue();
+    }
+  });
+
+  // Mock partner API keys list and create
+  await page.route('**/api/mock/**/admin/api-keys*', async (route) => {
+    const method = route.request().method();
+    if (method === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ items: mockApiKeys, next_cursor: null }),
+      });
+    } else if (method === 'POST') {
+      const body = route.request().postDataJSON();
+      const created = {
+        id: 'api-key-new-' + Date.now(),
+        name: body.name,
+        key_prefix: 'stk_newkey12',
+        scope: body.scope,
+        org_id: body.org_id ?? null,
+        status: 'active',
+        created_by: 'admin-user-id-123',
+        created_at: new Date().toISOString(),
+        expires_at: body.expires_at ?? null,
+        revoked_at: null,
+        last_used_at: null,
+        api_key: 'stk_newkey12345-plaintext-shown-once',
+      };
+      await route.fulfill({
+        status: 201,
+        contentType: 'application/json',
+        body: JSON.stringify(created),
+      });
+    } else {
+      await route.continue();
+    }
+  });
+
+  // Mock partner API key revoke
+  await page.route('**/api/mock/**/admin/api-keys/*', async (route) => {
+    const method = route.request().method();
+    const keyId = route.request().url().split('/').pop()?.split('?')[0];
+    if (method === 'DELETE') {
+      const existing = mockApiKeys.find((key) => key.id === keyId);
+      const revoked = {
+        ...(existing ?? mockApiKeys[0]),
+        id: keyId ?? mockApiKeys[0].id,
+        status: 'revoked',
+        revoked_at: new Date().toISOString(),
+      };
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(revoked),
       });
     } else {
       await route.continue();

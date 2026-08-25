@@ -252,3 +252,32 @@ SELECT
 WHERE NOT EXISTS (
   SELECT 1 FROM tickets WHERE ticket_id = 'R00001'
 );
+
+-- Partner API keys for local development only.
+-- Plaintext values (send as the x-partner-key header):
+--   read  (full access): stk_dev_read_00000000000000000000000000000000
+--   crud  (Harbor Arts Studio only):
+--         stk_dev_crud_00000000000000000000000000000000
+INSERT INTO api_keys (id, name, key_prefix, key_hash, scope, org_id)
+SELECT
+  'ad111111-1111-1111-1111-111111111111',
+  'Dev read key (full access)',
+  'stk_dev_read',
+  'be20fa1ff8c5f25cfdbbc6a3cf1f962b8df5fe55a2e557f988b6c26ca52f465f',
+  'read',
+  NULL
+WHERE NOT EXISTS (
+  SELECT 1 FROM api_keys WHERE id = 'ad111111-1111-1111-1111-111111111111'
+);
+
+INSERT INTO api_keys (id, name, key_prefix, key_hash, scope, org_id)
+SELECT
+  'ad222222-2222-2222-2222-222222222222',
+  'Dev crud key (Harbor Arts Studio)',
+  'stk_dev_crud',
+  '765af9bfa840ac05d524fe15e27c9cdb0e1f0e2e51809ee5e3461ae44115aae2',
+  'crud',
+  '11111111-1111-1111-1111-111111111111'
+WHERE NOT EXISTS (
+  SELECT 1 FROM api_keys WHERE id = 'ad222222-2222-2222-2222-222222222222'
+);

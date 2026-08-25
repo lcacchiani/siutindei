@@ -21,8 +21,11 @@ their primary responsibilities.
 ### Activity search
 - Function: SiutindeiSearchFunction
 - Handler: backend/lambda/search/handler.py
-- Trigger: API Gateway `GET /v1/activities/search`
-- Auth: API key + device attestation authorizer
+- Trigger: API Gateway `GET /v1/activities/search` and
+  `GET /v1/partner/activities/search`
+- Auth: API key + device attestation authorizer (mobile route);
+  partner API-key authorizer (partner route, org-scoped keys are
+  filtered to their organization)
 - Purpose: public activity search with cursor pagination
 - DB access: RDS Proxy with IAM auth (`activities_app`). Production always
   queries Aurora (`STAGING_SEARCH_DATA_ENABLED=false` on the Lambda).
@@ -34,13 +37,16 @@ their primary responsibilities.
 - Function: SiutindeiAdminFunction
 - Handler: backend/lambda/admin/handler.py
 - Trigger: API Gateway — handles routes under `/v1/admin/*`,
-  `/v1/manager/*`, and `/v1/user/*`
+  `/v1/manager/*`, `/v1/user/*`, and `/v1/partner/*` (CRUD resources)
 - Auth: Cognito JWT — admin group for `/v1/admin/*`, admin/manager
-  group for `/v1/manager/*`, any authenticated user for `/v1/user/*`
-- Purpose: admin CRUD (including activity categories), manager CRUD
-  (filtered by ownership), user self-service (tickets), Cognito user
-  management, audit logs, media upload, admin import/export, and address
-  autocomplete (Nominatim via the AWS/HTTP proxy)
+  group for `/v1/manager/*`, any authenticated user for `/v1/user/*`;
+  partner API keys (`x-partner-key`) for `/v1/partner/*`
+- Purpose: admin CRUD (including activity categories and partner API key
+  management), manager CRUD (filtered by ownership), partner CRUD
+  (scope- and organization-filtered by API key), user self-service
+  (tickets), Cognito user management, audit logs, media upload, admin
+  import/export, and address autocomplete (Nominatim via the AWS/HTTP
+  proxy)
 - DB access: RDS Proxy with IAM auth (`siutindei_admin`)
 - Environment:
   - `SES_SENDER_EMAIL`
@@ -122,6 +128,21 @@ their primary responsibilities.
 - Trigger: API Gateway request authorizer
 - Purpose: verify JWT for any authenticated Cognito user (no group requirement)
 - VPC: **No** (runs outside VPC to fetch JWKS from Cognito)
+
+### Partner API-key authorizer
+- Function: PartnerApiKeyAuthorizerFunction
+- Handler: backend/lambda/authorizers/api_key/handler.py
+- Trigger: API Gateway request authorizer for `/v1/partner/*` routes
+- Purpose: validate the `x-partner-key` header against SHA-256 hashed
+  keys in the `api_keys` table; passes key id, scope (`read`/`crud`),
+  and organization scope to handlers via authorizer context. Scope and
+  organization enforcement happens in the handlers because the cached
+  Allow policy covers all partner routes.
+- DB access: RDS Proxy with IAM auth (`siutindei_app`; column-scoped
+  UPDATE grant for `last_used_at`)
+- VPC: **Yes** (needs database access, no public JWKS)
+- Cache: authorizer results cached 5 minutes, bounding how long a
+  revoked key keeps working
 
 ## Deployment and maintenance Lambdas
 

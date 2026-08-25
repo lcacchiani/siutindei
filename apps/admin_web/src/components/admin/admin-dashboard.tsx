@@ -15,6 +15,7 @@ import {
   PricingPanel,
   SchedulesPanel,
 } from '../shared';
+import { ApiKeysPanel } from './api-keys-panel';
 import { AuditLogsPanel } from './audit-logs-panel';
 import { CognitoUsersPanel } from './cognito-users-panel';
 import { FeedbackLabelsPanel } from './feedback-labels-panel';
@@ -37,6 +38,7 @@ const sectionLabels = [
   { key: 'feedback-labels', label: 'Feedback Labels' },
   { key: 'cognito-users', label: 'Users' },
   { key: 'activity-categories', label: 'Categories' },
+  { key: 'api-keys', label: 'API Keys' },
   { key: 'audit-logs', label: 'Audit Logs' },
   { key: 'imports', label: 'Imports' },
 ];
@@ -96,6 +98,8 @@ export function AdminDashboard() {
         return <FeedbackLabelsPanel />;
       case 'cognito-users':
         return <CognitoUsersPanel />;
+      case 'api-keys':
+        return <ApiKeysPanel />;
       case 'audit-logs':
         return <AuditLogsPanel />;
       case 'organizations':

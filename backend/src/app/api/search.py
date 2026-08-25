@@ -41,6 +41,7 @@ from app.db.queries import (
     ActivitySearchFilters,
     build_search_query,
 )
+from app.api.partner_auth import PartnerContext, get_partner_context
 from app.api.search_validation import validate_search_query_params
 from app.exceptions import CursorError, ValidationError
 from app.utils import json_response, parse_decimal, parse_enum, parse_int
@@ -66,8 +67,18 @@ def lambda_handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
     request_id = event.get("requestContext", {}).get("requestId", "")
     set_request_context(req_id=request_id)
 
+    partner: PartnerContext | None = None
+    if _is_partner_path(event.get("path", "")):
+        partner = get_partner_context(event)
+        if partner is None:
+            logger.warning("Partner search called without API-key context")
+            return json_response(403, {"error": "Forbidden"}, event=event)
+
     try:
         filters = parse_filters(event)
+        if partner is not None and partner.org_id is not None:
+            # Org-scoped keys only see their own organization's activities.
+            filters = replace(filters, org_ids=(UUID(partner.org_id),))
         logger.debug("Search filters parsed", extra={"filters": str(filters)})
         response = fetch_search_response(filters)
         logger.info(
@@ -87,6 +98,14 @@ def lambda_handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
     except Exception as exc:  # pragma: no cover - safety net
         logger.exception(f"Unexpected error in search: {type(exc).__name__}")
         return json_response(500, {"error": "Internal server error"}, event=event)
+
+
+def _is_partner_path(path: str) -> bool:
+    """Return True for /v1/partner/activities/search requests."""
+    parts = [segment for segment in path.split("/") if segment]
+    if parts and parts[0].startswith("v") and parts[0][1:].isdigit():
+        parts = parts[1:]
+    return parts[:1] == ["partner"]
 
 
 def parse_filters(event: Mapping[str, Any]) -> ActivitySearchFilters:

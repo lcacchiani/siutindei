@@ -138,6 +138,29 @@ const deviceAttestationFailClosed = new cdk.CfnParameter(
 );
 ```
 
+### Partner API keys
+
+The `/v1/partner/*` endpoints are authenticated with custom API keys sent
+in the `x-partner-key` header:
+
+- Keys are generated with the `secrets` module
+  (`stk_<43 urlsafe characters>`) and only a **SHA-256 hash** is stored in
+  the `api_keys` table. The plaintext is returned once at creation and
+  never logged.
+- A dedicated in-VPC Lambda request authorizer
+  (`PartnerApiKeyAuthorizerFunction`) validates the hash against the
+  database and rejects revoked or expired keys. Authorizer results are
+  cached for 5 minutes, which bounds how long a revoked key keeps working.
+- Keys carry a scope (`read` = GET only, `crud` = full CRUD) and an
+  optional organization scope. Because the cached Allow policy covers all
+  partner routes, **scope and organization enforcement is re-checked in
+  the handlers** (defense in depth, same pattern as the Cognito group
+  checks).
+- Writes performed with a key are attributed to `api-key:<id>` in the
+  audit log.
+- Admins manage keys via `/v1/admin/api-keys` (generate, list, revoke);
+  revocation is a soft delete so the audit trail is preserved.
+
 ### Edge caching of the public search endpoint
 
 `GET /v1/activities/search` is cached at the CloudFront edge via the

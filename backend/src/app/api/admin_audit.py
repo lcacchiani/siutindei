@@ -29,6 +29,7 @@ AUDIT_REDACTED_FIELDS: frozenset[str] = frozenset(
         "secret",
         "token",
         "api_key",
+        "key_hash",
     ]
 )
 
@@ -42,6 +43,7 @@ AUDITABLE_TABLES: frozenset[str] = frozenset(
         "activity_pricing",
         "activity_schedule",
         "tickets",
+        "api_keys",
     ]
 )
 

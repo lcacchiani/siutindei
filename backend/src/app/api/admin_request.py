@@ -31,7 +31,7 @@ def _parse_path(path: str) -> tuple[str, str, Optional[str], Optional[str]]:
 
     Returns:
         Tuple of (base_path, resource, resource_id, sub_resource)
-        base_path is either "admin", "manager", or "user"
+        base_path is "admin", "manager", "user", or "partner"
     """
     parts = [segment for segment in path.split("/") if segment]
     parts = _strip_version_prefix(parts)
@@ -50,15 +50,8 @@ def _parse_path(path: str) -> tuple[str, str, Optional[str], Optional[str]]:
         sub_resource = parts[3] if len(parts) > 3 else None
         return base_path, resource, resource_id, sub_resource
 
-    # Handle /v1/manager/... paths
-    if base_path == "manager":
-        resource = parts[1] if len(parts) > 1 else ""
-        resource_id = parts[2] if len(parts) > 2 else None
-        sub_resource = parts[3] if len(parts) > 3 else None
-        return base_path, resource, resource_id, sub_resource
-
-    # Handle /v1/user/... paths
-    if base_path == "user":
+    # Handle /v1/manager/..., /v1/user/..., and /v1/partner/... paths
+    if base_path in ("manager", "user", "partner"):
         resource = parts[1] if len(parts) > 1 else ""
         resource_id = parts[2] if len(parts) > 2 else None
         sub_resource = parts[3] if len(parts) > 3 else None

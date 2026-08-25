@@ -51,6 +51,7 @@ class ActivitySearchFilters:
     end_minutes_utc: int | None = None
     languages: Sequence[str] = ()
     activity_id: UUID | None = None
+    org_ids: Sequence[UUID] = ()
     cursor: ActivitySearchCursor | None = None
     limit: int = 50
 
@@ -113,6 +114,9 @@ def build_search_query(filters: ActivitySearchFilters) -> Select:
 
     if filters.activity_id is not None:
         conditions.append(Activity.id == filters.activity_id)
+
+    if filters.org_ids:
+        conditions.append(Activity.org_id.in_(filters.org_ids))
 
     if filters.pricing_type is not None:
         conditions.append(ActivityPricing.pricing_type == filters.pricing_type)

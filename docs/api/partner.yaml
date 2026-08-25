@@ -1,0 +1,706 @@
+openapi: 3.0.3
+info:
+  title: Partner API
+  version: 0.1.0
+  description: |
+    Public partner APIs for querying and editing activities data,
+    authenticated with custom API keys.
+
+    ## Authentication
+
+    Every request must include an `x-partner-key` header with a key issued
+    by an administrator (`POST /v1/admin/api-keys`, see `admin.yaml`).
+    Keys are validated by a dedicated API Gateway Lambda authorizer against
+    SHA-256 hashes stored in the `api_keys` table. Revoked or expired keys
+    are rejected (authorizer results are cached for up to 5 minutes).
+
+    ## Scopes
+
+    | Scope | Allowed methods |
+    |-------|-----------------|
+    | read  | `GET` only (search + list/detail of all resources) |
+    | crud  | `GET`, `POST`, `PUT`, `DELETE` |
+
+    ## Organization scoping
+
+    Keys are either **full access** (no organization) or **scoped to one
+    organization**:
+    - Search and list results are filtered to the key's organization.
+    - Detail, update, and delete of resources belonging to another
+      organization return `403`.
+    - Org-scoped keys cannot create organizations (`POST
+      /v1/partner/organizations` returns `403`) and cannot change the
+      organization manager.
+
+    ## Validation rules
+
+    Request bodies use the same schemas and validation rules as the admin
+    CRUD API; see `admin.yaml` for field limits and allowed values.
+
+security:
+  - PartnerKeyAuth: []
+
+paths:
+  /v1/partner/activities/search:
+    get:
+      summary: Search activities
+      description: |
+        Search for activities matching the specified filters. Same filter
+        semantics as the public `GET /v1/activities/search` endpoint
+        (see `search.yaml`), but authenticated with a partner API key
+        instead of the mobile API key + device attestation.
+        Results are paginated and ordered by schedule time. Org-scoped
+        keys only receive activities of their organization.
+      parameters:
+        - name: age
+          in: query
+          required: false
+          description: Filter activities suitable for this age (>= 0)
+          schema:
+            type: integer
+            minimum: 0
+        - name: area_id
+          in: query
+          required: false
+          description: |
+            Filter by geographic area UUID. Matches activities in the given
+            area or any descendant area.
+          schema:
+            type: string
+            format: uuid
+        - name: activity_id
+          in: query
+          required: false
+          description: Return results for a single activity UUID.
+          schema:
+            type: string
+            format: uuid
+        - name: category_id
+          in: query
+          required: false
+          description: Filter by activity category UUID (repeatable).
+          style: form
+          explode: true
+          schema:
+            type: array
+            items:
+              type: string
+              format: uuid
+        - name: pricing_type
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [per_class, per_sessions, per_hour, per_day, free]
+        - name: price_min
+          in: query
+          required: false
+          schema:
+            type: number
+            format: decimal
+            minimum: 0
+        - name: price_max
+          in: query
+          required: false
+          schema:
+            type: number
+            format: decimal
+            minimum: 0
+        - name: schedule_type
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [weekly]
+        - name: day_of_week_utc
+          in: query
+          required: false
+          description: Day of week (0=Sunday, 6=Saturday).
+          schema:
+            type: integer
+            minimum: 0
+            maximum: 6
+        - name: start_minutes_utc
+          in: query
+          required: false
+          description: Start time in minutes from midnight UTC (0-1439).
+          schema:
+            type: integer
+            minimum: 0
+            maximum: 1439
+        - name: end_minutes_utc
+          in: query
+          required: false
+          description: End time in minutes from midnight UTC (0-1439).
+          schema:
+            type: integer
+            minimum: 0
+            maximum: 1439
+        - name: language
+          in: query
+          required: false
+          description: Filter by language codes (repeatable).
+          style: form
+          explode: true
+          schema:
+            type: array
+            items:
+              type: string
+        - name: limit
+          in: query
+          required: false
+          description: Maximum results per page (1-200, default 50)
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+        - name: cursor
+          in: query
+          required: false
+          description: Pagination cursor from previous response
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Search results
+          content:
+            application/json:
+              schema:
+                $ref: "./search.yaml#/components/schemas/ActivitySearchResponse"
+        "400":
+          description: Invalid query parameters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Missing, invalid, revoked, or expired API key
+
+  /v1/partner/organizations:
+    get:
+      summary: List organizations
+      description: |
+        Paginated list. Org-scoped keys only receive their organization.
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: Organizations
+          content:
+            application/json:
+              schema:
+                $ref: "./admin.yaml#/components/schemas/OrganizationListResponse"
+        "403":
+          description: Invalid API key
+    post:
+      summary: Create organization
+      description: |
+        Requires a full-access `crud` key. Org-scoped keys receive `403`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "./admin.yaml#/components/schemas/OrganizationCreate"
+      responses:
+        "201":
+          description: Created organization
+          content:
+            application/json:
+              schema:
+                $ref: "./admin.yaml#/components/schemas/Organization"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Invalid key, read-only key, or org-scoped key
+
+  /v1/partner/organizations/{id}:
+    parameters:
+      - $ref: "#/components/parameters/ResourceId"
+    get:
+      summary: Get organization
+      responses:
+        "200":
+          description: Organization
+          content:
+            application/json:
+              schema:
+                $ref: "./admin.yaml#/components/schemas/Organization"
+        "403":
+          description: Invalid key or resource outside the key's organization
+        "404":
+          description: Not found
+    put:
+      summary: Update organization
+      description: |
+        Requires a `crud` key. Org-scoped keys can only update their own
+        organization and cannot change `manager_id`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "./admin.yaml#/components/schemas/OrganizationUpdate"
+      responses:
+        "200":
+          description: Updated organization
+          content:
+            application/json:
+              schema:
+                $ref: "./admin.yaml#/components/schemas/Organization"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Invalid key, read-only key, or out-of-scope resource
+        "404":
+          description: Not found
+    delete:
+      summary: Delete organization
+      description: |
+        Requires a `crud` key. Org-scoped keys can only delete their own
+        organization.
+      responses:
+        "204":
+          description: Deleted
+        "403":
+          description: Invalid key, read-only key, or out-of-scope resource
+        "404":
+          description: Not found
+
+  /v1/partner/locations:
+    get:
+      summary: List locations
+      description: |
+        Paginated list. Org-scoped keys only receive locations of their
+        organization.
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: Locations
+          content:
+            application/json:
+              schema:
+                $ref: "./admin.yaml#/components/schemas/LocationListResponse"
+        "403":
+          description: Invalid API key
+    post:
+      summary: Create location
+      description: |
+        Requires a `crud` key. Org-scoped keys can only create locations
+        for their organization.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "./admin.yaml#/components/schemas/LocationCreate"
+      responses:
+        "201":
+          description: Created location
+          content:
+            application/json:
+              schema:
+                $ref: "./admin.yaml#/components/schemas/Location"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Invalid key, read-only key, or out-of-scope org_id
+
+  /v1/partner/locations/{id}:
+    parameters:
+      - $ref: "#/components/parameters/ResourceId"
+    get:
+      summary: Get location
+      responses:
+        "200":
+          description: Location
+          content:
+            application/json:
+              schema:
+                $ref: "./admin.yaml#/components/schemas/Location"
+        "403":
+          description: Invalid key or resource outside the key's organization
+        "404":
+          description: Not found
+    put:
+      summary: Update location
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "./admin.yaml#/components/schemas/LocationUpdate"
+      responses:
+        "200":
+          description: Updated location
+          content:
+            application/json:
+              schema:
+                $ref: "./admin.yaml#/components/schemas/Location"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Invalid key, read-only key, or out-of-scope resource
+        "404":
+          description: Not found
+    delete:
+      summary: Delete location
+      responses:
+        "204":
+          description: Deleted
+        "403":
+          description: Invalid key, read-only key, or out-of-scope resource
+        "404":
+          description: Not found
+
+  /v1/partner/activities:
+    get:
+      summary: List activities
+      description: |
+        Paginated list. Org-scoped keys only receive activities of their
+        organization.
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: Activities
+          content:
+            application/json:
+              schema:
+                $ref: "./admin.yaml#/components/schemas/ActivityListResponse"
+        "403":
+          description: Invalid API key
+    post:
+      summary: Create activity
+      description: |
+        Requires a `crud` key. Org-scoped keys can only create activities
+        for their organization.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "./admin.yaml#/components/schemas/ActivityCreate"
+      responses:
+        "201":
+          description: Created activity
+          content:
+            application/json:
+              schema:
+                $ref: "./admin.yaml#/components/schemas/Activity"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Invalid key, read-only key, or out-of-scope org_id
+
+  /v1/partner/activities/{id}:
+    parameters:
+      - $ref: "#/components/parameters/ResourceId"
+    get:
+      summary: Get activity
+      responses:
+        "200":
+          description: Activity
+          content:
+            application/json:
+              schema:
+                $ref: "./admin.yaml#/components/schemas/Activity"
+        "403":
+          description: Invalid key or resource outside the key's organization
+        "404":
+          description: Not found
+    put:
+      summary: Update activity
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "./admin.yaml#/components/schemas/ActivityUpdate"
+      responses:
+        "200":
+          description: Updated activity
+          content:
+            application/json:
+              schema:
+                $ref: "./admin.yaml#/components/schemas/Activity"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Invalid key, read-only key, or out-of-scope resource
+        "404":
+          description: Not found
+    delete:
+      summary: Delete activity
+      responses:
+        "204":
+          description: Deleted
+        "403":
+          description: Invalid key, read-only key, or out-of-scope resource
+        "404":
+          description: Not found
+
+  /v1/partner/pricing:
+    get:
+      summary: List pricing entries
+      description: |
+        Paginated list. Org-scoped keys only receive pricing of their
+        organization's activities.
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: Pricing entries
+          content:
+            application/json:
+              schema:
+                $ref: "./admin.yaml#/components/schemas/PricingListResponse"
+        "403":
+          description: Invalid API key
+    post:
+      summary: Create pricing entry
+      description: |
+        Requires a `crud` key. Org-scoped keys can only create pricing for
+        their organization's activities.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "./admin.yaml#/components/schemas/PricingCreate"
+      responses:
+        "201":
+          description: Created pricing entry
+          content:
+            application/json:
+              schema:
+                $ref: "./admin.yaml#/components/schemas/Pricing"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Invalid key, read-only key, or out-of-scope activity
+
+  /v1/partner/pricing/{id}:
+    parameters:
+      - $ref: "#/components/parameters/ResourceId"
+    get:
+      summary: Get pricing entry
+      responses:
+        "200":
+          description: Pricing entry
+          content:
+            application/json:
+              schema:
+                $ref: "./admin.yaml#/components/schemas/Pricing"
+        "403":
+          description: Invalid key or resource outside the key's organization
+        "404":
+          description: Not found
+    put:
+      summary: Update pricing entry
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "./admin.yaml#/components/schemas/PricingUpdate"
+      responses:
+        "200":
+          description: Updated pricing entry
+          content:
+            application/json:
+              schema:
+                $ref: "./admin.yaml#/components/schemas/Pricing"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Invalid key, read-only key, or out-of-scope resource
+        "404":
+          description: Not found
+    delete:
+      summary: Delete pricing entry
+      responses:
+        "204":
+          description: Deleted
+        "403":
+          description: Invalid key, read-only key, or out-of-scope resource
+        "404":
+          description: Not found
+
+  /v1/partner/schedules:
+    get:
+      summary: List schedules
+      description: |
+        Paginated list. Org-scoped keys only receive schedules of their
+        organization's activities.
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: Schedules
+          content:
+            application/json:
+              schema:
+                $ref: "./admin.yaml#/components/schemas/ScheduleListResponse"
+        "403":
+          description: Invalid API key
+    post:
+      summary: Create schedule
+      description: |
+        Requires a `crud` key. Org-scoped keys can only create schedules
+        for their organization's activities.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "./admin.yaml#/components/schemas/ScheduleCreate"
+      responses:
+        "201":
+          description: Created schedule
+          content:
+            application/json:
+              schema:
+                $ref: "./admin.yaml#/components/schemas/Schedule"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Invalid key, read-only key, or out-of-scope activity
+
+  /v1/partner/schedules/{id}:
+    parameters:
+      - $ref: "#/components/parameters/ResourceId"
+    get:
+      summary: Get schedule
+      responses:
+        "200":
+          description: Schedule
+          content:
+            application/json:
+              schema:
+                $ref: "./admin.yaml#/components/schemas/Schedule"
+        "403":
+          description: Invalid key or resource outside the key's organization
+        "404":
+          description: Not found
+    put:
+      summary: Update schedule
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "./admin.yaml#/components/schemas/ScheduleUpdate"
+      responses:
+        "200":
+          description: Updated schedule
+          content:
+            application/json:
+              schema:
+                $ref: "./admin.yaml#/components/schemas/Schedule"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Invalid key, read-only key, or out-of-scope resource
+        "404":
+          description: Not found
+    delete:
+      summary: Delete schedule
+      responses:
+        "204":
+          description: Deleted
+        "403":
+          description: Invalid key, read-only key, or out-of-scope resource
+        "404":
+          description: Not found
+
+components:
+  securitySchemes:
+    PartnerKeyAuth:
+      type: apiKey
+      in: header
+      name: x-partner-key
+      description: |
+        Partner API key issued by an administrator. Format:
+        `stk_<43 urlsafe characters>`. Only a SHA-256 hash is stored
+        server-side.
+  parameters:
+    Limit:
+      name: limit
+      in: query
+      required: false
+      description: Maximum number of items to return (1-200, default 50)
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 200
+        default: 50
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      description: Pagination cursor from previous response
+      schema:
+        type: string
+    ResourceId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  schemas:
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+          description: Human-readable error message

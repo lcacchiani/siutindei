@@ -4,6 +4,7 @@ Repositories provide a clean abstraction over database operations,
 making business logic independent of the persistence layer.
 """
 
+from app.db.repositories.api_key import ApiKeyRepository
 from app.db.repositories.base import BaseRepository
 from app.db.repositories.geographic_area import GeographicAreaRepository
 from app.db.repositories.organization import OrganizationRepository
@@ -17,6 +18,7 @@ from app.db.repositories.schedule import ActivityScheduleRepository
 from app.db.repositories.ticket import TicketRepository
 
 __all__ = [
+    "ApiKeyRepository",
     "BaseRepository",
     "GeographicAreaRepository",
     "OrganizationRepository",

@@ -301,6 +301,37 @@ Indexes:
 - Index on `created_at`
 - GIN index on `label_ids`
 
+## Table: api_keys
+
+Purpose: Partner API keys for the `/v1/partner/*` endpoints. Only SHA-256
+hashes are stored; plaintext keys are shown once at creation.
+
+Columns:
+- `id` (UUID, PK, default `gen_random_uuid()`)
+- `name` (text, required) — human-readable label
+- `key_prefix` (text, required) — first characters of the plaintext key, for display
+- `key_hash` (text, required, unique) — SHA-256 hex digest of the plaintext key
+- `scope` (text, required, CHECK in `read`, `crud`)
+- `org_id` (UUID, FK -> organizations.id ON DELETE CASCADE, optional) —
+  restricts the key to one organization; NULL = full access
+- `created_by` (text, optional) — Cognito sub of the creating admin
+- `created_at` (timestamptz, default `now()`)
+- `expires_at` (timestamptz, optional) — NULL = does not expire
+- `revoked_at` (timestamptz, optional) — set on revoke; NULL = active
+- `last_used_at` (timestamptz, optional)
+
+Indexes:
+- Unique index on `key_hash`
+- Index on `org_id`
+
+Grants:
+- `siutindei_app`: SELECT plus column-scoped UPDATE on `last_used_at`
+  (used by the partner API-key authorizer)
+- `siutindei_admin`: SELECT, INSERT, UPDATE, DELETE
+
+Audited via `api_keys_audit_trigger` (the `key_hash` field is redacted in
+admin audit-log responses).
+
 ## Table: audit_log
 
 Purpose: Automatic change tracking for all audited tables.

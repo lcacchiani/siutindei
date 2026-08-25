@@ -111,6 +111,7 @@ parallel environments (production + staging) inside a single CDK stack
   request/response schemas, authentication requirements).
 - Activities search contract: [`docs/api/search.yaml`](../api/search.yaml).
 - Admin, manager, user, and health contracts: [`docs/api/admin.yaml`](../api/admin.yaml).
+- Partner API contract: [`docs/api/partner.yaml`](../api/partner.yaml).
 - Search responses are cursor-paginated (schedule time + type ordering).
 - Admin and manager list endpoints return `next_cursor` for pagination.
 - API client generation is handled via generalized scripts in
@@ -146,6 +147,13 @@ parallel environments (production + staging) inside a single CDK stack
 - Hosted UI uses OAuth code flow with callback/logout URLs supplied via CDK
   parameters.
 - API keys are rotated every 90 days by a scheduled Lambda.
+- Partner routes (`/v1/partner/*`) use custom DB-backed API keys sent in the
+  `x-partner-key` header. Keys are SHA-256 hashed at rest, carry a scope
+  (`read` = GET only, `crud` = full CRUD) and an optional single-organization
+  scope, and are validated by a dedicated in-VPC Lambda authorizer
+  (5-minute result cache). Scope and organization filtering are re-enforced
+  in the handlers. Admins generate and revoke keys via `/v1/admin/api-keys`
+  (revocation is a soft delete to preserve the audit trail).
 - Public search responses are cached at the CloudFront edge (5-minute TTL) via
   the public-website distribution's `/v1/activities/search` behavior; the API
   Gateway stage cache cluster is disabled. CloudFront caching is usage-based

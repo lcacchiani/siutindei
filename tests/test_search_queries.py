@@ -45,6 +45,25 @@ def test_build_search_query_sets_limit() -> None:
     assert query._limit_clause is not None
 
 
+def test_build_search_query_filters_by_org_ids() -> None:
+    """Ensure org-scoped partner keys restrict results by organization."""
+
+    org_id = uuid4()
+    filters = ActivitySearchFilters(org_ids=(org_id,))
+    query = build_search_query(filters)
+    where_clause = str(query.whereclause)
+    assert "activities.org_id IN" in where_clause
+
+
+def test_build_search_query_no_org_filter_by_default() -> None:
+    """Ensure no organization filter is applied without org_ids."""
+
+    filters = ActivitySearchFilters()
+    query = build_search_query(filters)
+    where_clause = str(query.whereclause)
+    assert "activities.org_id IN" not in where_clause
+
+
 def test_build_search_query_applies_cursor() -> None:
     """Ensure the cursor filter is applied."""
 
