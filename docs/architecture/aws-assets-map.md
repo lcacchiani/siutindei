@@ -258,7 +258,10 @@ For each function above, the following resources are created:
 
 **Lambda Configuration:**
 - Runtime: Python 3.12
-- Reserved Concurrency: 25 (default)
+- Reserved Concurrency: 25 (default). Functions can opt out by passing
+  `reservedConcurrentExecutions: null`; `PartnerApiKeyAuthorizerFunction`
+  opts out because the account-wide unreserved pool sits at the AWS
+  minimum of 100 (adding another 25-slot reservation fails deployment)
 - Environment: `PYTHONPATH=/var/task/src`, `LOG_LEVEL=INFO`
 - VPC Subnets: Private with egress (if VPC enabled)
 - Dead Letter Queue: Enabled
@@ -419,6 +422,14 @@ The pre-existing manager-request DLQ alarm (`lxsoftware-siutindei-manager-reques
 - `MigrationsHash`: SHA256 hash of `backend/db/alembic/versions/` directory
 - `SeedHash`: SHA256 hash of `backend/db/seed/seed_data.sql`
 - `RunSeed`: `true`
+
+**Rollback caveat:** migrations are forward-only. If a stack update fails
+after a new migration has run, the CloudFormation rollback re-invokes
+`RunMigrations` with the previous Lambda bundle, which no longer contains
+the revision the database is at, and the rollback wedges in
+`UPDATE_ROLLBACK_FAILED`. The deploy workflow recovers by calling
+`continue-update-rollback --resources-to-skip RunMigrations` when
+`RunMigrations` is the failed resource.
 
 ### Admin Bootstrap
 

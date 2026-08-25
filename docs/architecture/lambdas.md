@@ -143,6 +143,8 @@ their primary responsibilities.
 - VPC: **Yes** (needs database access, no public JWKS)
 - Cache: authorizer results cached 5 minutes, bounding how long a
   revoked key keeps working
+- Concurrency: no reserved concurrency (account unreserved pool is at
+  the AWS minimum of 100; authorizer caching keeps invocations low)
 
 ## Deployment and maintenance Lambdas
 

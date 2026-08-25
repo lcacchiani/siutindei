@@ -902,6 +902,9 @@ export class ApiStack extends cdk.Stack {
         // Set to true for functions that need internet access but not database
         // access (e.g., authorizers that fetch JWKS from Cognito)
         noVpc?: boolean;
+        // Pass null to skip reserving concurrency (account pool is nearly
+        // exhausted; AWS requires >= 100 unreserved account-wide).
+        reservedConcurrentExecutions?: number | null;
       }
     ) => {
       const factory = props.noVpc ? noVpcLambdaFactory : lambdaFactory;
@@ -913,6 +916,7 @@ export class ApiStack extends cdk.Stack {
         extraCopyPaths: props.extraCopyPaths,
         securityGroups: props.noVpc ? undefined : (props.securityGroups ?? [lambdaSecurityGroup]),
         memorySize: props.memorySize,
+        reservedConcurrentExecutions: props.reservedConcurrentExecutions,
       });
       return pythonLambda.function;
     };
@@ -1626,12 +1630,17 @@ export class ApiStack extends cdk.Stack {
     // Partner API-key authorizer for /v1/partner routes.
     // NOTE: Runs INSIDE the VPC (unlike the JWT authorizers) because it
     // validates hashed keys against the api_keys table via RDS Proxy.
+    // No reserved concurrency: the account-wide unreserved pool is at the
+    // AWS minimum (100), so reserving the default 25 fails deployment.
+    // API Gateway caches authorizer results for 5 minutes, keeping
+    // invocation volume low.
     const partnerApiKeyAuthorizerFunction = createPythonFunction(
       "PartnerApiKeyAuthorizerFunction",
       {
         handler: "lambda/authorizers/api_key/handler.lambda_handler",
         memorySize: 256,
         timeout: cdk.Duration.seconds(10),
+        reservedConcurrentExecutions: null,
         environment: {
           DATABASE_SECRET_ARN: database.appUserSecret.secretArn,
           DATABASE_NAME: "siutindei",
