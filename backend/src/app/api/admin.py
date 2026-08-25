@@ -14,6 +14,7 @@ from app.api.admin_areas import (
     _handle_list_areas,
     _handle_toggle_area,
 )
+from app.api.admin_api_keys import _handle_admin_api_keys
 from app.api.admin_audit import _handle_audit_logs
 from app.api.admin_auth import (
     _get_managed_organization_ids,
@@ -49,6 +50,7 @@ from app.api.admin_resources import (
     _validate_sessions_count,
 )
 from app.api.admin_suggestions import _handle_user_organization_suggestion
+from app.api.partner_auth import SCOPE_CRUD, get_partner_context
 from app.api.admin_tickets import (
     _handle_admin_tickets,
     _handle_user_access_request,
@@ -140,6 +142,9 @@ def lambda_handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
     if base_path == "manager":
         return _handle_manager_routes(event, method, resource, resource_id)
 
+    if base_path == "partner":
+        return _handle_partner_routes(event, method, resource, resource_id)
+
     if base_path != "admin":
         return json_response(404, {"error": "Not found"}, event=event)
 
@@ -172,6 +177,11 @@ def lambda_handler(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
         )
     if resource == "audit-logs" and method == "GET":
         return _safe_handler(lambda: _handle_audit_logs(event, resource_id), event)
+    if resource == "api-keys":
+        return _safe_handler(
+            lambda: _handle_admin_api_keys(event, method, resource_id),
+            event,
+        )
     if resource == "imports":
         return _safe_handler(
             lambda: _handle_admin_imports(event, method, resource_id),
@@ -301,6 +311,66 @@ def _handle_manager_routes(
         return json_response(
             403, {"error": "You don't manage any organizations"}, event=event
         )
+
+    config = _RESOURCE_CONFIG.get(resource)
+    if not config:
+        return json_response(404, {"error": "Not found"}, event=event)
+
+    return _safe_handler(
+        lambda: _handle_crud(event, method, config, resource_id, managed_org_ids),
+        event,
+    )
+
+
+_PARTNER_RESOURCES = {
+    "organizations",
+    "locations",
+    "activities",
+    "pricing",
+    "schedules",
+}
+
+
+def _handle_partner_routes(
+    event: Mapping[str, Any],
+    method: str,
+    resource: str,
+    resource_id: Optional[str],
+) -> dict[str, Any]:
+    """Handle CRUD routes authenticated with a partner API key.
+
+    Keys with the ``read`` scope may only perform GET requests; ``crud``
+    keys get full CRUD. Org-scoped keys are restricted to their
+    organization's data (same filtering as manager routes); full-access
+    keys behave like admin CRUD.
+    """
+    partner = get_partner_context(event)
+    if partner is None:
+        logger.warning("Partner route called without API-key context")
+        return json_response(403, {"error": "Forbidden"}, event=event)
+
+    if method != "GET" and partner.scope != SCOPE_CRUD:
+        logger.warning("Partner key without crud scope attempted a write")
+        return json_response(
+            403,
+            {"error": "This API key does not allow write access"},
+            event=event,
+        )
+
+    if resource not in _PARTNER_RESOURCES:
+        return json_response(404, {"error": "Not found"}, event=event)
+
+    managed_org_ids = {partner.org_id} if partner.org_id else None
+
+    # An org-scoped key cannot create organizations: any new organization
+    # would fall outside the key's scope.
+    if managed_org_ids is not None and resource == "organizations":
+        if method == "POST":
+            return json_response(
+                403,
+                {"error": "Organization-scoped keys cannot create organizations"},
+                event=event,
+            )
 
     config = _RESOURCE_CONFIG.get(resource)
     if not config:
