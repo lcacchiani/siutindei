@@ -162,6 +162,7 @@ The following tables have audit triggers:
 - `activity_pricing`
 - `activity_schedule`
 - `organization_access_requests`
+- `api_keys` (the `key_hash` field is redacted in admin API responses)
 
 ## Performance Considerations
 
@@ -181,7 +182,8 @@ WHERE timestamp < NOW() - INTERVAL '1 year';
 
 ## Security
 
-- **No PII in logs**: User IDs are Cognito subs, not emails
+- **No PII in logs**: User IDs are Cognito subs, not emails. Writes made
+  through the partner API are attributed to `api-key:<key id>`.
 - **Request correlation**: Use `request_id` to correlate with CloudWatch logs
 - **Access control**: Only admin users can query audit logs via API
 - **Tamper evidence**: Trigger-based logging cannot be bypassed by application code

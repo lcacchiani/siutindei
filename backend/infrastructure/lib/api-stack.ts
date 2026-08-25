@@ -1623,6 +1623,38 @@ export class ApiStack extends cdk.Stack {
       }
     );
 
+    // Partner API-key authorizer for /v1/partner routes.
+    // NOTE: Runs INSIDE the VPC (unlike the JWT authorizers) because it
+    // validates hashed keys against the api_keys table via RDS Proxy.
+    const partnerApiKeyAuthorizerFunction = createPythonFunction(
+      "PartnerApiKeyAuthorizerFunction",
+      {
+        handler: "lambda/authorizers/api_key/handler.lambda_handler",
+        memorySize: 256,
+        timeout: cdk.Duration.seconds(10),
+        environment: {
+          DATABASE_SECRET_ARN: database.appUserSecret.secretArn,
+          DATABASE_NAME: "siutindei",
+          DATABASE_USERNAME: "siutindei_app",
+          DATABASE_PROXY_ENDPOINT: database.proxy.endpoint,
+          DATABASE_IAM_AUTH: "true",
+        },
+      }
+    );
+    database.grantAppUserSecretRead(partnerApiKeyAuthorizerFunction);
+    database.grantConnect(partnerApiKeyAuthorizerFunction, "siutindei_app");
+
+    // The 5 minute cache bounds how long a revoked key remains usable.
+    const partnerApiKeyAuthorizer = new apigateway.RequestAuthorizer(
+      this,
+      "PartnerApiKeyAuthorizer",
+      {
+        handler: partnerApiKeyAuthorizerFunction,
+        identitySources: [apigateway.IdentitySource.header("x-partner-key")],
+        resultsCacheTtl: cdk.Duration.minutes(5),
+      }
+    );
+
     // Health check function
     const healthFunction = createPythonFunction("HealthCheckFunction", {
       handler: "lambda/health/handler.lambda_handler",
@@ -2161,6 +2193,26 @@ export class ApiStack extends cdk.Stack {
       authorizer: adminAuthorizer,
     });
 
+    // Partner API key management (generate, list, revoke)
+    const adminApiKeys = admin.addResource("api-keys");
+    adminApiKeys.addMethod("GET", adminIntegration, {
+      authorizationType: apigateway.AuthorizationType.CUSTOM,
+      authorizer: adminAuthorizer,
+    });
+    adminApiKeys.addMethod("POST", adminIntegration, {
+      authorizationType: apigateway.AuthorizationType.CUSTOM,
+      authorizer: adminAuthorizer,
+    });
+    const adminApiKeyById = adminApiKeys.addResource("{id}");
+    adminApiKeyById.addMethod("GET", adminIntegration, {
+      authorizationType: apigateway.AuthorizationType.CUSTOM,
+      authorizer: adminAuthorizer,
+    });
+    adminApiKeyById.addMethod("DELETE", adminIntegration, {
+      authorizationType: apigateway.AuthorizationType.CUSTOM,
+      authorizer: adminAuthorizer,
+    });
+
     // Manager-specific routes at /v1/manager (accessible by users in 'admin' OR 'manager' group)
     // All manager routes are filtered by organization management in the Lambda
     const manager = v1.addResource("manager");
@@ -2199,6 +2251,50 @@ export class ApiStack extends cdk.Stack {
         authorizer: managerAuthorizer,
       });
     }
+
+    // -------------------------------------------------------------------------
+    // Partner routes at /v1/partner (authenticated with x-partner-key)
+    // Read: /v1/partner/activities/search (read or crud scoped keys).
+    // CRUD: /v1/partner/{resource}[/{id}] (crud scoped keys only for
+    // writes; enforced in the Lambda because the cached authorizer policy
+    // covers all partner routes).
+    // Org-scoped keys are filtered to their organization in the Lambda.
+    //
+    // A greedy {proxy+} keeps the CloudFormation resource count low
+    // (the stack is close to the 500-resource limit): the admin Lambda
+    // dispatches partner CRUD internally by path. Only /activities/search
+    // and the literal /activities resource it creates need explicit
+    // methods, because a literal resource shadows the greedy proxy for
+    // exact-path matches.
+    // -------------------------------------------------------------------------
+    const partner = v1.addResource("partner");
+
+    const partnerActivities = partner.addResource("activities");
+    const partnerSearch = partnerActivities.addResource("search");
+    partnerSearch.addMethod(
+      "GET",
+      new apigateway.LambdaIntegration(searchFunction),
+      {
+        authorizationType: apigateway.AuthorizationType.CUSTOM,
+        authorizer: partnerApiKeyAuthorizer,
+      }
+    );
+    partnerActivities.addMethod("GET", adminIntegration, {
+      authorizationType: apigateway.AuthorizationType.CUSTOM,
+      authorizer: partnerApiKeyAuthorizer,
+    });
+    partnerActivities.addMethod("POST", adminIntegration, {
+      authorizationType: apigateway.AuthorizationType.CUSTOM,
+      authorizer: partnerApiKeyAuthorizer,
+    });
+
+    // Catch-all for the remaining partner CRUD routes:
+    // organizations, locations, activities/{id}, pricing, schedules.
+    const partnerProxy = partner.addResource("{proxy+}");
+    partnerProxy.addMethod("ANY", adminIntegration, {
+      authorizationType: apigateway.AuthorizationType.CUSTOM,
+      authorizer: partnerApiKeyAuthorizer,
+    });
 
     // -------------------------------------------------------------------------
     // User routes at /v1/user (accessible by any logged-in Cognito user)

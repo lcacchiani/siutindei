@@ -117,6 +117,9 @@ repo root
 - Cursor pagination orders by schedule timing.
 - Admin group membership can be managed via /admin/users/{username}/groups.
 - Admin list endpoints are cursor paginated.
+- Partner routes (/v1/partner/*) use DB-backed API keys (x-partner-key
+ header, SHA-256 hashed, read/crud scope, optional org scope) validated by
+ an in-VPC Lambda authorizer; keys are managed via /v1/admin/api-keys.
 - Optional CDK parameters bootstrap an admin user.
 - Auth is passwordless with email OTP/magic link and federated Google/Apple.
 
