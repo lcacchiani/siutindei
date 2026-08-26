@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { Modal } from '@/components/shared/ui/modal';
@@ -29,5 +29,21 @@ describe('Modal', () => {
     expect(document.activeElement).toBe(
       screen.getByRole('button', { name: 'First field' }),
     );
+  });
+
+  it('stays clickable when opened from inside main content', () => {
+    const onClose = vi.fn();
+    render(
+      <main id="main-content">
+        <Modal isOpen title="Navigator" onClose={onClose}>
+          <button type="button">Tile</button>
+        </Modal>
+      </main>,
+    );
+
+    const tile = screen.getByRole('button', { name: 'Tile' });
+    expect(tile.closest('[inert]')).toBeNull();
+    fireEvent.click(tile);
+    expect(onClose).not.toHaveBeenCalled();
   });
 });

@@ -56,11 +56,13 @@ describe('DiscoveryHomePage', () => {
       screen.getByRole('heading', { level: 1, name: content.smallWorld.title }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole('heading', {
-        level: 2,
-        name: content.smallWorld.categories.title,
+      screen.getByRole('button', {
+        name: content.smallWorld.navigator.buttonLabel,
       }),
     ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', { name: 'Choose a world to explore' }),
+    ).not.toBeInTheDocument();
     expect(screen.getByText(content.discovery.popularTitle)).toBeInTheDocument();
     expect(screen.getByText(content.hostCta.title)).toBeInTheDocument();
     expect(

@@ -203,22 +203,22 @@ body {
 }
 
 /* -------------------------------------------------------- */
-/* Tactile category tiles: isometric icons that lift, tilt,  */
-/* and settle with a playful-but-premium spring on hover.    */
+/* Choice tiles: large icons that lift, tilt, and settle     */
+/* with a playful-but-premium spring on hover.               */
 /* -------------------------------------------------------- */
 
-.category-tile__icon {
+.choice-tile__icon {
   transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
   will-change: transform;
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  .category-tile:hover .category-tile__icon,
-  .category-tile:focus-visible .category-tile__icon {
+  .choice-tile:hover .choice-tile__icon,
+  .choice-tile:focus-visible .choice-tile__icon {
     transform: translateY(-8px) rotate(-7deg) scale(1.08);
   }
 
-  .category-tile:active .category-tile__icon {
+  .choice-tile:active .choice-tile__icon {
     transform: translateY(-2px) rotate(3deg) scale(1.02);
     transition-duration: 0.15s;
   }

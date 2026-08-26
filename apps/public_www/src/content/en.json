@@ -157,9 +157,26 @@
       { "label": "Curated across Hong Kong" },
       { "label": "Clear schedules and pricing" }
     ],
-    "categories": {
-      "title": "Choose a world to explore",
-      "subtitle": "Workshops, classes, nature days, and rainy-day fun — pick one or mix a few."
+    "navigator": {
+      "buttonLabel": "Help me find something for my kid!",
+      "allHongKongLabel": "All Hong Kong",
+      "backLabel": "Back",
+      "seeActivitiesLabel": "See activities",
+      "stepProgressTemplate": "Step {current} of {total}",
+      "steps": {
+        "location": {
+          "title": "Where should we look?",
+          "label": "Area"
+        },
+        "age": {
+          "title": "How old is your child?",
+          "label": "Child age"
+        },
+        "activity": {
+          "title": "What kind of activity?",
+          "label": "Activities"
+        }
+      }
     }
   },
   "discovery": {
