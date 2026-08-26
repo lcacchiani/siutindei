@@ -41,7 +41,7 @@ function MapPaneBody({
   isLoading,
   mappableCount,
 }: MapPaneBodyProps) {
-  const canRenderMap = listings.length > 0 && mappableCount > 0;
+  const canRenderMap = isLoading || mappableCount > 0;
 
   return (
     <div className="relative h-full w-full">

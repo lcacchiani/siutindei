@@ -112,10 +112,14 @@ Source: [`apps/public_www`](../../apps/public_www).
   (`src/components/shared/sparkle-cursor.tsx`) is mounted from the locale
   layout for fine-pointer devices. No CSP changes are required: everything
   is same-origin static JS and `<canvas>` rendering.
-- **Search & detail:** `/[locale]/search/` opens the Google Maps split view
+- **Search & detail:**   `/[locale]/search/` opens the Google Maps split view
   when maps are enabled (explicit `?view=map`, or no `view` param). `?view=list`
   is the results grid. Search, See all, and discovery carousel links land on
-  the map. Pins use the activity-type icons (workshop / class / outdoor /
+  the map. The map canvas mounts as soon as the search page opens (including
+  the first results fetch) so the Maps script can load in parallel. Script
+  load waits until `importLibrary` / `Map` exist; `script.onload` alone is
+  not enough because `loading=async` can fire before `window.google.maps` is
+  assigned. Pins use the activity-type icons (workshop / class / outdoor /
   indoor). Below the `lg` breakpoint the map is full-width with pins for
   the filtered results and a selected-activity summary card at the bottom.
   Tapping a pin selects that activity; tapping the card opens the activity

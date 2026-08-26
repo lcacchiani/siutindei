@@ -1,10 +1,66 @@
 'use client';
 
 const SCRIPT_ID = 'siutindei-google-maps-script';
+const BOOTSTRAP_POLL_MS = 50;
+const BOOTSTRAP_TIMEOUT_MS = 10_000;
 let loadPromise: Promise<void> | null = null;
 
 function hasMapsConstructor(): boolean {
   return typeof window.google?.maps?.Map === 'function';
+}
+
+function getImportLibrary():
+  | ((name: string) => Promise<unknown>)
+  | undefined {
+  const importLibrary = window.google?.maps?.importLibrary;
+  return typeof importLibrary === 'function' ? importLibrary : undefined;
+}
+
+function waitForMapsBootstrap(): Promise<void> {
+  if (hasMapsConstructor() || getImportLibrary()) {
+    return Promise.resolve();
+  }
+
+  return new Promise<void>((resolve, reject) => {
+    const startedAt = Date.now();
+    const intervalId = window.setInterval(() => {
+      if (hasMapsConstructor() || getImportLibrary()) {
+        window.clearInterval(intervalId);
+        resolve();
+        return;
+      }
+      if (Date.now() - startedAt >= BOOTSTRAP_TIMEOUT_MS) {
+        window.clearInterval(intervalId);
+        reject(new Error('Google Maps failed to load.'));
+      }
+    }, BOOTSTRAP_POLL_MS);
+  });
+}
+
+function ensureScriptTag(apiKey: string, onError: () => void): void {
+  if (document.getElementById(SCRIPT_ID)) {
+    return;
+  }
+
+  const script = document.createElement('script');
+  script.id = SCRIPT_ID;
+  script.async = true;
+  script.src =
+    `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}` +
+    '&loading=async';
+  script.onerror = onError;
+  document.head.appendChild(script);
+}
+
+async function loadMapsLibraries(): Promise<void> {
+  await waitForMapsBootstrap();
+  const importLibrary = getImportLibrary();
+  if (importLibrary && !hasMapsConstructor()) {
+    await importLibrary('maps');
+  }
+  if (!hasMapsConstructor()) {
+    throw new Error('Google Maps failed to load.');
+  }
 }
 
 export async function loadGoogleMapsScript(apiKey: string): Promise<void> {
@@ -18,41 +74,17 @@ export async function loadGoogleMapsScript(apiKey: string): Promise<void> {
 
   if (!loadPromise) {
     loadPromise = new Promise<void>((resolve, reject) => {
-      const existing = document.getElementById(SCRIPT_ID);
-      if (existing) {
-        existing.addEventListener('load', () => resolve(), { once: true });
-        existing.addEventListener(
-          'error',
-          () => reject(new Error('Google Maps failed to load.')),
-          { once: true },
-        );
-        return;
-      }
-
-      const script = document.createElement('script');
-      script.id = SCRIPT_ID;
-      script.async = true;
-      script.defer = true;
-      script.src =
-        `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}` +
-        '&loading=async';
-      script.onload = () => resolve();
-      script.onerror = () => reject(new Error('Google Maps failed to load.'));
-      document.head.appendChild(script);
-    }).catch((error: unknown) => {
-      loadPromise = null;
-      return Promise.reject(error);
-    });
+      ensureScriptTag(apiKey, () => {
+        reject(new Error('Google Maps failed to load.'));
+      });
+      void waitForMapsBootstrap().then(resolve).catch(reject);
+    })
+      .then(() => loadMapsLibraries())
+      .catch((error: unknown) => {
+        loadPromise = null;
+        return Promise.reject(error);
+      });
   }
 
   await loadPromise;
-
-  const importLibrary = window.google?.maps?.importLibrary;
-  if (typeof importLibrary === 'function') {
-    await importLibrary('maps');
-  }
-
-  if (!hasMapsConstructor()) {
-    throw new Error('Google Maps failed to load.');
-  }
 }

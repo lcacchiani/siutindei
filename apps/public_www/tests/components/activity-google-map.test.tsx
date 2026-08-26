@@ -6,6 +6,7 @@ import type { ActivityListing } from '@/lib/activities/types';
 import { iconSrcForActivity } from '@/lib/home-wizard/choice-icons';
 
 const markerOptions: google.maps.MarkerOptions[] = [];
+const mapConstructors: unknown[] = [];
 
 vi.mock('@/lib/google-maps/config', () => ({
   getGoogleMapsConfig: () => ({ apiKey: 'test-key' }),
@@ -60,6 +61,7 @@ function buildListing(): ActivityListing {
 
 function installGoogleMaps(): void {
   markerOptions.length = 0;
+  mapConstructors.length = 0;
   window.google = {
     maps: {
       LatLng: class {
@@ -84,9 +86,12 @@ function installGoogleMaps(): void {
         ) {}
       },
       Map: class {
-        constructor() {}
+        constructor() {
+          mapConstructors.push(this);
+        }
         fitBounds(): void {}
         panTo(): void {}
+        setCenter(): void {}
         setZoom(): void {}
       },
       Marker: class {
@@ -143,5 +148,36 @@ describe('ActivityGoogleMap', () => {
     expect(icon).toMatchObject({
       url: expect.stringContaining(iconSrcForActivity('workshop')),
     });
+  });
+
+  it('creates the map on first mount before listings arrive', async () => {
+    const { rerender } = render(
+      <ActivityGoogleMap
+        locale="en"
+        listings={[]}
+        selectedId={null}
+        onSelect={() => undefined}
+        ariaLabel="Activity map"
+      />,
+    );
+
+    await waitFor(() => {
+      expect(mapConstructors).toHaveLength(1);
+    });
+
+    rerender(
+      <ActivityGoogleMap
+        locale="en"
+        listings={[buildListing()]}
+        selectedId="act-1"
+        onSelect={() => undefined}
+        ariaLabel="Activity map"
+      />,
+    );
+
+    await waitFor(() => {
+      expect(markerOptions).toHaveLength(1);
+    });
+    expect(mapConstructors).toHaveLength(1);
   });
 });

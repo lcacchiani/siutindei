@@ -63,7 +63,6 @@ describe('loadGoogleMapsScript', () => {
     expect(script?.src).toContain('loading=async');
 
     installGoogleMapsStub({ includeMap: false, importLibrary });
-    script?.dispatchEvent(new Event('load'));
 
     await vi.waitFor(() => {
       expect(importLibrary).toHaveBeenCalledWith('maps');
@@ -79,5 +78,59 @@ describe('loadGoogleMapsScript', () => {
     resolveImport?.({});
     await expect(load).resolves.toBeUndefined();
     expect(settled).toBe(true);
+  });
+
+  it('waits when the script tag fires load before google.maps exists', async () => {
+    const { loadGoogleMapsScript } = await import(
+      '@/lib/google-maps/load-script'
+    );
+    let resolveImport: ((value: unknown) => void) | undefined;
+    const importLibrary = vi.fn(
+      () =>
+        new Promise((resolve) => {
+          resolveImport = resolve;
+        }),
+    );
+
+    const load = loadGoogleMapsScript('test-key');
+    const script = document.getElementById(
+      'siutindei-google-maps-script',
+    ) as HTMLScriptElement | null;
+    script?.dispatchEvent(new Event('load'));
+
+    let settled = false;
+    void load.then(() => {
+      settled = true;
+    });
+    await new Promise((resolve) => {
+      window.setTimeout(resolve, 80);
+    });
+    expect(settled).toBe(false);
+
+    installGoogleMapsStub({ includeMap: false, importLibrary });
+    await vi.waitFor(() => {
+      expect(importLibrary).toHaveBeenCalledWith('maps');
+    });
+
+    installGoogleMapsStub({ importLibrary });
+    resolveImport?.({});
+    await expect(load).resolves.toBeUndefined();
+  });
+
+  it('does not hang when a previous script tag already finished loading', async () => {
+    const existing = document.createElement('script');
+    existing.id = 'siutindei-google-maps-script';
+    document.head.appendChild(existing);
+
+    const { loadGoogleMapsScript } = await import(
+      '@/lib/google-maps/load-script'
+    );
+    const load = loadGoogleMapsScript('test-key');
+
+    await new Promise((resolve) => {
+      window.setTimeout(resolve, 30);
+    });
+    installGoogleMapsStub();
+    await expect(load).resolves.toBeUndefined();
   });
 });

@@ -187,4 +187,19 @@ describe('SearchMapSplitLayout', () => {
       screen.getByRole('button', { name: copy.mapAriaLabel }),
     ).toBeInTheDocument();
   });
+
+  it('mounts the map canvas on the first load before listings arrive', () => {
+    const { copy } = renderLayout({
+      isLoading: true,
+      listings: [],
+      selectedId: null,
+    });
+
+    expect(
+      screen.getByRole('button', { name: copy.mapAriaLabel }),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText(copy.loadingMapLabel).length).toBeGreaterThan(
+      0,
+    );
+  });
 });
