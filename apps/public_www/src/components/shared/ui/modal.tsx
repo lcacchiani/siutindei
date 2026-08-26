@@ -2,6 +2,7 @@
 
 import type { ReactNode } from 'react';
 import { useEffect, useId, useRef } from 'react';
+import { createPortal } from 'react-dom';
 
 import {
   getFocusableElements,
@@ -69,11 +70,11 @@ export function Modal({ isOpen, title, onClose, children }: ModalProps) {
     };
   }, [isOpen, onClose]);
 
-  if (!isOpen) {
+  if (!isOpen || typeof document === 'undefined') {
     return null;
   }
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
       <button
         type="button"
@@ -105,6 +106,7 @@ export function Modal({ isOpen, title, onClose, children }: ModalProps) {
           {children}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

@@ -23,7 +23,9 @@ function renderNavigator() {
   const content = getContent('en');
   render(
     <SearchProvider>
-      <SearchNavigator locale="en" copy={content.smallWorld.navigator} />
+      <main id="main-content">
+        <SearchNavigator locale="en" copy={content.smallWorld.navigator} />
+      </main>
     </SearchProvider>,
   );
   return content;
@@ -71,6 +73,9 @@ describe('SearchNavigator', () => {
     expect(
       screen.queryByRole('button', { name: '3–6 years' }),
     ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Kowloon' }).closest('[inert]'),
+    ).toBeNull();
   });
 
   it('auto-advances through location and age, then submits filters', () => {
