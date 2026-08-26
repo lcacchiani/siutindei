@@ -1,6 +1,7 @@
 import type { Locale, SiteContent } from '@/content';
 import { HeroSearchBar } from '@/components/sections/hero/hero-search-bar';
 import { FloatingKawaiiBubbles } from '@/components/sections/hero/floating-kawaii-bubbles';
+import { SearchNavigator } from '@/components/sections/hero/search-navigator';
 
 interface SmallWorldHeroProps {
   readonly locale: Locale;
@@ -66,6 +67,7 @@ export function SmallWorldHero({
             </li>
           ))}
         </ul>
+        <SearchNavigator locale={locale} copy={copy.navigator} />
       </div>
     </section>
   );

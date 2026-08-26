@@ -157,9 +157,26 @@
       { "label": "精選全港各區" },
       { "label": "時間表及收費透明" }
     ],
-    "categories": {
-      "title": "選一個世界去探索",
-      "subtitle": "工作坊、課程、親近大自然或室內玩樂——揀一款，或者襯幾款。"
+    "navigator": {
+      "buttonLabel": "幫我為小朋友搵活動！",
+      "allHongKongLabel": "全港",
+      "backLabel": "返回",
+      "seeActivitiesLabel": "查看活動",
+      "stepProgressTemplate": "第 {current} 步，共 {total} 步",
+      "steps": {
+        "location": {
+          "title": "想去邊度？",
+          "label": "地區"
+        },
+        "age": {
+          "title": "小朋友幾歲？",
+          "label": "子女年齡"
+        },
+        "activity": {
+          "title": "想參加咩活動？",
+          "label": "活動類型"
+        }
+      }
     }
   },
   "discovery": {

@@ -54,6 +54,11 @@ describe('SmallWorldHero', () => {
     expect(
       document.querySelector('[data-hero-search-sentinel]'),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', {
+        name: content.smallWorld.navigator.buttonLabel,
+      }),
+    ).toBeInTheDocument();
   });
 
   it('shows a random set of kawaii bubbles after mount', async () => {

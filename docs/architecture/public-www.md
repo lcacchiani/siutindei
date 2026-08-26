@@ -86,8 +86,8 @@ Source: [`apps/public_www`](../../apps/public_www).
   with the 12-column CSS grid (`rows` → `cells` with `component`, `colStart`,
   `colSpan`, optional `props`) in `src/components/sections/grid/page-body-grid.tsx`.
   The home route renders `DiscoveryHomePage` (Airbnb-style discovery: the
-  immersive "Small World" hero, tactile category tiles, and horizontal
-  listing carousels fed by `/v1/activities/search`).
+  immersive "Small World" hero, a 3-step search navigator in the hero, and
+  horizontal listing carousels fed by `/v1/activities/search`).
 - **Brand & immersive homepage:** the "Small World" brand system lives in
   the `@theme` tokens in `src/app/globals.css` (golden-yellow base with
   earth-teal / leaf-green support colors and chocolate ink, sampled from
