@@ -29,8 +29,7 @@
       "whereLabel": "Area",
       "childAgeLabel": "Child age",
       "activityTypesLabel": "Activity types",
-      "searchLabel": "Search",
-      "clearTypesLabel": "Clear activity types"
+      "searchLabel": "Search"
     },
     "languageSelector": {
       "menuAriaLabel": "Select language",

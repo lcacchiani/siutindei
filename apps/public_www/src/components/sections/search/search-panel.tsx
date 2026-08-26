@@ -33,7 +33,6 @@ interface SearchPanelCopy {
   readonly childAgeLabel: string;
   readonly activityTypesLabel: string;
   readonly searchLabel: string;
-  readonly clearTypesLabel: string;
 }
 
 interface SearchPanelProps {
@@ -162,15 +161,6 @@ export function SearchPanel({ locale, copy }: SearchPanelProps) {
               />
             ))}
           </div>
-          {draft.activityTypeIds.length > 0 ? (
-            <button
-              type="button"
-              className="mt-2 text-sm font-medium text-brand-600 underline-offset-2 hover:underline"
-              onClick={() => updateDraft({ activityTypeIds: [] })}
-            >
-              {copy.clearTypesLabel}
-            </button>
-          ) : null}
         </fieldset>
         <Button type="submit" className="w-full">
           {copy.searchLabel}

@@ -29,8 +29,7 @@
       "whereLabel": "地區",
       "childAgeLabel": "子女年齡",
       "activityTypesLabel": "活動類型",
-      "searchLabel": "搜尋",
-      "clearTypesLabel": "清除活動類型"
+      "searchLabel": "搜尋"
     },
     "languageSelector": {
       "menuAriaLabel": "選擇語言",
