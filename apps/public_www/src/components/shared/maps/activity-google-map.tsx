@@ -80,6 +80,64 @@ function markerIcon(
   };
 }
 
+function coordinatesFor(
+  listings: readonly ActivityListing[],
+): readonly NonNullable<ReturnType<typeof listingCoordinate>>[] {
+  return listingsWithCoordinates(listings)
+    .map((listing) => listingCoordinate(listing))
+    .filter((value): value is NonNullable<typeof value> => value !== null);
+}
+
+function syncMarkers(options: {
+  readonly map: google.maps.Map;
+  readonly listings: readonly ActivityListing[];
+  readonly locale: Locale;
+  readonly selectedId: string | null;
+  readonly onSelect: (activityId: string) => void;
+  readonly markers: Map<string, google.maps.Marker>;
+}): void {
+  const { map, listings, locale, selectedId, onSelect, markers } = options;
+  for (const marker of markers.values()) {
+    marker.setMap(null);
+  }
+  markers.clear();
+
+  const mappableListings = listingsWithCoordinates(listings);
+  const coordinates = coordinatesFor(listings);
+  const bounds = new google.maps.LatLngBounds();
+
+  for (const listing of mappableListings) {
+    const coordinate = listingCoordinate(listing);
+    if (!coordinate) {
+      continue;
+    }
+    const position = new google.maps.LatLng(coordinate.lat, coordinate.lng);
+    bounds.extend(position);
+    const marker = new google.maps.Marker({
+      map,
+      position,
+      title: listingTitle(locale, listing),
+      icon: markerIcon(
+        listing.activity.categoryId,
+        listing.activity.id === selectedId,
+      ),
+    });
+    marker.addListener('click', () => {
+      onSelect(listing.activity.id);
+    });
+    markers.set(listing.activity.id, marker);
+  }
+
+  if (coordinates.length > 1) {
+    map.fitBounds(bounds, 48);
+  } else if (coordinates.length === 1) {
+    map.setCenter(
+      new google.maps.LatLng(coordinates[0].lat, coordinates[0].lng),
+    );
+    map.setZoom(14);
+  }
+}
+
 export function ActivityGoogleMap({
   locale,
   listings,
@@ -92,11 +150,23 @@ export function ActivityGoogleMap({
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
   const markersRef = useRef<Map<string, google.maps.Marker>>(new Map());
+  const listingsRef = useRef(listings);
+  const localeRef = useRef(locale);
   const selectedIdRef = useRef(selectedId);
+  const onSelectRef = useRef(onSelect);
 
+  useEffect(() => {
+    listingsRef.current = listings;
+  }, [listings]);
+  useEffect(() => {
+    localeRef.current = locale;
+  }, [locale]);
   useEffect(() => {
     selectedIdRef.current = selectedId;
   }, [selectedId]);
+  useEffect(() => {
+    onSelectRef.current = onSelect;
+  }, [onSelect]);
 
   const listingIds = listings.map((listing) => listing.activity.id).join(',');
 
@@ -112,6 +182,7 @@ export function ActivityGoogleMap({
     }
 
     let cancelled = false;
+    let resizeObserver: ResizeObserver | null = null;
 
     loadGoogleMapsScript(apiKey)
       .then(async () => {
@@ -124,19 +195,16 @@ export function ActivityGoogleMap({
           return;
         }
 
-        const mappableListings = listingsWithCoordinates(listings);
-        const coordinates = mappableListings
-          .map((listing) => listingCoordinate(listing))
-          .filter((value): value is NonNullable<typeof value> => value !== null);
-
+        const coordinates = coordinatesFor(listingsRef.current);
         const center = centerForCoordinates(
           coordinates.length > 0 ? coordinates : [HONG_KONG_CENTER],
         );
+        const centerLatLng = new google.maps.LatLng(center.lat, center.lng);
 
         const map =
           mapRef.current ??
           new google.maps.Map(containerRef.current, {
-            center: new google.maps.LatLng(center.lat, center.lng),
+            center: centerLatLng,
             zoom: coordinates.length === 1 ? 14 : 11,
             mapTypeControl: false,
             streetViewControl: false,
@@ -144,40 +212,25 @@ export function ActivityGoogleMap({
           });
         mapRef.current = map;
         google.maps.event.trigger(map, 'resize');
+        map.setCenter(centerLatLng);
+        syncMarkers({
+          map,
+          listings: listingsRef.current,
+          locale: localeRef.current,
+          selectedId: selectedIdRef.current,
+          onSelect: (activityId) => onSelectRef.current(activityId),
+          markers: markersRef.current,
+        });
 
-        for (const marker of markersRef.current.values()) {
-          marker.setMap(null);
-        }
-        markersRef.current.clear();
-
-        const bounds = new google.maps.LatLngBounds();
-        for (const listing of mappableListings) {
-          const coordinate = listingCoordinate(listing);
-          if (!coordinate) {
-            continue;
-          }
-          const position = new google.maps.LatLng(
-            coordinate.lat,
-            coordinate.lng,
-          );
-          bounds.extend(position);
-          const marker = new google.maps.Marker({
-            map,
-            position,
-            title: listingTitle(locale, listing),
-            icon: markerIcon(
-              listing.activity.categoryId,
-              listing.activity.id === selectedIdRef.current,
-            ),
+        if (typeof ResizeObserver === 'function') {
+          resizeObserver = new ResizeObserver(() => {
+            const sizedContainer = containerRef.current;
+            if (!sizedContainer || !hasSize(sizedContainer)) {
+              return;
+            }
+            google.maps.event.trigger(map, 'resize');
           });
-          marker.addListener('click', () => {
-            onSelect(listing.activity.id);
-          });
-          markersRef.current.set(listing.activity.id, marker);
-        }
-
-        if (coordinates.length > 1) {
-          map.fitBounds(bounds, 48);
+          resizeObserver.observe(containerRef.current);
         }
       })
       .catch(() => {
@@ -186,7 +239,23 @@ export function ActivityGoogleMap({
 
     return () => {
       cancelled = true;
+      resizeObserver?.disconnect();
     };
+  }, []);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) {
+      return;
+    }
+    syncMarkers({
+      map,
+      listings,
+      locale,
+      selectedId: selectedIdRef.current,
+      onSelect,
+      markers: markersRef.current,
+    });
   }, [listingIds, listings, locale, onSelect]);
 
   useEffect(() => {
@@ -204,13 +273,15 @@ export function ActivityGoogleMap({
     for (const [activityId, marker] of markersRef.current) {
       const entry = listings.find((item) => item.activity.id === activityId);
       marker.setIcon(
-        markerIcon(entry?.activity.categoryId ?? null, activityId === selectedId),
+        markerIcon(
+          entry?.activity.categoryId ?? null,
+          activityId === selectedId,
+        ),
       );
     }
 
     map.panTo(new google.maps.LatLng(coordinate.lat, coordinate.lng));
-    const mappableCount = listingsWithCoordinates(listings).length;
-    if (mappableCount === 1) {
+    if (listingsWithCoordinates(listings).length === 1) {
       map.setZoom(14);
     }
   }, [listings, selectedId]);

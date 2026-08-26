@@ -27,6 +27,7 @@ declare namespace google.maps {
     constructor(element: HTMLElement, options?: MapOptions);
     fitBounds(bounds: LatLngBounds, padding?: number): void;
     panTo(latLng: LatLng): void;
+    setCenter(latLng: LatLng): void;
     setZoom(zoom: number): void;
   }
 

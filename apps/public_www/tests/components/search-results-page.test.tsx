@@ -123,6 +123,15 @@ describe('SearchResultsPage', () => {
     expect(screen.queryByText(/^\d+ activities$/)).not.toBeInTheDocument();
   });
 
+  it('shows the map canvas while the first search request is in flight', async () => {
+    vi.mocked(fetchActivitySearch).mockReturnValue(new Promise(() => {}));
+    const copy = renderPage();
+
+    expect(
+      await screen.findByRole('application', { name: copy.mapAriaLabel }),
+    ).toBeInTheDocument();
+  });
+
   it('opens the map by default and overlays a list toggle', async () => {
     const copy = renderPage();
 
