@@ -1,10 +1,29 @@
+type ChoiceTileSize = 'default' | 'compact';
+
 interface ChoiceTileProps {
   readonly label: string;
   readonly iconSrc: string;
   readonly isSelected: boolean;
   readonly onClick: () => void;
   readonly iconShape?: 'illustration' | 'flag';
+  readonly size?: ChoiceTileSize;
 }
+
+const TILE_SIZE_CLASS: Record<
+  ChoiceTileSize,
+  { container: string; icon: string; iconPx: number }
+> = {
+  default: {
+    container: 'gap-3 px-4 pb-5 pt-6',
+    icon: 'h-20 w-20 sm:h-24 sm:w-24',
+    iconPx: 96,
+  },
+  compact: {
+    container: 'gap-[0.6rem] px-4 pb-4 pt-[1.2rem]',
+    icon: 'h-16 w-16 sm:h-[4.8rem] sm:w-[4.8rem]',
+    iconPx: 77,
+  },
+};
 
 export function ChoiceTile({
   label,
@@ -12,17 +31,18 @@ export function ChoiceTile({
   isSelected,
   onClick,
   iconShape = 'illustration',
+  size = 'default',
 }: ChoiceTileProps) {
   const selectedClassName = isSelected
     ? 'border-accent-500 bg-brand-50 ' +
       'shadow-[0_10px_30px_rgba(29,64,59,0.12)]'
     : 'border-brand-100 bg-white hover:border-brand-200 ' +
       'hover:shadow-[0_10px_30px_rgba(29,64,59,0.1)]';
+  const sizeClassName = TILE_SIZE_CLASS[size];
   const iconClassName =
     iconShape === 'flag'
-      ? 'h-20 w-20 rounded-full object-cover ring-1 ring-ink-900/15 ' +
-        'sm:h-24 sm:w-24'
-      : 'h-20 w-20 object-contain sm:h-24 sm:w-24';
+      ? `${sizeClassName.icon} rounded-full object-cover ring-1 ring-ink-900/15`
+      : `${sizeClassName.icon} object-contain`;
 
   return (
     <button
@@ -30,15 +50,16 @@ export function ChoiceTile({
       aria-pressed={isSelected}
       onClick={onClick}
       className={
-        'choice-tile group flex flex-col items-center gap-3 ' +
-        `rounded-2xl border px-4 pb-5 pt-6 transition ${selectedClassName}`
+        'choice-tile group flex flex-col items-center ' +
+        `rounded-2xl border transition ${sizeClassName.container} ` +
+        selectedClassName
       }
     >
       <img
         src={iconSrc}
         alt=""
-        width={96}
-        height={96}
+        width={sizeClassName.iconPx}
+        height={sizeClassName.iconPx}
         decoding="async"
         aria-hidden="true"
         className={`choice-tile__icon ${iconClassName}`}

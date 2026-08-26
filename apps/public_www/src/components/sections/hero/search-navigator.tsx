@@ -180,6 +180,7 @@ export function SearchNavigator({ locale, copy }: SearchNavigatorProps) {
                     label={labelForLocale(group.labels, locale)}
                     iconSrc={iconSrc}
                     isSelected={draft.ageGroupId === group.id}
+                    size="compact"
                     onClick={() => selectAge(group.id)}
                   />
                 );
