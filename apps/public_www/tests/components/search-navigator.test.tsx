@@ -92,6 +92,10 @@ describe('SearchNavigator', () => {
       'src',
       AGE_ICON_SRC['3-6'],
     );
+    expect(choiceImage('3–6 years')).toHaveClass(
+      'choice-tile__icon',
+      'h-16',
+    );
 
     fireEvent.click(screen.getByRole('button', { name: '3–6 years' }));
     expect(
