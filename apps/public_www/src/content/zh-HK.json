@@ -126,7 +126,6 @@
     }
   },
   "smallWorld": {
-    "eyebrow": "屬於小探險家的小天地",
     "title": "每個孩子，都值得擁有自己的小天地",
     "subtitle": "小天地為香港家庭精選可信的課程、工作坊及戶外體驗，每一項活動上架前都經本地家長審核。",
     "sceneAriaLabel": "頁面上漂浮的可愛香港插畫",
@@ -152,11 +151,6 @@
       "noodles": "麵碗",
       "parasol": "油紙傘"
     },
-    "trustBadges": [
-      { "label": "家長實測認證" },
-      { "label": "精選全港各區" },
-      { "label": "時間表及收費透明" }
-    ],
     "navigator": {
       "buttonLabel": "幫我為小朋友搵活動！",
       "allHongKongLabel": "全港",
