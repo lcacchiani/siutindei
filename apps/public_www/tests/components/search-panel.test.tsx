@@ -128,4 +128,14 @@ describe('SearchPanel', () => {
     fireEvent.click(workshop);
     expect(workshop).toHaveAttribute('aria-pressed', 'false');
   });
+
+  it('does not show a clear activity types button', () => {
+    renderPanel();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Workshop' }));
+
+    expect(
+      screen.queryByRole('button', { name: 'Clear activity types' }),
+    ).toBeNull();
+  });
 });
