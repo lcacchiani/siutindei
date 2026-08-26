@@ -126,7 +126,6 @@
     }
   },
   "smallWorld": {
-    "eyebrow": "A small world for little explorers",
     "title": "Every child deserves their own small world",
     "subtitle": "Siu Tin Dei curates trusted classes, workshops, and outdoor adventures across Hong Kong — each one checked by local parents before it appears here.",
     "sceneAriaLabel": "Kawaii Hong Kong pictures floating around the page",
@@ -152,11 +151,6 @@
       "noodles": "A bowl of noodles",
       "parasol": "A traditional parasol"
     },
-    "trustBadges": [
-      { "label": "Parent-Verified programmes" },
-      { "label": "Curated across Hong Kong" },
-      { "label": "Clear schedules and pricing" }
-    ],
     "navigator": {
       "buttonLabel": "Help me find something for my kid!",
       "allHongKongLabel": "All Hong Kong",

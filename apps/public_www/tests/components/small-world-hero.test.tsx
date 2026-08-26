@@ -12,7 +12,7 @@ vi.mock('next/navigation', () => ({
 }));
 
 describe('SmallWorldHero', () => {
-  it('renders the brand story, search bar, and trust badges', () => {
+  it('renders the brand story and search bar', () => {
     const content = getContent('en');
 
     render(
@@ -41,10 +41,18 @@ describe('SmallWorldHero', () => {
     expect(
       screen.getByText(content.smallWorld.subtitle),
     ).toBeInTheDocument();
-
-    for (const badge of content.smallWorld.trustBadges) {
-      expect(screen.getByText(badge.label)).toBeInTheDocument();
-    }
+    expect(
+      screen.queryByText(/little explorers/i),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('Parent-Verified programmes'),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('Curated across Hong Kong'),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('Clear schedules and pricing'),
+    ).not.toBeInTheDocument();
 
     expect(
       screen.getAllByRole('button', {
