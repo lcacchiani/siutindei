@@ -50,6 +50,13 @@ python3 -m pip install --break-system-packages --ignore-installed -q \
   -r backend/requirements.txt 'pytest>=8.0' 'pytest-cov>=5.0' pre-commit
 
 echo "==> Apply database migrations (schema only, no seed)"
+# If a base snapshot carries an alembic_version stamped at head but is missing
+# the model tables, reset the stamp so "upgrade head" recreates the schema.
+HAS_CORE="$(PGPASSWORD=postgres psql -h localhost -U postgres -d "${DB_NAME}" \
+  -tAc "SELECT to_regclass('public.organizations') IS NOT NULL;" 2>/dev/null || echo f)"
+if [ "${HAS_CORE}" != "t" ]; then
+  python3 -m alembic -c backend/db/alembic.ini stamp base >/dev/null 2>&1 || true
+fi
 python3 -m alembic -c backend/db/alembic.ini upgrade head
 
 echo "==> Warm pre-commit hook environments"

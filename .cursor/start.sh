@@ -21,6 +21,14 @@ done
 if ! sudo -u postgres psql -tc "SELECT 1 FROM pg_database WHERE datname='${DB_NAME}'" | grep -q 1; then
   sudo -u postgres createdb "${DB_NAME}"
 fi
+# A snapshot may carry an alembic_version stamped at head while the model tables
+# are absent (e.g. left over from a test-suite teardown that dropped them). In
+# that case a plain "upgrade head" is a no-op, so reset the stamp first.
+HAS_CORE="$(PGPASSWORD=postgres psql -h localhost -U postgres -d "${DB_NAME}" \
+  -tAc "SELECT to_regclass('public.organizations') IS NOT NULL;" 2>/dev/null || echo f)"
+if [ "${HAS_CORE}" != "t" ]; then
+  python3 -m alembic -c backend/db/alembic.ini stamp base >/dev/null 2>&1 || true
+fi
 python3 -m alembic -c backend/db/alembic.ini upgrade head >/dev/null 2>&1 || true
 
 echo "==> PostgreSQL ready on localhost:5432 (db: ${DB_NAME})"
