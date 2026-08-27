@@ -36,15 +36,15 @@
     "@types/node": "^25.9.5",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
-    "@vitejs/plugin-react": "^6.0.5",
-    "@vitest/coverage-v8": "^4.1.10",
+    "@vitejs/plugin-react": "^6.1.0",
+    "@vitest/coverage-v8": "^4.1.11",
     "eslint": "^9.39.5",
     "eslint-config-next": "^16.3.1",
     "jsdom": "^29.1.1",
     "postcss": "^8.5.26",
     "tailwindcss": "^4.2.0",
     "typescript": "^5.9.3",
-    "vite": "^8.2.1",
+    "vite": "^8.2.2",
     "vitest": "^4.0.18"
   },
   "overrides": {
