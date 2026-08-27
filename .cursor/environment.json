@@ -1,0 +1,17 @@
+{
+  "name": "Siu Tin Dei",
+  "user": "ubuntu",
+  "install": "bash .cursor/install.sh",
+  "start": "bash .cursor/start.sh",
+  "terminals": [
+    {
+      "name": "admin-web",
+      "command": "export NVM_DIR=\"$HOME/.nvm\" && . \"$NVM_DIR/nvm.sh\" && cd apps/admin_web && npm run dev"
+    },
+    {
+      "name": "public-www",
+      "command": "export NVM_DIR=\"$HOME/.nvm\" && . \"$NVM_DIR/nvm.sh\" && cd apps/public_www && NEXT_PUBLIC_SITE_ORIGIN=http://localhost:3100 NEXT_PUBLIC_SITE_NAME=\"Siu Tin Dei\" NEXT_PUBLIC_STAGING_SEARCH_DATA_ENABLED=true npm run dev -- -p 3100"
+    }
+  ],
+  "ports": [3000, 3100]
+}
