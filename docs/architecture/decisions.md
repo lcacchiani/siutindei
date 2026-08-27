@@ -358,6 +358,8 @@ Lambdas or NAT Gateway.
 - `MATCH_PASSWORD`
 - `FASTLANE_USER`
 - `FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD`
+- `GITLEAKS_LICENSE` (gitleaks-action license for organization Secret
+  Scanning; obtain at [gitleaks.io](https://gitleaks.io))
 
 **CDK Parameters (via `CDK_PARAM_FILE`)**
 - `PublicApiKeyValue` (API key required for public search)
