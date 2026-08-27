@@ -103,6 +103,8 @@ For the OIDC provider itself, add the same tags:
 - `MATCH_PASSWORD`
 - `FASTLANE_USER`
 - `FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD`
+- `GITLEAKS_LICENSE` (required for Secret Scanning; organization repos
+  need a license from [gitleaks.io](https://gitleaks.io))
 
 ### Existing infrastructure reuse (auto-detected)
 

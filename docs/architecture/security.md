@@ -290,6 +290,15 @@ only in `security.yml` left the tool-status page at "1 configuration not
 found". Packs: `p/python`, `p/security-audit`, `p/secrets`,
 `p/owasp-top-ten`. SARIF category stays `semgrep`.
 
+### Gitleaks Secret Scanning
+
+`gitleaks/gitleaks-action` in `.github/workflows/security.yml` requires a
+`GITLEAKS_LICENSE` GitHub Actions secret on organization repositories.
+Obtain a license at [gitleaks.io](https://gitleaks.io) and store it as a
+repository or organization secret named `GITLEAKS_LICENSE`. The workflow
+passes it as `GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}`. Without
+this secret, Secret Scanning fails and blocks required checks.
+
 ### GitHub Workflow Permissions
 
 Always use minimal permissions:
