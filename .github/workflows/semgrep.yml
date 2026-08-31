@@ -36,6 +36,10 @@ jobs:
         # - dynamic-urllib-use-detected: Suppressed for cfn_response.py which
         #   validates URLs before use (HTTPS only, .amazonaws.com hosts only).
         #   See backend/src/app/utils/cfn_response.py
+        # - gha-curl-pipe-shell: The rule parses `run:` blocks as Bash and
+        #   emits SARIF toolExecutionNotifications (level: warning) on
+        #   GitHub `${{ }}` expressions. GitHub's Security tool-status
+        #   page then reports "Semgrep OSS is reporting warnings".
         run: |
           semgrep scan \
             --config p/python \
@@ -45,6 +49,7 @@ jobs:
             --sarif \
             --sarif-output=semgrep-results.sarif \
             --exclude-rule python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected \
+            --exclude-rule yaml.github-actions.security.gha-curl-pipe-shell.gha-curl-pipe-shell \
             || true
           if [ ! -f semgrep-results.sarif ]; then
             printf '%s\n' \

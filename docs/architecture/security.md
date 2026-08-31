@@ -289,6 +289,10 @@ Code Scanning's Semgrep OSS setup looks for that path; embedding the job
 only in `security.yml` left the tool-status page at "1 configuration not
 found". Packs: `p/python`, `p/security-audit`, `p/secrets`,
 `p/owasp-top-ten`. SARIF category stays `semgrep`.
+`--exclude-rule` skips `dynamic-urllib-use-detected` (`cfn_response.py`
+HTTPS/.amazonaws.com URL check) and `gha-curl-pipe-shell` (false-positive
+Bash parse of GitHub `${{ }}` in workflow `run:` blocks; those SARIF
+warnings were surfacing on the Code Scanning tool-status page).
 
 ### Gitleaks Secret Scanning
 
