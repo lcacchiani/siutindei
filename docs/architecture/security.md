@@ -292,12 +292,12 @@ found". Packs: `p/python`, `p/security-audit`, `p/secrets`,
 
 ### Gitleaks Secret Scanning
 
-`gitleaks/gitleaks-action` in `.github/workflows/security.yml` requires a
-`GITLEAKS_LICENSE` GitHub Actions secret on organization repositories.
-Obtain a license at [gitleaks.io](https://gitleaks.io) and store it as a
-repository or organization secret named `GITLEAKS_LICENSE`. The workflow
-passes it as `GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}`. Without
-this secret, Secret Scanning fails and blocks required checks.
+Secret Scanning in `.github/workflows/security.yml` runs the MIT-licensed
+`gitleaks` CLI (pinned version + SHA-256). It does not use
+`gitleaks/gitleaks-action`, which requires a `GITLEAKS_LICENSE` on
+organization repositories. Dependabot `pull_request` runs cannot read
+Actions secrets, so the licensed action failed every Dependabot PR with
+"missing gitleaks license" even after the secret was wired in (#444).
 
 ### GitHub Workflow Permissions
 
