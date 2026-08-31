@@ -122,6 +122,10 @@ This repository uses the following automated security tools:
 - **Semgrep OSS**: SAST via `.github/workflows/semgrep.yml` (canonical
   path GitHub Code Scanning expects). Registry packs: `p/python`,
   `p/security-audit`, `p/secrets`, `p/owasp-top-ten`.
+  - Suppressed: `dynamic-urllib-use-detected` (`cfn_response.py` URL
+    allow-list) and `gha-curl-pipe-shell` (GitHub `${{ }}` in workflow
+    `run:` blocks trips the rule's Bash parser and the Security
+    tool-status banner)
 - **pip-audit**: Python dependency vulnerability scanning
   - Suppressed: `PYSEC-2025-183` (PyJWT weak-encryption advisory; supplier-disputed,
     no fixed release beyond `pyjwt==2.12.1`; app uses Cognito JWKS / RS256)
