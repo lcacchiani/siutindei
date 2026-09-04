@@ -63,6 +63,8 @@ export interface PythonLambdaProps {
   logEncryptionKey?: kms.IKey;
   /** Dead letter queue for failed invocations. */
   deadLetterQueue?: sqs.IQueue;
+  /** X-Ray tracing mode. Defaults to pass-through (API Gateway trace only). */
+  tracing?: lambda.Tracing;
 }
 
 /**
@@ -260,6 +262,7 @@ export class PythonLambda extends Construct {
       environmentEncryption: environmentEncryptionKey,
       deadLetterQueue,
       deadLetterQueueEnabled: true,
+      tracing: props.tracing,
       reservedConcurrentExecutions:
         props.reservedConcurrentExecutions === null
           ? undefined
