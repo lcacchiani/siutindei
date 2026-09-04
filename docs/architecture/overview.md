@@ -153,10 +153,12 @@ pull requests for dependency updates:
 ## Observability
 
 - CloudWatch logs for all Lambda functions (KMS encrypted, 90-day retention).
-- X-Ray tracing enabled for API Gateway.
-- Operational alarms (API Gateway 5XX and p99 latency, search/admin Lambda
-  errors and throttles, Aurora ACU utilization and connection count, manager
-  request DLQ) publish to the KMS-encrypted `ops-alerts` SNS topic, with an
+- X-Ray tracing enabled for API Gateway, with active tracing on the admin
+  and AWS-proxy Lambdas.
+- Operational alarms (API Gateway 5XX and volume-gated p99 latency,
+  search/admin Lambda errors, throttles, and per-function p99 duration,
+  Aurora ACU utilization and connection count, manager request DLQ) publish
+  to the KMS-encrypted `ops-alerts` SNS topic, with an
   optional email subscription via the `OpsAlertsEmail` parameter. See
   [`aws-assets-map.md`](aws-assets-map.md) for the alarm inventory.
 - Structured JSON logging with request ID correlation.

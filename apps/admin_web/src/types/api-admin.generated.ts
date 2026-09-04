@@ -4609,7 +4609,7 @@ export interface components {
             /** @description Cognito user status (e.g., CONFIRMED, FORCE_CHANGE_PASSWORD) */
             status: string;
             enabled: boolean;
-            /** @description Cognito group memberships */
+            /** @description Memberships in the managed Cognito groups (admin, manager), resolved per group rather than per user. */
             groups: string[];
             /** Format: date-time */
             created_at: string;

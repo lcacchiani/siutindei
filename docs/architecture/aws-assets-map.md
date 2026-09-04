@@ -210,7 +210,7 @@ Each Lambda function created by `PythonLambda` construct includes:
 | Function Logical ID | Handler | Memory | Timeout | VPC | Extra Paths |
 |---------------------|---------|--------|---------|-----|-------------|
 | `SiutindeiSearchFunction` | `lambda/search/handler.lambda_handler` | 512 MB | 30s | Yes | - |
-| `SiutindeiAdminFunction` | `lambda/admin/handler.lambda_handler` | 512 MB | 30s | Yes | - |
+| `SiutindeiAdminFunction` | `lambda/admin/handler.lambda_handler` | 1024 MB | 30s | Yes | - |
 | `SiutindeiMigrationFunction` | `lambda/migrations/handler.lambda_handler` | 512 MB | 5 min | Yes | `db` |
 | `HealthCheckFunction` | `lambda/health/handler.lambda_handler` | 256 MB | 10s | Yes | - |
 
@@ -398,15 +398,23 @@ Created by `OpsAlarmsConstruct` (`lib/constructs/ops-alarms.ts`).
 | KMS Key + Alias | `lxsoftware-siutindei-kms-ops-alerts` | Topic encryption key (rotation enabled; CloudWatch service principal granted) |
 | SNS Subscription | — | Email subscription to `OpsAlertsEmail` (conditional: only when the parameter is non-empty) |
 | CloudWatch Alarm | `lxsoftware-siutindei-api-5xx-alarm` | API Gateway 5XX ≥ 5 in 5 min |
-| CloudWatch Alarm | `lxsoftware-siutindei-api-latency-p99-alarm` | API Gateway p99 latency > 3 s for 15 min |
+| CloudWatch Alarm | `lxsoftware-siutindei-api-latency-p99-alarm` | API Gateway p99 latency ≥ 3 s for 15 min, evaluated only in 5-min periods with ≥ 50 requests (metric math `IF(samples >= 50, p99)`; sparser periods are treated as missing) |
+| CloudWatch Alarm | `lxsoftware-siutindei-search-lambda-duration-p99-alarm` | Search Lambda p99 `Duration` ≥ 3 s for 15 min |
 | CloudWatch Alarm | `lxsoftware-siutindei-search-lambda-errors-alarm` | Search Lambda errors ≥ 3 in 5 min |
 | CloudWatch Alarm | `lxsoftware-siutindei-search-lambda-throttles-alarm` | Search Lambda throttles ≥ 1 |
+| CloudWatch Alarm | `lxsoftware-siutindei-admin-lambda-duration-p99-alarm` | Admin Lambda p99 `Duration` ≥ 10 s for 15 min |
 | CloudWatch Alarm | `lxsoftware-siutindei-admin-lambda-errors-alarm` | Admin Lambda errors ≥ 3 in 5 min |
 | CloudWatch Alarm | `lxsoftware-siutindei-admin-lambda-throttles-alarm` | Admin Lambda throttles ≥ 1 |
 | CloudWatch Alarm | `lxsoftware-siutindei-aurora-acu-utilization-alarm` | Aurora ACU utilization ≥ 90% for 15 min |
 | CloudWatch Alarm | `lxsoftware-siutindei-aurora-connections-alarm` | Aurora connections ≥ 300 for 15 min |
 
 The pre-existing manager-request DLQ alarm (`lxsoftware-siutindei-manager-request-dlq-alarm`) is also routed to the ops-alerts topic. Thresholds are launch-sizing early warnings; tune as real traffic patterns emerge.
+
+Latency alarms are split by traffic regime: the API-wide p99 alarm only
+evaluates periods with enough requests for a percentile to be meaningful
+(below the floor, p99 equals the slowest single request), while the
+per-function `Duration` alarms carry each function's own SLO (public search
+tight, admin console loose) and cover low-traffic periods.
 
 ---
 

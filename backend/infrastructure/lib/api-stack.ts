@@ -905,6 +905,7 @@ export class ApiStack extends cdk.Stack {
         // Pass null to skip reserving concurrency (account pool is nearly
         // exhausted; AWS requires >= 100 unreserved account-wide).
         reservedConcurrentExecutions?: number | null;
+        tracing?: lambda.Tracing;
       }
     ) => {
       const factory = props.noVpc ? noVpcLambdaFactory : lambdaFactory;
@@ -917,6 +918,7 @@ export class ApiStack extends cdk.Stack {
         securityGroups: props.noVpc ? undefined : (props.securityGroups ?? [lambdaSecurityGroup]),
         memorySize: props.memorySize,
         reservedConcurrentExecutions: props.reservedConcurrentExecutions,
+        tracing: props.tracing,
       });
       return pythonLambda.function;
     };
@@ -1184,6 +1186,11 @@ export class ApiStack extends cdk.Stack {
     const managerGroupName = "manager";
     const adminFunction = createPythonFunction("SiutindeiAdminFunction", {
       handler: "lambda/admin/handler.lambda_handler",
+      // 1024 MB: Lambda CPU scales with memory, and this function's cold
+      // start is import-bound (~2.2-3.0 s at 512 MB on the shared bundle).
+      // Invocation volume is tiny, so the per-GB-second cost is negligible.
+      memorySize: 1024,
+      tracing: lambda.Tracing.ACTIVE,
       environment: {
         DATABASE_SECRET_ARN: database.adminUserSecret.secretArn,
         DATABASE_NAME: "siutindei",
@@ -1227,6 +1234,7 @@ export class ApiStack extends cdk.Stack {
       "cognito-idp:admin_add_user_to_group",
       "cognito-idp:admin_remove_user_from_group",
       "cognito-idp:admin_list_groups_for_user",
+      "cognito-idp:list_users_in_group",
       "cognito-idp:admin_user_global_sign_out",
       "cognito-idp:admin_update_user_attributes",
     ];
@@ -1236,6 +1244,7 @@ export class ApiStack extends cdk.Stack {
       memorySize: 256,
       timeout: cdk.Duration.seconds(15),
       noVpc: true,
+      tracing: lambda.Tracing.ACTIVE,
       environment: {
         ALLOWED_ACTIONS: allowedProxyActions.join(","),
         // Comma-separated URL prefixes for outbound HTTP requests.
@@ -1257,6 +1266,7 @@ export class ApiStack extends cdk.Stack {
           "cognito-idp:AdminAddUserToGroup",
           "cognito-idp:AdminRemoveUserFromGroup",
           "cognito-idp:AdminListGroupsForUser",
+          "cognito-idp:ListUsersInGroup",
           "cognito-idp:AdminUserGlobalSignOut",
           "cognito-idp:AdminUpdateUserAttributes",
         ],
@@ -2621,8 +2631,11 @@ export class ApiStack extends cdk.Stack {
       alertsEmail: opsAlertsEmail.valueAsString,
       api,
       monitoredFunctions: [
-        { label: "Search", fn: searchFunction },
-        { label: "Admin", fn: adminFunction },
+        // Public search path: user-facing SLO.
+        { label: "Search", fn: searchFunction, durationP99ThresholdMs: 3000 },
+        // Admin console: internal tooling with long-running imports and
+        // Cognito round-trips; alert well before the 30 s function timeout.
+        { label: "Admin", fn: adminFunction, durationP99ThresholdMs: 10000 },
       ],
       dbClusterIdentifier: database.cluster.clusterIdentifier,
       additionalAlarms: [dlqAlarm],
