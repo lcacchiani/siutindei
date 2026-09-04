@@ -7,6 +7,9 @@ on:
       - "apps/**"
       - "packages/**"
       - "backend/**"
+      - "tests/**"
+      - "scripts/**"
+      - ".github/workflows/lint.yml"
   push:
     branches:
       - main
@@ -14,6 +17,9 @@ on:
       - "apps/**"
       - "packages/**"
       - "backend/**"
+      - "tests/**"
+      - "scripts/**"
+      - ".github/workflows/lint.yml"
 
 jobs:
   lint-dart:
