@@ -31,6 +31,11 @@ USER_SUB_PATTERN = re.compile(
 )
 MAX_COGNITO_LIST_LIMIT = 60
 MAX_ORG_TRANSFER_LIMIT = 1000
+# Cognito caps ListUsersInGroup at 60 members per page.
+GROUP_MEMBERS_PAGE_SIZE = 60
+# Hard stop on group pagination so a runaway NextToken can never exhaust the
+# Lambda timeout; 50 pages x 60 members is far beyond any realistic pool.
+MAX_GROUP_PAGES = 50
 
 
 def _mask_cognito_username(username: str) -> str:
@@ -216,37 +221,17 @@ def _handle_list_cognito_users(event: Mapping[str, Any]) -> dict[str, Any]:
             ) from exc
         raise ValidationError(f"Cognito error: {exc.message}") from exc
 
+    # Group membership is resolved per group, not per user: two
+    # ListUsersInGroup calls replace N AdminListGroupsForUser calls, so the
+    # proxy hop count stays constant regardless of page size.
+    memberships = _list_group_memberships(user_pool_id)
+
     users = []
     for user in response.get("Users", []):
         user_data = _serialize_cognito_user(user)
         if user_data:
             username = user.get("Username")
-            if username:
-                masked_username = _mask_cognito_username(username)
-                if not user_data.get("last_auth_time"):
-                    last_auth_time = _fetch_last_auth_time(user_pool_id, username)
-                    if last_auth_time:
-                        user_data["last_auth_time"] = last_auth_time
-                try:
-                    gr = _cognito(
-                        "admin_list_groups_for_user",
-                        UserPoolId=user_pool_id,
-                        Username=username,
-                    )
-                    groups = gr.get("Groups", [])
-                    user_data["groups"] = [g["GroupName"] for g in groups]
-                except AwsProxyError as exc:
-                    logger.warning(
-                        "Failed to fetch groups for user",
-                        extra={
-                            "username": masked_username,
-                            "error_code": exc.code,
-                            "error_message": exc.message,
-                        },
-                    )
-                    user_data["groups"] = []
-            else:
-                user_data["groups"] = []
+            user_data["groups"] = list(memberships.get(username or "", []))
             users.append(user_data)
 
     result: dict[str, Any] = {"items": users}
@@ -374,29 +359,64 @@ def _parse_last_auth_time(value: Optional[str]) -> Optional[str]:
     return parsed.astimezone(timezone.utc).isoformat()
 
 
-def _fetch_last_auth_time(user_pool_id: str, username: str) -> Optional[str]:
-    masked_username = _mask_cognito_username(username)
-    try:
-        response = _cognito(
-            "admin_get_user",
-            UserPoolId=user_pool_id,
-            Username=username,
-        )
-    except AwsProxyError as exc:
-        logger.warning(
-            "Failed to fetch last auth time",
-            extra={
-                "username": masked_username,
-                "error_code": exc.code,
-                "error_message": exc.message,
-            },
-        )
-        return None
+def _managed_group_names() -> list[str]:
+    """Return the Cognito groups the admin console exposes as roles."""
+    names = [
+        os.getenv("ADMIN_GROUP") or "admin",
+        os.getenv("MANAGER_GROUP") or "manager",
+    ]
+    return list(dict.fromkeys(names))
 
-    raw_attributes = response.get("UserAttributes", [])
-    attributes = {attr["Name"]: attr["Value"] for attr in raw_attributes}
-    last_auth_value = attributes.get("custom:last_auth_time")
-    return _parse_last_auth_time(last_auth_value)
+
+def _list_group_memberships(user_pool_id: str) -> dict[str, list[str]]:
+    """Map username -> group names for the managed groups.
+
+    A failure for one group degrades to "no members" for that group only,
+    so the user list still renders; the failure is logged for follow-up.
+    """
+    memberships: dict[str, list[str]] = {}
+    for group_name in _managed_group_names():
+        for username in _iter_group_members(user_pool_id, group_name):
+            memberships.setdefault(username, []).append(group_name)
+    return memberships
+
+
+def _iter_group_members(user_pool_id: str, group_name: str) -> list[str]:
+    members: list[str] = []
+    next_token: Optional[str] = None
+    for _ in range(MAX_GROUP_PAGES):
+        params: dict[str, Any] = {
+            "UserPoolId": user_pool_id,
+            "GroupName": group_name,
+            "Limit": GROUP_MEMBERS_PAGE_SIZE,
+        }
+        if next_token:
+            params["NextToken"] = next_token
+        try:
+            response = _cognito("list_users_in_group", **params)
+        except AwsProxyError as exc:
+            logger.warning(
+                "Failed to list Cognito group members",
+                extra={
+                    "group": group_name,
+                    "error_code": exc.code,
+                    "error_message": exc.message,
+                },
+            )
+            break
+        for user in response.get("Users", []):
+            username = user.get("Username")
+            if username:
+                members.append(username)
+        next_token = response.get("NextToken")
+        if not next_token:
+            break
+    else:
+        logger.warning(
+            "Cognito group pagination exceeded MAX_GROUP_PAGES; results truncated",
+            extra={"group": group_name},
+        )
+    return members
 
 
 def _handle_delete_cognito_user(

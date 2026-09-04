@@ -3372,7 +3372,9 @@ components:
           type: array
           items:
             type: string
-          description: Cognito group memberships
+          description: >-
+            Memberships in the managed Cognito groups (admin, manager),
+            resolved per group rather than per user.
         created_at:
           type: string
           format: date-time

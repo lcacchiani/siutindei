@@ -48,6 +48,12 @@ their primary responsibilities.
   import/export, and address autocomplete (Nominatim via the AWS/HTTP
   proxy)
 - DB access: RDS Proxy with IAM auth (`siutindei_admin`)
+- Memory: 1024 MB (cold start is import-bound; CPU scales with memory)
+- X-Ray: active tracing (function segment with init/invocation split)
+- Cognito user listing resolves group membership with one
+  `list_users_in_group` call per managed group (`ADMIN_GROUP`,
+  `MANAGER_GROUP`) instead of one `admin_list_groups_for_user` call per
+  user, so the proxy hop count is constant per page
 - Environment:
   - `SES_SENDER_EMAIL`
   - `SES_TEMPLATE_REQUEST_DECISION` (optional)
@@ -200,6 +206,8 @@ their primary responsibilities.
 - Purpose: generic proxy for AWS API calls and outbound HTTP requests
   that cannot be made from inside the VPC
 - VPC: **No** (runs outside VPC for internet access)
+- X-Ray: active tracing (each proxied call is its own trace; callers do not
+  propagate the trace header, so hops are correlated by time, not linked)
 - Allow-lists:
   - `ALLOWED_ACTIONS`: comma-separated `service:action` pairs for AWS
     API calls (e.g. `cognito-idp:list_users`)
