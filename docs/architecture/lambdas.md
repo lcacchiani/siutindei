@@ -111,6 +111,7 @@ their primary responsibilities.
 - Handler: backend/lambda/authorizers/device_attestation/handler.py
 - Trigger: API Gateway request authorizer
 - Purpose: verify device attestation JWTs for public search
+- VPC: **No** (runs outside VPC to fetch JWKS from Firebase)
 
 ### Admin group authorizer
 - Function: AdminGroupAuthorizerFunction

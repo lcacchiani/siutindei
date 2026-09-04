@@ -12,6 +12,12 @@
   modify..." not "I am modifying...").
 - S3 bucket names must be 63 characters or less. When composing bucket
   names, shorten suffixes or truncate to stay within the limit.
+- Do not create GitHub issues from `NOTE:`, `SECURITY NOTE:`, or
+  Next.js `next-env.d.ts` comments. Those are architectural
+  documentation, not defects. Link to `docs/architecture/*.md` instead.
+  Real product `TODO:` comments (for example area-filter work) may still
+  be filed. Auto-filed NOTE-tag issues are closed by
+  `.github/workflows/close-note-tag-issues.yml`.
 
 ### Workflow (MANDATORY)
 1. **Analyze:** Understand the user request.
