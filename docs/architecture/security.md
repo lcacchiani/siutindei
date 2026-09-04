@@ -10,6 +10,7 @@ This document outlines security best practices and requirements for the Siu Tin 
 - [API Security](#api-security)
 - [Infrastructure Security](#infrastructure-security)
 - [Code Review Checklist](#code-review-checklist)
+- [Reporting Security Issues](#reporting-security-issues)
 
 ---
 
@@ -161,6 +162,20 @@ in the `x-partner-key` header:
 - Admins manage keys via `/v1/admin/api-keys` (generate, list, revoke);
   revocation is a soft delete so the audit trail is preserved.
 
+### JWT validation
+
+Authorizers may decode a JWT payload **without** verifying the signature
+so they can read the `iss` claim and select the correct JWKS URL. Those
+unverified claims are **not** trusted. `decode_and_verify_token()` in
+`backend/src/app/auth/jwt_validator.py` then verifies the signature
+(RS256), issuer, and expiry against that JWKS before any claim is used.
+
+JWT authorizers (device attestation, admin, manager, user) run **outside
+the VPC** so they can fetch public JWKS. The VPC has no NAT Gateway.
+In-VPC Lambdas call Cognito through the AWS/HTTP proxy instead — see
+[`decisions.md`](./decisions.md#aws--http-proxy) and
+[`lambdas.md`](./lambdas.md).
+
 ### Edge caching of the public search endpoint
 
 `GET /v1/activities/search` is cached at the CloudFront edge via the
@@ -254,6 +269,24 @@ return {"error": "Internal server error"}  # Generic response to client
 - Use least-privilege IAM roles
 - Use OIDC for GitHub Actions (no long-lived AWS keys)
 - Scope permissions to specific resources
+
+### Public asset buckets
+
+`OrganizationImagesBucket` (`lxsoftware-siutindei-org-media-{account}-{region}`)
+is **intentionally public** so organization logos and photos can be
+served directly. This is a product decision, not an accidental exposure.
+
+Mitigations already in place:
+
+- `BLOCK_ACLS` — public read is bucket-policy only, not object ACLs
+- `enforceSSL` and versioning
+- Access logging to `OrganizationImagesLogBucket`
+
+Public-www and admin-web static assets use CloudFront (OAI), not this
+bucket. Serving org media through CloudFront + OAC is an optional later
+enhancement (private bucket, edge cache), not a current security
+regression. See [`aws-assets-map.md`](./aws-assets-map.md) and
+`backend/infrastructure/.checkov.yaml`.
 
 ### Database Security
 
