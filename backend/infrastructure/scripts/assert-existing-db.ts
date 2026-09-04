@@ -3,7 +3,11 @@ import { Match, Template } from "aws-cdk-lib/assertions";
 import * as apigateway from "aws-cdk-lib/aws-apigateway";
 import * as ec2 from "aws-cdk-lib/aws-ec2";
 import * as lambda from "aws-cdk-lib/aws-lambda";
-import { DatabaseConstruct, OpsAlarmsConstruct } from "../lib/constructs";
+import {
+  API_LATENCY_MIN_SAMPLES,
+  DatabaseConstruct,
+  OpsAlarmsConstruct,
+} from "../lib/constructs";
 
 function assertExistingResources(): void {
   const app = new cdk.App();
@@ -130,14 +134,31 @@ function assertOpsAlarms(): void {
     resourcePrefix: "test",
     alertsEmail: alertsEmail.valueAsString,
     api,
-    monitoredFunctions: [{ label: "Search", fn }],
+    monitoredFunctions: [
+      { label: "Search", fn, durationP99ThresholdMs: 3000 },
+    ],
     dbClusterIdentifier: "test-db-cluster",
   });
 
   const template = Template.fromStack(stack);
   template.resourceCountIs("AWS::SNS::Topic", 1);
-  // 2 API alarms + 2 Lambda alarms + 2 Aurora alarms
-  template.resourceCountIs("AWS::CloudWatch::Alarm", 6);
+  // 2 API alarms + 3 Lambda alarms (errors, throttles, duration) + 2 Aurora
+  template.resourceCountIs("AWS::CloudWatch::Alarm", 7);
+  // The API latency alarm is a volume-gated metric-math expression.
+  template.hasResourceProperties("AWS::CloudWatch::Alarm", {
+    AlarmName: "test-api-latency-p99-alarm",
+    Metrics: Match.arrayWith([
+      Match.objectLike({
+        Expression: `IF(samples >= ${API_LATENCY_MIN_SAMPLES}, p99)`,
+      }),
+    ]),
+  });
+  template.hasResourceProperties("AWS::CloudWatch::Alarm", {
+    AlarmName: "test-search-lambda-duration-p99-alarm",
+    MetricName: "Duration",
+    ExtendedStatistic: "p99",
+    Threshold: 3000,
+  });
   // Every alarm notifies the ops topic
   const alarms = template.findResources("AWS::CloudWatch::Alarm");
   for (const alarm of Object.values(alarms)) {

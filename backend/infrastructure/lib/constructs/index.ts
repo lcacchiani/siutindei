@@ -21,6 +21,7 @@ export {
   STANDARD_LOG_RETENTION,
 } from "./python-lambda";
 export {
+  API_LATENCY_MIN_SAMPLES,
   MonitoredFunction,
   OpsAlarmsConstruct,
   OpsAlarmsConstructProps,

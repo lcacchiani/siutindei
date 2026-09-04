@@ -16,6 +16,12 @@ export interface MonitoredFunction {
   label: string;
   /** The Lambda function to monitor. */
   fn: lambda.IFunction;
+  /**
+   * p99 invocation `Duration` threshold in milliseconds. Lets each function
+   * carry its own latency SLO (public search tight, admin console loose)
+   * instead of sharing one API-wide number.
+   */
+  durationP99ThresholdMs: number;
 }
 
 /**
@@ -40,6 +46,14 @@ export interface OpsAlarmsConstructProps {
 }
 
 const FIVE_MINUTES = cdk.Duration.minutes(5);
+
+/**
+ * Minimum API Gateway requests per period before the p99 latency alarm is
+ * evaluated. Below this, p99 is just the slowest single request (a handful
+ * of admin-console calls can breach it), so the period is treated as
+ * missing data. Per-function Duration alarms cover the low-traffic regime.
+ */
+export const API_LATENCY_MIN_SAMPLES = 50;
 
 /**
  * Construct for launch-readiness operational alarms.
@@ -109,14 +123,28 @@ export class OpsAlarmsConstruct extends Construct {
       })
     );
 
-    // API Gateway p99 latency
+    // API Gateway p99 latency, gated on request volume. IF() yields no
+    // datapoint when the gate fails, which NOT_BREACHING then ignores.
     alarms.push(
       new cloudwatch.Alarm(this, "ApiLatencyP99Alarm", {
         alarmName: name("api-latency-p99-alarm"),
-        alarmDescription: "API Gateway p99 latency is elevated",
-        metric: props.api.metricLatency({
+        alarmDescription:
+          "API Gateway p99 latency is elevated " +
+          `(>= ${API_LATENCY_MIN_SAMPLES} requests per 5 min)`,
+        metric: new cloudwatch.MathExpression({
+          expression: `IF(samples >= ${API_LATENCY_MIN_SAMPLES}, p99)`,
+          usingMetrics: {
+            p99: props.api.metricLatency({
+              period: FIVE_MINUTES,
+              statistic: "p99",
+            }),
+            samples: props.api.metricLatency({
+              period: FIVE_MINUTES,
+              statistic: "SampleCount",
+            }),
+          },
           period: FIVE_MINUTES,
-          statistic: "p99",
+          label: "API p99 latency (volume-gated)",
         }),
         threshold: 3000,
         evaluationPeriods: 3,
@@ -124,8 +152,21 @@ export class OpsAlarmsConstruct extends Construct {
       })
     );
 
-    // Lambda errors and throttles
-    for (const { label, fn } of props.monitoredFunctions) {
+    // Lambda errors, throttles, and per-function p99 duration
+    for (const { label, fn, durationP99ThresholdMs } of props.monitoredFunctions) {
+      alarms.push(
+        new cloudwatch.Alarm(this, `${label}DurationP99Alarm`, {
+          alarmName: name(`${label.toLowerCase()}-lambda-duration-p99-alarm`),
+          alarmDescription: `${label} Lambda p99 duration is elevated`,
+          metric: fn.metricDuration({
+            period: FIVE_MINUTES,
+            statistic: "p99",
+          }),
+          threshold: durationP99ThresholdMs,
+          evaluationPeriods: 3,
+          treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+        })
+      );
       alarms.push(
         new cloudwatch.Alarm(this, `${label}ErrorsAlarm`, {
           alarmName: name(`${label.toLowerCase()}-lambda-errors-alarm`),
